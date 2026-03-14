@@ -3,6 +3,44 @@ session_start();
 // Include the database connection file.
 require_once 'db.php';
 
+// --- START AUTO-SEED DEFAULT SUPERADMIN ---
+try {
+    $adminCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = 'superadmin' LIMIT 1");
+    $adminCheck->execute();
+    
+    // If the superadmin account does not exist, create it automatically
+    if ($adminCheck->rowCount() == 0) {
+        $defaultPassword = 'superadmin123';
+        $hash = password_hash($defaultPassword, PASSWORD_DEFAULT);
+        $date = date('Y-m-d H:i:s');
+        
+        // 1. Insert default Super Admin user
+        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) VALUES ('superadmin', 'admin@horizon.com', ?, 'Super', 'Admin', '00000000000', 1, 1, ?, ?)");
+        $stmtUser->execute([$hash, $date, $date]);
+        $superAdminId = $pdo->lastInsertId();
+
+        // 2. Ensure 'Superadmin' role exists
+        $roleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = 'Superadmin' LIMIT 1");
+        $roleCheck->execute();
+        $role = $roleCheck->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$role) {
+            $pdo->query("INSERT INTO roles (role_name) VALUES ('Superadmin')");
+            $roleId = $pdo->lastInsertId();
+        } else {
+            $roleId = $role['role_id'];
+        }
+
+        // 3. Assign Superadmin role to the user
+        $stmtUserRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, role_status, assigned_at) VALUES (?, ?, 'Active', ?)");
+        $stmtUserRole->execute([$superAdminId, $roleId, $date]);
+    }
+} catch (PDOException $e) {
+    // Silently log errors so it doesn't break the login page if tables are missing
+    error_log("Superadmin seed error: " . $e->getMessage());
+}
+// --- END AUTO-SEED DEFAULT SUPERADMIN ---
+
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

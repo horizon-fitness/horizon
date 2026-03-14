@@ -1,12 +1,103 @@
 <?php 
+session_start();
+require_once '../db.php';
+
+// Security Check: Only Superadmin can access
+if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmin') {
+    header("Location: ../login.php");
+    exit;
+}
+
 $page_title = "Super Admin Dashboard";
 $active_page = "dashboard";
 
-// Mock Data
-$total_revenue = 1250000.00;
-$active_tenants = 42;
-$total_users = 15420;
-$system_health = "99.9%";
+$success_msg = '';
+$error_msg = '';
+
+// Handle Application Actions (Approve / Reject)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['application_id'])) {
+    $app_id = (int)$_POST['application_id'];
+    $action = $_POST['action'];
+    $admin_id = $_SESSION['user_id'];
+    $now = date('Y-m-d H:i:s');
+
+    if ($action === 'approve') {
+        try {
+            $pdo->beginTransaction();
+            
+            // 1. Update application status
+            $stmtUpdate = $pdo->prepare("UPDATE gym_owner_applications SET application_status = 'Approved', reviewed_by = ?, reviewed_at = ? WHERE application_id = ?");
+            $stmtUpdate->execute([$admin_id, $now, $app_id]);
+
+            // 2. Fetch the application details
+            $stmtApp = $pdo->prepare("SELECT * FROM gym_owner_applications WHERE application_id = ?");
+            $stmtApp->execute([$app_id]);
+            $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
+
+            // 3. Insert into gyms table
+            $tenant_code = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']), 0, 3)) . '-' . rand(1000, 9999);
+            $stmtGym = $pdo->prepare("INSERT INTO gyms (owner_user_id, application_id, gym_name, business_name, address_id, contact_number, email, tenant_code, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+            $stmtGym->execute([
+                $app['user_id'], $app['application_id'], $app['gym_name'], $app['business_name'], $app['address_id'], $app['contact_number'], $app['email'], $tenant_code, $now, $now
+            ]);
+            $gym_id = $pdo->lastInsertId();
+
+            // 4. Ensure 'Tenant' role exists and assign it
+            $roleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = 'Tenant' LIMIT 1");
+            $roleCheck->execute();
+            $role = $roleCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$role) {
+                $pdo->query("INSERT INTO roles (role_name) VALUES ('Tenant')");
+                $roleId = $pdo->lastInsertId();
+            } else {
+                $roleId = $role['role_id'];
+            }
+
+            $stmtRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', ?)");
+            $stmtRole->execute([$app['user_id'], $roleId, $gym_id, $now]);
+
+            // 5. Generate a Tenant Page for CMS Customization (Monday Activity Requirement)
+            $stmtPage = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, theme_color, updated_at) VALUES (?, ?, ?, '#7f13ec', ?)");
+            $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']));
+            $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $now]);
+
+            $pdo->commit();
+            $success_msg = "Application for {$app['gym_name']} approved! Tenant portal is ready.";
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error_msg = "Failed to approve: " . $e->getMessage();
+        }
+    } elseif ($action === 'reject') {
+        $stmtUpdate = $pdo->prepare("UPDATE gym_owner_applications SET application_status = 'Rejected', reviewed_by = ?, reviewed_at = ? WHERE application_id = ?");
+        $stmtUpdate->execute([$admin_id, $now, $app_id]);
+        $success_msg = "Application rejected successfully.";
+    }
+}
+
+// Fetch Real Dynamic Data for Dashboard
+$total_revenue = 0.00; // Place holder for billing later
+
+$stmtTenants = $pdo->query("SELECT COUNT(*) FROM gyms WHERE status = 'Active'");
+$active_tenants = $stmtTenants->fetchColumn();
+
+$stmtUsers = $pdo->query("SELECT COUNT(*) FROM users");
+$total_users = $stmtUsers->fetchColumn();
+
+$stmtPending = $pdo->query("SELECT COUNT(*) FROM gym_owner_applications WHERE application_status = 'Pending'");
+$pending_apps_count = $stmtPending->fetchColumn();
+
+// Fetch Recent Applications
+$stmtList = $pdo->query("
+    SELECT a.*, u.first_name, u.last_name 
+    FROM gym_owner_applications a 
+    JOIN users u ON a.user_id = u.user_id 
+    ORDER BY 
+        CASE WHEN a.application_status = 'Pending' THEN 1 ELSE 2 END,
+        a.submitted_at DESC 
+    LIMIT 10
+");
+$recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -98,7 +189,7 @@ $system_health = "99.9%";
         </a>
         
         <div class="mt-auto pt-8 border-t border-white/10">
-            <a href="logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
                 <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
                 <span class="nav-link">Sign Out</span>
             </a>
@@ -116,6 +207,20 @@ $system_health = "99.9%";
     </div>
 </header>
 
+<?php if ($success_msg): ?>
+<div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold flex items-center gap-3">
+    <span class="material-symbols-outlined">check_circle</span>
+    <?= htmlspecialchars($success_msg) ?>
+</div>
+<?php endif; ?>
+
+<?php if ($error_msg): ?>
+<div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-semibold flex items-center gap-3">
+    <span class="material-symbols-outlined">error</span>
+    <?= htmlspecialchars($error_msg) ?>
+</div>
+<?php endif; ?>
+
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
     <div class="glass-card p-8 status-card-green relative overflow-hidden group">
         <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">payments</span>
@@ -127,7 +232,7 @@ $system_health = "99.9%";
         <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">business</span>
         <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Active Tenants</p>
         <h3 class="text-2xl font-black italic uppercase"><?= $active_tenants ?> Gyms</h3>
-        <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Active Subscriptions</p>
+        <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Live Subscriptions</p>
     </div>
     <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
         <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">groups</span>
@@ -135,11 +240,11 @@ $system_health = "99.9%";
         <h3 class="text-2xl font-black italic uppercase"><?= number_format($total_users) ?></h3>
         <p class="text-primary text-[10px] font-black uppercase mt-2">Network Growth</p>
     </div>
-    <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
-        <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">bolt</span>
-        <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Uptime</p>
-        <h3 class="text-2xl font-black italic uppercase"><?= $system_health ?></h3>
-        <p class="text-primary text-[10px] font-black uppercase mt-2">System Stability</p>
+    <div class="glass-card p-8 relative overflow-hidden group border border-amber-500/20 bg-amber-500/5">
+        <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">pending_actions</span>
+        <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending Apps</p>
+        <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_apps_count ?></h3>
+        <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Action Required</p>
     </div>
 </div>
 
@@ -166,48 +271,74 @@ $system_health = "99.9%";
     </div>
 </div>
 
-<div class="glass-card overflow-hidden">
+<div class="glass-card overflow-hidden mb-10">
     <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-        <h4 class="font-black italic uppercase text-sm tracking-tighter">Recent Tenant Activity</h4>
-        <a href="tenant_management.php" class="text-[10px] font-black uppercase text-primary hover:text-white transition-colors">View All</a>
+        <h4 class="font-black italic uppercase text-sm tracking-tighter">Gym Applications <span class="text-primary">&</span> Tenant Activity</h4>
     </div>
     <div class="overflow-x-auto">
         <table class="w-full text-left">
             <thead>
                 <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
                     <th class="px-8 py-4">Gym Name</th>
-                    <th class="px-8 py-4">Owner</th>
+                    <th class="px-8 py-4">Applicant</th>
+                    <th class="px-8 py-4">Applied Date</th>
                     <th class="px-8 py-4">Status</th>
-                    <th class="px-8 py-4 text-right">Joined Date</th>
+                    <th class="px-8 py-4 text-right">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-white/5">
-                <tr class="hover:bg-white/5 transition-all">
-                    <td class="px-8 py-5">
-                        <div class="flex items-center gap-3">
-                            <div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center font-black text-primary text-xs">PF</div>
-                            <p class="text-sm font-bold italic">Power Fitness</p>
-                        </div>
-                    </td>
-                    <td class="px-8 py-5 text-xs font-medium text-gray-400">Mark Johnson</td>
-                    <td class="px-8 py-5">
-                        <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase italic">Active</span>
-                    </td>
-                    <td class="px-8 py-5 text-right text-xs font-black italic text-gray-500">Mar 12, 2024</td>
-                </tr>
-                <tr class="hover:bg-white/5 transition-all">
-                    <td class="px-8 py-5">
-                        <div class="flex items-center gap-3">
-                            <div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center font-black text-primary text-xs">HG</div>
-                            <p class="text-sm font-bold italic">Herdoza Gym</p>
-                        </div>
-                    </td>
-                    <td class="px-8 py-5 text-xs font-medium text-gray-400">Louis Herdoza</td>
-                    <td class="px-8 py-5">
-                        <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase italic">Active</span>
-                    </td>
-                    <td class="px-8 py-5 text-right text-xs font-black italic text-gray-500">Mar 10, 2024</td>
-                </tr>
+                <?php if (empty($recent_applications)): ?>
+                    <tr>
+                        <td colspan="5" class="px-8 py-8 text-center text-xs font-bold text-gray-500 italic uppercase">No recent applications found.</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($recent_applications as $app): ?>
+                        <tr class="hover:bg-white/5 transition-all">
+                            <td class="px-8 py-5">
+                                <div class="flex items-center gap-3">
+                                    <div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center font-black text-primary text-xs">
+                                        <?= strtoupper(substr($app['gym_name'], 0, 2)) ?>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm font-bold italic"><?= htmlspecialchars($app['gym_name']) ?></p>
+                                        <p class="text-[10px] text-gray-500 uppercase tracking-wider font-bold"><?= htmlspecialchars($app['business_type']) ?></p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-8 py-5">
+                                <p class="text-xs font-medium text-white"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
+                                <p class="text-[10px] text-gray-500"><?= htmlspecialchars($app['email']) ?></p>
+                            </td>
+                            <td class="px-8 py-5 text-xs font-medium text-gray-400">
+                                <?= date('M d, Y h:i A', strtotime($app['submitted_at'])) ?>
+                            </td>
+                            <td class="px-8 py-5">
+                                <?php if ($app['application_status'] === 'Pending'): ?>
+                                    <span class="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-500 font-black uppercase italic">Pending</span>
+                                <?php elseif ($app['application_status'] === 'Approved'): ?>
+                                    <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase italic">Approved</span>
+                                <?php else: ?>
+                                    <span class="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-black uppercase italic">Rejected</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-8 py-5 text-right">
+                                <?php if ($app['application_status'] === 'Pending'): ?>
+                                    <form method="POST" class="inline-flex gap-2">
+                                        <input type="hidden" name="application_id" value="<?= $app['application_id'] ?>">
+                                        <button type="submit" name="action" value="approve" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors">
+                                            Approve
+                                        </button>
+                                        <button type="submit" name="action" value="reject" class="px-4 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest transition-colors">
+                                            Reject
+                                        </button>
+                                    </form>
+                                <?php else: ?>
+                                    <span class="text-[10px] font-black text-gray-500 uppercase italic">Reviewed</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
     </div>
