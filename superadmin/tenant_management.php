@@ -350,10 +350,6 @@ foreach ($tenants as $t) {
                                                 </button>
                                             <?php endif; ?>
 
-                                            <a href="view_application.php?id=<?= $t['application_id'] ?>" title="View Application Details" class="size-8 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 flex items-center justify-center transition-colors">
-                                                <span class="material-symbols-outlined text-[18px]">visibility</span>
-                                            </a>
-
                                             <button type="submit" name="action" value="delete" title="Permanently Remove" class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-colors">
                                                 <span class="material-symbols-outlined text-[18px]">delete</span>
                                             </button>
