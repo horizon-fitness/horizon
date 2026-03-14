@@ -181,6 +181,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
          <span class="text-xl font-black tracking-tight uppercase italic">Horizon <span class="text-primary">Systems</span></span>
     </div>
     <div class="flex items-center gap-4">
+        <?php if(isset($_GET['gym'])): ?>
+            <a href="portal.php?gym=<?= htmlspecialchars($_GET['gym']) ?>" class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-primary transition-all mr-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Back to Website
+            </a>
+        <?php endif; ?>
         <span class="text-sm text-gray-400 hidden sm:block">New to the family?</span>
         <a href="tenant/tenant_application.php" class="px-6 py-2 rounded-full border border-primary/30 hover:bg-primary/10 transition-all text-sm font-bold text-primary">Register Gym</a>
     </div>

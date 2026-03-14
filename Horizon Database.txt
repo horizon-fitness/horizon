@@ -1,3 +1,4 @@
+-- Horizon Systems - Final Schema (Base64 Optimized)
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
@@ -7,7 +8,7 @@ CREATE TABLE users (
     middle_name VARCHAR(100),
     last_name VARCHAR(100) NOT NULL,
     contact_number VARCHAR(20) NOT NULL,
-    profile_picture VARCHAR(255),
+    profile_picture LONGTEXT, -- Changed to LONGTEXT for Base64
     is_verified TINYINT(1) NOT NULL DEFAULT 0,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL,
@@ -61,7 +62,7 @@ CREATE TABLE gym_owner_applications (
     address_id INT NOT NULL,
     owner_valid_id_type VARCHAR(50) NOT NULL,
     bir_number VARCHAR(50) NOT NULL,
-    business_permit_no VARCHAR(100) NOT NULL,  -- <-- NEWLY ADDED COLUMN
+    business_permit_no VARCHAR(100) NOT NULL,
     contact_number VARCHAR(20) NOT NULL,
     email VARCHAR(150) NOT NULL,
     application_status VARCHAR(50) NOT NULL,
@@ -78,7 +79,7 @@ CREATE TABLE application_documents (
     document_id INT AUTO_INCREMENT PRIMARY KEY,
     application_id INT NOT NULL,
     document_type VARCHAR(50) NOT NULL,
-    file_path VARCHAR(255) NOT NULL,
+    file_path LONGTEXT NOT NULL, -- Changed for consistency
     uploaded_at DATETIME NOT NULL,
     FOREIGN KEY (application_id) REFERENCES gym_owner_applications(application_id)
 );
@@ -93,7 +94,7 @@ CREATE TABLE gyms (
     address_id INT NOT NULL,
     contact_number VARCHAR(20) NOT NULL,
     email VARCHAR(150) NOT NULL,
-    profile_picture VARCHAR(255),
+    profile_picture LONGTEXT, -- Changed for Base64
     tenant_code VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
     created_at DATETIME NOT NULL,
@@ -169,8 +170,8 @@ CREATE TABLE tenant_pages (
     gym_id INT NOT NULL,
     page_slug VARCHAR(50) NOT NULL,
     page_title VARCHAR(100) NOT NULL,
-    logo_path VARCHAR(255),
-    banner_image VARCHAR(255),
+    logo_path LONGTEXT, -- Changed for Base64
+    banner_image LONGTEXT, -- Changed for Base64
     theme_color VARCHAR(100) NOT NULL,
     about_text TEXT,
     contact_text TEXT,
@@ -315,7 +316,7 @@ CREATE TABLE coach_applications (
     coach_type VARCHAR(50) NOT NULL,
     specialization VARCHAR(100) NOT NULL,
     license_number VARCHAR(50),
-    certification_file VARCHAR(255) NOT NULL,
+    certification_file LONGTEXT NOT NULL, -- Changed for Base64
     valid_until DATE,
     application_status VARCHAR(50) NOT NULL,
     submitted_at DATETIME NOT NULL,
@@ -431,7 +432,7 @@ CREATE TABLE payments (
     payment_method VARCHAR(50) NOT NULL,
     payment_type VARCHAR(50) NOT NULL,
     reference_number VARCHAR(50) NOT NULL,
-    receipt_image VARCHAR(255),
+    receipt_image LONGTEXT, -- Changed for Base64
     payment_status VARCHAR(50) NOT NULL,
     verified_by INT,
     verified_at DATETIME,

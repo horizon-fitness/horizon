@@ -89,7 +89,7 @@ $active_page = "dashboard";
         <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">palette</span> CMS Customization
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
+        <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">group</span> Staff Management
         </a>
         <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
@@ -160,8 +160,14 @@ $active_page = "dashboard";
                 <div class="p-6 rounded-2xl bg-background-dark border border-white/5 mb-6">
                     <div class="flex items-center gap-4 mb-4">
                         <div class="size-12 rounded-lg bg-surface-dark border border-white/10 flex items-center justify-center overflow-hidden">
-                            <?php if($page && $page['logo_path']): ?>
-                                <img src="../<?= htmlspecialchars($page['logo_path']) ?>" class="w-full h-full object-contain">
+                            <?php 
+                            $logo_src = $page['logo_path'] ?? '';
+                            if ($logo_src && strpos($logo_src, 'data:') !== 0) {
+                                $logo_src = '../' . $logo_src;
+                            }
+                            ?>
+                            <?php if($logo_src): ?>
+                                <img src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain">
                             <?php else: ?>
                                 <span class="material-symbols-outlined text-gray-700">image</span>
                             <?php endif; ?>

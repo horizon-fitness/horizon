@@ -37,16 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $app_link = $_POST['app_download_link'];
     $now = date('Y-m-d H:i:s');
 
-    // Handle Logo Upload
+    // Handle Logo Upload (Store as Base64 in Database)
     $logo_path = $page['logo_path'] ?? '';
     if (isset($_FILES['logo']) && $_FILES['logo']['error'] == 0) {
-        $uploadDir = '../uploads/cms/';
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0777, true);
-        $fileName = time() . '_' . basename($_FILES['logo']['name']);
-        $targetPath = $uploadDir . $fileName;
-        if (move_uploaded_file($_FILES['logo']['tmp_name'], $targetPath)) {
-            $logo_path = 'uploads/cms/' . $fileName;
-        }
+        $type = pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
+        $data = file_get_contents($_FILES['logo']['tmp_name']);
+        $logo_path = 'data:image/' . $type . ';base64,' . base64_encode($data);
     }
 
     try {
@@ -199,8 +195,14 @@ $active_page = "settings";
                     <div class="space-y-3">
                         <label class="text-[9px] font-black uppercase tracking-widest text-gray-500">Gym Logo</label>
                         <div class="size-32 mx-auto rounded-3xl bg-background-dark border-2 border-dashed border-white/5 flex items-center justify-center overflow-hidden relative group">
-                            <?php if($page && $page['logo_path']): ?>
-                                <img id="logo-preview" src="../<?= htmlspecialchars($page['logo_path']) ?>" class="w-full h-full object-contain">
+                            <?php 
+                            $logo_src = $page['logo_path'] ?? '';
+                            if ($logo_src && strpos($logo_src, 'data:') !== 0) {
+                                $logo_src = '../' . $logo_src;
+                            }
+                            ?>
+                            <?php if($logo_src): ?>
+                                <img id="logo-preview" src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain">
                             <?php else: ?>
                                 <span id="logo-placeholder" class="material-symbols-outlined text-3xl text-gray-800">add_photo_alternate</span>
                             <?php endif; ?>
