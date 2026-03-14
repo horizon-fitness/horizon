@@ -23,6 +23,17 @@ if (!$page) {
 $primary_color = $page['theme_color'] ?? '#8c2bee';
 $font_family = $page['font_family'] ?? 'Lexend';
 $button_shape = $page['button_shape'] ?? 'rounded-2xl';
+$theme_mode = $page['theme_mode'] ?? 'dark';
+$font_size = $page['font_size'] ?? 'base';
+
+// Font Size Mapping
+$size_classes = [
+    'small' => 'text-[14px]',
+    'base' => 'text-[16px]',
+    'large' => 'text-[18px]',
+    'xlarge' => 'text-[20px]'
+];
+$base_font_class = $size_classes[$font_size] ?? 'text-[16px]';
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -44,8 +55,8 @@ $button_shape = $page['button_shape'] ?? 'rounded-2xl';
                 extend: { 
                     colors: { 
                         "primary": "<?= $primary_color ?>", 
-                        "background-dark": "#0a090d", 
-                        "surface-dark": "#121017"
+                        "background-dark": "<?= $theme_mode == 'light' ? '#f8fafc' : '#0a090d' ?>", 
+                        "surface-dark": "<?= $theme_mode == 'light' ? '#ffffff' : '#121017' ?>"
                     },
                     fontFamily: { "display": ["<?= $font_family ?>", "sans-serif"] }
                 }
@@ -53,8 +64,18 @@ $button_shape = $page['button_shape'] ?? 'rounded-2xl';
         }
     </script>
     <style>
-        body { font-family: '<?= $font_family ?>', sans-serif; background-color: #0a090d; color: white; scroll-behavior: smooth; }
-        .glass-card { background: rgba(18, 16, 23, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 32px; backdrop-filter: blur(20px); }
+        body { 
+            font-family: '<?= $font_family ?>', sans-serif; 
+            background-color: <?= $theme_mode == 'light' ? '#f8fafc' : '#0a090d' ?>; 
+            color: <?= $theme_mode == 'light' ? '#0f172a' : 'white' ?>; 
+            scroll-behavior: smooth; 
+        }
+        .glass-card { 
+            background: <?= $theme_mode == 'light' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(18, 16, 23, 0.4)' ?>; 
+            border: 1px solid <?= $theme_mode == 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' ?>; 
+            border-radius: 32px; 
+            backdrop-filter: blur(20px); 
+        }
         .btn-primary { 
             background: linear-gradient(135deg, <?= $primary_color ?>, <?= $primary_color ?>dd); 
             color: white; 
@@ -64,9 +85,11 @@ $button_shape = $page['button_shape'] ?? 'rounded-2xl';
         .btn-primary:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 20px 40px -10px <?= $primary_color ?>aa; }
         .text-glow { text-shadow: 0 0 30px <?= $primary_color ?>44; }
         .hero-gradient { background: radial-gradient(circle at center, <?= $primary_color ?>11 0%, transparent 70%); }
+        .section-title { font-size: 3.5rem; }
+        .base-font { font-size: <?= str_replace('text-[', '', str_replace(']', '', $base_font_class)) ?>; }
     </style>
 </head>
-<body class="antialiased min-h-screen flex flex-col font-display selection:bg-primary/30 selection:text-white">
+<body class="<?= $base_font_class ?> <?= $theme_mode ?> antialiased min-h-screen flex flex-col font-display selection:bg-primary/30 selection:text-white">
 
     <header class="w-full px-8 md:px-12 py-8 flex justify-between items-center bg-background-dark/40 backdrop-blur-2xl fixed top-0 z-50 border-b border-white/5 transition-all duration-500 overflow-hidden">
         <div class="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent opacity-50"></div>
@@ -107,8 +130,8 @@ $button_shape = $page['button_shape'] ?? 'rounded-2xl';
             <h2 class="text-6xl md:text-[110px] font-black italic uppercase tracking-tighter text-white mb-8 leading-[0.9] text-glow [text-wrap:balance]">
                 Build Your <span class="text-primary">Legacy</span> <br class="hidden lg:block"/> At <?= htmlspecialchars($page['gym_name']) ?>
             </h2>
-            <p class="text-gray-400 text-lg md:text-2xl font-medium max-w-3xl mx-auto leading-relaxed mb-12 opacity-80 italic">
-                More than just a gym. Experience a modern multi-tenant fitness sanctuary powered by elite tech and world-class coaching.
+            <p class="text-gray-500 <?= $base_font_class ?> mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
+                <?= nl2br(htmlspecialchars($page['about_text'] ?? 'More than just a gym. Experience a modern multi-tenant fitness sanctuary powered by elite tech and world-class coaching.')) ?>
             </p>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-5">
                 <a href="#register" class="h-16 px-12 <?= $button_shape ?> btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em]">Start Your Journey</a>
@@ -127,7 +150,7 @@ $button_shape = $page['button_shape'] ?? 'rounded-2xl';
                 <div class="size-20 rounded-[28px] bg-primary/10 text-primary flex items-center justify-center mb-10 shadow-inner group-hover:scale-110 transition-transform duration-500">
                     <span class="material-symbols-outlined text-4xl">person_add</span>
                 </div>
-                <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 text-white">Join the Community</h3>
+                <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 <?= $theme_mode == 'light' ? 'text-black' : 'text-white' ?>">Join the Community</h3>
                 <p class="text-gray-500 text-sm mb-10 leading-relaxed font-medium">Become a member today to unlock exclusive access to classes, real-time tracking, and our premium mobile experience.</p>
                 <a href="member/member_registration.php?gym=<?= $page['gym_id'] ?>" class="h-16 <?= $button_shape ?> btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em] mt-auto">
                     Create Member Account
@@ -141,7 +164,7 @@ $button_shape = $page['button_shape'] ?? 'rounded-2xl';
                 <div class="size-20 rounded-[28px] bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-10 shadow-inner group-hover:scale-110 transition-transform duration-500">
                     <span class="material-symbols-outlined text-4xl">verified_user</span>
                 </div>
-                <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 text-white">Coach & Staff</h3>
+                <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 <?= $theme_mode == 'light' ? 'text-black' : 'text-white' ?>">Coach & Staff</h3>
                 <p class="text-gray-500 text-sm mb-10 leading-relaxed font-medium">Looking to join our elite roster? Access the staff portal or download the dedicated management app below.</p>
                 <div class="grid grid-cols-2 gap-4 mt-auto">
                     <a href="login.php?gym=<?= $gym_slug ?>" class="h-16 <?= $button_shape ?> bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em]">Web Login</a>
@@ -194,6 +217,14 @@ $button_shape = $page['button_shape'] ?? 'rounded-2xl';
             </div>
             
             <div class="lg:col-span-2 flex flex-col justify-end items-end text-right">
+                <footer class="mt-32 pt-20 pb-10 border-t <?= $theme_mode == 'light' ? 'border-black/5' : 'border-white/5' ?>">
+            <div class="max-w-7xl mx-auto px-6 text-center">
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-[0.3em] mb-4">Powered by Horizon Systems</p>
+                <p class="text-gray-400 text-[10px] font-medium max-w-md mx-auto leading-relaxed">
+                    <?= nl2br(htmlspecialchars($page['contact_text'] ?? '')) ?>
+                </p>
+            </div>
+        </footer>
                 <p class="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700 mb-4">Official Horizon Partner</p>
                 <p class="text-primary text-[9px] font-black uppercase tracking-[0.5em] opacity-40">Horizon Multi-Tenant System v2.0</p>
                 <div class="mt-12 flex gap-6">
