@@ -71,6 +71,10 @@ foreach ($tenants as $t) {
         .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
         
         @media (max-width: 1023px) { .active-nav::after { display: none; } }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0a090d; }
@@ -80,7 +84,7 @@ foreach ($tenants as $t) {
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
+<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0 overflow-x-hidden">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
@@ -94,7 +98,7 @@ foreach ($tenants as $t) {
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2 no-scrollbar">
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>

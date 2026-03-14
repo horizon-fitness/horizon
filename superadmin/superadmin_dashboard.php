@@ -83,11 +83,14 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         ::-webkit-scrollbar-track { background: #0a090d; }
         ::-webkit-scrollbar-thumb { background: #14121a; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #1a1824; }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
+<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0 overflow-x-hidden">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
@@ -101,7 +104,7 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2 no-scrollbar">
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>
