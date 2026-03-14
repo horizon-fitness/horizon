@@ -40,7 +40,7 @@
 
 <header class="relative z-20 w-full px-8 py-6 flex justify-between items-center">
     <div class="flex items-center gap-3">
-         <span class="text-xl font-black tracking-tight uppercase italic">Herdoza <span class="text-primary">Fitness</span></span>
+         <span class="text-xl font-black tracking-tight uppercase italic">Horizon <span class="text-primary">Systems</span></span>
     </div>
     <div class="flex items-center gap-4">
         <span class="text-sm text-gray-400 hidden sm:block">New to the family?</span>
@@ -110,7 +110,7 @@
         <div class="text-center mt-10">
             <p class="text-xs text-gray-500 font-medium">
                 Not registered? 
-                <a class="text-primary font-black uppercase tracking-tighter hover:underline ml-1" href="member/member_register.php">Create Account</a>
+                <a class="text-primary font-black uppercase tracking-tighter hover:underline ml-1" href="tenant/tenant_application.php">Create Account</a>
             </p>
         </div>
     </div>
