@@ -1,0 +1,113 @@
+MONDAY ACTIVITY TRASCRIPT:
+
+Ipe-present n’yo sakin yung log in mula sa client.
+
+So pag sinabi nating client, siya yung owner.
+
+Si owner magsu-subscribe na kay admin.
+
+Kayo yung admin.
+
+Magsu-subscribe na siya, pagka-subscribe niya kukuha na siya ng plan, then makakapag-log in at log out na siya.
+
+Then kung makapag-log in na siya dahil may account na siya, bibigyan ngayon siya ni admin ng isang page.
+
+Wherein dun sa page na ’yon, pwede siyang mag-customize, ibig sabihin CMS siya __________ yung isang page na pwede niyang baguhin yung logo, then pwede niyang baguhin yung kulang, pero definitely dun ngayon maglo-log in sino.
+
+Yung mga staffs, pag log in ng staffs, ang pasok non dun na mismo sa application na dine-sign n’yo.
+
+Lahat sila dun na papasok.
+
+Yung sinasabi kong procedure na ’to, definitely kung ano yung ________ ito yung susundin mo. Ito lang is just a guide, kasi baka mamaya may iba kang diskarte ng multi-tenant.
+
+So hindi ko nililimit yung logic niya sa kung ano yung sinasabi ko.
+
+Pero ang sinasabi ko lang is, when you present next meeting,
+
+Nakapag-log in, nakakapag-subscribe na si client.
+
+When we’re talking about client, that is the owner, that is the tenant.
+
+When we’re talking about the customer, we’re talking about yung customer ng tenant.
+
+Pag sinabi nating staff, lahat ng empleyado na hinire ng client.
+
+So kailangan makita ko na nakakapag-log in na, nakakapag-subscribe na si client.
+
+Dahil nakapag-subscribe na siya, pwede na ngayon siyang magpa-register ng staff niya.
+
+Dalawa ang pwedeng procedure.
+
+Siya ba ang magre-register sa staff niya at yung staff niya makaka-receive ng email ng account credentials, then makakapag-log in na sila.
+
+Or
+
+Sila ba ang magre-register sa sarili nila at habang registration, makakakuha ngayon sila ng credentials para makapag-log in na don.
+
+Dahil may staff ka na, pwede na ngayon si staff maglagay ng customer.
+
+Yung customer kasi pwedeng mag-walk in. Pag nag-walk in siya, automatic magkakaroon siya ng account.
+
+Pag nagkaroon siya ng account, pwede na niya ngayon, pag nag-download siya ng apps,
+
+Saan niya ida-download yung apps? So sakin, pwede niya i-download yung app dun mismo sa page na naco-customize nung client.
+
+Lagay lang niya yung link don, pag clinick niya, downloadable na yung app.
+
+Minimum requirement sa app:
+
+From the log in na meron dun kay client, pwede na siya mag-click ng link don, tapos mada-download yung APK.
+
+Once na na-download yung APK, what will happen?
+
+Na-download na yung APK, magre-register ba sa sarili niya yung client?
+
+Saan siya magre-register? Sa web app ba siya magre-register, or dun sa mobile?
+
+Kasi may mga iba dyan, nun lang niya, ang point of entry niya dyan ay nakita niya yung website n’yo.
+
+Di nakikita niya yung website n’yo dahil naco-customize ’yon. Sinasabi n’yo na nagbibigay kayo ng business na ganito, nag-o-offer kayo ng ganyan, kasi nandun yung mga products n’yo sa website.
+
+Dahil gusto niya, pwedeng dun na siya mag-register din. Nung nag-register siya don, sasabihin mo ngayon, “You are now registered, your credentials is now sent to your email account. You can access it by using the mobile app.”
+
+Ida-download niya yung mobile app, then from the email kukunin niya yung account at password niya, ilalagay niya ’yon sa mobile niya, then pasok na siya sa system.
+
+Saan siya nag-register? Ang registration ginawa sa web. Pwede namang hindi sa web, pwede naman sa phone niya gawin. Paano mangyayari?
+
+So makikita niya, of course, yung website. Then if you want to register, download the app and use the app for registration, but for now we need your email account, and after having your email account, a number will be sent to you, a PIN code will be sent to you, then in order for you to register dun sa mobile app.
+
+So pag nasa mobile app ka na, pinindot mo yung register, nilagay mo yung pangalan mo, nakalagay don enter verification code, yung PIN code na binigay sa’yo sa email. Pag nilagay mo na yung verification code, pasok ka na dun sa tenant dahil si tenant yung nagbigay nung web ____________
+
+Hindi nakikita ng customer yung mga different client. Never na mangyayari ’yon.
+
+Kaya dun sa procedure n’yo, kailangan hindi _______
+
+Monday, ipre-present n’yo yung nakakapag-log in na, at itatry ko ’yan ng 10 client na magre-register, at yung pang-10 dun ko ngayon ire-register yung customer, tapos babalik ako sa iba para malaman ko kung gumagana yung multi-tenant na system.
+
+Now, dun sa pag log in sa mobile, diba maglo-log in na ako sa mobile, naka-register na ako. Pag log in ko, ang makikita ko lang don is log in page saka registration.
+
+Pag log in ko, pag punta dun sa dashboard, ang makikita ko lang ay credentials ko.
+
+
+Yung name niya, tapos kung anong tenant siya nag-log in _______ then wala na akong makikitang iba pa. ’Yon lang ang kailangan ko sa mobile.
+
+Mobile App need ng:
+
+Log in
+Registration
+Dashboard (blanko except sa credentials at log out button)
+
+Web need ng:
+
+Log in
+Nakakapag-subscribe na siya
+After subscription, mabibigyan na siya ng page
+Then dun maglo-log in mga staff (either sila magre-register or tayo)
+
+From that website, ida-download yung app, then sasabihin, may mga depende kung paano gusto n’yong mangyari.
+
+You can do it na dun na mismo iri-register dun sa web app yung customer, then after non sasabihin, download, then you may now access the mobile app.
+
+Or i-download, then to continue enter mo yung email address mo, then itatapon niya yung web page ko, then automatically your email is now authenticated.
+
+Kaya pag punta niya, pag ginamit na niya ’yon, dun mismo sa phone niya, na-verify na natin yung email kung existing.
