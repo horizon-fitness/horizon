@@ -38,9 +38,11 @@ $gyms = [
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
         
-        @media (max-width: 1023px) {
-            .active-nav::after { display: none; }
-        }
+        @media (max-width: 1023px) { .active-nav::after { display: none; } }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
         .alert-pulse { animation: alert-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @keyframes alert-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         
@@ -58,7 +60,7 @@ $gyms = [
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
+<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0 overflow-x-hidden">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
@@ -72,7 +74,7 @@ $gyms = [
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2 no-scrollbar">
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>
@@ -102,7 +104,7 @@ $gyms = [
         </a>
         
         <div class="mt-auto pt-8 border-t border-white/10">
-            <a href="logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
                 <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
                 <span class="nav-link">Sign Out</span>
             </a>
