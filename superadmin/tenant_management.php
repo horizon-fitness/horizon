@@ -23,10 +23,21 @@ $stmtTenants = $pdo->query("
 ");
 $tenants = $stmtTenants->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch Pending Applications
+$stmtPending = $pdo->query("
+    SELECT a.*, u.first_name, u.last_name, u.email 
+    FROM gym_owner_applications a 
+    JOIN users u ON a.user_id = u.user_id 
+    WHERE a.application_status = 'Pending'
+    ORDER BY a.submitted_at DESC
+");
+$pending_apps = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
+
 // Counters for metrics
 $total_tenants = count($tenants);
 $active_count = 0;
 $suspended_count = 0;
+$pending_count = count($pending_apps);
 
 foreach ($tenants as $t) {
     if ($t['status'] === 'Active') $active_count++;
@@ -147,7 +158,7 @@ foreach ($tenants as $t) {
             <?php unset($_SESSION['error_msg']); ?>
         <?php endif; ?>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
             <div class="glass-card p-6 border border-white/5 bg-white/5 flex items-center gap-4">
                 <div class="size-12 rounded-full bg-white/10 flex items-center justify-center text-white">
                     <span class="material-symbols-outlined text-2xl">domain</span>
@@ -168,14 +179,86 @@ foreach ($tenants as $t) {
             </div>
             <div class="glass-card p-6 border border-amber-500/20 bg-amber-500/5 flex items-center gap-4">
                 <div class="size-12 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">
+                    <span class="material-symbols-outlined text-2xl">pending_actions</span>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase text-amber-500/70 tracking-widest">Pending Apps</p>
+                    <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_count ?></h3>
+                </div>
+            </div>
+            <div class="glass-card p-6 border border-red-500/20 bg-red-500/5 flex items-center gap-4">
+                <div class="size-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-500">
                     <span class="material-symbols-outlined text-2xl">pause_circle</span>
                 </div>
                 <div>
-                    <p class="text-[10px] font-black uppercase text-amber-500/70 tracking-widest">Suspended Accounts</p>
-                    <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $suspended_count ?></h3>
+                    <p class="text-[10px] font-black uppercase text-red-500/70 tracking-widest">Suspended</p>
+                    <h3 class="text-2xl font-black italic uppercase text-red-400"><?= $suspended_count ?></h3>
                 </div>
             </div>
         </div>
+
+        <?php if (!empty($pending_apps)): ?>
+        <div class="glass-card overflow-hidden mb-10 border border-amber-500/10">
+            <div class="px-8 py-6 border-b border-white/5 bg-amber-500/5 flex justify-between items-center">
+                <h4 class="font-black italic uppercase text-sm tracking-tighter text-amber-400 flex items-center gap-2">
+                    <span class="material-symbols-outlined">pending_actions</span>
+                    Pending Gym Applications
+                </h4>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                            <th class="px-8 py-4">Gym Name</th>
+                            <th class="px-8 py-4">Applicant</th>
+                            <th class="px-8 py-4">Applied Date</th>
+                            <th class="px-8 py-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        <?php foreach ($pending_apps as $app): ?>
+                            <tr class="hover:bg-white/5 transition-all">
+                                <td class="px-8 py-5">
+                                    <div class="flex items-center gap-3">
+                                        <div class="size-10 rounded-lg bg-amber-500/10 flex items-center justify-center font-black text-amber-500 text-sm border border-amber-500/20">
+                                            <?= strtoupper(substr($app['gym_name'], 0, 2)) ?>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-bold italic"><?= htmlspecialchars($app['gym_name']) ?></p>
+                                            <p class="text-[10px] text-gray-500 uppercase tracking-wider font-bold"><?= htmlspecialchars($app['business_type']) ?></p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-8 py-5">
+                                    <p class="text-xs font-medium text-white"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
+                                    <p class="text-[10px] text-gray-500"><?= htmlspecialchars($app['email']) ?></p>
+                                </td>
+                                <td class="px-8 py-5 text-xs font-medium text-gray-400">
+                                    <?= date('M d, Y h:i A', strtotime($app['submitted_at'])) ?>
+                                </td>
+                                <td class="px-8 py-5 text-right">
+                                    <div class="inline-flex gap-2">
+                                        <a href="view_application.php?id=<?= $app['application_id'] ?>" class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">visibility</span> View
+                                        </a>
+                                        <form method="POST" action="../action/process_application.php" class="inline-flex gap-2">
+                                            <input type="hidden" name="application_id" value="<?= $app['application_id'] ?>">
+                                            <button type="submit" name="action" value="approve" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                                <span class="material-symbols-outlined text-sm">check_circle</span> Approve
+                                            </button>
+                                            <button type="submit" name="action" value="reject" class="px-4 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                                <span class="material-symbols-outlined text-sm">cancel</span> Reject
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <div class="glass-card overflow-hidden">
             <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">

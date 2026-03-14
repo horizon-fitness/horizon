@@ -11,68 +11,10 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 $page_title = "Super Admin Dashboard";
 $active_page = "dashboard";
 
-$success_msg = '';
-$error_msg = '';
-
-// Handle Application Actions (Approve / Reject)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['application_id'])) {
-    $app_id = (int)$_POST['application_id'];
-    $action = $_POST['action'];
-    $admin_id = $_SESSION['user_id'];
-    $now = date('Y-m-d H:i:s');
-
-    if ($action === 'approve') {
-        try {
-            $pdo->beginTransaction();
-            
-            // 1. Update application status
-            $stmtUpdate = $pdo->prepare("UPDATE gym_owner_applications SET application_status = 'Approved', reviewed_by = ?, reviewed_at = ? WHERE application_id = ?");
-            $stmtUpdate->execute([$admin_id, $now, $app_id]);
-
-            // 2. Fetch the application details
-            $stmtApp = $pdo->prepare("SELECT * FROM gym_owner_applications WHERE application_id = ?");
-            $stmtApp->execute([$app_id]);
-            $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
-
-            // 3. Insert into gyms table
-            $tenant_code = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']), 0, 3)) . '-' . rand(1000, 9999);
-            $stmtGym = $pdo->prepare("INSERT INTO gyms (owner_user_id, application_id, gym_name, business_name, address_id, contact_number, email, tenant_code, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-            $stmtGym->execute([
-                $app['user_id'], $app['application_id'], $app['gym_name'], $app['business_name'], $app['address_id'], $app['contact_number'], $app['email'], $tenant_code, $now, $now
-            ]);
-            $gym_id = $pdo->lastInsertId();
-
-            // 4. Ensure 'Tenant' role exists and assign it
-            $roleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = 'Tenant' LIMIT 1");
-            $roleCheck->execute();
-            $role = $roleCheck->fetch(PDO::FETCH_ASSOC);
-            if (!$role) {
-                $pdo->query("INSERT INTO roles (role_name) VALUES ('Tenant')");
-                $roleId = $pdo->lastInsertId();
-            } else {
-                $roleId = $role['role_id'];
-            }
-
-            $stmtRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', ?)");
-            $stmtRole->execute([$app['user_id'], $roleId, $gym_id, $now]);
-
-            // 5. Generate a Tenant Page for CMS Customization (Monday Activity Requirement)
-            $stmtPage = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, theme_color, updated_at) VALUES (?, ?, ?, '#7f13ec', ?)");
-            $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']));
-            $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $now]);
-
-            $pdo->commit();
-            $success_msg = "Application for {$app['gym_name']} approved! Tenant portal is ready.";
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $error_msg = "Failed to approve: " . $e->getMessage();
-        }
-    } elseif ($action === 'reject') {
-        $stmtUpdate = $pdo->prepare("UPDATE gym_owner_applications SET application_status = 'Rejected', reviewed_by = ?, reviewed_at = ? WHERE application_id = ?");
-        $stmtUpdate->execute([$admin_id, $now, $app_id]);
-        $success_msg = "Application rejected successfully.";
-    }
-}
+// Application messages handled via session
+$success_msg = $_SESSION['success_msg'] ?? '';
+$error_msg = $_SESSION['error_msg'] ?? '';
+unset($_SESSION['success_msg'], $_SESSION['error_msg']);
 
 // Fetch Real Dynamic Data for Dashboard
 $total_revenue = 0.00; // Place holder for billing later
@@ -323,15 +265,20 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
                             </td>
                             <td class="px-8 py-5 text-right">
                                 <?php if ($app['application_status'] === 'Pending'): ?>
-                                    <form method="POST" class="inline-flex gap-2">
-                                        <input type="hidden" name="application_id" value="<?= $app['application_id'] ?>">
-                                        <button type="submit" name="action" value="approve" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors">
-                                            Approve
-                                        </button>
-                                        <button type="submit" name="action" value="reject" class="px-4 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest transition-colors">
-                                            Reject
-                                        </button>
-                                    </form>
+                                    <div class="inline-flex gap-2">
+                                        <a href="view_application.php?id=<?= $app['application_id'] ?>" class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-sm">visibility</span> View
+                                        </a>
+                                        <form method="POST" action="../action/process_application.php" class="inline-flex gap-2">
+                                            <input type="hidden" name="application_id" value="<?= $app['application_id'] ?>">
+                                            <button type="submit" name="action" value="approve" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors">
+                                                Approve
+                                            </button>
+                                            <button type="submit" name="action" value="reject" class="px-4 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest transition-colors">
+                                                Reject
+                                            </button>
+                                        </form>
+                                    </div>
                                 <?php else: ?>
                                     <span class="text-[10px] font-black text-gray-500 uppercase italic">Reviewed</span>
                                 <?php endif; ?>
