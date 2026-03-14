@@ -1,6 +1,6 @@
 <?php
 session_start();
-// Include the database connection file. Adjust path if necessary.
+// Include the database connection file.
 require_once 'db.php';
 
 $error = '';
@@ -53,14 +53,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['role'] = $roleData['role_name'];
                     $_SESSION['gym_id'] = $roleData['gym_id'];
 
-                    // Redirect based on user role
+                    // Redirect based on user role (Following Monday Activity Rules)
                     switch (strtolower($roleData['role_name'])) {
                         case 'superadmin':
                             header("Location: superadmin/superadmin_dashboard.php");
                             exit;
                         case 'admin':
-                        case 'tenant': // Assuming gym owners get the 'admin' or 'tenant' role
-                            header("Location: admin/admin_dashboard.php");
+                        case 'tenant': 
+                            // Per Transcript: Client/Owner is given a CMS page to customize logo, colors, etc.
+                            header("Location: tenant/tenant_management.php");
                             exit;
                         case 'coach':
                             header("Location: coach/coach_dashboard.php");
@@ -84,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         } elseif ($app['application_status'] === 'Rejected') {
                             $error = "Your gym application was rejected. Please contact our support team.";
                         } else {
-                            $error = "Your account is approved but setup is incomplete. Contact support.";
+                            $error = "Your account is approved but setup is incomplete. Wait for the Admin to assign your page.";
                         }
                     } else {
                         $error = "You do not have an active role in the system. Contact support.";
@@ -97,7 +98,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
