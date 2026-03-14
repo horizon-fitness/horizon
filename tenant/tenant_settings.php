@@ -50,6 +50,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
+        // Ensure columns exist (Self-healing)
+        $pdo->exec("ALTER TABLE tenant_pages ADD COLUMN IF NOT EXISTS theme_mode VARCHAR(20) DEFAULT 'dark'");
+        $pdo->exec("ALTER TABLE tenant_pages ADD COLUMN IF NOT EXISTS font_size VARCHAR(20) DEFAULT 'base'");
+
         if ($page) {
             $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_slug = ?, page_title = ?, logo_path = ?, theme_color = ?, font_family = ?, button_shape = ?, theme_mode = ?, font_size = ?, about_text = ?, contact_text = ?, app_download_link = ?, updated_at = ? WHERE gym_id = ?");
             $stmtUpdate->execute([$page_slug, $page_title, $logo_path, $theme_color, $font_family, $button_shape, $theme_mode, $font_size, $about_text, $contact_text, $app_link, $now, $gym_id]);
@@ -101,6 +105,14 @@ $active_page = "settings";
         .mockup-inner { height: 100%; width: 100%; overflow-y: auto; overflow-x: hidden; }
         .mockup-inner::-webkit-scrollbar { width: 0; }
         .preview-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .switch-btn { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; padding: 6px 12px; border-radius: 8px; transition: all 0.2s; color: #64748b; }
+        .switch-btn.active { background: white; color: black; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .preview-toggle { background: rgba(255,255,255,0.05); padding: 4px; border-radius: 12px; display: flex; gap: 4px; }
+
+        .dashboard-preview { display: none; }
+        .dashboard-preview.active { display: block; }
+        .login-preview.active { display: block; }
+        .login-preview { display: none; }
     </style>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
@@ -148,7 +160,7 @@ $active_page = "settings";
             <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Enhance your facility's digital identity</p>
         </div>
         <div class="flex gap-4">
-            <button type="button" onclick="document.getElementById('settings-form').submit()" class="h-11 px-8 rounded-xl bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+            <button type="submit" form="settings-form" class="h-11 px-8 rounded-xl bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
                 <span class="material-symbols-outlined text-sm">save</span> Save Changes
             </button>
             <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="h-11 px-6 rounded-xl bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10 hover:text-white transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
@@ -200,7 +212,7 @@ $active_page = "settings";
                                 <div class="space-y-1">
                                     <label class="text-[10px] font-black uppercase tracking-widest text-white">Facility Logo</label>
                                     <p class="text-[9px] text-gray-500 italic">Recommended: Transparent PNG, 512x512px</p>
-                                    <button type="button" class="text-[9px] font-black uppercase text-primary mt-2">Replace Image</button>
+                                    <button type="button" onclick="this.parentElement.previousElementSibling.querySelector('input').click()" class="text-[9px] font-black uppercase text-primary mt-2 hover:text-white transition-colors">Replace Image</button>
                                 </div>
                             </div>
 
@@ -236,15 +248,15 @@ $active_page = "settings";
                             <div class="space-y-3">
                                 <label class="text-[9px] font-black uppercase tracking-widest text-gray-500">Active Mode</label>
                                 <div class="flex gap-2 p-1 bg-background-dark border border-white/5 rounded-2xl">
-                                    <label class="flex-1 cursor-pointer">
-                                        <input type="radio" name="theme_mode" value="dark" hidden <?= ($page['theme_mode'] ?? 'dark') == 'dark' ? 'checked' : '' ?> onchange="updateModePreview('dark')">
-                                        <div class="h-10 flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all peer-checked:bg-white/5 peer-checked:text-white text-gray-500 hover:text-gray-300">
+                                    <label class="flex-1 cursor-pointer group">
+                                        <input type="radio" name="theme_mode" value="dark" class="peer" hidden <?= ($page['theme_mode'] ?? 'dark') == 'dark' ? 'checked' : '' ?> onchange="updateModePreview('dark')">
+                                        <div class="h-10 flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-[0_0_20px_rgba(140,43,238,0.3)] text-gray-500 group-hover:bg-white/5">
                                             <span class="material-symbols-outlined text-sm">dark_mode</span> Dark
                                         </div>
                                     </label>
-                                    <label class="flex-1 cursor-pointer">
-                                        <input type="radio" name="theme_mode" value="light" hidden <?= ($page['theme_mode'] ?? '') == 'light' ? 'checked' : '' ?> onchange="updateModePreview('light')">
-                                        <div class="h-10 flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all peer-checked:bg-white peer-checked:text-black text-gray-500 hover:text-gray-300">
+                                    <label class="flex-1 cursor-pointer group">
+                                        <input type="radio" name="theme_mode" value="light" class="peer" hidden <?= ($page['theme_mode'] ?? '') == 'light' ? 'checked' : '' ?> onchange="updateModePreview('light')">
+                                        <div class="h-10 flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-[0_0_20px_rgba(140,43,238,0.3)] text-gray-500 group-hover:bg-white/5">
                                             <span class="material-symbols-outlined text-sm">light_mode</span> Light
                                         </div>
                                     </label>
@@ -283,9 +295,9 @@ $active_page = "settings";
                                     ];
                                     foreach($shapes as $val => $label):
                                     ?>
-                                        <label class="cursor-pointer">
-                                            <input type="radio" name="button_shape" value="<?= $val ?>" hidden <?= ($page['button_shape'] ?? 'rounded-2xl') == $val ? 'checked' : '' ?> onchange="updateShapePreview('<?= $val ?>')">
-                                            <div class="h-10 flex items-center justify-center text-[8px] font-black uppercase border border-white/5 rounded-xl text-gray-500 hover:border-white/10 transition-all peer-checked:border-primary peer-checked:text-primary peer-checked:bg-primary/5"><?= $label ?></div>
+                                        <label class="cursor-pointer group">
+                                            <input type="radio" name="button_shape" value="<?= $val ?>" class="peer" hidden <?= ($page['button_shape'] ?? 'rounded-2xl') == $val ? 'checked' : '' ?> onchange="updateShapePreview('<?= $val ?>')">
+                                            <div class="h-10 flex items-center justify-center text-[8px] font-black uppercase border border-white/5 rounded-xl text-gray-500 transition-all group-hover:bg-white/5 peer-checked:border-primary peer-checked:text-white peer-checked:bg-primary peer-checked:shadow-[0_0_15px_rgba(140,43,238,0.3)]"><?= $label ?></div>
                                         </label>
                                     <?php endforeach; ?>
                                 </div>
@@ -333,31 +345,69 @@ $active_page = "settings";
         <div class="w-full xl:w-[400px] flex flex-col items-center">
             <div class="sticky top-10">
                 <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-6 text-center">Real-Time Portal Preview</p>
+                <div class="preview-toggle mb-6">
+                    <button type="button" class="switch-btn active" onclick="switchPreview('login')">Login Screen</button>
+                    <button type="button" class="switch-btn" onclick="switchPreview('dashboard')">Dashboard</button>
+                </div>
+
                 <div class="mockup-container" id="mockup">
                     <div id="mockup-inner" class="mockup-inner <?= $page['theme_mode'] ?? 'dark' ?>" style="background: <?= ($page['theme_mode'] ?? 'dark') == 'light' ? 'white' : 'black' ?>; font-family: '<?= $page['font_family'] ?? 'Lexend' ?>', sans-serif;">
-                        <header class="preview-header flex flex-col items-center pt-10">
-                            <div id="prev-logo-wrap" class="size-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
-                                <?php if($logo_src): ?>
-                                    <img id="prev-logo" src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain p-2">
-                                <?php else: ?>
-                                    <span class="material-symbols-outlined text-white">bolt</span>
-                                <?php endif; ?>
-                            </div>
-                            <h3 id="prev-title" class="text-xl font-black italic uppercase tracking-tighter <?= ($page['theme_mode'] ?? 'dark') == 'light' ? 'text-black' : 'text-white' ?>">
-                                <?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?>
-                            </h3>
-                            <div class="h-0.5 w-10 bg-primary mt-3"></div>
-                        </header>
-                        
-                        <main class="p-6 text-center space-y-6">
-                            <h2 class="text-3xl font-black italic uppercase tracking-tight leading-none <?= ($page['theme_mode'] ?? 'dark') == 'light' ? 'text-black' : 'text-white' ?>">Build Your <span class="text-primary italic">Legacy</span></h2>
-                            <p class="text-[10px] text-gray-500 font-medium px-4">Experience a modern multi-tenant fitness sanctuary powered by elite tech.</p>
+                        <!-- Login Preview -->
+                        <div id="prev-login" class="login-preview active h-full">
+                            <header class="preview-header flex flex-col items-center pt-10">
+                                <div id="prev-logo-wrap" class="size-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
+                                    <?php if($logo_src): ?>
+                                        <img id="prev-logo" src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain p-2">
+                                    <?php else: ?>
+                                        <span class="material-symbols-outlined text-white">bolt</span>
+                                    <?php endif; ?>
+                                </div>
+                                <h3 id="prev-title" class="text-xl font-black italic uppercase tracking-tighter <?= ($page['theme_mode'] ?? 'dark') == 'light' ? 'text-black' : 'text-white' ?>">
+                                    <?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?>
+                                </h3>
+                                <div class="h-0.5 w-10 bg-primary mt-3"></div>
+                            </header>
                             
-                            <div class="space-y-3 pt-4">
-                                <div id="prev-btn-1" class="h-14 flex items-center justify-center text-[10px] font-black uppercase text-white shadow-lg <?= $page['button_shape'] ?? 'rounded-2xl' ?>" style="background: <?= $primary_color ?>;">Join The Community</div>
-                                <div id="prev-btn-2" class="h-14 flex items-center justify-center text-[10px] font-black uppercase border border-white/10 <?= ($page['theme_mode'] ?? 'dark') == 'light' ? 'text-black bg-black/5' : 'text-white bg-white/5' ?> <?= $page['button_shape'] ?? 'rounded-2xl' ?>">Staff Login</div>
+                            <main class="p-6 text-center space-y-6">
+                                <h2 class="text-3xl font-black italic uppercase tracking-tight leading-none <?= ($page['theme_mode'] ?? 'dark') == 'light' ? 'text-black' : 'text-white' ?>">Build Your <span class="text-primary italic">Legacy</span></h2>
+                                <p class="text-[10px] text-gray-500 font-medium px-4">Experience a modern multi-tenant fitness sanctuary.</p>
+                                
+                                <div class="space-y-3 pt-4">
+                                    <div id="prev-btn-1" class="h-14 flex items-center justify-center text-[10px] font-black uppercase text-white shadow-lg <?= $page['button_shape'] ?? 'rounded-2xl' ?>" style="background: <?= $primary_color ?>;">Join The Community</div>
+                                    <div id="prev-btn-2" class="h-14 flex items-center justify-center text-[10px] font-black uppercase border border-white/10 <?= ($page['theme_mode'] ?? 'dark') == 'light' ? 'text-black bg-black/5' : 'text-white bg-white/5' ?> <?= $page['button_shape'] ?? 'rounded-2xl' ?>">Staff Login</div>
+                                </div>
+                            </main>
+                        </div>
+
+                        <!-- Dashboard Preview -->
+                        <div id="prev-dashboard" class="dashboard-preview h-full p-4">
+                            <div class="flex items-center gap-3 mb-8">
+                                <div class="size-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                                    <span class="material-symbols-outlined text-white text-[14px]">bolt</span>
+                                </div>
+                                <div class="h-2 w-24 bg-gray-500/20 rounded-full"></div>
                             </div>
-                        </main>
+                            <div class="grid grid-cols-2 gap-3 mb-6">
+                                <div class="h-20 glass-card p-3 flex flex-col justify-between" style="border-radius: 12px; background: rgba(255,255,255,0.02);">
+                                    <div class="h-1.5 w-8 bg-primary rounded-full"></div>
+                                    <div class="h-2 w-12 bg-gray-500/20 rounded-full"></div>
+                                </div>
+                                <div class="h-20 glass-card p-3 flex flex-col justify-between" style="border-radius: 12px; background: rgba(255,255,255,0.02);">
+                                    <div class="h-1.5 w-8 bg-emerald-500 rounded-full"></div>
+                                    <div class="h-2 w-12 bg-gray-500/20 rounded-full"></div>
+                                </div>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="h-32 glass-card p-4" style="border-radius: 16px; background: rgba(255,255,255,0.02);">
+                                    <div id="dash-accent" class="h-1.5 w-20 bg-primary/20 rounded-full mb-3"></div>
+                                    <div class="space-y-2">
+                                        <div class="h-1.5 w-full bg-gray-500/10 rounded-full"></div>
+                                        <div class="h-1.5 w-2/3 bg-gray-500/10 rounded-full"></div>
+                                    </div>
+                                </div>
+                                <div id="dash-btn" class="h-10 w-full flex items-center justify-center text-[8px] font-black uppercase text-white <?= $page['button_shape'] ?? 'rounded-2xl' ?>" style="background: <?= $primary_color ?>;">Action Button</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="absolute bottom-4 left-1/2 -translate-x-1/2 h-1 w-20 bg-white/20 rounded-full"></div>
                 </div>
@@ -378,9 +428,12 @@ function switchTab(tabId) {
 }
 
 function updateColorPreview(val) {
-    document.querySelectorAll('.text-primary').forEach(el => el.style.color = val);
-    document.querySelectorAll('[id^="prev-btn-1"]').forEach(el => el.style.backgroundColor = val);
-    document.getElementById('prev-logo-wrap').style.backgroundColor = val;
+    const mockup = document.getElementById('mockup-inner');
+    mockup.querySelectorAll('.text-primary').forEach(el => el.style.color = val);
+    mockup.querySelectorAll('[id^="prev-btn-1"]').forEach(el => el.style.backgroundColor = val);
+    document.getElementById('dash-btn').style.backgroundColor = val; 
+    mockup.querySelectorAll('[id^="prev-logo-wrap"]').forEach(el => el.style.backgroundColor = val);
+    mockup.querySelectorAll('.bg-primary').forEach(el => el.style.backgroundColor = val);
     event.target.nextElementSibling.textContent = val.toUpperCase();
 }
 
@@ -410,6 +463,20 @@ function updateFontPreview(font) {
 function updateShapePreview(shape) {
     document.getElementById('prev-btn-1').className = 'h-14 flex items-center justify-center text-[10px] font-black uppercase text-white shadow-lg ' + shape;
     document.getElementById('prev-btn-2').className = 'h-14 flex items-center justify-center text-[10px] font-black uppercase border border-white/10 ' + shape;
+    document.getElementById('dash-btn').className = 'h-10 w-full flex items-center justify-center text-[8px] font-black uppercase text-white ' + shape;
+}
+
+function switchPreview(type) {
+    document.querySelectorAll('.switch-btn').forEach(btn => btn.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
+    if(type === 'login') {
+        document.getElementById('prev-login').classList.add('active');
+        document.getElementById('prev-dashboard').classList.remove('active');
+    } else {
+        document.getElementById('prev-login').classList.remove('active');
+        document.getElementById('prev-dashboard').classList.add('active');
+    }
 }
 
 // Live Text Sync

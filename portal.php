@@ -56,7 +56,10 @@ $base_font_class = $size_classes[$font_size] ?? 'text-[16px]';
                     colors: { 
                         "primary": "<?= $primary_color ?>", 
                         "background-dark": "<?= $theme_mode == 'light' ? '#f8fafc' : '#0a090d' ?>", 
-                        "surface-dark": "<?= $theme_mode == 'light' ? '#ffffff' : '#121017' ?>"
+                        "surface-dark": "<?= $theme_mode == 'light' ? '#ffffff' : '#121017' ?>",
+                        "text-main": "<?= $theme_mode == 'light' ? '#0f172a' : '#ffffff' ?>",
+                        "text-muted": "<?= $theme_mode == 'light' ? '#64748b' : '#94a3b8' ?>",
+                        "border-subtle": "<?= $theme_mode == 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' ?>"
                     },
                     fontFamily: { "display": ["<?= $font_family ?>", "sans-serif"] }
                 }
@@ -69,24 +72,25 @@ $base_font_class = $size_classes[$font_size] ?? 'text-[16px]';
             background-color: <?= $theme_mode == 'light' ? '#f8fafc' : '#0a090d' ?>; 
             color: <?= $theme_mode == 'light' ? '#0f172a' : 'white' ?>; 
             scroll-behavior: smooth; 
+            transition: background-color 0.5s ease, color 0.5s ease;
         }
         .glass-card { 
-            background: <?= $theme_mode == 'light' ? 'rgba(255, 255, 255, 0.7)' : 'rgba(18, 16, 23, 0.4)' ?>; 
+            background: <?= $theme_mode == 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(18, 16, 23, 0.4)' ?>; 
             border: 1px solid <?= $theme_mode == 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)' ?>; 
             border-radius: 32px; 
             backdrop-filter: blur(20px); 
+            transition: all 0.3s ease;
         }
         .btn-primary { 
-            background: linear-gradient(135deg, <?= $primary_color ?>, <?= $primary_color ?>dd); 
+            background: <?= $primary_color ?>;
             color: white; 
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            box-shadow: 0 10px 40px -15px <?= $primary_color ?>66;
+            box-shadow: 0 10px 40px -15px <?= $primary_color ?>99;
         }
-        .btn-primary:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 20px 40px -10px <?= $primary_color ?>aa; }
+        .btn-primary:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -10px <?= $primary_color ?>bb; }
         .text-glow { text-shadow: 0 0 30px <?= $primary_color ?>44; }
-        .hero-gradient { background: radial-gradient(circle at center, <?= $primary_color ?>11 0%, transparent 70%); }
+        .hero-gradient { background: radial-gradient(circle at center, <?= $primary_color ?>22 0%, transparent 70%); }
         .section-title { font-size: 3.5rem; }
-        .base-font { font-size: <?= str_replace('text-[', '', str_replace(']', '', $base_font_class)) ?>; }
     </style>
 </head>
 <body class="<?= $base_font_class ?> <?= $theme_mode ?> antialiased min-h-screen flex flex-col font-display selection:bg-primary/30 selection:text-white">
@@ -101,7 +105,7 @@ $base_font_class = $size_classes[$font_size] ?? 'text-[16px]';
                     <span class="material-symbols-outlined text-white text-2xl">bolt</span>
                 </div>
             <?php endif; ?>
-            <h1 class="text-2xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($page['gym_name']) ?></h1>
+            <h1 class="text-2xl font-black italic uppercase tracking-tighter text-text-main"><?= htmlspecialchars($page['gym_name']) ?></h1>
         </div>
         <div class="relative hidden md:flex items-center gap-10">
             <nav class="flex items-center gap-8">
@@ -127,10 +131,10 @@ $base_font_class = $size_classes[$font_size] ?? 'text-[16px]';
                 <span class="size-1.5 rounded-full bg-primary"></span>
                 <span class="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Now Open for Recruitment</span>
             </div>
-            <h2 class="text-6xl md:text-[110px] font-black italic uppercase tracking-tighter text-white mb-8 leading-[0.9] text-glow [text-wrap:balance]">
+            <h2 class="text-6xl md:text-[110px] font-black italic uppercase tracking-tighter text-text-main mb-8 leading-[0.9] text-glow [text-wrap:balance]">
                 Build Your <span class="text-primary">Legacy</span> <br class="hidden lg:block"/> At <?= htmlspecialchars($page['gym_name']) ?>
             </h2>
-            <p class="text-gray-500 <?= $base_font_class ?> mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
+            <p class="<?= $base_font_class ?> text-text-muted mb-12 max-w-2xl mx-auto leading-relaxed font-medium">
                 <?= nl2br(htmlspecialchars($page['about_text'] ?? 'More than just a gym. Experience a modern multi-tenant fitness sanctuary powered by elite tech and world-class coaching.')) ?>
             </p>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-5">
@@ -150,8 +154,8 @@ $base_font_class = $size_classes[$font_size] ?? 'text-[16px]';
                 <div class="size-20 rounded-[28px] bg-primary/10 text-primary flex items-center justify-center mb-10 shadow-inner group-hover:scale-110 transition-transform duration-500">
                     <span class="material-symbols-outlined text-4xl">person_add</span>
                 </div>
-                <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 <?= $theme_mode == 'light' ? 'text-black' : 'text-white' ?>">Join the Community</h3>
-                <p class="text-gray-500 text-sm mb-10 leading-relaxed font-medium">Become a member today to unlock exclusive access to classes, real-time tracking, and our premium mobile experience.</p>
+                <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 text-text-main">Join the Community</h3>
+                <p class="text-text-muted text-sm mb-10 leading-relaxed font-medium">Become a member today to unlock exclusive access to classes, real-time tracking, and our premium mobile experience.</p>
                 <a href="member/member_registration.php?gym=<?= $page['gym_id'] ?>" class="h-16 <?= $button_shape ?> btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em] mt-auto">
                     Create Member Account
                 </a>
@@ -164,8 +168,8 @@ $base_font_class = $size_classes[$font_size] ?? 'text-[16px]';
                 <div class="size-20 rounded-[28px] bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-10 shadow-inner group-hover:scale-110 transition-transform duration-500">
                     <span class="material-symbols-outlined text-4xl">verified_user</span>
                 </div>
-                <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 <?= $theme_mode == 'light' ? 'text-black' : 'text-white' ?>">Coach & Staff</h3>
-                <p class="text-gray-500 text-sm mb-10 leading-relaxed font-medium">Looking to join our elite roster? Access the staff portal or download the dedicated management app below.</p>
+                <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 text-text-main">Coach & Staff</h3>
+                <p class="text-text-muted text-sm mb-10 leading-relaxed font-medium">Looking to join our elite roster? Access the staff portal or download the dedicated management app below.</p>
                 <div class="grid grid-cols-2 gap-4 mt-auto">
                     <a href="login.php?gym=<?= $gym_slug ?>" class="h-16 <?= $button_shape ?> bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em]">Web Login</a>
                     <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-16 <?= $button_shape ?> bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em]">Android App</a>
@@ -217,10 +221,10 @@ $base_font_class = $size_classes[$font_size] ?? 'text-[16px]';
             </div>
             
             <div class="lg:col-span-2 flex flex-col justify-end items-end text-right">
-                <footer class="mt-32 pt-20 pb-10 border-t <?= $theme_mode == 'light' ? 'border-black/5' : 'border-white/5' ?>">
+                <footer class="mt-32 pt-20 pb-10 border-t border-border-subtle">
             <div class="max-w-7xl mx-auto px-6 text-center">
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-[0.3em] mb-4">Powered by Horizon Systems</p>
-                <p class="text-gray-400 text-[10px] font-medium max-w-md mx-auto leading-relaxed">
+                <p class="text-text-muted text-xs font-bold uppercase tracking-[0.3em] mb-4">Powered by Horizon Systems</p>
+                <p class="text-text-muted text-[10px] font-medium max-w-md mx-auto leading-relaxed">
                     <?= nl2br(htmlspecialchars($page['contact_text'] ?? '')) ?>
                 </p>
             </div>
