@@ -419,6 +419,23 @@
     }
 
     nextBtn.addEventListener('click', () => {
+        // --- NEW VALIDATION CODE START ---
+        // Validate all required fields on the current step before proceeding
+        const currentStepEl = document.querySelector(`.step-container[data-step="${currentStep}"]`);
+        const inputs = currentStepEl.querySelectorAll('input, select, textarea');
+        
+        let allValid = true;
+        for (let input of inputs) {
+            if (!input.checkValidity()) {
+                input.reportValidity(); // This forces the browser to show the required tooltip
+                allValid = false;
+                break; // Stop at the first invalid input
+            }
+        }
+
+        if (!allValid) return; // Prevent moving to next step if there's an error
+        // --- NEW VALIDATION CODE END ---
+
         // Prevent going to Step 2 if passwords don't match
         if (currentStep === 1) {
             const pass = document.getElementById('reg-password').value;
@@ -444,6 +461,25 @@
             currentStep--;
             updateUI();
         }
+    });
+
+    // Prevent Enter key from submitting the form prematurely
+    form.addEventListener('keydown', function(e) {
+        // Only target input fields to allow textareas to have line breaks
+        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            if (currentStep < totalSteps) {
+                nextBtn.click();
+            } else {
+                submitBtn.click();
+            }
+        }
+    });
+
+    // Add loading feedback when finally submitting to prevent double-clicks
+    form.addEventListener('submit', () => {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `Processing... <span class="material-symbols-outlined text-lg animate-spin">refresh</span>`;
     });
 </script>
 
