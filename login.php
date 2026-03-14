@@ -1,3 +1,103 @@
+<?php
+session_start();
+// Include the database connection file. Adjust path if necessary.
+require_once 'db.php';
+
+$error = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    if (empty($username) || empty($password)) {
+        $error = "Please enter both username and password.";
+    } else {
+        // Fetch user from the database
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Verify user exists and password is correct
+        if ($user && password_verify($password, $user['password_hash'])) {
+            
+            // 1. Check if the account is active
+            if ($user['is_active'] == 0) {
+                $error = "Your account has been deactivated. Please contact support.";
+            } 
+            // 2. Check if the email is verified via OTP
+            elseif ($user['is_verified'] == 0) {
+                // Not verified, redirect them to the verification page
+                $_SESSION['verify_user_id'] = $user['user_id'];
+                $_SESSION['verify_email'] = $user['email'];
+                header("Location: tenant/verify_email.php");
+                exit;
+            } 
+            else {
+                // 3. Fetch the user's role from the database
+                $stmtRole = $pdo->prepare("
+                    SELECT r.role_name, ur.gym_id, ur.role_status 
+                    FROM user_roles ur 
+                    JOIN roles r ON ur.role_id = r.role_id 
+                    WHERE ur.user_id = ? AND ur.role_status = 'Active' 
+                    LIMIT 1
+                ");
+                $stmtRole->execute([$user['user_id']]);
+                $roleData = $stmtRole->fetch(PDO::FETCH_ASSOC);
+
+                if ($roleData) {
+                    // Set session variables for successful login
+                    $_SESSION['user_id'] = $user['user_id'];
+                    $_SESSION['username'] = $user['username'];
+                    $_SESSION['first_name'] = $user['first_name'];
+                    $_SESSION['last_name'] = $user['last_name'];
+                    $_SESSION['role'] = $roleData['role_name'];
+                    $_SESSION['gym_id'] = $roleData['gym_id'];
+
+                    // Redirect based on user role
+                    switch (strtolower($roleData['role_name'])) {
+                        case 'superadmin':
+                            header("Location: superadmin/superadmin_dashboard.php");
+                            exit;
+                        case 'admin':
+                        case 'tenant': // Assuming gym owners get the 'admin' or 'tenant' role
+                            header("Location: admin/admin_dashboard.php");
+                            exit;
+                        case 'coach':
+                            header("Location: coach/coach_dashboard.php");
+                            exit;
+                        case 'member':
+                            header("Location: member/member_dashboard.php");
+                            exit;
+                        default:
+                            $error = "Invalid role configuration. Please contact support.";
+                            break;
+                    }
+                } else {
+                    // No active role found. Check if they are a Pending Gym Owner
+                    $stmtApp = $pdo->prepare("SELECT application_status FROM gym_owner_applications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1");
+                    $stmtApp->execute([$user['user_id']]);
+                    $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
+
+                    if ($app) {
+                        if ($app['application_status'] === 'Pending') {
+                            $error = "Your gym application is currently under review. We will notify you once approved.";
+                        } elseif ($app['application_status'] === 'Rejected') {
+                            $error = "Your gym application was rejected. Please contact our support team.";
+                        } else {
+                            $error = "Your account is approved but setup is incomplete. Contact support.";
+                        }
+                    } else {
+                        $error = "You do not have an active role in the system. Contact support.";
+                    }
+                }
+            }
+        } else {
+            $error = "Invalid username or password.";
+        }
+    }
+}
+?>
+
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>

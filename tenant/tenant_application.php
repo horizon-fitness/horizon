@@ -30,19 +30,16 @@
     <style>
         .step-hidden { display: none; }
         
-        /* Custom styling for dropdowns to keep them dark */
         select option {
             background-color: #121017;
             color: white;
             padding: 10px;
         }
 
-        /* Forces the time picker popup and clock icon to respect dark mode */
         input[type="time"] {
             color-scheme: dark;
         }
         
-        /* Smooths out the clock icon hover effect */
         input[type="time"]::-webkit-calendar-picker-indicator {
             cursor: pointer;
             opacity: 0.7;
@@ -75,10 +72,10 @@
     <div class="w-full max-w-4xl">
         <div class="mb-8">
             <h1 class="text-3xl font-black tracking-tight uppercase italic">Apply for <span class="text-primary">Partnership</span></h1>
-            <p class="text-gray-400 mt-2 text-sm">Step <span id="step-number">1</span> of 3: Fill in your details below.</p>
+            <p class="text-gray-400 mt-2 text-sm">Step <span id="step-number">1</span> of 4: Fill in your details below.</p>
             
             <div class="w-full bg-white/5 h-1.5 mt-5 rounded-full overflow-hidden">
-                <div id="progress-bar" class="bg-primary h-full transition-all duration-500" style="width: 33.33%"></div>
+                <div id="progress-bar" class="bg-primary h-full transition-all duration-500" style="width: 25%"></div>
             </div>
         </div>
 
@@ -88,15 +85,97 @@
                 <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">
                     <div class="flex items-center gap-4 mb-6">
                         <span class="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">1</span>
+                        <h3 class="text-lg font-bold uppercase italic tracking-tight">Owner Account Details</h3>
+                    </div>
+                    
+                    <p class="text-xs text-gray-400 mb-6">These credentials will be used as your primary login to the Horizon Administrator portal.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">First Name</label>
+                            <input type="text" name="first_name" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Middle Name (Optional)</label>
+                            <input type="text" name="middle_name" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Last Name</label>
+                            <input type="text" name="last_name" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Email Address</label>
+                            <input type="email" name="owner_email" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Contact Number</label>
+                            <input type="text" name="owner_contact" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5 mb-5">
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Username (For Login)</label>
+                        <input type="text" name="username" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Password</label>
+                            <div class="relative group">
+                                <input type="password" id="reg-password" name="password" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                                <button type="button" onclick="togglePasswordVisibility('reg-password', 'eye-icon-pass')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors">
+                                    <span id="eye-icon-pass" class="material-symbols-outlined text-[20px]">visibility</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Confirm Password</label>
+                            <div class="relative group">
+                                <input type="password" id="reg-confirm-password" name="confirm_password" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                                <button type="button" onclick="togglePasswordVisibility('reg-confirm-password', 'eye-icon-confirm')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors">
+                                    <span id="eye-icon-confirm" class="material-symbols-outlined text-[20px]">visibility</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <p id="password-error" class="text-xs font-semibold text-red-400 mt-3 hidden flex items-center gap-1">
+                        <span class="material-symbols-outlined text-[14px]">error</span>
+                        Passwords do not match!
+                    </p>
+
+                </div>
+            </div>
+
+            <div class="step-container step-hidden" data-step="2">
+                <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">
+                    <div class="flex items-center gap-4 mb-6">
+                        <span class="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">2</span>
                         <h3 class="text-lg font-bold uppercase italic tracking-tight">Business Profile & Location</h3>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym Name</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym / Brand Name</label>
                             <input type="text" name="gym_name" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Registered Business Name</label>
+                            <input type="text" name="business_name" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym Official Email</label>
+                            <input type="email" name="gym_email" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym Contact Number</label>
+                            <input type="text" name="gym_contact" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        </div>
+
+                        <div class="space-y-1.5 md:col-span-2">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Business Type</label>
                             <select name="business_type" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none cursor-pointer appearance-none">
                                 <option value="sole_proprietorship">Sole Proprietorship</option>
@@ -112,6 +191,7 @@
 
                     <hr class="border-white/5 my-6">
 
+                    <h4 class="text-xs font-black uppercase text-primary tracking-wider mb-4">Gym Address</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div class="md:col-span-2 space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Street Address</label>
@@ -137,17 +217,17 @@
                 </div>
             </div>
 
-            <div class="step-container step-hidden" data-step="2">
+            <div class="step-container step-hidden" data-step="3">
                 <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">
                     <div class="flex items-center gap-4 mb-6">
-                        <span class="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">2</span>
+                        <span class="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">3</span>
                         <h3 class="text-lg font-bold uppercase italic tracking-tight">Legal & Financial Verification</h3>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Valid ID Type</label>
-                            <select name="owner_valid_id_type" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none cursor-pointer appearance-none">
+                            <select name="owner_valid_id_type" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none cursor-pointer appearance-none">
                                 <option value="">Select ID Type</option>
                                 <option value="passport">Passport</option>
                                 <option value="drivers_license">Driver's License</option>
@@ -157,7 +237,7 @@
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Upload Valid ID</label>
-                            <input type="file" name="owner_valid_id_file" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
+                            <input type="file" name="owner_valid_id_file" required class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">BIR Number (TIN)</label>
@@ -165,7 +245,7 @@
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">BIR Document (0605 / COR)</label>
-                            <input type="file" name="bir_document" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
+                            <input type="file" name="bir_document" required class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Business Permit No.</label>
@@ -179,6 +259,7 @@
 
                     <hr class="border-white/5 my-6">
 
+                    <h4 class="text-xs font-black uppercase text-primary tracking-wider mb-4">Payout Information</h4>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Bank Name</label>
@@ -210,10 +291,10 @@
                 </div>
             </div>
 
-            <div class="step-container step-hidden" data-step="3">
+            <div class="step-container step-hidden" data-step="4">
                 <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">
                     <div class="flex items-center gap-4 mb-6">
-                        <span class="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">3</span>
+                        <span class="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">4</span>
                         <h3 class="text-lg font-bold uppercase italic tracking-tight">Facility Setup</h3>
                     </div>
                     
@@ -296,7 +377,20 @@
     const stepNumberLabel = document.getElementById('step-number');
     
     let currentStep = 1;
-    const totalSteps = steps.length;
+    const totalSteps = steps.length; 
+
+    // Toggles password visibility
+    function togglePasswordVisibility(inputId, iconId) {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.textContent = 'visibility_off';
+        } else {
+            input.type = 'password';
+            icon.textContent = 'visibility';
+        }
+    }
 
     function updateUI() {
         steps.forEach(step => {
@@ -307,12 +401,10 @@
             }
         });
 
-        // Update Progress Bar
         const progress = (currentStep / totalSteps) * 100;
         progressBar.style.width = `${progress}%`;
         stepNumberLabel.innerText = currentStep;
 
-        // Button Visibility
         prevBtn.classList.toggle('hidden', currentStep === 1);
         
         if (currentStep === totalSteps) {
@@ -327,6 +419,20 @@
     }
 
     nextBtn.addEventListener('click', () => {
+        // Prevent going to Step 2 if passwords don't match
+        if (currentStep === 1) {
+            const pass = document.getElementById('reg-password').value;
+            const confirmPass = document.getElementById('reg-confirm-password').value;
+            const errorText = document.getElementById('password-error');
+            
+            if (pass !== confirmPass) {
+                errorText.classList.remove('hidden');
+                return; // Stop execution, do not go to next step
+            } else {
+                errorText.classList.add('hidden');
+            }
+        }
+
         if (currentStep < totalSteps) {
             currentStep++;
             updateUI();
