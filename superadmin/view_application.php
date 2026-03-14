@@ -157,10 +157,10 @@ $page_title = "Application Details: " . $app['gym_name'];
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <?php foreach ($documents as $doc): ?>
                     <div class="group relative bg-white/5 border border-white/5 rounded-2xl overflow-hidden aspect-video">
-                        <img src="<?= htmlspecialchars($doc['file_path']) ?>" alt="<?= htmlspecialchars($doc['document_type']) ?>" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4">
+                        <img src="<?= htmlspecialchars($doc['file_path']) ?>" alt="<?= htmlspecialchars($doc['document_type']) ?>" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity viewable">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4 pointer-events-none">
                             <p class="text-[10px] font-black uppercase text-primary tracking-widest"><?= htmlspecialchars($doc['document_type']) ?></p>
-                            <a href="<?= htmlspecialchars($doc['file_path']) ?>" target="_blank" class="text-xs font-bold text-white hover:underline mt-1">View Full Image</a>
+                            <p class="text-[10px] font-bold text-white mt-1">Click to expand</p>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -200,5 +200,6 @@ $page_title = "Application Details: " . $app['gym_name'];
 
     </div>
 
+    <?php include '../includes/image_viewer.php'; ?>
 </body>
 </html>

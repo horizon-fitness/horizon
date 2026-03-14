@@ -3,13 +3,13 @@ session_start();
 require_once '../db.php';
 
 // Security Check: Only Tenants (Gym Owners)
-if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'tenant') {
+if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role'] ?? '') !== 'tenant') {
     header("Location: ../login.php");
     exit;
 }
 
 $user_id = $_SESSION['user_id'];
-$gym_id = $_SESSION['gym_id'];
+$gym_id = $_SESSION['gym_id'] ?? 0;
 
 // Check if already subscribed
 $stmtSub = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? AND subscription_status = 'Active' LIMIT 1");
@@ -24,15 +24,14 @@ if ($active_sub) {
 // --- SEED PLANS IF EMPTY ---
 $plansCheck = $pdo->query("SELECT COUNT(*) FROM website_plans")->fetchColumn();
 if ($plansCheck == 0) {
-    $now = date('Y-m-d H:i:s');
     $plans = [
         ['Basic Horizon', 1999.00, 'Monthly', 1, 'Single Location, Basic Analytics, Secure Tenant ID'],
         ['Business Prime', 4999.00, 'Monthly', 1, 'Multi-Tenant Management, Advanced Revenue Reports, Priority Uptime'],
         ['Enterprise', 15000.00, 'Yearly', 12, 'API Access, Custom Security, Dedicated Support']
     ];
-    $stmtSeed = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, features, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+    $stmtSeed = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, features) VALUES (?, ?, ?, ?, ?)");
     foreach ($plans as $p) {
-        $stmtSeed->execute([$p[0], $p[1], $p[2], $p[3], $p[4], $now]);
+        $stmtSeed->execute([$p[0], $p[1], $p[2], $p[3], $p[4]]);
     }
 }
 

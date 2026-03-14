@@ -167,7 +167,7 @@ $active_page = "dashboard";
                             }
                             ?>
                             <?php if($logo_src): ?>
-                                <img src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain">
+                                <img src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain viewable">
                             <?php else: ?>
                                 <span class="material-symbols-outlined text-gray-700">image</span>
                             <?php endif; ?>
@@ -206,6 +206,8 @@ $active_page = "dashboard";
         </div>
     </main>
 </div>
+
+<?php include '../includes/image_viewer.php'; ?>
 
 </body>
 </html>

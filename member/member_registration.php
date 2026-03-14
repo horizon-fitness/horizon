@@ -1,5 +1,5 @@
 <?php
-require_once 'db.php';
+require_once '../db.php';
 
 $gym_id = $_GET['gym'] ?? '';
 
@@ -193,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </button>
                 
                 <p class="text-center text-[10px] text-gray-600 font-bold uppercase tracking-widest pt-4">
-                    Already a member? <a href="login.php" class="text-primary hover:underline ml-1">Login here</a>
+                    Already a member? <a href="../login.php" class="text-primary hover:underline ml-1">Login here</a>
                 </p>
             </form>
         <?php endif; ?>

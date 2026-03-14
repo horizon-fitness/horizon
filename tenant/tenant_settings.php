@@ -202,7 +202,7 @@ $active_page = "settings";
                             }
                             ?>
                             <?php if($logo_src): ?>
-                                <img id="logo-preview" src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain">
+                                <img id="logo-preview" src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain viewable">
                             <?php else: ?>
                                 <span id="logo-placeholder" class="material-symbols-outlined text-3xl text-gray-800">add_photo_alternate</span>
                             <?php endif; ?>
@@ -227,6 +227,8 @@ $active_page = "settings";
         </div>
     </form>
 </div>
+
+<?php include '../includes/image_viewer.php'; ?>
 
 <script>
 function previewImage(input) {
