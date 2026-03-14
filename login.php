@@ -98,8 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             exit;
                         case 'admin':
                         case 'tenant': 
-                            // Per Transcript: Client/Owner is given a CMS page to customize logo, colors, etc.
-                            header("Location: tenant/tenant_management.php");
+                            // Directed to the tenant's primary entry-point
+                            header("Location: tenant/index.php");
                             exit;
                         case 'coach':
                             header("Location: coach/coach_dashboard.php");
