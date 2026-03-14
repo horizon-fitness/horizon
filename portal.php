@@ -16,20 +16,24 @@ $stmtPage = $pdo->prepare("SELECT tp.*, g.gym_name, g.gym_id, g.email as gym_ema
 $stmtPage->execute([$gym_slug]);
 $page = $stmtPage->fetch();
 
-if (!$page) {
-    die("Gym page not found or is currently inactive.");
-}
+if (!$page) die("Gym page not found or is currently inactive.");
 
+// Theme Configuration
 $primary_color = $page['theme_color'] ?? '#8c2bee';
+$secondary_color = $page['secondary_color'] ?? '#14121a';
+$radius = $page['border_radius'] ?? '24px';
+$font = $page['font_family'] ?? 'Lexend';
+$theme_mode = $page['theme_mode'] ?? 'dark';
+$is_preview = isset($_GET['preview']);
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title><?= htmlspecialchars($page['page_title']) ?> | Horizon Systems</title>
+    <title><?= htmlspecialchars($page['portal_tab_text'] ?? $page['page_title']) ?> | Horizon Systems</title>
     <link href="https://fonts.googleapis.com" rel="preconnect"/>
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&family=Inter:wght@400;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -39,26 +43,43 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
                 extend: { 
                     colors: { 
                         "primary": "<?= $primary_color ?>", 
-                        "background-dark": "#0a090d", 
-                        "surface-dark": "#121017"
+                        "secondary": "<?= $secondary_color ?>",
+                        "background-dark": "<?= ($theme_mode == 'dark') ? '#0a090d' : '#f8f9fa' ?>", 
+                        "surface-dark": "<?= ($theme_mode == 'dark') ? '#121017' : '#ffffff' ?>"
                     },
-                    fontFamily: { "display": ["Lexend", "sans-serif"] }
+                    fontFamily: { "display": ["<?= $font ?>", "sans-serif"] },
+                    borderRadius: { "custom": "<?= $radius ?>" }
                 }
             }
         }
     </script>
-    <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; scroll-behavior: smooth; }
-        .glass-card { background: rgba(18, 16, 23, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 32px; backdrop-filter: blur(20px); }
+    <style id="dynamicStyles">
+        :root {
+            --primary: <?= $primary_color ?>;
+            --secondary: <?= $secondary_color ?>;
+            --radius: <?= $radius ?>;
+            --font-display: '<?= $font ?>', sans-serif;
+            --bg: <?= ($theme_mode == 'dark') ? '#0a090d' : '#f8f9fa' ?>;
+            --text: <?= ($theme_mode == 'dark') ? '#ffffff' : '#0a090d' ?>;
+        }
+        body { font-family: var(--font-display); background-color: var(--bg); color: var(--text); scroll-behavior: smooth; }
+        .glass-card { background: <?= ($theme_mode == 'dark') ? 'rgba(18, 16, 23, 0.4)' : 'rgba(255,255,255,0.8)' ?>; border: 1px solid rgba(255,255,255,0.05); border-radius: var(--radius); backdrop-filter: blur(20px); }
+        .rounded-3xl, .rounded-2xl { border-radius: var(--radius) !important; }
         .btn-primary { 
-            background: linear-gradient(135deg, <?= $primary_color ?>, <?= $primary_color ?>dd); 
+            background: linear-gradient(135deg, var(--primary), var(--primary)dd); 
             color: white; 
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            box-shadow: 0 10px 40px -15px <?= $primary_color ?>66;
+            box-shadow: 0 10px 40px -15px var(--primary)66;
+            border-radius: var(--radius) !important;
         }
-        .btn-primary:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 20px 40px -10px <?= $primary_color ?>aa; }
-        .text-glow { text-shadow: 0 0 30px <?= $primary_color ?>44; }
-        .hero-gradient { background: radial-gradient(circle at center, <?= $primary_color ?>11 0%, transparent 70%); }
+        .btn-primary:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 20px 40px -10px var(--primary)aa; }
+        .text-glow { text-shadow: 0 0 30px var(--primary)44; }
+        .hero-gradient { background: radial-gradient(circle at center, var(--primary)11 0%, transparent 70%); }
+        .text-primary { color: var(--primary) !important; }
+        
+        /* Navigation Text Fix */
+        header .nav-link { color: <?= ($theme_mode == 'dark') ? '#6b7280' : '#4b5563' ?>; }
+        header .nav-link:hover { color: var(--primary); }
     </style>
 </head>
 <body class="antialiased min-h-screen flex flex-col font-display selection:bg-primary/30 selection:text-white">
@@ -99,11 +120,11 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
                 <span class="size-1.5 rounded-full bg-primary"></span>
                 <span class="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Now Open for Recruitment</span>
             </div>
-            <h2 class="text-6xl md:text-[110px] font-black italic uppercase tracking-tighter text-white mb-8 leading-[0.9] text-glow [text-wrap:balance]">
-                Build Your <span class="text-primary">Legacy</span> <br class="hidden lg:block"/> At <?= htmlspecialchars($page['gym_name']) ?>
+            <h2 id="prevHomeTitle" class="text-6xl md:text-[110px] font-black italic uppercase tracking-tighter text-white mb-8 leading-[0.9] text-glow [text-wrap:balance]">
+                <?= htmlspecialchars($page['home_title'] ?? 'Build Your') ?> <span class="text-primary">Legacy</span> <br class="hidden lg:block"/> At <?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?>
             </h2>
-            <p class="text-gray-400 text-lg md:text-2xl font-medium max-w-3xl mx-auto leading-relaxed mb-12 opacity-80 italic">
-                More than just a gym. Experience a modern multi-tenant fitness sanctuary powered by elite tech and world-class coaching.
+            <p id="prevHomeSubtitle" class="text-gray-400 text-lg md:text-2xl font-medium max-w-3xl mx-auto leading-relaxed mb-12 opacity-80 italic">
+                <?= nl2br(htmlspecialchars($page['home_subtitle'] ?? 'More than just a gym. Experience a modern multi-tenant fitness sanctuary powered by elite tech and world-class coaching.')) ?>
             </p>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-5">
                 <a href="#register" class="h-16 px-12 rounded-3xl btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em]">Start Your Journey</a>
@@ -204,5 +225,30 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
     </footer>
 
     <?php include 'includes/image_viewer.php'; ?>
+
+    <script>
+    // Live Preview Message Listener
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'updateStyles') {
+            const data = event.data.data;
+            const root = document.documentElement;
+            
+            // Update CSS Variables Instantly
+            root.style.setProperty('--primary', data.theme_color);
+            root.style.setProperty('--secondary', data.secondary_color);
+            root.style.setProperty('--radius', data.border_radius);
+            root.style.setProperty('--font-display', data.font_family + ', sans-serif');
+            
+            // Theme Mode
+            const isDark = (data.theme_mode === 'dark');
+            root.style.setProperty('--bg', isDark ? '#0a090d' : '#f8f9fa');
+            root.style.setProperty('--text', isDark ? '#ffffff' : '#0a090d');
+            
+            // Text Content
+            document.getElementById('prevHomeTitle').innerHTML = `${data.home_title} <span class="text-primary">Legacy</span> <br class="hidden lg:block"/> At ${data.page_title}`;
+            document.getElementById('prevHomeSubtitle').innerText = data.home_subtitle;
+        }
+    });
+    </script>
 </body>
 </html>

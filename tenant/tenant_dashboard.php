@@ -89,8 +89,8 @@ $active_page = "dashboard";
         <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
         </a>
-        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">palette</span> CMS Customization
+        <a href="page_customizer.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl">palette</span> Page Customizer
         </a>
         <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">group</span> Staff Management
@@ -186,7 +186,7 @@ $active_page = "dashboard";
                     </div>
                 </div>
                 <div class="flex gap-4">
-                    <a href="tenant_settings.php" class="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center text-xs font-black uppercase tracking-widest gap-2">
+                    <a href="page_customizer.php" class="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center text-xs font-black uppercase tracking-widest gap-2">
                         <span class="material-symbols-outlined text-sm">edit</span> Customize Page
                     </a>
                     <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug']) ?>" class="flex-1 h-12 rounded-xl bg-primary hover:bg-primary-hover transition-all flex items-center justify-center text-xs font-black uppercase tracking-widest gap-2">
