@@ -21,6 +21,8 @@ if (!$page) {
 }
 
 $primary_color = $page['theme_color'] ?? '#8c2bee';
+$font_family = $page['font_family'] ?? 'Lexend';
+$button_shape = $page['button_shape'] ?? 'rounded-2xl';
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -29,6 +31,9 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
     <title><?= htmlspecialchars($page['page_title']) ?> | Horizon Systems</title>
     <link href="https://fonts.googleapis.com" rel="preconnect"/>
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <?php if ($font_family !== 'Lexend'): ?>
+        <link href="https://fonts.googleapis.com/css2?family=<?= urlencode($font_family) ?>:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <?php endif; ?>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -42,13 +47,13 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
                         "background-dark": "#0a090d", 
                         "surface-dark": "#121017"
                     },
-                    fontFamily: { "display": ["Lexend", "sans-serif"] }
+                    fontFamily: { "display": ["<?= $font_family ?>", "sans-serif"] }
                 }
             }
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; scroll-behavior: smooth; }
+        body { font-family: '<?= $font_family ?>', sans-serif; background-color: #0a090d; color: white; scroll-behavior: smooth; }
         .glass-card { background: rgba(18, 16, 23, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 32px; backdrop-filter: blur(20px); }
         .btn-primary { 
             background: linear-gradient(135deg, <?= $primary_color ?>, <?= $primary_color ?>dd); 
@@ -106,8 +111,8 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
                 More than just a gym. Experience a modern multi-tenant fitness sanctuary powered by elite tech and world-class coaching.
             </p>
             <div class="flex flex-col sm:flex-row items-center justify-center gap-5">
-                <a href="#register" class="h-16 px-12 rounded-3xl btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em]">Start Your Journey</a>
-                <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-16 px-12 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-xs font-black uppercase tracking-[0.2em] group">
+                <a href="#register" class="h-16 px-12 <?= $button_shape ?> btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em]">Start Your Journey</a>
+                <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-16 px-12 <?= $button_shape ?> bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-xs font-black uppercase tracking-[0.2em] group">
                     <span class="material-symbols-outlined text-lg mr-3">smartphone</span>
                     Get the App
                 </a>
@@ -124,7 +129,7 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
                 </div>
                 <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 text-white">Join the Community</h3>
                 <p class="text-gray-500 text-sm mb-10 leading-relaxed font-medium">Become a member today to unlock exclusive access to classes, real-time tracking, and our premium mobile experience.</p>
-                <a href="member/member_registration.php?gym=<?= $page['gym_id'] ?>" class="h-16 rounded-2xl btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em] mt-auto">
+                <a href="member/member_registration.php?gym=<?= $page['gym_id'] ?>" class="h-16 <?= $button_shape ?> btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em] mt-auto">
                     Create Member Account
                 </a>
             </div>
@@ -139,8 +144,8 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
                 <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 text-white">Coach & Staff</h3>
                 <p class="text-gray-500 text-sm mb-10 leading-relaxed font-medium">Looking to join our elite roster? Access the staff portal or download the dedicated management app below.</p>
                 <div class="grid grid-cols-2 gap-4 mt-auto">
-                    <a href="login.php?gym=<?= $gym_slug ?>" class="h-16 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em]">Web Login</a>
-                    <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em]">Android App</a>
+                    <a href="login.php?gym=<?= $gym_slug ?>" class="h-16 <?= $button_shape ?> bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em]">Web Login</a>
+                    <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-16 <?= $button_shape ?> bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em]">Android App</a>
                 </div>
             </div>
         </section>

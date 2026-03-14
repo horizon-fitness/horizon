@@ -32,6 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $_POST['page_slug']));
     $page_title = $_POST['page_title'];
     $theme_color = $_POST['theme_color'];
+    $font_family = $_POST['font_family'] ?? 'Lexend';
+    $button_shape = $_POST['button_shape'] ?? 'rounded-2xl';
     $about_text = $_POST['about_text'];
     $contact_text = $_POST['contact_text'];
     $app_link = $_POST['app_download_link'];
@@ -47,11 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if ($page) {
-            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_slug = ?, page_title = ?, logo_path = ?, theme_color = ?, about_text = ?, contact_text = ?, app_download_link = ?, updated_at = ? WHERE gym_id = ?");
-            $stmtUpdate->execute([$page_slug, $page_title, $logo_path, $theme_color, $about_text, $contact_text, $app_link, $now, $gym_id]);
+            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_slug = ?, page_title = ?, logo_path = ?, theme_color = ?, font_family = ?, button_shape = ?, about_text = ?, contact_text = ?, app_download_link = ?, updated_at = ? WHERE gym_id = ?");
+            $stmtUpdate->execute([$page_slug, $page_title, $logo_path, $theme_color, $font_family, $button_shape, $about_text, $contact_text, $app_link, $now, $gym_id]);
         } else {
-            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, about_text, contact_text, app_download_link, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $about_text, $contact_text, $app_link, $now]);
+            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, font_family, button_shape, about_text, contact_text, app_download_link, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $font_family, $button_shape, $about_text, $contact_text, $app_link, $now]);
         }
         $_SESSION['success_msg'] = "Portal settings updated successfully!";
         header("Location: tenant_settings.php");
@@ -61,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$page_title = "CMS Customization";
+$page_title = "Page Customizer";
 $active_page = "settings";
 ?>
 <!DOCTYPE html>
@@ -81,9 +83,9 @@ $active_page = "settings";
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
-        .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
+        .nav-link { font-size: 11px; font-weight: 600; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; border-radius: 16px; padding: 12px 16px; }
+        .active-nav { background: rgba(140, 43, 238, 0.1); color: #8c2bee !important; border: 1px solid rgba(140, 43, 238, 0.2); }
+        .nav-link:hover:not(.active-nav) { background: rgba(255, 255, 255, 0.03); color: white; }
     </style>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
@@ -98,23 +100,27 @@ $active_page = "settings";
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
-        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
+    <div class="flex flex-col gap-2 flex-1 overflow-y-auto pr-2">
+        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav' : 'text-gray-400' ?>">
+            <span class="material-symbols-outlined text-xl">dashboard</span> 
+            <span class="tracking-tight">Dashboard Overview</span>
         </a>
-        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">palette</span> CMS Customization
+        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav' : 'text-gray-400' ?>">
+            <span class="material-symbols-outlined text-xl">temp_preferences_custom</span> 
+            <span class="tracking-tight">Page Customizer</span>
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">group</span> Staff Management
+        <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400">
+            <span class="material-symbols-outlined text-xl">badge</span> 
+            <span class="tracking-tight">Staff Roster</span>
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">person_search</span> Member Directory
+        <a href="#" class="nav-link flex items-center gap-3 text-gray-400">
+            <span class="material-symbols-outlined text-xl">person_search</span> 
+            <span class="tracking-tight">Member Directory</span>
         </a>
-        <div class="mt-auto pt-8 border-t border-white/10">
-            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-                <span class="nav-link">Sign Out</span>
+        <div class="mt-auto pt-8 border-t border-white/5">
+            <a href="../logout.php" class="nav-link flex items-center gap-3 text-gray-500 hover:text-red-400">
+                <span class="material-symbols-outlined">logout</span>
+                <span class="tracking-tight">Sign Out</span>
             </a>
         </div>
     </div>
@@ -123,8 +129,8 @@ $active_page = "settings";
 <div class="flex-1 p-10 max-w-[1200px] w-full mx-auto overflow-y-auto">
     <header class="mb-10 flex justify-between items-end">
         <div>
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">CMS <span class="text-primary">Settings</span></h2>
-            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Customize your gym's public landing portal</p>
+            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Page <span class="text-primary">Customizer</span></h2>
+            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Enhance your facility's digital identity</p>
         </div>
         <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="h-10 px-6 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
            <span class="material-symbols-outlined text-xs">visibility</span> Preview Portal
@@ -211,11 +217,33 @@ $active_page = "settings";
                         <p class="text-[9px] text-gray-600 italic">Click to upload (Transparent PNG recommended)</p>
                     </div>
 
-                    <div class="space-y-3 pt-4 border-t border-white/5">
-                        <label class="text-[9px] font-black uppercase tracking-widest text-gray-500">Theme Primary Color</label>
-                        <div class="flex items-center gap-4 bg-background-dark p-2 rounded-xl">
-                            <input type="color" name="theme_color" value="<?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
-                            <span class="text-xs font-black italic uppercase"><?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?></span>
+                    <div class="space-y-4 pt-4 border-t border-white/5">
+                        <label class="text-[9px] font-black uppercase tracking-widest text-gray-500">Theme Details</label>
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-4 bg-background-dark p-2 rounded-xl">
+                                <input type="color" name="theme_color" value="<?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                <span class="text-xs font-black italic uppercase"><?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?></span>
+                            </div>
+                            
+                            <div class="space-y-1.5 text-left">
+                                <label class="text-[9px] font-black uppercase tracking-widest text-gray-600 ml-1">Font Family</label>
+                                <select name="font_family" class="w-full h-10 bg-background-dark border border-white/5 rounded-xl px-4 text-xs focus:border-primary outline-none transition-all appearance-none">
+                                    <option value="Lexend" <?= ($page['font_family'] ?? '') == 'Lexend' ? 'selected' : '' ?>>Lexend (Default)</option>
+                                    <option value="Inter" <?= ($page['font_family'] ?? '') == 'Inter' ? 'selected' : '' ?>>Inter</option>
+                                    <option value="Outfit" <?= ($page['font_family'] ?? '') == 'Outfit' ? 'selected' : '' ?>>Outfit</option>
+                                    <option value="Roboto" <?= ($page['font_family'] ?? '') == 'Roboto' ? 'selected' : '' ?>>Roboto</option>
+                                </select>
+                            </div>
+
+                            <div class="space-y-1.5 text-left">
+                                <label class="text-[9px] font-black uppercase tracking-widest text-gray-600 ml-1">Button Style</label>
+                                <select name="button_shape" class="w-full h-10 bg-background-dark border border-white/5 rounded-xl px-4 text-xs focus:border-primary outline-none transition-all appearance-none">
+                                    <option value="rounded-none" <?= ($page['button_shape'] ?? '') == 'rounded-none' ? 'selected' : '' ?>>Sharp Edges</option>
+                                    <option value="rounded-xl" <?= ($page['button_shape'] ?? '') == 'rounded-xl' ? 'selected' : '' ?>>Rounded</option>
+                                    <option value="rounded-2xl" <?= ($page['button_shape'] ?? '') == 'rounded-2xl' ? 'selected' : '' ?>>More Rounded</option>
+                                    <option value="rounded-full" <?= ($page['button_shape'] ?? '') == 'rounded-full' ? 'selected' : '' ?>>Pill Shape</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -61,9 +61,9 @@ $active_page = "dashboard";
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
-        .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
+        .nav-link { font-size: 11px; font-weight: 600; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; border-radius: 16px; padding: 12px 16px; }
+        .active-nav { background: rgba(140, 43, 238, 0.1); color: #8c2bee !important; border: 1px solid rgba(140, 43, 238, 0.2); }
+        .nav-link:hover:not(.active-nav) { background: rgba(255, 255, 255, 0.03); color: white; }
     </style>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
@@ -82,27 +82,32 @@ $active_page = "dashboard";
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
-        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
+    <div class="flex flex-col gap-2 flex-1 overflow-y-auto pr-2">
+        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav' : 'text-gray-400' ?>">
+            <span class="material-symbols-outlined text-xl">dashboard</span> 
+            <span class="tracking-tight">Dashboard Overview</span>
         </a>
-        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">palette</span> CMS Customization
+        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav' : 'text-gray-400' ?>">
+            <span class="material-symbols-outlined text-xl">temp_preferences_custom</span> 
+            <span class="tracking-tight">Page Customizer</span>
         </a>
-        <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">group</span> Staff Management
+        <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400">
+            <span class="material-symbols-outlined text-xl">badge</span> 
+            <span class="tracking-tight">Staff Roster</span>
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">person_search</span> Member Directory
+        <a href="#" class="nav-link flex items-center gap-3 text-gray-400">
+            <span class="material-symbols-outlined text-xl">person_search</span> 
+            <span class="tracking-tight">Member Directory</span>
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">payments</span> Billing & Revenue
+        <a href="#" class="nav-link flex items-center gap-3 text-gray-400">
+            <span class="material-symbols-outlined text-xl">payments</span> 
+            <span class="tracking-tight">Billing & Revenue</span>
         </a>
         
-        <div class="mt-auto pt-8 border-t border-white/10">
-            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-                <span class="nav-link">Sign Out</span>
+        <div class="mt-auto pt-8 border-t border-white/5">
+            <a href="../logout.php" class="nav-link flex items-center gap-3 text-gray-500 hover:text-red-400">
+                <span class="material-symbols-outlined">logout</span>
+                <span class="tracking-tight">Sign Out</span>
             </a>
         </div>
     </div>
@@ -156,7 +161,7 @@ $active_page = "dashboard";
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div class="glass-card p-8">
-                <h4 class="font-black italic uppercase text-sm tracking-tighter mb-6">Digital Presence (CMS)</h4>
+                <h4 class="font-black italic uppercase text-sm tracking-tighter mb-6">Portal Configuration</h4>
                 <div class="p-6 rounded-2xl bg-background-dark border border-white/5 mb-6">
                     <div class="flex items-center gap-4 mb-4">
                         <div class="size-12 rounded-lg bg-surface-dark border border-white/10 flex items-center justify-center overflow-hidden">
