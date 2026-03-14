@@ -67,7 +67,7 @@
     </div>
     <div class="flex items-center gap-6">
         <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=100" alt="Gym" class="size-10 rounded-full object-cover border border-primary/50 shadow-lg shadow-primary/20">
-        <a href="login.php" class="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white transition-colors">Back to Login</a>
+        <a href="../login.php" class="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white transition-colors">Back to Login</a>
     </div>
 </header>
 

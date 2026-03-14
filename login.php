@@ -44,7 +44,7 @@
     </div>
     <div class="flex items-center gap-4">
         <span class="text-sm text-gray-400 hidden sm:block">New to the family?</span>
-        <a href="signup.php" class="px-6 py-2 rounded-full border border-primary/30 hover:bg-primary/10 transition-all text-sm font-bold text-primary">Register</a>
+        <a href="tenant/tenant_application.php" class="px-6 py-2 rounded-full border border-primary/30 hover:bg-primary/10 transition-all text-sm font-bold text-primary">Register Gym</a>
     </div>
 </header>
 
@@ -110,7 +110,7 @@
         <div class="text-center mt-10">
             <p class="text-xs text-gray-500 font-medium">
                 Not registered? 
-                <a class="text-primary font-black uppercase tracking-tighter hover:underline ml-1" href="signup.php">Create Account</a>
+                <a class="text-primary font-black uppercase tracking-tighter hover:underline ml-1" href="member/member_register.php">Create Account</a>
             </p>
         </div>
     </div>

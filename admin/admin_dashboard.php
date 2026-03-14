@@ -78,7 +78,7 @@
             <a href="admin_profile.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3 mb-6">
                 <span class="material-symbols-outlined text-xl">person</span> Profile
             </a>
-            <a href="logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
                 <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
                 <span class="nav-link">Sign Out</span>
             </a>
@@ -90,7 +90,7 @@
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
         <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Welcome Back, <span class="text-primary"><?= htmlspecialchars($admin_name) ?></span></h2>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Welcome Back, <span class="text-primary"><?= htmlspecialchars($admin_name ?? '') ?></span></h2>
                 <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Operational Overview for Herdoza Fitness</p>
             </div>
         </header>
@@ -99,13 +99,13 @@
             <div class="glass-card p-8 status-card-green relative overflow-hidden group">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">payments</span>
                 <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Revenue Streams</p>
-                <h3 class="text-2xl font-black italic uppercase italic">₱<?= number_format($total_revenue, 2) ?> Total</h3>
+                <h3 class="text-2xl font-black italic uppercase italic">₱<?= number_format($total_revenue ?? 0, 2) ?> Total</h3>
                 <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Financial Status: Optimal</p>
             </div>
             <div class="glass-card p-8 status-card-yellow relative overflow-hidden group">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">groups</span>
                 <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Member Engagement</p>
-                <h3 class="text-2xl font-black italic uppercase italic"><?= $total_members ?> Active Members</h3>
+                <h3 class="text-2xl font-black italic uppercase italic"><?= $total_members ?? 0 ?> Active Members</h3>
                 <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Plan: Standard Access Base</p>
             </div>
         </div>
@@ -113,15 +113,15 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
             <div class="glass-card p-6 border-l-4 border-primary shadow-xl cursor-pointer hover:bg-primary/[0.02]" onclick="location.href='admin_appointment.php'">
                 <p class="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Admin Appt.</p>
-                <h3 class="text-2xl font-black italic text-primary"><?= $pending_appts ?></h3>
+                <h3 class="text-2xl font-black italic text-primary"><?= $pending_appts ?? 0 ?></h3>
             </div>
             <div class="glass-card p-6 border-l-4 border-red-500 shadow-xl cursor-pointer hover:bg-red-500/[0.02]" onclick="location.href='admin_transaction.php'">
                 <p class="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Pending Trans.</p>
-                <h3 class="text-2xl font-black italic"><?= $pending_payments ?> <span class="text-red-500 alert-pulse text-xs">!</span></h3>
+                <h3 class="text-2xl font-black italic"><?= $pending_payments ?? 0 ?> <span class="text-red-500 alert-pulse text-xs">!</span></h3>
             </div>
             <div class="glass-card p-6 border-l-4 border-amber-500 shadow-xl cursor-pointer hover:bg-amber-500/[0.02]" onclick="location.href='admin_transaction.php'">
                 <p class="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Pending Bookings</p>
-                <h3 class="text-2xl font-black italic text-amber-500"><?= $pending_appts ?></h3>
+                <h3 class="text-2xl font-black italic text-amber-500"><?= $pending_appts ?? 0 ?></h3>
             </div>
         </div>
 
@@ -131,7 +131,7 @@
                     <span class="size-2 bg-primary rounded-full"></span> Attendance Today
                 </h3>
                 <div class="dashed-container p-8 flex flex-col items-center justify-center text-center min-h-[300px]">
-                    <?php if($live_query && mysqli_num_rows($live_query) > 0): ?>
+                    <?php if(!empty($live_query) && mysqli_num_rows($live_query) > 0): ?>
                         <div class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             <?php while($row = mysqli_fetch_assoc($live_query)): ?>
                             <div class="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5">

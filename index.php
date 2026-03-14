@@ -61,7 +61,7 @@ session_start();
                     </nav>
                     <div class="flex gap-3">
                         <a href="login.php" class="flex h-10 px-5 items-center justify-center rounded-lg border border-white/10 hover:bg-white/5 text-sm font-bold transition-all">Staff Login</a>
-                        <a href="tenant_application.php" class="flex h-10 px-5 items-center justify-center rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-bold shadow-lg shadow-primary/20 transition-all">Register Gym</a>
+                        <a href="tenant/tenant_application.php" class="flex h-10 px-5 items-center justify-center rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-bold shadow-lg shadow-primary/20 transition-all">Register Gym</a>
                     </div>
                 </div>
 
@@ -93,7 +93,7 @@ session_start();
                     </p>
                     
                     <div class="flex flex-col sm:flex-row gap-4 justify-center mt-4 px-8 sm:px-0">
-                        <a href="signup.php" class="h-14 px-10 rounded-xl bg-primary hover:bg-primary-dark text-white text-sm font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/40 transform hover:-translate-y-1 flex items-center justify-center">
+                        <a href="tenant/tenant_application.php" class="h-14 px-10 rounded-xl bg-primary hover:bg-primary-dark text-white text-sm font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/40 transform hover:-translate-y-1 flex items-center justify-center">
                             Start Your Journey
                         </a>
                     </div>
@@ -138,7 +138,7 @@ session_start();
                         <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Basic Data Analytics</li>
                         <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Secure Tenant ID</li>
                     </ul>
-                    <a href="signup.php" class="w-full py-4 rounded-xl border border-white/10 text-white font-bold uppercase text-xs tracking-widest hover:bg-white/5 text-center transition-all">Register</a>
+                    <a href="tenant/tenant_application.php" class="w-full py-4 rounded-xl border border-white/10 text-white font-bold uppercase text-xs tracking-widest hover:bg-white/5 text-center transition-all">Register Now</a>
                 </div>
 
                 <div class="p-8 rounded-3xl bg-primary/5 border border-primary/30 flex flex-col relative overflow-hidden shadow-2xl shadow-primary/10">
@@ -152,7 +152,7 @@ session_start();
                         <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Advanced Revenue Reports</li>
                         <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Priority Server Uptime</li>
                     </ul>
-                    <a href="signup.php" class="w-full py-4 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold uppercase text-xs tracking-widest text-center transition-all shadow-lg">Onboard Now</a>
+                    <a href="tenant/tenant_application.php" class="w-full py-4 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold uppercase text-xs tracking-widest text-center transition-all shadow-lg">Onboard Now</a>
                 </div>
 
                 <div class="p-8 rounded-3xl bg-surface-dark border border-white/5 flex flex-col hover:border-primary/50 transition-all relative overflow-hidden group">
