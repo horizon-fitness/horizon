@@ -29,6 +29,7 @@
         }
         .alert-pulse { animation: alert-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @keyframes alert-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        .nav-link:hover:not(.active-nav) { color: white; }
         
         .status-card-green { border: 1px solid #10b981; background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(20,18,26,1) 100%); }
         .status-card-yellow { border: 1px solid #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(20,18,26,1) 100%); }
@@ -51,8 +52,8 @@
         </div>
     </div>
     
-    <div class="flex flex-col gap-7 flex-1">
-        <a href="admin_dashboard.php" class="nav-link active-nav flex items-center gap-3">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
+        <a href="admin_dashboard.php" class="nav-link flex items-center gap-3 active-nav text-primary">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>
         <a href="admin_users.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">

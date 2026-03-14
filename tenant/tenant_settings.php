@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $_POST['page_slug']));
     $page_title = $_POST['page_title'] ?? $gym['gym_name'];
     $theme_color = $_POST['theme_color'] ?? '#8c2bee';
+    $secondary_color = $_POST['secondary_color'] ?? '#ffffff';
     $font_family = $_POST['font_family'] ?? 'Lexend';
     $button_shape = $_POST['button_shape'] ?? 'rounded-2xl';
     $theme_mode = $_POST['theme_mode'] ?? 'dark';
@@ -53,13 +54,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Ensure columns exist (Self-healing)
         $pdo->exec("ALTER TABLE tenant_pages ADD COLUMN IF NOT EXISTS theme_mode VARCHAR(20) DEFAULT 'dark'");
         $pdo->exec("ALTER TABLE tenant_pages ADD COLUMN IF NOT EXISTS font_size VARCHAR(20) DEFAULT 'base'");
+        $pdo->exec("ALTER TABLE tenant_pages ADD COLUMN IF NOT EXISTS secondary_color VARCHAR(100) DEFAULT '#ffffff'");
 
         if ($page) {
-            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_slug = ?, page_title = ?, logo_path = ?, theme_color = ?, font_family = ?, button_shape = ?, theme_mode = ?, font_size = ?, about_text = ?, contact_text = ?, app_download_link = ?, updated_at = ? WHERE gym_id = ?");
-            $stmtUpdate->execute([$page_slug, $page_title, $logo_path, $theme_color, $font_family, $button_shape, $theme_mode, $font_size, $about_text, $contact_text, $app_link, $now, $gym_id]);
+            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_slug = ?, page_title = ?, logo_path = ?, theme_color = ?, secondary_color = ?, font_family = ?, button_shape = ?, theme_mode = ?, font_size = ?, about_text = ?, contact_text = ?, app_download_link = ?, updated_at = ?, is_active = 1 WHERE gym_id = ?");
+            $stmtUpdate->execute([$page_slug, $page_title, $logo_path, $theme_color, $secondary_color, $font_family, $button_shape, $theme_mode, $font_size, $about_text, $contact_text, $app_link, $now, $gym_id]);
         } else {
-            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, font_family, button_shape, theme_mode, font_size, about_text, contact_text, app_download_link, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $font_family, $button_shape, $theme_mode, $font_size, $about_text, $contact_text, $app_link, $now]);
+            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, secondary_color, font_family, button_shape, theme_mode, font_size, about_text, contact_text, app_download_link, updated_at, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $secondary_color, $font_family, $button_shape, $theme_mode, $font_size, $about_text, $contact_text, $app_link, $now]);
         }
         $_SESSION['success_msg'] = "Portal settings updated successfully!";
         header("Location: tenant_settings.php");
@@ -70,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $primary_color = $page['theme_color'] ?? '#8c2bee';
+$secondary_color = $page['secondary_color'] ?? '#ffffff';
 $page_title = "Page Customizer";
 $active_page = "settings";
 ?>
@@ -90,9 +93,10 @@ $active_page = "settings";
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .nav-link { font-size: 11px; font-weight: 600; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; border-radius: 16px; padding: 12px 16px; }
-        .active-nav { background: rgba(140, 43, 238, 0.1); color: #8c2bee !important; border: 1px solid rgba(140, 43, 238, 0.2); }
-        .nav-link:hover:not(.active-nav) { background: rgba(255, 255, 255, 0.03); color: white; }
+        .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
+        .active-nav { color: #8c2bee !important; position: relative; }
+        .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
+        .nav-link:hover:not(.active-nav) { color: white; }
 
         .tab-btn { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; padding: 10px 20px; border-radius: 12px; transition: all 0.2s; border: 1px solid transparent; color: #64748b; }
         .tab-btn.active { background: rgba(140, 43, 238, 0.1); border-color: rgba(140, 43, 238, 0.2); color: #8c2bee; }
@@ -128,20 +132,20 @@ $active_page = "settings";
     </div>
     
     <div class="flex flex-col gap-2 flex-1 overflow-y-auto pr-2">
-        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav' : 'text-gray-400' ?>">
-            <span class="material-symbols-outlined text-xl">dashboard</span> 
+        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400' ?>">
+            <span class="material-symbols-outlined text-xl">grid_view</span> 
             <span class="tracking-tight">Dashboard Overview</span>
         </a>
-        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav' : 'text-gray-400' ?>">
-            <span class="material-symbols-outlined text-xl">temp_preferences_custom</span> 
+        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400' ?>">
+            <span class="material-symbols-outlined text-xl">tune</span> 
             <span class="tracking-tight">Page Customizer</span>
         </a>
-        <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400">
+        <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">badge</span> 
             <span class="tracking-tight">Staff Roster</span>
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400">
-            <span class="material-symbols-outlined text-xl">person_search</span> 
+        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl">group</span> 
             <span class="tracking-tight">Member Directory</span>
         </a>
         <div class="mt-auto pt-8 border-t border-white/5">
@@ -238,10 +242,18 @@ $active_page = "settings";
                         </h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
                             <div class="space-y-3">
-                                <label class="text-[9px] font-black uppercase tracking-widest text-gray-500">Theme Color</label>
+                                <label class="text-[9px] font-black uppercase tracking-widest text-gray-500">Primary Color</label>
                                 <div class="flex items-center gap-4 bg-background-dark p-3 rounded-2xl border border-white/5">
-                                    <input type="color" name="theme_color" value="<?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none" oninput="updateColorPreview(this.value)">
+                                    <input type="color" name="theme_color" value="<?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none" oninput="updateColorPreview(this.value, 'primary')">
                                     <span class="text-xs font-black italic uppercase"><?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?></span>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                <label class="text-[9px] font-black uppercase tracking-widest text-gray-500">Secondary Color</label>
+                                <div class="flex items-center gap-4 bg-background-dark p-3 rounded-2xl border border-white/5">
+                                    <input type="color" name="secondary_color" value="<?= htmlspecialchars($page['secondary_color'] ?? '#ffffff') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none" oninput="updateColorPreview(this.value, 'secondary')">
+                                    <span class="text-xs font-black italic uppercase"><?= htmlspecialchars($page['secondary_color'] ?? '#ffffff') ?></span>
                                 </div>
                             </div>
 
@@ -347,7 +359,6 @@ $active_page = "settings";
                 <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-6 text-center">Real-Time Portal Preview</p>
                 <div class="preview-toggle mb-6">
                     <button type="button" class="switch-btn active" onclick="switchPreview('login')">Login Screen</button>
-                    <button type="button" class="switch-btn" onclick="switchPreview('dashboard')">Dashboard</button>
                 </div>
 
                 <div class="mockup-container" id="mockup">
@@ -374,7 +385,7 @@ $active_page = "settings";
                                 
                                 <div class="space-y-3 pt-4">
                                     <div id="prev-btn-1" class="h-14 flex items-center justify-center text-[10px] font-black uppercase text-white shadow-lg <?= $page['button_shape'] ?? 'rounded-2xl' ?>" style="background: <?= $primary_color ?>;">Join The Community</div>
-                                    <div id="prev-btn-2" class="h-14 flex items-center justify-center text-[10px] font-black uppercase border border-white/10 <?= ($page['theme_mode'] ?? 'dark') == 'light' ? 'text-black bg-black/5' : 'text-white bg-white/5' ?> <?= $page['button_shape'] ?? 'rounded-2xl' ?>">Staff Login</div>
+                                    <div id="prev-btn-2" class="h-14 flex items-center justify-center text-[10px] font-black uppercase border border-white/10 <?= ($page['theme_mode'] ?? 'dark') == 'light' ? 'text-black bg-black/5' : 'text-white bg-white/5' ?> <?= $page['button_shape'] ?? 'rounded-2xl' ?>" style="color: <?= $secondary_color ?>; border-color: <?= $secondary_color ?>44;">Staff Login</div>
                                 </div>
                             </main>
                         </div>
@@ -427,13 +438,20 @@ function switchTab(tabId) {
     event.currentTarget.classList.add('active');
 }
 
-function updateColorPreview(val) {
+function updateColorPreview(val, type) {
     const mockup = document.getElementById('mockup-inner');
-    mockup.querySelectorAll('.text-primary').forEach(el => el.style.color = val);
-    mockup.querySelectorAll('[id^="prev-btn-1"]').forEach(el => el.style.backgroundColor = val);
-    document.getElementById('dash-btn').style.backgroundColor = val; 
-    mockup.querySelectorAll('[id^="prev-logo-wrap"]').forEach(el => el.style.backgroundColor = val);
-    mockup.querySelectorAll('.bg-primary').forEach(el => el.style.backgroundColor = val);
+    if(type === 'primary') {
+        mockup.querySelectorAll('.text-primary').forEach(el => el.style.color = val);
+        mockup.querySelectorAll('[id^="prev-btn-1"]').forEach(el => el.style.backgroundColor = val);
+        document.getElementById('dash-btn').style.backgroundColor = val; 
+        mockup.querySelectorAll('[id^="prev-logo-wrap"]').forEach(el => el.style.backgroundColor = val);
+        mockup.querySelectorAll('.bg-primary').forEach(el => el.style.backgroundColor = val);
+    } else {
+        mockup.querySelectorAll('[id^="prev-btn-2"]').forEach(el => {
+            el.style.color = val;
+            el.style.borderColor = val + '44';
+        });
+    }
     event.target.nextElementSibling.textContent = val.toUpperCase();
 }
 

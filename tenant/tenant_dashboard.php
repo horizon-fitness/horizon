@@ -61,9 +61,10 @@ $active_page = "dashboard";
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .nav-link { font-size: 11px; font-weight: 600; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; border-radius: 16px; padding: 12px 16px; }
-        .active-nav { background: rgba(140, 43, 238, 0.1); color: #8c2bee !important; border: 1px solid rgba(140, 43, 238, 0.2); }
-        .nav-link:hover:not(.active-nav) { background: rgba(255, 255, 255, 0.03); color: white; }
+        .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
+        .active-nav { color: #8c2bee !important; position: relative; }
+        .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
+        .nav-link:hover:not(.active-nav) { color: white; }
     </style>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
@@ -83,23 +84,23 @@ $active_page = "dashboard";
     </div>
     
     <div class="flex flex-col gap-2 flex-1 overflow-y-auto pr-2">
-        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav' : 'text-gray-400' ?>">
-            <span class="material-symbols-outlined text-xl">dashboard</span> 
+        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400' ?>">
+            <span class="material-symbols-outlined text-xl">grid_view</span> 
             <span class="tracking-tight">Dashboard Overview</span>
         </a>
-        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav' : 'text-gray-400' ?>">
-            <span class="material-symbols-outlined text-xl">temp_preferences_custom</span> 
+        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400' ?>">
+            <span class="material-symbols-outlined text-xl">tune</span> 
             <span class="tracking-tight">Page Customizer</span>
         </a>
-        <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400">
+        <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">badge</span> 
             <span class="tracking-tight">Staff Roster</span>
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400">
-            <span class="material-symbols-outlined text-xl">person_search</span> 
+        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl">group</span> 
             <span class="tracking-tight">Member Directory</span>
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400">
+        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">payments</span> 
             <span class="tracking-tight">Billing & Revenue</span>
         </a>

@@ -84,6 +84,7 @@ $log_result = new MockMysqliResult($mock_data);
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
+        .nav-link:hover:not(.active-nav) { color: white; }
         .alert-pulse { animation: alert-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
         @keyframes alert-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; cursor: pointer; }
@@ -105,7 +106,7 @@ $log_result = new MockMysqliResult($mock_data);
         </div>
     </div>
     
-    <div class="flex flex-col gap-7 flex-1">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
         <a href="admin_dashboard.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>
@@ -118,7 +119,7 @@ $log_result = new MockMysqliResult($mock_data);
         <a href="admin_transaction.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
             <span class="material-symbols-outlined text-xl">event_note</span> Bookings
         </a>
-        <a href="admin_attendance.php" class="nav-link active-nav flex items-center gap-3">
+        <a href="admin_attendance.php" class="nav-link active-nav text-primary flex items-center gap-3">
             <span class="material-symbols-outlined text-xl">history</span> Attendance
         </a>
         <a href="admin_appointment.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">

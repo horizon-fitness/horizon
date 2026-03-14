@@ -126,6 +126,7 @@ $result = mysqli_query($conn, $query);
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
+        .nav-link:hover:not(.active-nav) { color: white; }
         .report-tabs { display: inline-flex; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); padding: 6px; border-radius: 16px; }
         .tab-item { padding: 10px 24px; border-radius: 12px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.3s ease; color: #666; }
         .tab-item:hover { color: white; }
@@ -185,7 +186,7 @@ $result = mysqli_query($conn, $query);
         </div>
     </div>
     
-    <div class="flex flex-col gap-7 flex-1">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
         <a href="admin_dashboard.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>
@@ -204,7 +205,7 @@ $result = mysqli_query($conn, $query);
         <a href="admin_appointment.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
             <span class="material-symbols-outlined text-xl">event_available</span> Appointment
         </a>
-        <a href="admin_report.php" class="nav-link active-nav flex items-center gap-3">
+        <a href="admin_report.php" class="nav-link active-nav text-primary flex items-center gap-3">
             <span class="material-symbols-outlined text-xl">description</span> Reports
         </a>
         

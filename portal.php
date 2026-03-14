@@ -24,6 +24,7 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
 $font_family = $page['font_family'] ?? 'Lexend';
 $button_shape = $page['button_shape'] ?? 'rounded-2xl';
 $theme_mode = $page['theme_mode'] ?? 'dark';
+$secondary_color = $page['secondary_color'] ?? '#ffffff';
 $font_size = $page['font_size'] ?? 'base';
 
 // Font Size Mapping
@@ -55,6 +56,7 @@ $base_font_class = $size_classes[$font_size] ?? 'text-[16px]';
                 extend: { 
                     colors: { 
                         "primary": "<?= $primary_color ?>", 
+                        "secondary": "<?= $secondary_color ?>", 
                         "background-dark": "<?= $theme_mode == 'light' ? '#f8fafc' : '#0a090d' ?>", 
                         "surface-dark": "<?= $theme_mode == 'light' ? '#ffffff' : '#121017' ?>",
                         "text-main": "<?= $theme_mode == 'light' ? '#0f172a' : '#ffffff' ?>",
@@ -114,7 +116,7 @@ $base_font_class = $size_classes[$font_size] ?? 'text-[16px]';
                 <a href="#contact" class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-primary transition-all">Contact</a>
             </nav>
             <div class="h-6 w-px bg-white/10 mx-2"></div>
-            <a href="login.php?gym=<?= $gym_slug ?>" class="h-12 px-8 rounded-2xl border border-white/10 hover:bg-white/5 flex items-center text-[10px] font-black uppercase tracking-[0.2em] transition-all group">
+            <a href="login.php?gym=<?= $gym_slug ?>" class="h-12 px-8 rounded-2xl border border-white/10 hover:bg-white/5 flex items-center text-[10px] font-black uppercase tracking-[0.2em] transition-all group" style="color: <?= $secondary_color ?>; border-color: <?= $secondary_color ?>44;">
                 Portal Login
                 <span class="material-symbols-outlined text-sm ml-2 group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </a>
