@@ -13,6 +13,65 @@ $gym_id = $_SESSION['gym_id'];
 $user_id = $_SESSION['user_id'];
 $active_page = "staff";
 
+$success_msg = '';
+$error_msg = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_staff'])) {
+    $first_name = trim($_POST['first_name'] ?? '');
+    $last_name = trim($_POST['last_name'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $staff_role = $_POST['staff_role'] ?? 'Staff';
+    $employment_type = $_POST['employment_type'] ?? 'Full-time';
+    $now = date('Y-m-d H:i:s');
+
+    if (empty($first_name) || empty($last_name) || empty($email) || empty($username) || empty($password)) {
+        $error_msg = "All fields are required.";
+    } else {
+        try {
+            $pdo->beginTransaction();
+
+            // Check if username/email exists
+            $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? OR email = ? LIMIT 1");
+            $stmtCheck->execute([$username, $email]);
+            if ($stmtCheck->fetch()) {
+                throw new Exception("Username or Email already exists.");
+            }
+
+            // 1. Create User
+            $password_hash = password_hash($password, PASSWORD_BCRYPT);
+            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, '', 1, ?, ?)");
+            $stmtUser->execute([$username, $email, $password_hash, $first_name, $last_name, $now, $now]);
+            $new_user_id = $pdo->lastInsertId();
+
+            // 2. Assign Role
+            $role_name = ($staff_role === 'Coach') ? 'Coach' : 'Staff';
+            $stmtRoleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
+            $stmtRoleCheck->execute([$role_name]);
+            $role_id = $stmtRoleCheck->fetchColumn();
+
+            if (!$role_id) {
+                $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)")->execute([$role_name]);
+                $role_id = $pdo->lastInsertId();
+            }
+
+            $stmtUR = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', ?)");
+            $stmtUR->execute([$new_user_id, $role_id, $gym_id, $now]);
+
+            // 3. Add to Staff Table
+            $stmtStaff = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, status, hire_date, created_at, updated_at) VALUES (?, ?, ?, ?, 'Active', ?, ?, ?)");
+            $stmtStaff->execute([$new_user_id, $gym_id, $staff_role, $employment_type, date('Y-m-d'), $now, $now]);
+
+            $pdo->commit();
+            $success_msg = "Staff member $first_name added successfully!";
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error_msg = $e->getMessage();
+        }
+    }
+}
+
 // Fetch Gym Details
 $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]);
@@ -62,6 +121,8 @@ foreach($staff_members as $s) {
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
         .glass-card { background: #121017; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; transition: all 0.2s; }
+        .input-field:focus { border-color: #8c2bee; outline: none; box-shadow: 0 0 0 2px rgba(140, 43, 238, 0.2); }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { 
@@ -159,11 +220,23 @@ foreach($staff_members as $s) {
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
                 <input type="text" placeholder="Search staff..." class="bg-[#0a090d] border border-white/5 rounded-lg text-[10px] font-bold py-2 pl-9 pr-4 focus:outline-none focus:border-primary text-white w-48 transition-colors">
             </div>
-            <button onclick="location.href='add_staff.php'" class="bg-primary text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20">
+            <button onclick="openAddStaffModal()" class="bg-primary text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20">
                 <span class="material-symbols-outlined text-sm">person_add</span> Add Staff
             </button>
         </div>
     </header>
+
+    <?php if($success_msg): ?>
+        <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-bold flex items-center gap-3">
+            <span class="material-symbols-outlined">check_circle</span> <?= htmlspecialchars($success_msg) ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if($error_msg): ?>
+        <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-bold flex items-center gap-3">
+            <span class="material-symbols-outlined">error</span> <?= htmlspecialchars($error_msg) ?>
+        </div>
+    <?php endif; ?>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         <div class="glass-card p-6 border-l-4 border-primary/50 flex items-center gap-4 group hover:border-primary transition-colors cursor-pointer">
@@ -276,6 +349,122 @@ foreach($staff_members as $s) {
         </div>
     </div>
 </div>
+
+<!-- Add Staff Modal -->
+<div id="addStaffModal" class="fixed inset-y-0 left-64 right-0 z-[100] hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none">
+    <div class="fixed inset-y-0 left-64 right-0 bg-[#0a090d]/60 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto" id="modalBackdrop"></div>
+    
+    <div class="relative w-full max-w-2xl bg-[#121017]/90 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden flex flex-col max-h-[90vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto" id="modalContainer">
+        
+        <div class="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+            <span class="material-symbols-outlined text-[100px]">person_add</span>
+        </div>
+
+        <div class="overflow-y-auto no-scrollbar p-8 md:p-12 relative z-10 w-full">
+            <header class="mb-10 text-center">
+                <h1 class="text-3xl font-black italic uppercase tracking-tighter mb-2">Register <span class="text-primary">Staff</span></h1>
+                <p class="text-gray-500 text-sm font-medium">Add a new coach or manager to your facility.</p>
+            </header>
+
+            <form method="POST" class="space-y-6">
+                <input type="hidden" name="add_staff" value="1">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">First Name</label>
+                        <input type="text" name="first_name" class="input-field" placeholder="John" required>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Last Name</label>
+                        <input type="text" name="last_name" class="input-field" placeholder="Doe" required>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Email Address</label>
+                    <input type="email" name="email" class="input-field" placeholder="staff@example.com" required>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Username</label>
+                        <input type="text" name="username" class="input-field" placeholder="johndoe_coach" required>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Password</label>
+                        <input type="password" name="password" class="input-field" placeholder="••••••••" required>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Assigned Role</label>
+                        <select name="staff_role" class="input-field appearance-none">
+                            <option value="Coach">Coach / Instructor</option>
+                            <option value="Staff">General Staff / Receptionist</option>
+                            <option value="Manager">Manager</option>
+                        </select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Employment Type</label>
+                        <select name="employment_type" class="input-field appearance-none">
+                            <option value="Full-time">Full-time</option>
+                            <option value="Part-time">Part-time</option>
+                            <option value="Contract">Contract</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-4 pt-6 border-t border-white/5">
+                    <button type="submit" class="flex-1 h-14 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20">
+                        Confirm & Register
+                    </button>
+                    <button type="button" onclick="closeAddStaffModal()" class="h-14 px-8 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openAddStaffModal() {
+        const modal = document.getElementById('addStaffModal');
+        const backdrop = document.getElementById('modalBackdrop');
+        const container = document.getElementById('modalContainer');
+
+        modal.classList.replace('hidden', 'flex');
+        
+        setTimeout(() => {
+            backdrop.classList.replace('opacity-0', 'opacity-100');
+            container.classList.replace('scale-95', 'scale-100');
+            container.classList.replace('opacity-0', 'opacity-100');
+        }, 10);
+    }
+
+    function closeAddStaffModal() {
+        const modal = document.getElementById('addStaffModal');
+        const backdrop = document.getElementById('modalBackdrop');
+        const container = document.getElementById('modalContainer');
+
+        backdrop.classList.replace('opacity-100', 'opacity-0');
+        container.classList.replace('scale-100', 'scale-95');
+        container.classList.replace('opacity-100', 'opacity-0');
+
+        setTimeout(() => {
+            modal.classList.replace('flex', 'hidden');
+        }, 500);
+    }
+
+    // Close when clicking outside the modal content
+    document.getElementById('modalBackdrop').addEventListener('click', closeAddStaffModal);
+    
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => { 
+        if (e.key === 'Escape') closeAddStaffModal(); 
+    });
+</script>
 
 </body>
 </html>
