@@ -230,7 +230,23 @@ foreach ($tenants as $t) {
                 </div>
             </div>
         </div>
+        
+        <!-- Tab Navigation -->
+        <div class="flex items-center gap-8 mb-8 border-b border-white/5 px-2">
+            <button onclick="switchTab('registered')" id="tabBtn-registered" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-primary">
+                Registered Gyms
+                <div id="tabIndicator-registered" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all"></div>
+            </button>
+            <button onclick="switchTab('pending')" id="tabBtn-pending" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-gray-500 hover:text-white">
+                Pending Applications
+                <div id="tabIndicator-pending" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0"></div>
+                <?php if ($pending_count > 0): ?>
+                    <span class="absolute -top-1 -right-4 size-4 bg-amber-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-amber-500/20"><?= $pending_count ?></span>
+                <?php endif; ?>
+            </button>
+        </div>
 
+        <div id="section-pending" class="hidden">
         <?php if (!empty($pending_apps)): ?>
         <div class="glass-card overflow-hidden mb-10 border border-amber-500/10">
             <div class="px-8 py-6 border-b border-white/5 bg-amber-500/5 flex justify-between items-center">
@@ -292,12 +308,19 @@ foreach ($tenants as $t) {
                 </table>
             </div>
         </div>
-        <?php endif; ?>
-
-        <div class="glass-card overflow-hidden">
-            <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                <h4 class="font-black italic uppercase text-sm tracking-tighter">Registered Gyms</h4>
+        <?php else: ?>
+            <div class="glass-card p-12 text-center border border-white/5 bg-white/5 rounded-[32px]">
+                <span class="material-symbols-outlined text-4xl text-gray-600 mb-4 uppercase">check_circle</span>
+                <p class="text-xs font-black uppercase text-gray-500 tracking-widest">All caught up! No pending applications.</p>
             </div>
+        <?php endif; ?>
+        </div>
+
+        <div id="section-registered">
+            <div class="glass-card overflow-hidden">
+                <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
+                    <h4 class="font-black italic uppercase text-sm tracking-tighter">Registered Gyms</h4>
+                </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
@@ -408,9 +431,35 @@ foreach ($tenants as $t) {
                 </div>
             </div>
         </div>
+        </div>
 
     </main>
 </div>
+
+<script>
+    function switchTab(tabId) {
+        const sections = ['pending', 'registered'];
+        
+        sections.forEach(s => {
+            const section = document.getElementById(`section-${s}`);
+            const btn = document.getElementById(`tabBtn-${s}`);
+            const indicator = document.getElementById(`tabIndicator-${s}`);
+            
+            if (s === tabId) {
+                section.classList.remove('hidden');
+                btn.classList.replace('text-gray-500', 'text-primary');
+                btn.classList.add('text-primary');
+                indicator.classList.replace('opacity-0', 'opacity-100');
+            } else {
+                section.classList.add('hidden');
+                btn.classList.replace('text-primary', 'text-gray-500');
+                btn.classList.remove('text-primary');
+                indicator.classList.replace('opacity-100', 'opacity-0');
+            }
+        });
+    }
+</script>
+
 <!-- Application Viewer Modal -->
 <div id="applicationModal" class="fixed inset-y-0 left-64 lg:left-72 right-0 z-[100] hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none">
     <!-- Backdrop: Only blurs the right side (main content area) -->
