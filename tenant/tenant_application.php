@@ -79,7 +79,7 @@
             </div>
         </div>
 
-        <form id="multi-step-form" action="../action/submit_application.php" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <form id="multi-step-form" action="../action/submit_application.php" method="POST" enctype="multipart/form-data" class="space-y-6" autocomplete="off">
             
             <div class="step-container" data-step="1">
                 <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">
@@ -93,15 +93,15 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">First Name</label>
-                            <input type="text" name="first_name" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="first_name" required placeholder="e.g. Juan" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Middle Name (Optional)</label>
-                            <input type="text" name="middle_name" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="middle_name" placeholder="e.g. Santos" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Last Name</label>
-                            <input type="text" name="last_name" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="last_name" required placeholder="e.g. Dela Cruz" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                     </div>
 
@@ -118,18 +118,26 @@
 
                     <div class="space-y-1.5 mb-5">
                         <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Username (For Login)</label>
-                        <input type="text" name="username" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        <input type="text" name="username" required placeholder="e.g. juan_owner2026" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Password</label>
                             <div class="relative group">
-                                <input type="password" id="reg-password" name="password" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                                <input type="password" id="reg-password" name="password" required placeholder="••••••••" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                                 <button type="button" onclick="togglePasswordVisibility('reg-password', 'eye-icon-pass')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors">
                                     <span id="eye-icon-pass" class="material-symbols-outlined text-[20px]">visibility</span>
                                 </button>
                             </div>
+                            <!-- Password Strength Bar -->
+                            <div class="mt-2 flex gap-1 h-1.5 px-1">
+                                <div id="strength-bar-1" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                <div id="strength-bar-2" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                <div id="strength-bar-3" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                <div id="strength-bar-4" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                            </div>
+                            <p id="strength-text" class="text-[9px] font-bold uppercase tracking-widest text-gray-500 mt-1 ml-1">Strength: <span id="strength-label">None</span></p>
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Confirm Password</label>
@@ -160,11 +168,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym / Brand Name</label>
-                            <input type="text" name="gym_name" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="gym_name" required placeholder="e.g. Iron Forge Gym" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Registered Business Name</label>
-                            <input type="text" name="business_name" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="business_name" required placeholder="e.g. Iron Forge Fitness Inc." class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym Official Email</label>
@@ -442,6 +450,43 @@
 
     passwordInput.addEventListener('input', validatePasswords);
     confirmPasswordInput.addEventListener('input', validatePasswords);
+
+    // Password Strength Indicator Logic
+    passwordInput.addEventListener('input', function() {
+        const password = this.value;
+        const strengthLabel = document.getElementById('strength-label');
+        const bars = [
+            document.getElementById('strength-bar-1'),
+            document.getElementById('strength-bar-2'),
+            document.getElementById('strength-bar-3'),
+            document.getElementById('strength-bar-4')
+        ];
+
+        let strength = 0;
+        if (password.length >= 8) strength++;
+        if (/[A-Z]/.test(password)) strength++;
+        if (/[0-9]/.test(password)) strength++;
+        if (/[^A-Za-z0-9]/.test(password)) strength++;
+
+        // Reset bars
+        bars.forEach(bar => {
+            bar.className = 'flex-1 rounded-full bg-white/5 transition-colors';
+        });
+
+        const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
+        const labels = ['Weak', 'Fair', 'Good', 'Strong'];
+
+        if (password.length > 0) {
+            for (let i = 0; i < strength; i++) {
+                bars[i].className = 'flex-1 rounded-full ' + colors[strength - 1] + ' transition-colors';
+            }
+            strengthLabel.textContent = labels[strength - 1];
+            strengthLabel.className = colors[strength - 1].replace('bg-', 'text-');
+        } else {
+            strengthLabel.textContent = 'None';
+            strengthLabel.className = 'text-gray-500';
+        }
+    });
 
     nextBtn.addEventListener('click', () => {
         // Validate all required fields on the current step before proceeding
