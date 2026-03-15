@@ -24,8 +24,8 @@ try {
     $params = [':u1' => $username, ':u2' => $username];
     
     if (!empty($tenant_id)) {
-        // Enforce login within the specific tenant context (supports code or numeric ID)
-        $sql .= " AND (g.tenant_code = :t1 OR g.gym_id = :t2 OR r.role_name = 'Superadmin')";
+        // Allow Global Access for Management Roles, otherwise enforce tenant context
+        $sql .= " AND (g.tenant_code = :t1 OR g.gym_id = :t2 OR r.role_name IN ('Superadmin', 'Admin', 'Coach', 'Staff', 'Tenant'))";
         $params[':t1'] = $tenant_id;
         $params[':t2'] = $tenant_id;
     }

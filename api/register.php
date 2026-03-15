@@ -61,8 +61,13 @@ if ($action === 'register') {
                 $gym_id = $found_id;
                 $role_name = 'Member';
             } else {
-                echo json_encode(['success' => false, 'message' => "Invalid Registration Code. Could not identify Tenant or Role."]);
-                exit;
+                // Fallback Synergy: Default to Gym 1 (Horizon Systems) if code is unknown
+                // This ensures every registration creates a role/membership context.
+                $gym_id = 1; 
+                $role_name = 'Member';
+                $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = 1 LIMIT 1");
+                $stmtT->execute();
+                $tenant_code = $stmtT->fetchColumn() ?: '000';
             }
         }
     } else {
