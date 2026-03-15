@@ -234,17 +234,6 @@ $active_page = "dashboard";
                 </div>
             </div>
 
-            <div class="glass-card p-8 flex flex-col items-center justify-center text-center">
-                <div class="size-20 rounded-full bg-white/5 flex items-center justify-center text-gray-700 mb-6 border border-white/5 border-dashed">
-                    <span class="material-symbols-outlined text-4xl">inventory_2</span>
-                </div>
-                <h4 class="text-sm font-black italic uppercase tracking-tighter mb-2">Service Inventory</h4>
-                <p class="text-xs text-gray-500 max-w-xs mb-8">Set up your gym services and membership plans to start accepting registrations.</p>
-                <div class="flex gap-3 w-full max-w-sm">
-                   <button class="flex-1 h-12 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-[10px] font-black uppercase tracking-widest">Add Service</button>
-                   <button class="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-[10px] font-black uppercase tracking-widest">Plan Setup</button>
-                </div>
-            </div>
         </div>
 </div>
 

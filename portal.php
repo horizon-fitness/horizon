@@ -58,10 +58,16 @@ $font_family = $page['font_family'] ?? 'Lexend';
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
             box-shadow: 0 10px 40px -15px <?= $primary_color ?>66;
         }
-    </style>
         .btn-primary:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 20px 40px -10px <?= $primary_color ?>aa; }
         .text-glow { text-shadow: 0 0 30px <?= $primary_color ?>44; }
         .hero-gradient { background: radial-gradient(circle at center, <?= $primary_color ?>11 0%, transparent 70%); }
+        
+        /* APK App Mode Adjustments */
+        <?php if (isset($_GET['preview'])): ?>
+        header { display: none !important; }
+        main { padding-top: 3rem !important; }
+        .fixed { pointer-events: none; }
+        <?php endif; ?>
     </style>
 </head>
 <body class="antialiased min-h-screen flex flex-col font-display selection:bg-primary/30 selection:text-white">
@@ -92,7 +98,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
         </div>
     </header>
 
-    <main class="flex-1 flex flex-col items-center pt-40 pb-20 px-6 relative overflow-visible">
+    <main class="flex-1 flex flex-col items-center <?= isset($_GET['preview']) ? 'pt-12' : 'pt-40' ?> pb-20 px-6 relative overflow-visible">
         <!-- Premium Ambient Glows -->
         <div class="fixed top-[-20%] right-[-10%] size-[800px] bg-primary/10 rounded-full blur-[160px] -z-10 pointer-events-none"></div>
         <div class="fixed bottom-[-10%] left-[-10%] size-[600px] bg-primary/5 rounded-full blur-[140px] -z-10 pointer-events-none"></div>

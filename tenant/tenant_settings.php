@@ -97,11 +97,49 @@ $active_page = "settings";
         .input-dark { background: #0a090d; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; color: white; padding: 0.75rem 1rem; font-size: 0.75rem; width: 100%; outline: none; transition: border-color 0.2s; }
         .input-dark:focus { border-color: #8c2bee; }
         
-        .preview-container { background: #1a1824; border-radius: 40px; border: 8px solid #2a2835; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5); position: relative; }
-        .preview-web { width: 100%; height: 100%; border-radius: 32px; }
-        .preview-mobile { width: 375px; height: 667px; margin: auto; border-radius: 40px; }
-        .tab-btn { transition: all 0.3s; }
-        .tab-btn.active { background: #8c2bee; color: white; border-color: #8c2bee; }
+        /* High-Fidelity Phone Frame */
+        .phone-mockup {
+            width: 320px;
+            height: 650px;
+            background: #000;
+            border-radius: 50px;
+            border: 12px solid #2a2835;
+            position: relative;
+            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.8), 0 0 0 4px #1a1824;
+            overflow: visible;
+        }
+        .phone-mockup::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 25px;
+            background: #2a2835;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            z-index: 20;
+        }
+        .phone-mockup::after {
+            content: '';
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 99px;
+            z-index: 20;
+        }
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            border-radius: 38px;
+            overflow: hidden;
+            background: #000;
+        }
     </style>
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
@@ -140,6 +178,9 @@ $active_page = "settings";
         <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">person_search</span> Member Directory
         </a>
+        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl">payments</span> Billing & Revenue
+        </a>
     </div>
 
     <div class="mt-auto pt-8 border-t border-white/10">
@@ -150,20 +191,16 @@ $active_page = "settings";
     </div>
 </nav>
 
-<div class="flex-1 flex flex-col overflow-hidden">
-    <div class="flex-1 p-10 overflow-y-auto no-scrollbar">
+<div class="flex-1 p-10 max-w-[1400px] w-full mx-auto overflow-y-auto no-scrollbar">
         <header class="mb-10 flex justify-between items-end">
             <div>
                 <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Page <span class="text-primary">Customize</span></h2>
                 <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Industrial Brand Management</p>
             </div>
             <div class="flex gap-2">
-                <button onclick="setPreviewMode('web')" id="webBtn" class="tab-btn px-4 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 active transition-all">
-                    <span class="material-symbols-outlined text-sm">desktop_windows</span> Web View
-                </button>
-                <button onclick="setPreviewMode('mobile')" id="mobileBtn" class="tab-btn px-4 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
-                    <span class="material-symbols-outlined text-sm">smartphone</span> Mobile View
-                </button>
+                <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="px-5 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                    <span class="material-symbols-outlined text-sm">open_in_new</span> Full Web Portal
+                </a>
             </div>
         </header>
 
@@ -221,20 +258,18 @@ $active_page = "settings";
                 </button>
             </div>
 
-            <!-- Right: Preview -->
-            <div class="lg:h-[800px] flex items-center justify-center">
-                <div id="previewFrameContainer" class="preview-container preview-web">
-                    <div class="absolute top-0 left-0 right-0 h-8 bg-[#2a2835] flex items-center px-4 rounded-t-[32px] gap-1.5 z-10 transition-all duration-500" id="previewBar">
-                        <div class="size-2 rounded-full bg-red-500/50"></div>
-                        <div class="size-2 rounded-full bg-amber-500/50"></div>
-                        <div class="size-2 rounded-full bg-emerald-500/50"></div>
+            <!-- Right: High-Fidelity App Preview -->
+            <div class="flex items-center justify-center relative">
+                <div class="absolute inset-0 bg-primary/5 rounded-full blur-[100px] -z-10 animate-pulse"></div>
+                <div class="phone-mockup">
+                    <div class="phone-screen">
+                        <iframe id="previewIframe" src="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>&preview=1" class="w-full h-full border-none"></iframe>
                     </div>
-                    <iframe id="previewIframe" src="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>&preview=1" class="w-full h-full border-none rounded-[32px]"></iframe>
                 </div>
+                
             </div>
         </form>
     </div>
-</div>
 
 <script>
     function updateSidebarClock() {
@@ -261,24 +296,6 @@ $active_page = "settings";
         }
     }
 
-    function setPreviewMode(mode) {
-        const container = document.getElementById('previewFrameContainer');
-        const iframe = document.getElementById('previewIframe');
-        const bar = document.getElementById('previewBar');
-        document.getElementById('webBtn').classList.toggle('active', mode === 'web');
-        document.getElementById('mobileBtn').classList.toggle('active', mode === 'mobile');
-        
-        if (mode === 'web') {
-            container.className = 'preview-container preview-web';
-            iframe.className = 'w-full h-full border-none rounded-[32px]';
-            bar.className = 'absolute top-0 left-0 right-0 h-8 bg-[#2a2835] flex items-center px-4 rounded-t-[32px] gap-1.5 z-10';
-        } else {
-            container.className = 'preview-container preview-mobile';
-            iframe.className = 'w-full h-full border-none rounded-[40px]';
-            bar.className = 'hidden';
-        }
-    }
-
     function updatePreview(logoData = null) {
         const form = document.getElementById('customizeForm');
         const formData = new FormData(form);
@@ -296,8 +313,10 @@ $active_page = "settings";
             }
         }
 
-        document.getElementById('primary-hex').innerText = data.theme_color.toUpperCase();
-        document.getElementById('bg-hex').innerText = data.bg_color.toUpperCase();
+        const primaryHex = document.getElementById('primary-hex');
+        const bgHex = document.getElementById('bg-hex');
+        if (primaryHex) primaryHex.innerText = (data.theme_color || '#8c2bee').toUpperCase();
+        if (bgHex) bgHex.innerText = (data.bg_color || '#0a090d').toUpperCase();
         
         const iframe = document.getElementById('previewIframe');
         if (iframe && iframe.contentWindow) {
