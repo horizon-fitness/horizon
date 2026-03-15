@@ -1,6 +1,13 @@
 <?php
 session_start();
 require_once '../db.php';
+// Include PHPMailer classes
+require '../PHPMailer/Exception.php';
+require '../PHPMailer/PHPMailer.php';
+require '../PHPMailer/SMTP.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 // Security Check: Only Superadmin can access
 if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmin') {
@@ -66,7 +73,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
             $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $now]);
 
             $pdo->commit();
-            $_SESSION['success_msg'] = "Application for {$app['gym_name']} approved! Tenant portal is ready.";
+
+            // 6. Send Approval Email via PHPMailer
+            $mail = new PHPMailer(true);
+            try {
+                $mail->isSMTP();
+                $mail->Host       = 'smtp.gmail.com'; 
+                $mail->SMTPAuth   = true;
+                $mail->Username   = 'horizonfitnesscorp@gmail.com';
+                $mail->Password   = 'haog wnjy zhwe qnmn';
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port       = 587;
+
+                $mail->setFrom('no-reply@horizonsystems.com', 'Horizon Systems');
+                // The request specified to send to the gym email, not the personal one
+                $mail->addAddress($app['email'], $app['gym_name']);
+
+                $mail->isHTML(true);
+                $mail->Subject = 'Application Approved - Welcome to Horizon Systems';
+                $mail->Body    = "
+                    <h3>Congratulations, {$app['gym_name']}!</h3>
+                    <p>Your application has been <strong>Approved</strong> by the Super Admin.</p>
+                    <p>Your gym is now active in our system. You can access your tenant portal using the following details:</p>
+                    <p><strong>Tenant Code:</strong> <span style='color:#7f13ec; font-size: 1.2em;'>{$tenant_code}</span></p>
+                    <p>Login to your portal to start managing your gym.</p>
+                    <br>
+                    <p>Best Regards,<br>Horizon Systems Team</p>
+                ";
+
+                $mail->send();
+            } catch (Exception $e) {
+                error_log("Approval email could not be sent. Mailer Error: {$mail->ErrorInfo}");
+            }
+
+            $_SESSION['success_msg'] = "Application for {$app['gym_name']} approved! Tenant portal is ready and approval email sent.";
         } catch (Exception $e) {
             $pdo->rollBack();
             $_SESSION['error_msg'] = "Failed to approve: " . $e->getMessage();
