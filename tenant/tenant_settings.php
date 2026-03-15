@@ -13,7 +13,7 @@ $gym_id = $_SESSION['gym_id'];
 $user_id = $_SESSION['user_id'];
 
 // Check Subscription
-$stmtSub = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? AND subscription_status = 'Active' LIMIT 1");
+$stmtSub = $pdo->prepare("SELECT ws.plan_name FROM client_subscriptions cs JOIN website_plans ws ON cs.website_plan_id = ws.website_plan_id WHERE cs.gym_id = ? AND cs.subscription_status = 'Active' LIMIT 1");
 $stmtSub->execute([$gym_id]);
 $sub = $stmtSub->fetch();
 if (!$sub) { header("Location: subscription_plan.php"); exit; }
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $font_family = $_POST['font_family'];
     $now = date('Y-m-d H:i:s');
 
-    // Handle Logo Upload (Store as Base64 in Database)
+    // Handle Logo Upload
     $logo_path = $page['logo_path'] ?? '';
     if (isset($_FILES['logo']) && $_FILES['logo']['error'] == 0) {
         $type = pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
@@ -48,20 +48,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, theme_color = ?, bg_color = ?, font_family = ?, updated_at = ? WHERE gym_id = ?");
             $stmtUpdate->execute([$page_title, $logo_path, $theme_color, $bg_color, $font_family, $now, $gym_id]);
         } else {
-            // If page doesn't exist, create a slug based on gym name
             $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name']));
             $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, bg_color, font_family, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $bg_color, $font_family, $now]);
         }
-        $_SESSION['success_msg'] = "Portal customized successfully!";
+        $_SESSION['success_msg'] = "Portal settings saved!";
         header("Location: tenant_settings.php");
         exit;
-    } catch (Exception $e) {
-        $error = "Update failed: " . $e->getMessage();
-    }
+    } catch (Exception $e) { $error = $e->getMessage(); }
 }
 
-$page_title = "Portal Customize";
+$page_title = "Page Customize";
 $active_page = "settings";
 ?>
 <!DOCTYPE html>
@@ -80,7 +77,7 @@ $active_page = "settings";
     </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
-        .glass-sidebar { background: #0a090d; border-right: 1px solid rgba(255,255,255,0.05); }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { 
@@ -97,16 +94,19 @@ $active_page = "settings";
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* Layout Adjustments */
-        .preview-container { background: #1a1824; border-radius: 40px; border: 8px solid #2a2835; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5); }
-        .preview-mobile { width: 375px; height: 667px; margin: auto; }
-        .input-dark { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; color: white; padding: 0.75rem 1rem; font-size: 0.75rem; width: 100%; outline: none; transition: border-color 0.2s; }
+        .input-dark { background: #0a090d; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; color: white; padding: 0.75rem 1rem; font-size: 0.75rem; width: 100%; outline: none; transition: border-color 0.2s; }
         .input-dark:focus { border-color: #8c2bee; }
+        
+        .preview-container { background: #1a1824; border-radius: 40px; border: 8px solid #2a2835; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5); position: relative; }
+        .preview-web { width: 100%; height: 100%; border-radius: 32px; }
+        .preview-mobile { width: 375px; height: 667px; margin: auto; border-radius: 40px; }
+        .tab-btn { transition: all 0.3s; }
+        .tab-btn.active { background: #8c2bee; color: white; border-color: #8c2bee; }
     </style>
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
 
-<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0 overflow-x-hidden">
+<nav class="flex flex-col w-64 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
             <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
@@ -120,22 +120,29 @@ $active_page = "settings";
                 <span class="px-2 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">Active</span>
             </div>
             <p class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mb-1"><?= date('l, M d') ?></p>
+            <div class="pt-2 border-t border-white/5 mt-2">
+                <p class="text-[8px] font-black uppercase text-gray-600 tracking-widest mb-1">Current Plan</p>
+                <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
+            </div>
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2 no-scrollbar text-gray-400">
-        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 hover:text-white">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto no-scrollbar pr-2">
+        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
         </a>
         <a href="tenant_settings.php" class="nav-link flex items-center gap-3 active-nav text-primary">
             <span class="material-symbols-outlined text-xl">palette</span> Page Customize
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 hover:text-white">
+        <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">group</span> Staff Management
+        </a>
+        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl">person_search</span> Member Directory
         </a>
     </div>
 
-    <div class="mt-auto pt-8 border-t border-white/10 shrink-0">
+    <div class="mt-auto pt-8 border-t border-white/10">
         <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
             <span class="nav-link">Sign Out</span>
@@ -143,98 +150,104 @@ $active_page = "settings";
     </div>
 </nav>
 
-<div class="flex-1 flex overflow-hidden">
-    <!-- Left: Controls Panel (50%) -->
-    <div class="w-1/2 glass-sidebar overflow-y-auto p-12 no-scrollbar flex flex-col">
-        <header class="mb-10">
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter">Portal <span class="text-primary">Customize</span></h2>
-            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Industrial Brand Management</p>
+<div class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex-1 p-10 overflow-y-auto no-scrollbar">
+        <header class="mb-10 flex justify-between items-end">
+            <div>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Page <span class="text-primary">Customize</span></h2>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Industrial Brand Management</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="setPreviewMode('web')" id="webBtn" class="tab-btn px-4 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 active transition-all">
+                    <span class="material-symbols-outlined text-sm">desktop_windows</span> Web View
+                </button>
+                <button onclick="setPreviewMode('mobile')" id="mobileBtn" class="tab-btn px-4 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                    <span class="material-symbols-outlined text-sm">smartphone</span> Mobile View
+                </button>
+            </div>
         </header>
 
-        <?php if (isset($_SESSION['success_msg'])): ?>
-            <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest italic">
-                <?= $_SESSION['success_msg']; unset($_SESSION['success_msg']); ?>
-            </div>
-        <?php endif; ?>
-
-        <form id="customizeForm" method="POST" enctype="multipart/form-data" class="flex-1 space-y-8">
-            <div class="space-y-6">
-                <!-- Branding -->
-                <div class="space-y-4">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-primary border-b border-primary/20 pb-2 block">Branding Assets</label>
-                    <div class="flex items-center gap-6">
-                        <div class="relative group size-24 rounded-2xl bg-white/5 border border-dashed border-white/10 flex items-center justify-center overflow-hidden">
-                            <img id="logo-preview" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" class="size-full object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
-                            <span id="logo-placeholder" class="material-symbols-outlined text-gray-600 <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">add_photo_alternate</span>
-                            <input type="file" name="logo" class="absolute inset-0 opacity-0 cursor-pointer" onchange="previewLogo(this)">
+        <form id="customizeForm" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            <!-- Left: Controls -->
+            <div class="space-y-8">
+                <div class="glass-card p-8">
+                    <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">brush</span> Branding & Colors
+                    </h4>
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-6">
+                            <div class="size-24 rounded-2xl bg-background-dark border-2 border-dashed border-white/5 flex items-center justify-center overflow-hidden relative group">
+                                <img id="logo-preview" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" class="size-full object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
+                                <span id="logo-placeholder" class="material-symbols-outlined text-gray-700 <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">add_photo_alternate</span>
+                                <input type="file" name="logo" class="absolute inset-0 opacity-0 cursor-pointer" onchange="previewLogo(this)">
+                            </div>
+                            <div class="flex-1 space-y-4">
+                                <div class="space-y-1.5">
+                                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Portal Display Name</label>
+                                    <input type="text" name="page_title" oninput="updatePreview()" value="<?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?>" class="input-dark">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Font Family</label>
+                                    <select name="font_family" onchange="updatePreview()" class="input-dark bg-background-dark">
+                                        <option value="Lexend" <?= ($page['font_family'] ?? '') == 'Lexend' ? 'selected' : '' ?>>Lexend (Sporty)</option>
+                                        <option value="Inter" <?= ($page['font_family'] ?? '') == 'Inter' ? 'selected' : '' ?>>Inter (Modern)</option>
+                                        <option value="Outfit" <?= ($page['font_family'] ?? '') == 'Outfit' ? 'selected' : '' ?>>Outfit (Premium)</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex-1 space-y-2">
-                             <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Portal Display Name</label>
-                             <input type="text" name="page_title" value="<?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?>" class="input-dark" placeholder="Gym Name">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Visuals -->
-                <div class="space-y-4">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-primary border-b border-primary/20 pb-2 block">Visual Identity</label>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="space-y-2">
-                            <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Font Family</label>
-                            <select name="font_family" onchange="updatePreview()" class="input-dark bg-surface-dark">
-                                <option value="Lexend" <?= ($page['font_family'] ?? '') == 'Lexend' ? 'selected' : '' ?>>Lexend (Sporty)</option>
-                                <option value="Inter" <?= ($page['font_family'] ?? '') == 'Inter' ? 'selected' : '' ?>>Inter (Modern)</option>
-                                <option value="Outfit" <?= ($page['font_family'] ?? '') == 'Outfit' ? 'selected' : '' ?>>Outfit (Premium)</option>
-                            </select>
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Primary Color</label>
-                            <div class="flex items-center gap-3 bg-white/5 rounded-xl border border-white/5 p-2 px-3">
-                                <input type="color" name="theme_color" oninput="updatePreview()" value="<?= $page['theme_color'] ?? '#8c2bee' ?>" class="size-8 rounded-lg bg-transparent border-none cursor-pointer">
-                                <span id="primary-hex" class="text-[10px] font-bold uppercase text-gray-400">#8C2BEE</span>
+                        
+                        <div class="grid grid-cols-2 gap-6 pt-4 border-t border-white/5">
+                            <div class="space-y-2">
+                                <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Primary Color</label>
+                                <div class="flex items-center gap-4 bg-background-dark p-2 rounded-xl border border-white/5">
+                                    <input type="color" name="theme_color" oninput="updatePreview()" value="<?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                    <span class="text-[10px] font-black italic uppercase text-gray-400" id="primary-hex">#8c2bee</span>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Background Color</label>
+                                <div class="flex items-center gap-4 bg-background-dark p-2 rounded-xl border border-white/5">
+                                    <input type="color" name="bg_color" oninput="updatePreview()" value="<?= htmlspecialchars($page['bg_color'] ?? '#0a090d') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                    <span class="text-[10px] font-black italic uppercase text-gray-400" id="bg-hex">#0a090d</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="space-y-2">
-                        <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Background Color</label>
-                        <div class="flex items-center gap-3 bg-white/5 rounded-xl border border-white/5 p-2 px-3 w-1/2">
-                            <input type="color" name="bg_color" oninput="updatePreview()" value="<?= $page['bg_color'] ?? '#0a090d' ?>" class="size-8 rounded-lg bg-transparent border-none cursor-pointer">
-                            <span id="bg-hex" class="text-[10px] font-bold uppercase text-gray-400">#0A090D</span>
-                        </div>
+                </div>
+
+                <button type="submit" class="w-full h-16 rounded-2xl bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3">
+                    <span class="material-symbols-outlined">save</span> Save & Publish Changes
+                </button>
+            </div>
+
+            <!-- Right: Preview -->
+            <div class="lg:h-[800px] flex items-center justify-center">
+                <div id="previewFrameContainer" class="preview-container preview-web">
+                    <div class="absolute top-0 left-0 right-0 h-8 bg-[#2a2835] flex items-center px-4 rounded-t-[32px] gap-1.5 z-10 transition-all duration-500" id="previewBar">
+                        <div class="size-2 rounded-full bg-red-500/50"></div>
+                        <div class="size-2 rounded-full bg-amber-500/50"></div>
+                        <div class="size-2 rounded-full bg-emerald-500/50"></div>
                     </div>
+                    <iframe id="previewIframe" src="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>&preview=1" class="w-full h-full border-none rounded-[32px]"></iframe>
                 </div>
             </div>
-
-            <button type="submit" class="w-full h-16 rounded-2xl bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3">
-                <span class="material-symbols-outlined">auto_fix_high</span> Apply Customizations
-            </button>
         </form>
-        
-        <div class="mt-8 pt-6 border-t border-white/5">
-             <a href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" target="_blank" class="text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-primary transition-all flex items-center gap-2">
-                 <span class="material-symbols-outlined text-sm">open_in_new</span> Launch Live Portal
-             </a>
-        </div>
-    </div>
-
-    <!-- Right: Preview Area (50%) -->
-    <div class="flex-1 bg-[#121118] p-10 flex flex-col relative overflow-hidden">
-        <div class="absolute top-10 right-10 z-10">
-             <div class="px-4 py-2 rounded-full border border-primary/20 bg-primary/5 flex items-center gap-2">
-                <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
-                <span class="text-[8px] font-black uppercase tracking-[0.2em] text-primary">Live Mobile Preview</span>
-            </div>
-        </div>
-
-        <div class="flex-1 flex items-center justify-center">
-            <div id="previewFrameContainer" class="preview-container preview-mobile overflow-hidden relative">
-                <iframe id="previewIframe" src="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>&preview=1" class="w-full h-full border-none"></iframe>
-            </div>
-        </div>
     </div>
 </div>
 
 <script>
+    function updateSidebarClock() {
+        const now = new Date();
+        const clockEl = document.getElementById('sidebarClock');
+        if (clockEl) {
+            clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', minute: '2-digit', second: '2-digit' 
+            });
+        }
+    }
+    setInterval(updateSidebarClock, 1000);
+
     function previewLogo(input) {
         if (input.files && input.files[0]) {
             var reader = new FileReader();
@@ -245,6 +258,24 @@ $active_page = "settings";
                 updatePreview(e.target.result);
             }
             reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function setPreviewMode(mode) {
+        const container = document.getElementById('previewFrameContainer');
+        const iframe = document.getElementById('previewIframe');
+        const bar = document.getElementById('previewBar');
+        document.getElementById('webBtn').classList.toggle('active', mode === 'web');
+        document.getElementById('mobileBtn').classList.toggle('active', mode === 'mobile');
+        
+        if (mode === 'web') {
+            container.className = 'preview-container preview-web';
+            iframe.className = 'w-full h-full border-none rounded-[32px]';
+            bar.className = 'absolute top-0 left-0 right-0 h-8 bg-[#2a2835] flex items-center px-4 rounded-t-[32px] gap-1.5 z-10';
+        } else {
+            container.className = 'preview-container preview-mobile';
+            iframe.className = 'w-full h-full border-none rounded-[40px]';
+            bar.className = 'hidden';
         }
     }
 
@@ -265,34 +296,15 @@ $active_page = "settings";
             }
         }
 
-        // Update HEX labels
-        const primaryHex = document.getElementById('primary-hex');
-        const bgHex = document.getElementById('bg-hex');
-        if (primaryHex) primaryHex.innerText = data.theme_color.toUpperCase();
-        if (bgHex) bgHex.innerText = data.bg_color.toUpperCase();
+        document.getElementById('primary-hex').innerText = data.theme_color.toUpperCase();
+        document.getElementById('bg-hex').innerText = data.bg_color.toUpperCase();
         
-        // Send to iframe
         const iframe = document.getElementById('previewIframe');
         if (iframe && iframe.contentWindow) {
             iframe.contentWindow.postMessage({ type: 'updateStyles', data: data }, '*');
         }
     }
 
-    // Live listening
-    document.querySelectorAll('#customizeForm input, #customizeForm select').forEach(el => {
-        el.addEventListener('input', () => updatePreview());
-    });
-
-    function updateSidebarClock() {
-        const now = new Date();
-        const clockEl = document.getElementById('sidebarClock');
-        if (clockEl) {
-            clockEl.textContent = now.toLocaleTimeString('en-US', { 
-                hour: '2-digit', minute: '2-digit', second: '2-digit' 
-            });
-        }
-    }
-    setInterval(updateSidebarClock, 1000);
     window.addEventListener('DOMContentLoaded', () => {
         updateSidebarClock();
         setTimeout(updatePreview, 1000);
