@@ -477,5 +477,6 @@ foreach ($tenants as $t) {
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeApplicationModal(); });
 </script>
 
+    <?php include '../includes/image_viewer.php'; ?>
 </body>
 </html>

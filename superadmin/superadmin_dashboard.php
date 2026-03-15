@@ -318,5 +318,6 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
 
     </main>
 </div>
+    <?php include '../includes/image_viewer.php'; ?>
 </body>
 </html>
