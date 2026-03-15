@@ -156,7 +156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Redirect to OTP Verification page
         $_SESSION['verify_user_id'] = $user_id;
         $_SESSION['verify_email'] = $email;
-        header("Location: verify_email.php");
+        header("Location: ../tenant/verify_email.php");
         exit;
 
     } catch (Exception $e) {

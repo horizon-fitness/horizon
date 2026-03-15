@@ -69,7 +69,7 @@
 </header>
 
 <main class="relative z-10 flex-1 flex flex-col items-center py-10 px-4">
-    <div class="w-full max-w-4xl">
+    <div class="w-full max-w-2xl">
         <div class="mb-8">
             <h1 class="text-3xl font-black tracking-tight uppercase italic">Apply for <span class="text-primary">Partnership</span></h1>
             <p class="text-gray-400 mt-2 text-sm">Step <span id="step-number">1</span> of 4: Fill in your details below.</p>
@@ -108,11 +108,11 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Email Address</label>
-                            <input type="email" name="owner_email" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="email" name="owner_email" required placeholder="e.g. name@example.com" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Contact Number</label>
-                            <input type="text" name="owner_contact" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="owner_contact" id="owner_contact" required placeholder="09123456789" maxlength="11" pattern="09\d{9}" inputmode="numeric" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none numeric-only">
                         </div>
                     </div>
 
@@ -168,11 +168,11 @@
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym Official Email</label>
-                            <input type="email" name="gym_email" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="email" name="gym_email" required placeholder="gym@example.com" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym Contact Number</label>
-                            <input type="text" name="gym_contact" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="gym_contact" id="gym_contact" required placeholder="09123456789" maxlength="11" pattern="09\d{9}" inputmode="numeric" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none numeric-only">
                         </div>
 
                         <div class="space-y-1.5 md:col-span-2">
@@ -241,7 +241,7 @@
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">BIR Number (TIN)</label>
-                            <input type="text" name="bir_number" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="bir_number" id="bir_number" required placeholder="e.g. 123456789000" maxlength="12" pattern="\d{9,12}" inputmode="numeric" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none numeric-only">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">BIR Document (0605 / COR)</label>
@@ -249,7 +249,7 @@
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Business Permit No.</label>
-                            <input type="text" name="business_permit_no" required placeholder="Enter permit ref" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="business_permit_no" id="business_permit_no" required placeholder="e.g. B-2026-12345" maxlength="50" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Mayor's Permit (File)</label>
@@ -260,18 +260,18 @@
                     <hr class="border-white/5 my-6">
 
                     <h4 class="text-xs font-black uppercase text-primary tracking-wider mb-4">Payout Information</h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
-                        <div class="space-y-1.5">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                        <div class="space-y-1.5 md:col-span-2">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Bank Name</label>
-                            <input type="text" name="bank_name" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
+                            <input type="text" name="bank_name" placeholder="e.g. BDO, BPI, GCash" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Account Name</label>
-                            <input type="text" name="account_name" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
+                            <input type="text" name="account_name" placeholder="Juan Dela Cruz" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Account Number</label>
-                            <input type="text" name="account_number" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
+                            <input type="text" name="account_number" id="account_number" placeholder="e.g. 1234567890" maxlength="20" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none numeric-only">
                         </div>
                     </div>
 
@@ -418,8 +418,32 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // --- NEW VALIDATION CODE START ---
+    // Enforce numeric-only input for specific fields
+    const numericInputs = document.querySelectorAll('.numeric-only');
+    numericInputs.forEach(input => {
+        input.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+        });
+    });
+
+    // Real-time password match feedback
+    const passwordInput = document.getElementById('reg-password');
+    const confirmPasswordInput = document.getElementById('reg-confirm-password');
+    const errorText = document.getElementById('password-error');
+
+    const validatePasswords = () => {
+        if (confirmPasswordInput.value && passwordInput.value !== confirmPasswordInput.value) {
+            errorText.classList.remove('hidden');
+        } else {
+            errorText.classList.add('hidden');
+        }
+    };
+
+    passwordInput.addEventListener('input', validatePasswords);
+    confirmPasswordInput.addEventListener('input', validatePasswords);
+
     nextBtn.addEventListener('click', () => {
-        // --- NEW VALIDATION CODE START ---
         // Validate all required fields on the current step before proceeding
         const currentStepEl = document.querySelector(`.step-container[data-step="${currentStep}"]`);
         const inputs = currentStepEl.querySelectorAll('input, select, textarea');
@@ -434,19 +458,40 @@
         }
 
         if (!allValid) return; // Prevent moving to next step if there's an error
-        // --- NEW VALIDATION CODE END ---
 
-        // Prevent going to Step 2 if passwords don't match
+        // Additional validation for Step 1
         if (currentStep === 1) {
-            const pass = document.getElementById('reg-password').value;
-            const confirmPass = document.getElementById('reg-confirm-password').value;
-            const errorText = document.getElementById('password-error');
-            
-            if (pass !== confirmPass) {
+            if (passwordInput.value !== confirmPasswordInput.value) {
                 errorText.classList.remove('hidden');
-                return; // Stop execution, do not go to next step
-            } else {
-                errorText.classList.add('hidden');
+                confirmPasswordInput.focus();
+                return;
+            }
+            
+            const contact = document.getElementById('owner_contact').value;
+            if (contact.length !== 11 || !contact.startsWith('09')) {
+                alert('Please enter a valid Philippine mobile number (e.g., 09123456789)');
+                document.getElementById('owner_contact').focus();
+                return;
+            }
+        }
+
+        // Additional validation for Step 2
+        if (currentStep === 2) {
+            const contact = document.getElementById('gym_contact').value;
+            if (contact.length !== 11 || !contact.startsWith('09')) {
+                alert('Please enter a valid Philippine mobile number for the gym (e.g., 09123456789)');
+                document.getElementById('gym_contact').focus();
+                return;
+            }
+        }
+
+        // Additional validation for Step 3
+        if (currentStep === 3) {
+            const bir = document.getElementById('bir_number').value;
+            if (bir.length < 9 || bir.length > 12) {
+                alert('BIR TIN should be between 9 and 12 digits.');
+                document.getElementById('bir_number').focus();
+                return;
             }
         }
 
@@ -455,6 +500,7 @@
             updateUI();
         }
     });
+    // --- NEW VALIDATION CODE END ---
 
     prevBtn.addEventListener('click', () => {
         if (currentStep > 1) {
