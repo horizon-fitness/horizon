@@ -1,3 +1,4 @@
+<?php session_start(); ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
@@ -74,6 +75,13 @@
             <h1 class="text-3xl font-black tracking-tight uppercase italic">Apply for <span class="text-primary">Partnership</span></h1>
             <p class="text-gray-400 mt-2 text-sm">Step <span id="step-number">1</span> of 4: Fill in your details below.</p>
             
+            <?php if (isset($_SESSION['application_error'])): ?>
+                <div class="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-bold flex items-center gap-3">
+                    <span class="material-symbols-outlined">error</span> <?= htmlspecialchars($_SESSION['application_error']) ?>
+                </div>
+                <?php unset($_SESSION['application_error']); ?>
+            <?php endif; ?>
+
             <div class="w-full bg-white/5 h-1.5 mt-5 rounded-full overflow-hidden">
                 <div id="progress-bar" class="bg-primary h-full transition-all duration-500" style="width: 25%"></div>
             </div>

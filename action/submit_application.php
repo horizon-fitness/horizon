@@ -82,6 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $pdo->beginTransaction();
 
+        // Check if username or email already exists
+        $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? OR email = ? LIMIT 1");
+        $stmtCheck->execute([$username, $email]);
+        if ($stmtCheck->fetch()) {
+            throw new Exception("The Username or Email is already registered. Please choose another.");
+        }
+
         // 1. Insert into `users` table
         $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?)");
         $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $contact_number, $current_date, $current_date]);
@@ -160,12 +167,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
 
     } catch (Exception $e) {
-        $pdo->rollBack();
-        die("Application Failed. Error: " . $e->getMessage());
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $_SESSION['application_error'] = $e->getMessage();
+        header("Location: ../tenant/tenant_application.php");
+        exit;
     }
 
 } else {
-    header("Location: tenant_application.php");
+    header("Location: ../tenant/tenant_application.php");
     exit;
 }
 ?>
