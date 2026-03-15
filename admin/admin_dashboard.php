@@ -1,8 +1,35 @@
+<?php
+session_start();
+require_once '../db.php';
+
+// Security Check
+$role = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
+    header("Location: ../login.php");
+    exit;
+}
+
+$gym_id = $_SESSION['gym_id'];
+$user_id = $_SESSION['user_id'];
+$username = $_SESSION['username'];
+
+// Fetch Gym Details
+$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
+$stmtGym->execute([$gym_id]);
+$gym = $stmtGym->fetch();
+
+// Active CMS Page (for logo)
+$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
+$stmtPage->execute([$gym_id]);
+$page = $stmtPage->fetch();
+
+$admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
+?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Admin Dashboard | Herdoza Fitness</title>
+    <title>Staff Dashboard | Horizon Partners</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -71,10 +98,14 @@
 <nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
-            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($page['logo_path'])): ?>
+                    <img src="<?= $page['logo_path'] ?>" class="size-full object-contain">
+                <?php else: ?>
+                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                <?php endif; ?>
             </div>
-            <h1 class="text-2xl font-black italic uppercase tracking-tighter text-white">Herdoza</h1>
+            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white leading-none"><?= htmlspecialchars($gym['gym_name'] ?? 'Horizon') ?></h1>
         </div>
         <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
             <p id="sidebarClock" class="text-white font-black italic text-xl leading-none mb-1">00:00:00 AM</p>
@@ -83,8 +114,11 @@
     </div>
     
     <div class="flex flex-col gap-7 flex-1 overflow-y-auto no-scrollbar pr-2">
-        <a href="admin_dashboard.php" class="nav-link active-nav flex items-center gap-3">
+        <a href="admin_dashboard.php" class="nav-link active-nav text-primary flex items-center gap-3">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
+        </a>
+        <a href="../tenant/register_member.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
+            <span class="material-symbols-outlined text-xl">person_add</span> Walk-in Member
         </a>
         <a href="admin_users.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
             <span class="material-symbols-outlined text-xl">group</span> My Users

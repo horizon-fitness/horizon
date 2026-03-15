@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             exit;
                         case 'coach':
                         case 'staff':
-                            header("Location: coach/coach_dashboard.php");
+                            header("Location: admin/admin_dashboard.php");
                             exit;
                         case 'member':
                             header("Location: member/member_dashboard.php");

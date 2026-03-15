@@ -178,9 +178,6 @@ $active_page = "settings";
         <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
         </a>
-        <a href="register_member.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">person_add</span> Walk-in Member
-        </a>
         <a href="tenant_settings.php" class="nav-link flex items-center gap-3 active-nav text-primary">
             <span class="material-symbols-outlined text-xl">palette</span> Page Customize
         </a>
