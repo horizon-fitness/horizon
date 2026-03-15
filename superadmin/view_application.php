@@ -235,7 +235,9 @@ if ($is_ajax): ?>
                     }
                 ?>
                     <div class="flex flex-col gap-3">
-                        <div class="group relative bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden aspect-[4/3] cursor-zoom-in modal-img-preview shadow-lg hover:border-primary/50 transition-all" data-src="<?= htmlspecialchars($docPath) ?>">
+                        <div class="group relative bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden aspect-[4/3] cursor-zoom-in modal-img-preview shadow-lg hover:border-primary/50 transition-all" 
+                             data-src="<?= htmlspecialchars($docPath) ?>"
+                             data-title="<?= htmlspecialchars($doc['document_type']) ?>">
                             <div class="absolute inset-0 p-2">
                                 <div class="w-full h-full rounded-xl overflow-hidden bg-background-dark/50">
                                     <img src="<?= htmlspecialchars($docPath) ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 group-hover:opacity-100">
@@ -437,7 +439,9 @@ endif;
                     }
                 ?>
                     <div class="flex flex-col gap-4">
-                        <div class="group relative bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden aspect-[4/3] cursor-zoom-in modal-img-preview shadow-lg hover:border-primary/50 transition-all" data-src="<?= htmlspecialchars($docPath) ?>">
+                        <div class="group relative bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden aspect-[4/3] cursor-zoom-in modal-img-preview shadow-lg hover:border-primary/50 transition-all" 
+                             data-src="<?= htmlspecialchars($docPath) ?>"
+                             data-title="<?= htmlspecialchars($doc['document_type']) ?>">
                             <div class="absolute inset-0 p-2">
                                 <div class="w-full h-full rounded-xl overflow-hidden bg-background-dark/50">
                                     <img src="<?= htmlspecialchars($docPath) ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 group-hover:opacity-100">
