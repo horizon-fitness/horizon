@@ -64,9 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } 
             // 2. Check if the email is verified via OTP
             elseif ($user['is_verified'] == 0) {
+                // Fetch gym email from application if it exists, otherwise use personal email
+                $stmtApp = $pdo->prepare("SELECT email FROM gym_owner_applications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1");
+                $stmtApp->execute([$user['user_id']]);
+                $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
+                $displayEmail = ($app && !empty($app['email'])) ? $app['email'] : $user['email'];
+
                 // Not verified, redirect them to the verification page
                 $_SESSION['verify_user_id'] = $user['user_id'];
-                $_SESSION['verify_email'] = $user['email'];
+                $_SESSION['verify_email'] = $displayEmail;
                 header("Location: tenant/verify_email.php");
                 exit;
             } 

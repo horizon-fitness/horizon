@@ -136,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mail->Port       = 587;
 
             $mail->setFrom('no-reply@horizonsystems.com', 'Horizon Systems');
-            $mail->addAddress($email, $first_name . ' ' . $last_name);
+            $mail->addAddress($gym_email, $gym_name);
 
             $mail->isHTML(true);
             $mail->Subject = 'Verify your Horizon Partner Account';
@@ -155,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Redirect to OTP Verification page
         $_SESSION['verify_user_id'] = $user_id;
-        $_SESSION['verify_email'] = $email;
+        $_SESSION['verify_email'] = $gym_email;
         header("Location: ../tenant/verify_email.php");
         exit;
 

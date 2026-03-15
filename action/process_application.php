@@ -72,6 +72,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
             $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']));
             $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $now]);
 
+            // Fetch username for the approval email
+            $stmtUser = $pdo->prepare("SELECT username FROM users WHERE user_id = ?");
+            $stmtUser->execute([$app['user_id']]);
+            $userData = $stmtUser->fetch(PDO::FETCH_ASSOC);
+            $username = $userData ? $userData['username'] : 'N/A';
+
             $pdo->commit();
 
             // 6. Send Approval Email via PHPMailer
@@ -94,9 +100,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
                 $mail->Body    = "
                     <h3>Congratulations, {$app['gym_name']}!</h3>
                     <p>Your application has been <strong>Approved</strong> by the Super Admin.</p>
-                    <p>Your gym is now active in our system. You can access your tenant portal using the following details:</p>
+                    <p>Your gym is now active in our system. You can access your tenant portal using the following credentials:</p>
+                    <p><strong>Username:</strong> <span style='color:#7f13ec;'>{$username}</span></p>
                     <p><strong>Tenant Code:</strong> <span style='color:#7f13ec; font-size: 1.2em;'>{$tenant_code}</span></p>
-                    <p>Login to your portal to start managing your gym.</p>
+                    <p>Please use your registered password along with these details to login to your portal.</p>
                     <br>
                     <p>Best Regards,<br>Horizon Systems Team</p>
                 ";
