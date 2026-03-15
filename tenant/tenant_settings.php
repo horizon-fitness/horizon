@@ -204,10 +204,10 @@ $active_page = "settings";
 </nav>
 
 <div class="flex-1 p-10 max-w-[1400px] w-full mx-auto overflow-y-auto no-scrollbar">
-        <header class="mb-10 flex justify-between items-end">
+        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div>
                 <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Page <span class="text-primary">Customize</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Industrial Brand Management</p>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Operational Brand Management</p>
             </div>
             <div class="flex gap-2">
                 <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="px-5 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
@@ -244,11 +244,11 @@ $active_page = "settings";
                             </div>
                             <div class="flex-1 space-y-4">
                                 <div class="space-y-1.5">
-                                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Portal Display Name</label>
+                                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">PORTAL DISPLAY NAME</label>
                                     <input type="text" name="page_title" oninput="updatePreview()" value="<?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?>" class="input-dark">
                                 </div>
                                 <div class="space-y-1.5">
-                                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Font Family</label>
+                                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">FONT FAMILY</label>
                                     <select name="font_family" onchange="updatePreview()" class="input-dark bg-background-dark">
                                         <option value="Lexend" <?= ($page['font_family'] ?? '') == 'Lexend' ? 'selected' : '' ?>>Lexend (Sporty)</option>
                                         <option value="Inter" <?= ($page['font_family'] ?? '') == 'Inter' ? 'selected' : '' ?>>Inter (Modern)</option>

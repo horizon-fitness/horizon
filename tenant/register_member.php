@@ -105,6 +105,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Fetch Gym Details
+$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
+$stmtGym->execute([$gym_id]);
+$gym = $stmtGym->fetch();
+
 // Fetch branding for sidebar
 $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
 $stmtPage->execute([$gym_id]);
@@ -127,13 +132,13 @@ $active_page = "register_member";
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#121017"}}}
+            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
         }
     </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
-        .glass-card { background: #121017; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; outline: none; transition: border-color 0.2s; }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; outline: none; transition: all 0.2s; }
         .input-field:focus { border-color: #8c2bee; }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
@@ -151,19 +156,45 @@ $active_page = "register_member";
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    <script>
+        function updateSidebarClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('sidebarClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', minute: '2-digit', second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateSidebarClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+    </script>
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
 <nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
     <div class="mb-12">
         <div class="flex items-center gap-3 mb-6">
-            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shrink-0 overflow-hidden">
+            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
                 <?php if (!empty($page['logo_path'])): ?>
                     <img src="<?= $page['logo_path'] ?>" class="size-full object-contain">
                 <?php else: ?>
-                    <span class="material-symbols-outlined text-white text-2xl">fitness_center</span>
+                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
                 <?php endif; ?>
             </div>
-            <h1 class="text-lg font-black italic uppercase tracking-tighter text-white leading-none"><?= htmlspecialchars($page['page_title'] ?? 'Gym Portal') ?></h1>
+            <h1 class="text-lg font-black italic uppercase tracking-tighter text-white leading-none break-words line-clamp-2"><?= htmlspecialchars($gym['gym_name']) ?></h1>
+        </div>
+        <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
+            <div class="mb-2">
+                <p id="sidebarClock" class="text-white font-black italic text-base leading-none">00:00:00 AM</p>
+            </div>
+            <p class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mb-1"><?= date('l, M d') ?></p>
+            <div class="pt-2 border-t border-white/5 mt-2">
+                <p class="text-[8px] font-black uppercase text-gray-600 tracking-widest mb-1">Current Plan</p>
+                <div class="flex items-center justify-between">
+                    <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
+                    <span class="px-2 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">Active</span>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -196,12 +227,18 @@ $active_page = "register_member";
     </div>
 </nav>
 
-<div class="flex-1 p-10 max-w-[1400px] w-full mx-auto overflow-y-auto no-scrollbar flex items-center justify-center">
-    <div class="glass-card w-full max-w-2xl p-8 md:p-12 shadow-2xl relative">
-        <header class="mb-10 text-center">
-            <h1 class="text-3xl font-black italic uppercase tracking-tighter mb-2">Walk-in <span class="text-primary">Registration</span></h1>
-            <p class="text-gray-500 text-sm font-medium">Quickly add a new member to the facility.</p>
-        </header>
+<div class="flex-1 p-10 max-w-[1400px] w-full mx-auto overflow-y-auto no-scrollbar">
+    <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Walk-in <span class="text-primary">Registration</span></h2>
+            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Operational Member Onboarding</p>
+        </div>
+    </header>
+
+    <div class="glass-card p-8 md:p-12 max-w-4xl shadow-2xl relative overflow-hidden">
+        <h4 class="text-sm font-black italic uppercase tracking-tighter mb-8 flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">person_add</span> Member Information
+        </h4>
 
         <?php if($success): ?>
             <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-bold flex items-center gap-3">
@@ -218,36 +255,36 @@ $active_page = "register_member";
         <form method="POST" class="space-y-6">
             <div class="grid grid-cols-3 gap-6">
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">First Name</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">FIRST NAME</label>
                     <input type="text" name="first_name" class="input-field" placeholder="John" required>
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Middle Name</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">MIDDLE NAME</label>
                     <input type="text" name="middle_name" class="input-field" placeholder="Quincy">
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Last Name</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">LAST NAME</label>
                     <input type="text" name="last_name" class="input-field" placeholder="Doe" required>
                 </div>
             </div>
 
             <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Email Address</label>
+                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">EMAIL ADDRESS</label>
                 <input type="email" name="email" class="input-field" placeholder="member@example.com" required>
             </div>
 
             <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Home Address</label>
+                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">HOME ADDRESS</label>
                 <input type="text" name="address" class="input-field" placeholder="123 Street, Brgy, City" required>
             </div>
 
             <div class="grid grid-cols-2 gap-6">
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Birth Date</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">BIRTH DATE</label>
                     <input type="date" name="birth_date" class="input-field">
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Sex</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">SEX</label>
                     <select name="sex" class="input-field appearance-none">
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
@@ -257,22 +294,22 @@ $active_page = "register_member";
             </div>
 
             <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Occupation</label>
+                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">OCCUPATION</label>
                 <input type="text" name="occupation" class="input-field" placeholder="Software Engineer">
             </div>
 
             <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Medical History / Allergies</label>
+                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">MEDICAL HISTORY / ALLERGIES</label>
                 <textarea name="medical_history" class="input-field h-24" placeholder="Mention any medical conditions or allergies..."></textarea>
             </div>
 
             <div class="grid grid-cols-2 gap-6 pt-6 border-t border-white/5">
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Emergency Name</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">EMERGENCY NAME</label>
                     <input type="text" name="emergency_contact_name" class="input-field" placeholder="Ice Contact">
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Emergency Phone</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">EMERGENCY PHONE</label>
                     <input type="text" name="emergency_contact_number" class="input-field" placeholder="09XX XXX XXXX">
                 </div>
             </div>

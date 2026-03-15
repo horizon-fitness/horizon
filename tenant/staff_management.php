@@ -139,12 +139,12 @@ foreach($staff_members as $s) {
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#121017", "border-subtle": "rgba(255,255,255,0.05)"}}}
+            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
         }
     </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
-        .glass-card { background: #121017; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; transition: all 0.2s; }
         .input-field:focus { border-color: #8c2bee; outline: none; box-shadow: 0 0 0 2px rgba(140, 43, 238, 0.2); }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
@@ -398,51 +398,51 @@ foreach($staff_members as $s) {
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">First Name</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">FIRST NAME</label>
                         <input type="text" name="first_name" class="input-field" placeholder="John" required>
                     </div>
                     <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Middle Name</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">MIDDLE NAME</label>
                         <input type="text" name="middle_name" class="input-field" placeholder="Quincy">
                     </div>
                     <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Last Name</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">LAST NAME</label>
                         <input type="text" name="last_name" class="input-field" placeholder="Doe" required>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Email Address</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">EMAIL ADDRESS</label>
                         <input type="email" name="email" class="input-field" placeholder="staff@example.com" required>
                     </div>
                     <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Contact Number</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">CONTACT NUMBER</label>
                         <input type="text" name="contact_number" class="input-field" placeholder="09XX XXX XXXX" required>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Username</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">USERNAME</label>
                         <input type="text" name="username" class="input-field" placeholder="johndoe_coach" required>
                     </div>
                     <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Password</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">PASSWORD</label>
                         <input type="password" name="password" class="input-field" placeholder="••••••••" required>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Assigned Role</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">ASSIGNED ROLE</label>
                         <select name="staff_role" class="input-field appearance-none">
                             <option value="Coach">Coach / Instructor</option>
                             <option value="Staff">General Staff / Receptionist</option>
                         </select>
                     </div>
                     <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Employment Type</label>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">EMPLOYMENT TYPE</label>
                         <select name="employment_type" class="input-field appearance-none">
                             <option value="Full-time">Full-time</option>
                             <option value="Part-time">Part-time</option>

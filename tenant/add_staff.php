@@ -123,13 +123,13 @@ $active_page = "add_staff";
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#121017", "border-subtle": "rgba(255,255,255,0.05)"}}}
+            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
         }
     </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
-        .glass-card { background: #121017; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; transition: all 0.2s; }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; outline: none; transition: all 0.2s; }
         .input-field:focus { border-color: #8c2bee; outline: none; box-shadow: 0 0 0 2px rgba(140, 43, 238, 0.2); }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
@@ -219,16 +219,18 @@ $active_page = "add_staff";
     </div>
 </nav>
 
-<div class="flex-1 p-10 max-w-[1400px] w-full mx-auto overflow-y-auto no-scrollbar flex items-center justify-center">
-    <div class="glass-card w-full max-w-2xl p-8 md:p-12 shadow-2xl relative overflow-hidden">
+<div class="flex-1 p-10 max-w-[1400px] w-full mx-auto overflow-y-auto no-scrollbar">
+    <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Register <span class="text-primary">Staff</span></h2>
+            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Industrial Team Management</p>
+        </div>
+    </header>
+
+    <div class="glass-card p-8 md:p-12 max-w-4xl shadow-2xl relative overflow-hidden">
         <div class="absolute top-0 right-0 p-8 opacity-5">
             <span class="material-symbols-outlined text-[100px]">person_add</span>
         </div>
-
-        <header class="mb-10 text-center relative z-10">
-            <h1 class="text-3xl font-black italic uppercase tracking-tighter mb-2">Register <span class="text-primary">Staff</span></h1>
-            <p class="text-gray-500 text-sm font-medium">Add a new coach or manager to your facility.</p>
-        </header>
 
         <?php if($success): ?>
             <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-bold flex items-center gap-3">
@@ -246,51 +248,51 @@ $active_page = "add_staff";
         <form method="POST" class="space-y-6 relative z-10">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">First Name</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">FIRST NAME</label>
                     <input type="text" name="first_name" class="input-field" placeholder="John" required>
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Middle Name</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">MIDDLE NAME</label>
                     <input type="text" name="middle_name" class="input-field" placeholder="Quincy">
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Last Name</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">LAST NAME</label>
                     <input type="text" name="last_name" class="input-field" placeholder="Doe" required>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Email Address</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">EMAIL ADDRESS</label>
                     <input type="email" name="email" class="input-field" placeholder="staff@example.com" required>
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Contact Number</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">CONTACT NUMBER</label>
                     <input type="text" name="contact_number" class="input-field" placeholder="09XX XXX XXXX" required>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Username</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">USERNAME</label>
                     <input type="text" name="username" class="input-field" placeholder="johndoe_coach" required>
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Password</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">PASSWORD</label>
                     <input type="password" name="password" class="input-field" placeholder="••••••••" required>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Assigned Role</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">ASSIGNED ROLE</label>
                     <select name="staff_role" class="input-field appearance-none">
                         <option value="Coach">Coach / Instructor</option>
                         <option value="Staff">General Staff / Receptionist</option>
                     </select>
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Employment Type</label>
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">EMPLOYMENT TYPE</label>
                     <select name="employment_type" class="input-field appearance-none">
                         <option value="Full-time">Full-time</option>
                         <option value="Part-time">Part-time</option>
