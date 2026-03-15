@@ -30,9 +30,11 @@ $pending_apps_count = $stmtPending->fetchColumn();
 
 // Fetch Recent Applications
 $stmtList = $pdo->query("
-    SELECT a.*, u.first_name, u.last_name 
+    SELECT a.*, u.first_name, u.last_name, tp.logo_path
     FROM gym_owner_applications a 
     JOIN users u ON a.user_id = u.user_id 
+    LEFT JOIN gyms g ON a.application_id = g.application_id
+    LEFT JOIN tenant_pages tp ON g.gym_id = tp.gym_id
     ORDER BY 
         CASE WHEN a.application_status = 'Pending' THEN 1 ELSE 2 END,
         a.submitted_at DESC 
@@ -246,8 +248,14 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
                         <tr class="hover:bg-white/5 transition-all">
                             <td class="px-8 py-5">
                                 <div class="flex items-center gap-3">
-                                    <div class="size-8 rounded-lg bg-primary/10 flex items-center justify-center font-black text-primary text-xs">
-                                        <?= strtoupper(substr($app['gym_name'], 0, 2)) ?>
+                                    <div class="size-10 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0">
+                                        <?php if (!empty($app['logo_path']) && $app['logo_path'] !== 'pending'): 
+                                            $logo_src = (strpos($app['logo_path'], 'data:image') === 0) ? $app['logo_path'] : '../' . $app['logo_path'];
+                                        ?>
+                                            <img src="<?= $logo_src ?>" class="size-full object-contain">
+                                        <?php else: ?>
+                                            <span class="text-primary font-black text-xs"><?= strtoupper(substr($app['gym_name'], 0, 2)) ?></span>
+                                        <?php endif; ?>
                                     </div>
                                     <div>
                                         <p class="text-sm font-bold italic"><?= htmlspecialchars($app['gym_name']) ?></p>

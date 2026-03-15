@@ -327,11 +327,13 @@ foreach ($tenants as $t) {
                                 <tr class="hover:bg-white/5 transition-all">
                                     <td class="px-8 py-5">
                                         <div class="flex items-center gap-3">
-                                            <div class="size-14 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner">
-                                                <?php if (!empty($t['logo_path'])): ?>
-                                                    <img src="../<?= htmlspecialchars($t['logo_path']) ?>" class="size-full object-contain p-1.5 transition-transform hover:scale-110">
+                                            <div class="size-16 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0">
+                                                <?php if (!empty($t['logo_path'])): 
+                                                    $logo_src = (strpos($t['logo_path'], 'data:image') === 0) ? $t['logo_path'] : '../' . $t['logo_path'];
+                                                ?>
+                                                    <img src="<?= $logo_src ?>" class="size-full object-contain transition-transform hover:scale-110">
                                                 <?php else: ?>
-                                                    <span class="text-primary font-black text-xs"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
+                                                    <span class="text-primary font-black text-sm"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
                                                 <?php endif; ?>
                                             </div>
                                             <div>
