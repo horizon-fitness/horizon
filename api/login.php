@@ -3,11 +3,11 @@ header('Content-Type: application/json');
 require_once '../db.php';
 
 $input = json_decode(file_get_contents('php://input'), true);
-$username = $input['username'] ?? '';
+$username = trim($input['username'] ?? '');
 $password = $input['password'] ?? '';
 
 if (empty($username) || empty($password)) {
-    echo json_encode(['success' => false, 'message' => 'Username and password are required.']);
+    echo json_encode(['success' => false, 'message' => 'Username/Email and password are required.']);
     exit;
 }
 
