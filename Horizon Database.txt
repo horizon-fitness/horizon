@@ -162,7 +162,6 @@ CREATE TABLE tenant_pages (
     about_text TEXT,
     contact_text TEXT,
     app_download_link VARCHAR(255),
-    allow_staff_self_reg TINYINT(1) NOT NULL DEFAULT 0,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     updated_at DATETIME NOT NULL
 );

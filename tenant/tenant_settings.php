@@ -36,7 +36,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $app_download_link = $_POST['app_download_link'] ?? '';
     $about_text = $_POST['about_text'] ?? '';
     $contact_text = $_POST['contact_text'] ?? '';
-    $allow_staff_self_reg = isset($_POST['allow_staff_self_reg']) ? 1 : 0;
     $now = date('Y-m-d H:i:s');
 
     // Handle Logo Upload
@@ -49,12 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if ($page) {
-            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, theme_color = ?, bg_color = ?, font_family = ?, app_download_link = ?, about_text = ?, contact_text = ?, allow_staff_self_reg = ?, updated_at = ? WHERE gym_id = ?");
-            $stmtUpdate->execute([$page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $allow_staff_self_reg, $now, $gym_id]);
+            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, theme_color = ?, bg_color = ?, font_family = ?, app_download_link = ?, about_text = ?, contact_text = ?, updated_at = ? WHERE gym_id = ?");
+            $stmtUpdate->execute([$page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now, $gym_id]);
         } else {
             $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name']));
-            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, bg_color, font_family, app_download_link, about_text, contact_text, allow_staff_self_reg, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $allow_staff_self_reg, $now]);
+            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, bg_color, font_family, app_download_link, about_text, contact_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now]);
         }
         $_SESSION['success_msg'] = "Portal settings saved!";
         header("Location: tenant_settings.php");
@@ -214,6 +213,18 @@ $active_page = "settings";
             </div>
         </header>
 
+        <?php if ($error): ?>
+        <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-3">
+            <span class="material-symbols-outlined">report</span> <?= $error ?>
+        </div>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['success_msg'])): ?>
+        <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-3">
+            <span class="material-symbols-outlined">check_circle</span> <?= $_SESSION['success_msg']; unset($_SESSION['success_msg']); ?>
+        </div>
+        <?php endif; ?>
+
         <form id="customizeForm" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 lg:grid-cols-2 gap-10">
             <!-- Left: Controls -->
             <div class="space-y-8">
@@ -280,17 +291,19 @@ $active_page = "settings";
                             <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Contact / Location Details</label>
                             <textarea name="contact_text" oninput="updatePreview()" rows="2" class="input-dark h-20"><?= htmlspecialchars($page['contact_text'] ?? '') ?></textarea>
                         </div>
-                        <div class="space-y-1.5 pt-4 border-t border-white/5">
-                            <label class="flex items-center gap-3 cursor-pointer group">
-                                <div class="relative size-6 shrink-0">
-                                    <input type="checkbox" name="allow_staff_self_reg" value="1" <?= ($page['allow_staff_self_reg'] ?? 0) ? 'checked' : '' ?> class="peer appearance-none size-full rounded-md border border-white/10 bg-background-dark checked:bg-primary transition-all">
-                                    <span class="material-symbols-outlined absolute inset-0 text-white text-sm flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                        <div class="space-y-1.5 pt-6 border-t border-white/5">
+                            <label class="text-[9px] font-black uppercase tracking-widest text-primary ml-1">Your Unique Portal URL</label>
+                            <div class="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl p-4 group">
+                                <div class="flex-1 overflow-hidden">
+                                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Share this with your members:</p>
+                                     <p id="portal-url" class="text-xs font-black text-white italic truncate">
+                                        <?= (empty($_SERVER['HTTPS']) ? 'http' : 'https') . "://" . $_SERVER['HTTP_HOST'] . dirname(dirname($_SERVER['REQUEST_URI'])) . "/portal.php?gym=" . ($page['page_slug'] ?? '') ?>
+                                     </p>
                                 </div>
-                                <div class="flex-1">
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-white italic leading-tight">Enable Staff Self-Registration</p>
-                                    <p class="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Allow potential staff to register themselves via your portal.</p>
-                                </div>
-                            </label>
+                                <button type="button" onclick="copyPortalURL()" class="size-10 rounded-lg bg-primary/20 text-primary flex items-center justify-center hover:bg-primary transition-all hover:text-white shrink-0 shadow-lg shadow-primary/10">
+                                    <span class="material-symbols-outlined text-lg">content_copy</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -315,6 +328,13 @@ $active_page = "settings";
     </div>
 
 <script>
+    function copyPortalURL() {
+        const url = document.getElementById('portal-url').innerText.trim();
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Portal URL copied to clipboard!');
+        });
+    }
+
     function updateSidebarClock() {
         const now = new Date();
         const clockEl = document.getElementById('sidebarClock');

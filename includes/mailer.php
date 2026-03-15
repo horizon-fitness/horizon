@@ -24,10 +24,10 @@ function sendSystemEmail($to, $subject, $body) {
         // For development/demo, we will use a generic structure.
         
         $mail->isSMTP();
-        $mail->Host       = 'smtp.gmail.com'; // Adjust to actual SMTP provider
+        $mail->Host       = 'smtp.gmail.com'; 
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'horizon.systems.dev@gmail.com'; // Replace with REAL credentials if available
-        $mail->Password   = 'your_app_password';             // Replace with REAL credentials if available
+        $mail->Username   = 'horizonfitnesscorp@gmail.com'; 
+        $mail->Password   = 'haog wnjy zhwe qnmn';             
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = 587;
 
