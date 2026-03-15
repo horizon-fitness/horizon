@@ -17,7 +17,17 @@
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { content: ''; position: absolute; right: -24px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
+        .active-nav::after { 
+            content: ''; 
+            position: absolute; 
+            right: -24px; 
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px; 
+            height: 20px; 
+            background: #8c2bee; 
+            border-radius: 99px; 
+        }
         @media (max-width: 1024px) { .active-nav::after { width: 100%; height: 3px; bottom: -8px; left: 0; top: auto; right: auto; } }
         .mobile-taskbar { background: rgba(20, 18, 26, 0.9); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.05); }
         .alert-dot { animation: pulse 2s infinite; }
