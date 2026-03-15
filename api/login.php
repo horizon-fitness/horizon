@@ -5,6 +5,7 @@ require_once '../db.php';
 $input = json_decode(file_get_contents('php://input'), true);
 $username = trim($input['username'] ?? '');
 $password = $input['password'] ?? '';
+$tenant_id = trim($input['tenant_id'] ?? '');
 
 if (empty($username) || empty($password)) {
     echo json_encode(['success' => false, 'message' => 'Username/Email and password are required.']);
@@ -12,13 +13,26 @@ if (empty($username) || empty($password)) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT u.*, ur.role_id, r.role_name, ur.gym_id, g.tenant_code 
-                           FROM users u 
-                           JOIN user_roles ur ON u.user_id = ur.user_id 
-                           JOIN roles r ON ur.role_id = r.role_id 
-                           LEFT JOIN gyms g ON ur.gym_id = g.gym_id
-                           WHERE u.username = ? OR u.email = ? LIMIT 1");
-    $stmt->execute([$username, $username]);
+    // 1. Build Query with Tenant Context Synergy
+    $sql = "SELECT u.*, ur.role_id, r.role_name, ur.gym_id, g.tenant_code 
+            FROM users u 
+            JOIN user_roles ur ON u.user_id = ur.user_id 
+            JOIN roles r ON ur.role_id = r.role_id 
+            LEFT JOIN gyms g ON ur.gym_id = g.gym_id
+            WHERE (u.username = :u OR u.email = :u)";
+    
+    $params = [':u' => $username];
+    
+    if (!empty($tenant_id)) {
+        // Enforce login within the specific tenant gym context
+        $sql .= " AND (g.tenant_code = :t OR r.role_name = 'Superadmin')";
+        $params[':t'] = $tenant_id;
+    }
+    
+    $sql .= " LIMIT 1";
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $user = $stmt->fetch();
 
     if (!$user) {
