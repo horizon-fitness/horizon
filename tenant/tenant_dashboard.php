@@ -2,9 +2,9 @@
 session_start();
 require_once '../db.php';
 
-// Security Check: Only Tenants/Admins
+// Security Check: Only Tenants/Admins/Staff
 $role = strtolower($_SESSION['role'] ?? '');
-if (!isset($_SESSION['user_id']) || ($role !== 'tenant' && $role !== 'admin')) {
+if (!isset($_SESSION['user_id']) || ($role !== 'tenant' && $role !== 'admin' && $role !== 'staff' && $role !== 'coach')) {
     header("Location: ../login.php");
     exit;
 }
@@ -98,7 +98,7 @@ $active_page = "dashboard";
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
 
-<nav class="flex flex-col w-64 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
+<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
     <div class="mb-12">
         <div class="flex items-center gap-3 mb-6">
             <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
@@ -127,7 +127,10 @@ $active_page = "dashboard";
     
     <div class="flex flex-col gap-5 flex-1 overflow-y-auto no-scrollbar pr-2">
         <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
+            <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
+        </a>
+        <a href="register_member.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'register_member') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl">person_add</span> Walk-in Member
         </a>
         <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">palette</span> Page Customize
@@ -247,6 +250,39 @@ $active_page = "dashboard";
                 </div>
             </div>
 
+            <!-- Quick Actions -->
+            <div class="glass-card p-8">
+                <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">bolt</span> Quick Actions
+                </h4>
+                <div class="grid grid-cols-1 gap-4">
+                    <a href="register_member.php" class="group p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/50 transition-all flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="size-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                <span class="material-symbols-outlined">person_add</span>
+                            </div>
+                            <div>
+                                <p class="text-xs font-black uppercase italic italic">Member Walk-in</p>
+                                <p class="text-[9px] text-gray-500 uppercase font-black">Register a customer now</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-outlined text-gray-600 group-hover:translate-x-1 transition-transform">arrow_forward_ios</span>
+                    </a>
+
+                    <a href="staff_management.php" class="group p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/50 transition-all flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="size-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                                <span class="material-symbols-outlined">badge</span>
+                            </div>
+                            <div>
+                                <p class="text-xs font-black uppercase italic italic">Add Staff</p>
+                                <p class="text-[9px] text-gray-500 uppercase font-black">Manage your team</p>
+                            </div>
+                        </div>
+                        <span class="material-symbols-outlined text-gray-600 group-hover:translate-x-1 transition-transform">arrow_forward_ios</span>
+                    </a>
+                </div>
+            </div>
         </div>
 </div>
 
