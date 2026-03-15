@@ -141,7 +141,6 @@ $active_page = "settings";
         /* Customizer Specific */
         .control-group { border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 1.5rem; margin-bottom: 1.5rem; }
         .preview-container { background: #1a1824; border-radius: 40px; border: 8px solid #2a2835; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5); }
-        .preview-web { width: 100%; height: 100%; }
         .preview-mobile { width: 375px; height: 667px; margin: auto; }
         .input-dark { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; color: white; padding: 0.75rem 1rem; font-size: 0.75rem; width: 100%; outline: none; transition: border-color 0.2s; }
         .input-dark:focus { border-color: #8c2bee; }
@@ -322,13 +321,17 @@ $active_page = "settings";
     <!-- Right: Preview Area -->
     <div class="flex-1 bg-[#121118] p-10 flex flex-col relative overflow-hidden">
         <!-- Floating Device Toggles -->
-        <div class="absolute top-10 left-10 flex gap-2 z-10">
-            <button onclick="setPreviewMode('web')" id="webBtn" class="tab-btn size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500 hover:text-white transition-all active">
-                <span class="material-symbols-outlined">desktop_windows</span>
-            </button>
-            <button onclick="setPreviewMode('mobile')" id="mobileBtn" class="tab-btn size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500 hover:text-white transition-all">
-                <span class="material-symbols-outlined">smartphone</span>
-            </button>
+        <div class="absolute top-10 left-10 flex flex-col gap-4 z-10">
+            <a href="../portal.php?gym=<?= $page['page_slug'] ?? '' ?>" target="_blank" class="px-6 h-10 rounded-xl bg-primary hover:bg-primary-hover flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-sm">open_in_new</span>
+                View Portal
+            </a>
+            
+            <div class="flex gap-2">
+                <button type="button" class="tab-btn size-10 rounded-xl bg-primary border border-white/10 flex items-center justify-center text-white transition-all active cursor-default">
+                    <span class="material-symbols-outlined">smartphone</span>
+                </button>
+            </div>
         </div>
 
         <div class="absolute top-10 right-10 z-10">
@@ -339,7 +342,7 @@ $active_page = "settings";
         </div>
 
         <div class="flex-1 flex items-center justify-center">
-            <div id="previewFrameContainer" class="preview-container preview-web overflow-hidden relative">
+            <div id="previewFrameContainer" class="preview-container preview-mobile overflow-hidden relative">
                 <iframe id="previewIframe" src="../portal.php?gym=<?= $page['page_slug'] ?? '' ?>&preview=1" class="w-full h-full border-none"></iframe>
             </div>
         </div>
@@ -354,15 +357,8 @@ $active_page = "settings";
     }
 
     function setPreviewMode(mode) {
-        const container = document.getElementById('previewFrameContainer');
-        document.getElementById('webBtn').classList.toggle('active', mode === 'web');
-        document.getElementById('mobileBtn').classList.toggle('active', mode === 'mobile');
-        
-        if (mode === 'web') {
-            container.className = 'preview-container preview-web overflow-hidden relative';
-        } else {
-            container.className = 'preview-container preview-mobile overflow-hidden relative';
-        }
+        // Redundant with only mobile view, but kept for potential future expansion
+        // or just removed to keep it simple.
     }
 
     function setRadius(val, btn) {
