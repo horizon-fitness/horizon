@@ -31,7 +31,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
     <title><?= htmlspecialchars($page['page_title']) ?> | Horizon Systems</title>
     <link href="https://fonts.googleapis.com" rel="preconnect"/>
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -41,171 +41,217 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 extend: { 
                     colors: { 
                         "primary": "<?= $primary_color ?>", 
-                        "background-dark": "<?= $bg_color ?>", 
-                        "surface-dark": "<?= $bg_color ?>" // Simplified to use same as BG for flat premium look
+                        "background-dark": "<?= $bg_color ?>",
+                        "surface-dark": "rgba(255, 255, 255, 0.02)",
+                        "border-light": "rgba(255, 255, 255, 0.08)"
                     },
-                    fontFamily: { "display": ["<?= $font_family ?>", "sans-serif"] }
+                    fontFamily: { 
+                        "display": ["Outfit", "sans-serif"],
+                        "body": ["Plus Jakarta Sans", "sans-serif"]
+                    }
                 }
             }
         }
     </script>
     <style id="dynamic-styles">
-        body { font-family: '<?= $font_family ?>', sans-serif; background-color: <?= $bg_color ?>; color: white; scroll-behavior: smooth; }
-        .glass-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 32px; backdrop-filter: blur(20px); }
-        .btn-primary { 
-            background: linear-gradient(135deg, <?= $primary_color ?>, <?= $primary_color ?>dd); 
-            color: white; 
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-            box-shadow: 0 10px 40px -15px <?= $primary_color ?>66;
+        :root {
+            --pg-bg: <?= $bg_color ?>;
+            --pg-primary: <?= $primary_color ?>;
         }
-        .btn-primary:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 20px 40px -10px <?= $primary_color ?>aa; }
-        .text-glow { text-shadow: 0 0 30px <?= $primary_color ?>44; }
-        .hero-gradient { background: radial-gradient(circle at center, <?= $primary_color ?>11 0%, transparent 70%); }
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: var(--pg-bg); 
+            color: #e2e8f0; 
+            scroll-behavior: smooth; 
+        }
+        .font-display { font-family: 'Outfit', sans-serif; }
+        
+        .glass-card { 
+            background: rgba(255, 255, 255, 0.03); 
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            border-radius: 24px; 
+            backdrop-filter: blur(16px); 
+            transition: all 0.3s ease;
+        }
+        .btn-premium {
+            background: linear-gradient(135deg, var(--pg-primary), rgba(var(--pg-primary-rgb), 0.8));
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .btn-premium::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(rgba(255,255,255,0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .btn-premium:hover::after { opacity: 1; }
+        .btn-premium:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px var(--pg-primary); }
+        
+        .text-gradient {
+            background: linear-gradient(to right, #fff, #a1a1aa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
         
         /* APK App Mode Adjustments */
         <?php if (isset($_GET['preview'])): ?>
         header { display: none !important; }
-        main { padding-top: 3rem !important; }
-        .fixed { pointer-events: none; }
+        main { padding-top: 2rem !important; }
         <?php endif; ?>
     </style>
 </head>
 <body class="antialiased min-h-screen flex flex-col font-display selection:bg-primary/30 selection:text-white">
 
-    <header class="w-full px-8 md:px-12 py-8 flex justify-between items-center bg-background-dark/40 backdrop-blur-2xl fixed top-0 z-50 border-b border-white/5 transition-all duration-500 overflow-hidden">
-        <div class="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent opacity-50"></div>
-        <div class="relative flex items-center gap-5">
+    <header class="w-full px-6 md:px-12 py-5 flex justify-between items-center bg-background-dark/80 backdrop-blur-xl fixed top-0 z-50 border-b border-white/5 transition-all">
+        <div class="flex items-center gap-4">
             <?php if($page['logo_path']): ?>
-                <img src="<?= htmlspecialchars($page['logo_path']) ?>" alt="Logo" class="h-10 w-auto filter drop-shadow-2xl">
+                <img src="<?= htmlspecialchars($page['logo_path']) ?>" alt="Logo" class="h-9 w-auto">
             <?php else: ?>
-                <div class="size-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                <div class="size-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-white text-xl">bolt</span>
                 </div>
             <?php endif; ?>
-            <h1 class="text-2xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($page['gym_name']) ?></h1>
+            <h1 class="text-xl font-bold tracking-tight text-white font-display uppercase tracking-widest"><?= htmlspecialchars($page['gym_name']) ?></h1>
         </div>
-        <div class="relative hidden md:flex items-center gap-10">
-            <nav class="flex items-center gap-8">
-                <a href="#about" class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-primary transition-all">About</a>
-                <a href="#register" class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-primary transition-all">Join Us</a>
-                <a href="#contact" class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-primary transition-all">Contact</a>
+        <div class="hidden md:flex items-center gap-8">
+            <nav class="flex items-center gap-6">
+                <a href="#about" class="text-xs font-medium text-gray-400 hover:text-white transition-colors">About</a>
+                <a href="#register" class="text-xs font-medium text-gray-400 hover:text-white transition-colors">Join Now</a>
             </nav>
-            <div class="h-6 w-px bg-white/10 mx-2"></div>
-            <a href="login.php?gym=<?= $gym_slug ?>" class="h-12 px-8 rounded-2xl border border-white/10 hover:bg-white/5 flex items-center text-[10px] font-black uppercase tracking-[0.2em] transition-all group">
-                Portal Login
-                <span class="material-symbols-outlined text-sm ml-2 group-hover:translate-x-1 transition-transform">arrow_forward</span>
+            <div class="h-4 w-px bg-white/10"></div>
+            <a href="login.php?gym=<?= $gym_slug ?>" class="h-10 px-6 rounded-xl border border-white/10 hover:bg-white/5 flex items-center text-xs font-semibold text-white transition-all">
+                Member Login
             </a>
         </div>
     </header>
 
-    <main class="flex-1 flex flex-col items-center <?= isset($_GET['preview']) ? 'pt-12' : 'pt-40' ?> pb-20 px-6 relative overflow-visible">
+    <main class="flex-1 flex flex-col items-center <?= isset($_GET['preview']) ? 'pt-12' : 'pt-32' ?> pb-20 px-6 relative overflow-hidden">
         <!-- Premium Ambient Glows -->
-        <div class="fixed top-[-20%] right-[-10%] size-[800px] bg-primary/10 rounded-full blur-[160px] -z-10 pointer-events-none"></div>
-        <div class="fixed bottom-[-10%] left-[-10%] size-[600px] bg-primary/5 rounded-full blur-[140px] -z-10 pointer-events-none"></div>
+        <div class="fixed top-[-10%] right-[-5%] size-[600px] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
+        <div class="fixed bottom-[10%] left-[-5%] size-[500px] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
 
-        <section class="max-w-6xl w-full text-center relative mb-32">
-            <div class="inline-flex items-center gap-2 px-6 py-2 rounded-full border border-primary/20 bg-primary/5 mb-8 animate-pulse">
-                <span class="size-1.5 rounded-full bg-primary"></span>
-                <span class="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Now Open for Recruitment</span>
+        <section class="max-w-5xl w-full text-center relative mb-24 mt-10 md:mt-20">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 mb-8">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+                <span class="text-[10px] font-semibold uppercase tracking-wider text-gray-300">Open for Membership</span>
             </div>
-            <h2 class="text-6xl md:text-[110px] font-black italic uppercase tracking-tighter text-white mb-8 leading-[0.9] text-glow [text-wrap:balance]">
-                Build Your <span class="text-primary">Legacy</span> <br class="hidden lg:block"/> At <?= htmlspecialchars($page['gym_name']) ?>
+            
+            <h2 class="text-5xl md:text-8xl font-bold tracking-tight text-white mb-8 leading-[1.1] font-display">
+                Elevate Your <span class="text-primary">Fitness</span> <br class="hidden md:block"/> at <span class="text-gradient"><?= htmlspecialchars($page['gym_name']) ?></span>
             </h2>
-            <p class="text-gray-400 text-lg md:text-2xl font-medium max-w-3xl mx-auto leading-relaxed mb-12 opacity-80 italic">
-                More than just a gym. Experience a modern multi-tenant fitness sanctuary powered by elite tech and world-class coaching.
+            
+            <p class="text-gray-400 text-base md:text-xl max-w-2xl mx-auto leading-relaxed mb-12 font-body font-light">
+                Discover a premium workout experience powered by Horizon's elite technology and world-class coaching staff.
             </p>
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-5">
-                <a href="#register" class="h-16 px-12 rounded-3xl btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em]">Start Your Journey</a>
-                <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-16 px-12 rounded-3xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-xs font-black uppercase tracking-[0.2em] group">
-                    <span class="material-symbols-outlined text-lg mr-3">smartphone</span>
-                    Get the App
+            
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <a href="#register" class="h-14 px-10 rounded-2xl btn-premium flex items-center justify-center text-sm font-bold text-white">
+                    Get Started
+                </a>
+                <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-semibold text-white transition-all group">
+                    <span class="material-symbols-outlined text-xl mr-2.5">smartphone</span>
+                    Download App
                 </a>
             </div>
         </section>
 
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-6xl w-full" id="register">
-            <div class="glass-card p-12 flex flex-col hover:border-primary/20 transition-all group overflow-hidden relative">
-                <div class="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <span class="material-symbols-outlined text-[120px] translate-x-12 -translate-y-12">fitness_center</span>
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl w-full" id="register">
+            <!-- Members Card -->
+            <div class="glass-card p-10 flex flex-col group overflow-hidden relative">
+                <div class="absolute -top-6 -right-6 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
+                    <span class="material-symbols-outlined text-[140px]">fitness_center</span>
                 </div>
-                <div class="size-20 rounded-[28px] bg-primary/10 text-primary flex items-center justify-center mb-10 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                    <span class="material-symbols-outlined text-4xl">person_add</span>
+                <div class="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-8">
+                    <span class="material-symbols-outlined text-3xl">person_add</span>
                 </div>
-                <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 text-white">Join the Community</h3>
-                <p class="text-gray-500 text-sm mb-10 leading-relaxed font-medium">Become a member today to unlock exclusive access to classes, real-time tracking, and our premium mobile experience.</p>
-                <a href="member_registration.php?gym=<?= $page['gym_id'] ?>" class="h-16 rounded-2xl btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em] mt-auto">
-                    Create Member Account
+                <h3 class="text-2xl font-bold text-white mb-4 font-display">Join the Community</h3>
+                <p class="text-gray-400 text-sm mb-10 leading-relaxed font-body font-light">
+                    Become a member today and unlock exclusive access to workout plans, real-time tracking, and our premium mobile portal.
+                </p>
+                <a href="member_registration.php?gym=<?= $page['gym_id'] ?>" class="h-14 rounded-xl btn-premium flex items-center justify-center text-sm font-bold text-white mt-auto">
+                    Register as Member
                 </a>
             </div>
 
-            <div class="glass-card p-12 flex flex-col hover:border-emerald-500/20 transition-all group overflow-hidden relative">
-                 <div class="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <span class="material-symbols-outlined text-[120px] translate-x-12 -translate-y-12 text-emerald-500">token</span>
+            <!-- Staff Card -->
+            <div class="glass-card p-10 flex flex-col group overflow-hidden relative">
+                 <div class="absolute -top-6 -right-6 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
+                    <span class="material-symbols-outlined text-[140px]">shield_person</span>
                 </div>
-                <div class="size-20 rounded-[28px] bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-10 shadow-inner group-hover:scale-110 transition-transform duration-500">
-                    <span class="material-symbols-outlined text-4xl">verified_user</span>
+                <div class="size-14 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-8">
+                    <span class="material-symbols-outlined text-3xl">verified_user</span>
                 </div>
-                <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 text-white">Coach & Staff</h3>
-                <p class="text-gray-500 text-sm mb-10 leading-relaxed font-medium">Looking to join our elite roster? Access the staff portal or download the dedicated management app below.</p>
+                <h3 class="text-2xl font-bold text-white mb-4 font-display">Coach & Staff</h3>
+                <p class="text-gray-400 text-sm mb-10 leading-relaxed font-body font-light">
+                    Access the professional management dashboard or download the dedicated staff APK for on-the-floor operations.
+                </p>
                 <div class="grid grid-cols-2 gap-4 mt-auto">
-                    <a href="login.php?gym=<?= $gym_slug ?>" class="h-16 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em]">Web Login</a>
-                    <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 flex items-center justify-center text-[10px] font-black uppercase tracking-[0.2em]">Android App</a>
+                    <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 flex items-center justify-center text-xs font-semibold text-white transition-all">
+                        Web Login
+                    </a>
+                    <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 flex items-center justify-center text-xs font-bold transition-all">
+                        Staff App
+                    </a>
                 </div>
             </div>
         </section>
 
-        <section id="about" class="max-w-4xl w-full mt-40 py-24 text-center relative">
-            <div class="absolute inset-0 hero-gradient -z-10"></div>
-            <span class="text-[10px] font-black uppercase text-primary tracking-[0.4em] mb-10 block">The Horizon Philosophy</span>
-            <p class="text-white text-3xl md:text-5xl font-extrabold italic leading-tight [text-wrap:balance] mb-12">
-                "We provide the technology, <br/> You provide the <span class="text-primary">Grit</span>."
+        <section id="about" class="max-w-4xl w-full mt-32 py-20 text-center relative border-y border-white/5">
+            <span class="text-[10px] font-bold uppercase text-primary tracking-[0.4em] mb-8 block font-display">The Philosophy</span>
+            <p class="text-white text-3xl md:text-5xl font-bold leading-[1.2] mb-10 font-display">
+                "Modern technology meets <br/> <span class="text-primary">unwavering dedication</span>."
             </p>
-            <p class="text-gray-400 text-lg md:text-xl italic leading-relaxed font-medium opacity-90 underline decoration-primary/20 decoration-2 underline-offset-8">
+            <p class="text-gray-400 text-lg italic leading-relaxed font-body font-light opacity-90 max-w-2xl mx-auto">
                 <?= nl2br(htmlspecialchars($page['about_text'] ?? 'Experience fitness like never before with our cutting-edge multi-tenant facility.')) ?>
             </p>
         </section>
     </main>
 
-    <footer id="contact" class="w-full py-24 px-8 md:px-12 bg-surface-dark border-t border-white/5 mt-20 relative overflow-hidden">
-        <div class="absolute bottom-0 right-0 w-1/3 h-full bg-gradient-to-l from-primary/5 to-transparent"></div>
-        <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-20 relative">
-            <div class="lg:col-span-2">
-                 <div class="flex items-center gap-4 mb-10">
-                    <div class="size-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg">
-                        <span class="material-symbols-outlined text-white text-xl">bolt</span>
+    <footer id="contact" class="w-full py-20 px-6 md:px-12 bg-white/[0.01] border-t border-white/5 mt-10">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between gap-16">
+            <div class="flex-1 space-y-8">
+                 <div class="flex items-center gap-3">
+                    <div class="size-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+                        <span class="material-symbols-outlined text-white text-lg">bolt</span>
                     </div>
-                    <h1 class="text-3xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($page['gym_name']) ?></h1>
+                    <h1 class="text-xl font-bold tracking-tight text-white font-display uppercase tracking-wider"><?= htmlspecialchars($page['gym_name']) ?></h1>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-10">
                     <div class="space-y-4">
-                        <p class="text-[10px] font-black uppercase text-primary tracking-[0.3em] mb-6">Contact Us</p>
-                        <p class="text-gray-400 text-sm font-bold flex items-center gap-3 italic">
-                            <span class="material-symbols-outlined text-lg text-primary">mail</span>
+                        <p class="text-[10px] font-bold uppercase text-primary tracking-[0.3em] font-display">Contact</p>
+                        <p class="text-gray-400 text-sm font-medium flex items-center gap-3 font-body">
+                            <span class="material-symbols-outlined text-lg text-primary/60">mail</span>
                             <?= htmlspecialchars($page['gym_email']) ?>
                         </p>
-                        <p class="text-gray-400 text-sm font-bold flex items-center gap-3 italic">
-                            <span class="material-symbols-outlined text-lg text-primary">call</span>
+                        <p class="text-gray-400 text-sm font-medium flex items-center gap-3 font-body">
+                            <span class="material-symbols-outlined text-lg text-primary/60">call</span>
                             <?= htmlspecialchars($page['gym_contact']) ?>
                         </p>
                     </div>
                     <div class="space-y-4">
-                        <p class="text-[10px] font-black uppercase text-primary tracking-[0.3em] mb-6">Location Details</p>
-                        <p class="text-gray-500 text-sm italic leading-relaxed font-medium">
+                        <p class="text-[10px] font-bold uppercase text-primary tracking-[0.3em] font-display">Location</p>
+                        <p class="text-gray-400 text-sm italic leading-relaxed font-body font-light">
                             <?= nl2br(htmlspecialchars($page['contact_text'] ?? 'Visit us at our primary training facility.')) ?>
                         </p>
                     </div>
                 </div>
             </div>
             
-            <div class="lg:col-span-2 flex flex-col justify-end items-end text-right">
-                <p class="text-[10px] font-black uppercase tracking-[0.4em] text-gray-700 mb-4">Official Horizon Partner</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.5em] opacity-40">Horizon Multi-Tenant System v2.0</p>
-                <div class="mt-12 flex gap-6">
-                    <div class="size-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500 hover:text-primary transition-all cursor-pointer">
-                        <span class="material-symbols-outlined">brand_awareness</span>
+            <div class="flex flex-col justify-end items-start md:items-end text-left md:text-right">
+                <p class="text-[10px] font-bold uppercase tracking-[0.4em] text-gray-600 mb-2 font-display">Horizon Partner</p>
+                <p class="text-primary/40 text-[9px] font-bold uppercase tracking-[0.2em] font-display">Enterprise Fitness v2.0</p>
+                <div class="mt-8 flex gap-4">
+                    <div class="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500 hover:text-white transition-all cursor-pointer">
+                        <span class="material-symbols-outlined text-xl">brand_awareness</span>
                     </div>
-                    <div class="size-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500 hover:text-primary transition-all cursor-pointer">
-                        <span class="material-symbols-outlined">social_leaderboard</span>
+                    <div class="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500 hover:text-white transition-all cursor-pointer">
+                        <span class="material-symbols-outlined text-xl">social_leaderboard</span>
                     </div>
                 </div>
             </div>
@@ -219,20 +265,10 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 const data = event.data.data;
                 const primary = data.theme_color || '<?= $primary_color ?>';
                 const bg = data.bg_color || '<?= $bg_color ?>';
-                const font = data.font_family || '<?= $font_family ?>';
                 
-                // Update CSS variables/styles
-                const styleEl = document.getElementById('dynamic-styles');
-                styleEl.innerHTML = `
-                    body { font-family: '${font}', sans-serif; background-color: ${bg}; color: white; scroll-behavior: smooth; }
-                    .glass-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 32px; backdrop-filter: blur(20px); }
-                    .btn-primary { 
-                        background: linear-gradient(135deg, ${primary}, ${primary}dd); 
-                        color: white; 
-                        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
-                        box-shadow: 0 10px 40px -15px ${primary}66;
-                    }
-                `;
+                // Update CSS variables
+                document.documentElement.style.setProperty('--pg-bg', bg);
+                document.documentElement.style.setProperty('--pg-primary', primary);
                 
                 // Update Logo
                 if (data.logo_preview) {
@@ -243,10 +279,8 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 // Update Gym Name/Title
                 if (data.page_title) {
                     document.title = data.page_title + " | Horizon Systems";
-                    const headers = document.querySelectorAll('h1, h2 span.gym-name');
-                    headers.forEach(h => {
-                        if (h.tagName === 'H1') h.innerText = data.page_title;
-                    });
+                    const headers = document.querySelectorAll('h1');
+                    headers.forEach(h => h.innerText = data.page_title);
                 }
             }
         });
