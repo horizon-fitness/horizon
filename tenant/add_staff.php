@@ -170,7 +170,7 @@ $active_page = "add_staff";
         <a href="tenant_settings.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">palette</span> Page Customize
         </a>
-        <a href="add_staff.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'add_staff') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="staff_management.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'add_staff' || $active_page == 'staff') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">group</span> Staff Management
         </a>
         <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
@@ -203,7 +203,7 @@ $active_page = "add_staff";
         <?php if($success): ?>
             <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm font-bold flex items-center gap-3">
                 <span class="material-symbols-outlined">check_circle</span> <?= $success ?>
-                <a href="tenant_dashboard.php" class="ml-auto underline">Return to Dashboard</a>
+                <a href="staff_management.php" class="ml-auto underline text-emerald-400 hover:text-emerald-300">Return to Staff List</a>
             </div>
         <?php endif; ?>
 
@@ -264,7 +264,7 @@ $active_page = "add_staff";
                 <button type="submit" class="flex-1 h-14 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20">
                     Confirm & Register
                 </button>
-                <a href="tenant_dashboard.php" class="h-14 px-8 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                <a href="staff_management.php" class="h-14 px-8 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
                     Cancel
                 </a>
             </div>

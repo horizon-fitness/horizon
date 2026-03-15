@@ -132,7 +132,7 @@ $active_page = "dashboard";
         <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">palette</span> Page Customize
         </a>
-        <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
+        <a href="staff_management.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">group</span> Staff Management
         </a>
         <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
