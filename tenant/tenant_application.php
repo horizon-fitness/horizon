@@ -563,8 +563,9 @@ unset($_SESSION['application_data']);
     const formData = <?= json_encode($form_data) ?>;
     if (formData && Object.keys(formData).length > 0) {
         Object.keys(formData).forEach(key => {
-            // Do not restore passwords, username, or owner_email (if there's an error)
-            if (['password', 'confirm_password', 'username', 'owner_email'].includes(key)) return;
+            // Do not restore passwords, username, or gym_email (if there's an error)
+            // Note: owner_email can now be safely restored based on new requirements.
+            if (['password', 'confirm_password', 'username', 'gym_email'].includes(key)) return;
             
             if (key === 'platform_fee_preference') {
                 const radio = document.querySelector(`input[name="${key}"][value="${formData[key]}"]`);

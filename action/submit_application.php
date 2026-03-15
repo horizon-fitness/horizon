@@ -82,11 +82,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $pdo->beginTransaction();
 
-        // Check if username or email already exists
-        $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? OR email = ? LIMIT 1");
-        $stmtCheck->execute([$username, $email]);
-        if ($stmtCheck->fetch()) {
-            throw new Exception("The Username or Email is already registered. Please choose another.");
+        // Check if username already exists
+        $stmtCheckUsername = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
+        $stmtCheckUsername->execute([$username]);
+        if ($stmtCheckUsername->fetch()) {
+            throw new Exception("The Username '$username' is already registered. Please choose another.");
+        }
+
+        // Check if gym email already exists
+        $stmtCheckGymEmail = $pdo->prepare("SELECT application_id FROM gym_owner_applications WHERE email = ? LIMIT 1");
+        $stmtCheckGymEmail->execute([$gym_email]);
+        if ($stmtCheckGymEmail->fetch()) {
+            throw new Exception("The Gym Email '$gym_email' is already registered to another application. Please use another.");
         }
 
         // 1. Insert into `users` table
