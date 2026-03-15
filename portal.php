@@ -31,7 +31,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
     <title><?= htmlspecialchars($page['page_title']) ?> | Horizon Systems</title>
     <link href="https://fonts.googleapis.com" rel="preconnect"/>
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&family=Inter:wght@400;700&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -40,14 +40,10 @@ $font_family = $page['font_family'] ?? 'Lexend';
             theme: { 
                 extend: { 
                     colors: { 
-                        "primary": "<?= $primary_color ?>", 
-                        "background-dark": "<?= $bg_color ?>",
+                        "primary": "var(--pg-primary)", 
+                        "background-dark": "var(--pg-bg)",
                         "surface-dark": "rgba(255, 255, 255, 0.02)",
                         "border-light": "rgba(255, 255, 255, 0.08)"
-                    },
-                    fontFamily: { 
-                        "display": ["Outfit", "sans-serif"],
-                        "body": ["Plus Jakarta Sans", "sans-serif"]
                     }
                 }
             }
@@ -57,14 +53,15 @@ $font_family = $page['font_family'] ?? 'Lexend';
         :root {
             --pg-bg: <?= $bg_color ?>;
             --pg-primary: <?= $primary_color ?>;
+            --pg-font: '<?= $font_family ?>', 'Plus Jakarta Sans', sans-serif;
         }
         body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
+            font-family: var(--pg-font); 
             background-color: var(--pg-bg); 
             color: #e2e8f0; 
             scroll-behavior: smooth; 
         }
-        .font-display { font-family: 'Outfit', sans-serif; }
+        .font-display { font-family: var(--pg-font); }
         
         .glass-card { 
             background: rgba(255, 255, 255, 0.03); 
@@ -74,7 +71,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
             transition: all 0.3s ease;
         }
         .btn-premium {
-            background: linear-gradient(135deg, var(--pg-primary), rgba(var(--pg-primary-rgb), 0.8));
+            background: var(--pg-primary);
             position: relative;
             overflow: hidden;
             transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
@@ -265,15 +262,32 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 const data = event.data.data;
                 const primary = data.theme_color || '<?= $primary_color ?>';
                 const bg = data.bg_color || '<?= $bg_color ?>';
+                const font = data.font_family || '<?= $font_family ?>';
                 
                 // Update CSS variables
                 document.documentElement.style.setProperty('--pg-bg', bg);
                 document.documentElement.style.setProperty('--pg-primary', primary);
+                document.documentElement.style.setProperty('--pg-font', `'${font}', 'Plus Jakarta Sans', sans-serif`);
                 
                 // Update Logo
                 if (data.logo_preview) {
-                    const logoImg = document.querySelector('header img');
-                    if (logoImg) logoImg.src = data.logo_preview;
+                    let logoContainer = document.querySelector('header .flex.items-center.gap-4');
+                    if (logoContainer) {
+                        let logoImg = logoContainer.querySelector('img');
+                        if (logoImg) {
+                            logoImg.src = data.logo_preview;
+                        } else {
+                            // Replace placeholder div with img tag
+                            let placeholder = logoContainer.querySelector('div.size-9');
+                            if (placeholder) {
+                                const newImg = document.createElement('img');
+                                newImg.src = data.logo_preview;
+                                newImg.alt = "Logo";
+                                newImg.className = "h-9 w-auto";
+                                placeholder.replaceWith(newImg);
+                            }
+                        }
+                    }
                 }
                 
                 // Update Gym Name/Title
