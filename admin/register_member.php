@@ -10,98 +10,26 @@ if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
     exit;
 }
 
+require_once '../includes/member_processor.php';
+
 $gym_id = $_SESSION['gym_id'];
 $success = '';
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $first_name = trim($_POST['first_name'] ?? '');
-    $middle_name = trim($_POST['middle_name'] ?? '');
-    $last_name = trim($_POST['last_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $phone = trim($_POST['phone_number'] ?? '');
-    $address = trim($_POST['address'] ?? '');
-    $birth_date = $_POST['birth_date'] ?? '2000-01-01';
-    $sex = $_POST['sex'] ?? 'Not Specified';
-    $occupation = trim($_POST['occupation'] ?? '');
-    $medical_history = trim($_POST['medical_history'] ?? '');
-    $emergency_name = trim($_POST['emergency_contact_name'] ?? '');
-    $emergency_phone = trim($_POST['emergency_contact_number'] ?? '');
-    $now = date('Y-m-d H:i:s');
+    try {
+        $registration_data = array_merge($_POST, [
+            'gym_id' => $gym_id,
+            'registration_source' => 'Walk-in',
+            'registered_by_user_id' => $_SESSION['user_id']
+        ]);
 
-    if (empty($first_name) || empty($last_name) || empty($email)) {
-        $error = "Name and Email are required.";
-    } else {
-        try {
-            $pdo->beginTransaction();
-
-            // Check if email exists
-            $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE email = ? LIMIT 1");
-            $stmtCheck->execute([$email]);
-            if ($stmtCheck->fetch()) {
-                throw new Exception("A user with this email already exists.");
-            }
-
-            // Auto-generate credentials for walk-in
-            $username = strtolower($first_name . $last_name . rand(100, 999));
-            $plain_password = bin2hex(random_bytes(4));
-
-            // 1. Create User Account
-            $password_hash = password_hash($plain_password, PASSWORD_BCRYPT);
-            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)");
-            $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $now, $now]);
-            $new_user_id = $pdo->lastInsertId();
-
-            // 2. Assign 'Member' Role
-            $role_name = 'Member';
-            $stmtRoleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
-            $stmtRoleCheck->execute([$role_name]);
-            $role_id = $stmtRoleCheck->fetchColumn();
-
-            if (!$role_id) {
-                $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)")->execute([$role_name]);
-                $role_id = $pdo->lastInsertId();
-            }
-
-            $stmtUR = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', ?)");
-            $stmtUR->execute([$new_user_id, $role_id, $gym_id, $now]);
-
-            // 3. Create Member Record
-            $member_code = "WALK-" . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
-            $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, birth_date, sex, occupation, address, medical_history, emergency_contact_name, emergency_contact_number, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-            $stmtMember->execute([$new_user_id, $gym_id, $member_code, $birth_date, $sex, $occupation, $address, $medical_history, $emergency_name, $emergency_phone, $now, $now]);
-
-            // 4. Record as Member Registration (For logs)
-            $stmtReg = $pdo->prepare("INSERT INTO member_registrations (gym_id, user_id, email, registration_source, registered_by_user_id, registration_status, completed_at, created_at) VALUES (?, ?, ?, 'Walk-in', ?, 'Completed', ?, ?)");
-            $stmtReg->execute([$gym_id, $new_user_id, $email, $_SESSION['user_id'], $now, $now]);
-
-            // --- SEND EMAIL CREDENTIALS ---
-            $stmtGym = $pdo->prepare("SELECT gym_name FROM gyms WHERE gym_id = ?");
-            $stmtGym->execute([$gym_id]);
-            $gym = $stmtGym->fetch();
-            $gymName = $gym['gym_name'] ?? 'Horizon Gym';
-
-            $subject = "Your New Membership Account - $gymName";
-            $emailBody = getEmailTemplate(
-                "Welcome to $gymName",
-                "<p>Hello $first_name,</p>
-                <p>Your membership has been registered as a walk-in at <strong>$gymName</strong>.</p>
-                <p>You can now access your member profile on our web portal or mobile app using these credentials:</p>
-                <div style='background: #f4f4f4; padding: 15px; border-radius: 8px; margin: 20px 0;'>
-                    <strong>Username:</strong> $username<br>
-                    <strong>Password:</strong> $plain_password
-                </div>
-                <p>Welcome to the gym!</p>"
-            );
-            
-            sendSystemEmail($email, $subject, $emailBody);
-
-            $pdo->commit();
-            $success = "Member registered successfully! Credentials have been sent to their email.";
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $error = $e->getMessage();
-        }
+        $result = processMemberRegistration($pdo, $registration_data);
+        $success = "Member registered successfully! Credentials have been sent to their email.";
+        // Reset POST to clear form on success
+        $_POST = [];
+    } catch (Exception $e) {
+        $error = $e->getMessage();
     }
 }
 
@@ -253,66 +181,10 @@ $active_page = "register_member";
         <?php endif; ?>
 
         <form method="POST" class="space-y-6">
-            <div class="grid grid-cols-3 gap-6">
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">FIRST NAME</label>
-                    <input type="text" name="first_name" class="input-field" placeholder="John" required>
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">MIDDLE NAME</label>
-                    <input type="text" name="middle_name" class="input-field" placeholder="Quincy">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">LAST NAME</label>
-                    <input type="text" name="last_name" class="input-field" placeholder="Doe" required>
-                </div>
-            </div>
-
-            <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">EMAIL ADDRESS</label>
-                <input type="email" name="email" class="input-field" placeholder="member@example.com" required>
-            </div>
-
-            <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">HOME ADDRESS</label>
-                <input type="text" name="address" class="input-field" placeholder="123 Street, Brgy, City" required>
-            </div>
-
-            <div class="grid grid-cols-2 gap-6">
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">BIRTH DATE</label>
-                    <input type="date" name="birth_date" class="input-field">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">SEX</label>
-                    <select name="sex" class="input-field appearance-none">
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">OCCUPATION</label>
-                <input type="text" name="occupation" class="input-field" placeholder="Software Engineer">
-            </div>
-
-            <div class="space-y-2">
-                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">MEDICAL HISTORY / ALLERGIES</label>
-                <textarea name="medical_history" class="input-field h-24" placeholder="Mention any medical conditions or allergies..."></textarea>
-            </div>
-
-            <div class="grid grid-cols-2 gap-6 pt-6 border-t border-white/5">
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">EMERGENCY NAME</label>
-                    <input type="text" name="emergency_contact_name" class="input-field" placeholder="Ice Contact">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">EMERGENCY PHONE</label>
-                    <input type="text" name="emergency_contact_number" class="input-field" placeholder="09XX XXX XXXX">
-                </div>
-            </div>
+            <?php 
+                $is_staff_led = true;
+                include '../includes/member_form_fields.php'; 
+            ?>
 
             <button type="submit" class="w-full h-14 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20">
                 Register & Send Credentials

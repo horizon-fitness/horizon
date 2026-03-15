@@ -116,7 +116,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
         <div class="hidden md:flex items-center gap-8">
             <nav class="flex items-center gap-6">
                 <a href="#about" class="text-xs font-medium text-gray-400 hover:text-white transition-colors">About</a>
-                <a href="#register" class="text-xs font-medium text-gray-400 hover:text-white transition-colors">Join Now</a>
+                <a href="#contact" class="text-xs font-medium text-gray-400 hover:text-white transition-colors">Contact</a>
             </nav>
             <div class="h-4 w-px bg-white/10"></div>
             <a href="login.php?gym=<?= $gym_slug ?>" class="h-10 px-6 rounded-xl border border-white/10 hover:bg-white/5 flex items-center text-xs font-semibold text-white transition-all">
@@ -148,8 +148,8 @@ $font_family = $page['font_family'] ?? 'Lexend';
             </p>
             
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <a href="#register" class="h-14 px-10 rounded-2xl btn-premium flex items-center justify-center text-sm font-bold text-white">
-                    Get Started
+                <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 px-10 rounded-2xl btn-premium flex items-center justify-center text-sm font-bold text-white">
+                    Member Login
                 </a>
                 <a id="app-download-btn" href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-semibold text-white transition-all group">
                     <span class="material-symbols-outlined text-xl mr-2.5">smartphone</span>
@@ -158,42 +158,22 @@ $font_family = $page['font_family'] ?? 'Lexend';
             </div>
         </section>
 
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl w-full" id="register">
-            <!-- Members Card -->
-            <div class="glass-card p-10 flex flex-col group overflow-hidden relative">
+        <section class="max-w-5xl w-full" id="portal-info">
+            <!-- Information Card -->
+            <div class="glass-card p-10 flex flex-col group overflow-hidden relative text-center">
                 <div class="absolute -top-6 -right-6 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
                     <span class="material-symbols-outlined text-[140px]">fitness_center</span>
                 </div>
-                <div class="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-8">
-                    <span class="material-symbols-outlined text-3xl">person_add</span>
+                <div class="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-8 mx-auto">
+                    <span class="material-symbols-outlined text-3xl">bolt</span>
                 </div>
-                <h3 class="text-2xl font-bold text-white mb-4 font-display">Join the Community</h3>
-                <p class="text-gray-400 text-sm mb-10 leading-relaxed font-body font-light">
-                    Become a member today and unlock exclusive access to workout plans, real-time tracking, and our premium mobile portal.
+                <h3 class="text-2xl font-bold text-white mb-4 font-display text-center">Experience the Difference</h3>
+                <p class="text-gray-400 text-sm mb-10 leading-relaxed font-body font-light max-w-2xl mx-auto">
+                    Access our elite workout tracking and world-class management platform. For membership inquiries and registrations, please visit our front desk.
                 </p>
-                <a href="member_registration.php?gym=<?= $page['gym_id'] ?>" class="h-14 rounded-xl btn-premium flex items-center justify-center text-sm font-bold text-white mt-auto">
-                    Register as Member
-                </a>
-            </div>
-
-            <!-- Staff Card -->
-            <div class="glass-card p-10 flex flex-col group overflow-hidden relative">
-                 <div class="absolute -top-6 -right-6 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
-                    <span class="material-symbols-outlined text-[140px]">shield_person</span>
-                </div>
-                <div class="size-14 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-8">
-                    <span class="material-symbols-outlined text-3xl">verified_user</span>
-                </div>
-                <h3 class="text-2xl font-bold text-white mb-4 font-display">Coach & Staff</h3>
-                <p class="text-gray-400 text-sm mb-10 leading-relaxed font-body font-light">
-                    Access the professional management dashboard or download the dedicated staff APK for on-the-floor operations.
-                </p>
-                <div class="grid grid-cols-2 gap-4 mt-auto">
-                    <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 flex items-center justify-center text-xs font-semibold text-white transition-all">
-                        Web Login
-                    </a>
-                    <a id="staff-app-btn" href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 flex items-center justify-center text-xs font-bold transition-all">
-                        Staff App
+                <div class="flex items-center justify-center gap-4">
+                    <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 px-10 rounded-xl btn-premium flex items-center justify-center text-sm font-bold text-white">
+                        Access Portal
                     </a>
                 </div>
             </div>
