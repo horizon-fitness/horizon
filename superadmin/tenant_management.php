@@ -339,25 +339,33 @@ foreach ($tenants as $t) {
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-8 py-5 text-right">
-                                        <form method="POST" action="../action/process_tenant.php" class="inline-flex gap-2" onsubmit="return confirm('Are you sure you want to proceed with this action?');">
-                                            <input type="hidden" name="gym_id" value="<?= $t['gym_id'] ?>">
-                                            
-                                            <?php if ($t['status'] !== 'Active'): ?>
-                                                <button type="submit" name="action" value="activate" title="Activate Account" class="size-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors">
-                                                    <span class="material-symbols-outlined text-[18px]">play_circle</span>
-                                                </button>
+                                        <div class="inline-flex gap-2">
+                                            <?php if ($t['application_id']): ?>
+                                                <a href="view_application.php?id=<?= $t['application_id'] ?>" title="View Application Details" class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 flex items-center justify-center transition-colors">
+                                                    <span class="material-symbols-outlined text-[18px]">visibility</span>
+                                                </a>
                                             <?php endif; ?>
 
-                                            <?php if ($t['status'] !== 'Suspended'): ?>
-                                                <button type="submit" name="action" value="suspend" title="Suspend Account (e.g. Unpaid Subscription)" class="size-8 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 flex items-center justify-center transition-colors">
-                                                    <span class="material-symbols-outlined text-[18px]">pause_circle</span>
-                                                </button>
-                                            <?php endif; ?>
+                                            <form method="POST" action="../action/process_tenant.php" class="inline-flex gap-2" onsubmit="return confirm('Are you sure you want to proceed with this action?');">
+                                                <input type="hidden" name="gym_id" value="<?= $t['gym_id'] ?>">
+                                                
+                                                <?php if ($t['status'] !== 'Active'): ?>
+                                                    <button type="submit" name="action" value="activate" title="Activate Account" class="size-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors">
+                                                        <span class="material-symbols-outlined text-[18px]">play_circle</span>
+                                                    </button>
+                                                <?php endif; ?>
 
-                                            <button type="submit" name="action" value="delete" title="Permanently Remove" class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-colors">
-                                                <span class="material-symbols-outlined text-[18px]">delete</span>
-                                            </button>
-                                        </form>
+                                                <?php if ($t['status'] !== 'Suspended'): ?>
+                                                    <button type="submit" name="action" value="suspend" title="Suspend Account (e.g. Unpaid Subscription)" class="size-8 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 flex items-center justify-center transition-colors">
+                                                        <span class="material-symbols-outlined text-[18px]">pause_circle</span>
+                                                    </button>
+                                                <?php endif; ?>
+
+                                                <button type="submit" name="action" value="delete" title="Permanently Remove" class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-colors">
+                                                    <span class="material-symbols-outlined text-[18px]">delete</span>
+                                                </button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
