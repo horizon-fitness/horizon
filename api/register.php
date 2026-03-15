@@ -60,11 +60,16 @@ if ($action === 'register') {
         $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $now, $now]);
         $new_user_id = $pdo->lastInsertId();
 
-        // 2. Assign 'Member' Role
+        // 2. Assign 'Member' Role (Robust Synergy with Web)
         $role_name = 'Member';
         $stmtRoleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
         $stmtRoleCheck->execute([$role_name]);
         $role_id = $stmtRoleCheck->fetchColumn();
+
+        if (!$role_id) {
+            $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)")->execute([$role_name]);
+            $role_id = $pdo->lastInsertId();
+        }
 
         $stmtUR = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Pending', ?)");
         $stmtUR->execute([$new_user_id, $role_id, $gym_id, $now]);
