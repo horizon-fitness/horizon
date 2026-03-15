@@ -21,7 +21,21 @@ try {
     $stmt->execute([$username, $username]);
     $user = $stmt->fetch();
 
-    if ($user && password_verify($password, $user['password_hash'])) {
+    if (!$user) {
+        // Debug: Check if user exists in users table at least
+        $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? OR email = ? LIMIT 1");
+        $stmtCheck->execute([$username, $username]);
+        $exists = $stmtCheck->fetch();
+        
+        if ($exists) {
+            echo json_encode(['success' => false, 'message' => 'User found but has no assigned role or tenant access.']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Account does not exist.']);
+        }
+        exit;
+    }
+
+    if (password_verify($password, $user['password_hash'])) {
         if (!$user['is_verified']) {
             echo json_encode(['success' => false, 'message' => 'Please verify your account first.', 'unverified' => true, 'user_id' => $user['user_id']]);
             exit;
