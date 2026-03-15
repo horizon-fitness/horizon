@@ -200,8 +200,12 @@ $active_page = "dashboard";
                         <div class="size-12 rounded-lg bg-surface-dark border border-white/10 flex items-center justify-center overflow-hidden">
                             <?php 
                             $logo_src = $page['logo_path'] ?? '';
-                            if ($logo_src && strpos($logo_src, 'data:') !== 0) {
-                                $logo_src = '../' . $logo_src;
+                            if ($logo_src) {
+                                if (strpos($logo_src, 'data:') === 0) {
+                                    // Base64
+                                } elseif (strpos($logo_src, 'uploads/') === 0) {
+                                    $logo_src = '../' . $logo_src;
+                                }
                             }
                             ?>
                             <?php if($logo_src): ?>

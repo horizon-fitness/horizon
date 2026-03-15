@@ -68,9 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
             $stmtRole->execute([$app['user_id'], $roleId, $gym_id, $now]);
 
             // 5. Generate a Tenant Page for Page Customize
-            $stmtPage = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, theme_color, updated_at) VALUES (?, ?, ?, '#7f13ec', ?)");
+            $stmtPage = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, updated_at) VALUES (?, ?, ?, ?, '#7f13ec', ?)");
             $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']));
-            $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $now]);
+            $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $gymLogo, $now]);
 
             // Fetch username for the approval email
             $stmtUser = $pdo->prepare("SELECT username FROM users WHERE user_id = ?");

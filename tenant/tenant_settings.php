@@ -245,8 +245,13 @@ $active_page = "settings";
                         <div class="size-32 mx-auto rounded-3xl bg-background-dark border-2 border-dashed border-white/5 flex items-center justify-center overflow-hidden relative group">
                             <?php 
                             $logo_src = $page['logo_path'] ?? '';
-                            if ($logo_src && strpos($logo_src, 'data:') !== 0) {
-                                $logo_src = '../' . $logo_src;
+                            if ($logo_src) {
+                                if (strpos($logo_src, 'data:') === 0) {
+                                    // It's a Base64 string, use as is
+                                } elseif (strpos($logo_src, 'uploads/') === 0) {
+                                    // It's a relative path from the root (common for applications)
+                                    $logo_src = '../' . $logo_src;
+                                }
                             }
                             ?>
                             <?php if($logo_src): ?>
