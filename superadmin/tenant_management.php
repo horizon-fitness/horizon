@@ -15,9 +15,11 @@ $active_page = "tenants"; // This highlights the correct nav link
 $stmtTenants = $pdo->query("
     SELECT g.*, 
            u.first_name, u.last_name, u.email as owner_email,
+           tp.logo_path,
            (SELECT subscription_status FROM client_subscriptions cs WHERE cs.gym_id = g.gym_id ORDER BY created_at DESC LIMIT 1) as sub_status
     FROM gyms g
     JOIN users u ON g.owner_user_id = u.user_id
+    LEFT JOIN tenant_pages tp ON g.gym_id = tp.gym_id
     WHERE g.status != 'Deleted'
     ORDER BY g.created_at DESC
 ");
@@ -325,8 +327,12 @@ foreach ($tenants as $t) {
                                 <tr class="hover:bg-white/5 transition-all">
                                     <td class="px-8 py-5">
                                         <div class="flex items-center gap-3">
-                                            <div class="size-10 rounded-lg bg-primary/10 flex items-center justify-center font-black text-primary text-sm shadow-inner shadow-primary/20 border border-primary/20">
-                                                <?= strtoupper(substr($t['gym_name'], 0, 2)) ?>
+                                            <div class="size-14 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner">
+                                                <?php if (!empty($t['logo_path'])): ?>
+                                                    <img src="../<?= htmlspecialchars($t['logo_path']) ?>" class="size-full object-contain p-1.5 transition-transform hover:scale-110">
+                                                <?php else: ?>
+                                                    <span class="text-primary font-black text-xs"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
+                                                <?php endif; ?>
                                             </div>
                                             <div>
                                                 <p class="text-sm font-bold italic"><?= htmlspecialchars($t['gym_name']) ?></p>
@@ -387,10 +393,6 @@ foreach ($tenants as $t) {
                                                         <span class="material-symbols-outlined text-[18px]">pause_circle</span>
                                                     </button>
                                                 <?php endif; ?>
-
-                                                <button type="submit" name="action" value="delete" title="Permanently Remove" class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-colors">
-                                                    <span class="material-symbols-outlined text-[18px]">delete</span>
-                                                </button>
                                             </form>
                                         </div>
                                     </td>
