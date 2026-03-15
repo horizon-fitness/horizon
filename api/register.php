@@ -31,17 +31,45 @@ if ($action === 'register') {
         exit;
     }
 
-    // Resolve tenant_code if alphanumeric
+    $role_name = 'Member';
+    $invitation_id = null;
+    $tenant_code = null;
+
+    // Resolve tenant_code or staff token if alphanumeric
     if (!is_numeric($gym_id)) {
-        $stmtLookup = $pdo->prepare("SELECT gym_id FROM gyms WHERE tenant_code = ? LIMIT 1");
-        $stmtLookup->execute([$gym_id]);
-        $found_id = $stmtLookup->fetchColumn();
-        if ($found_id) {
-            $gym_id = $found_id;
+        // 1. Check if it's a Staff Invitation Token
+        $stmtInv = $pdo->prepare("SELECT invitation_id, gym_id, staff_role FROM staff_invitations WHERE token = ? AND invitation_status = 'Pending' LIMIT 1");
+        $stmtInv->execute([$gym_id]);
+        $inv = $stmtInv->fetch();
+
+        if ($inv) {
+            $gym_id = $inv['gym_id'];
+            $role_name = $inv['staff_role']; // e.g., 'Admin', 'Coach'
+            $invitation_id = $inv['invitation_id'];
+            
+            // Fetch tenant_code for this gym
+            $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = ? LIMIT 1");
+            $stmtT->execute([$gym_id]);
+            $tenant_code = $stmtT->fetchColumn();
         } else {
-            echo json_encode(['success' => false, 'message' => "Tenant Code '$gym_id' not found."]);
-            exit;
+            // 2. Check if it's a Gym Tenant Code (Walk-in Member)
+            $stmtLookup = $pdo->prepare("SELECT gym_id FROM gyms WHERE tenant_code = ? LIMIT 1");
+            $stmtLookup->execute([$gym_id]);
+            $found_id = $stmtLookup->fetchColumn();
+            if ($found_id) {
+                $tenant_code = $gym_id; // Current gym_id is the code
+                $gym_id = $found_id;
+                $role_name = 'Member';
+            } else {
+                echo json_encode(['success' => false, 'message' => "Invalid Registration Code. Could not identify Tenant or Role."]);
+                exit;
+            }
         }
+    } else {
+        // gym_id is numeric, fetch its tenant_code
+        $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = ? LIMIT 1");
+        $stmtT->execute([$gym_id]);
+        $tenant_code = $stmtT->fetchColumn();
     }
 
     try {
@@ -54,14 +82,13 @@ if ($action === 'register') {
             throw new Exception("Username or Email already exists.");
         }
 
-        // 1. Create User Account (is_verified = 0 for mobile self-reg)
+        // 1. Create User Account
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
         $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)");
         $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $now, $now]);
         $new_user_id = $pdo->lastInsertId();
 
-        // 2. Assign 'Member' Role (Robust Synergy with Web)
-        $role_name = 'Member';
+        // 2. Assign Role (Robust Synergy with Web)
         $stmtRoleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
         $stmtRoleCheck->execute([$role_name]);
         $role_id = $stmtRoleCheck->fetchColumn();
@@ -71,13 +98,25 @@ if ($action === 'register') {
             $role_id = $pdo->lastInsertId();
         }
 
-        $stmtUR = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Pending', ?)");
-        $stmtUR->execute([$new_user_id, $role_id, $gym_id, $now]);
+        // Populate tenant_code in user_roles
+        $stmtUR = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, tenant_code, role_status, assigned_at) VALUES (?, ?, ?, ?, 'Pending', ?)");
+        $stmtUR->execute([$new_user_id, $role_id, $gym_id, $tenant_code, $now]);
 
-        // 3. Create Member Record (Full Profile Synergy)
-        $member_code = 'MBR-' . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
-        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, birth_date, sex, occupation, address, medical_history, emergency_contact_name, emergency_contact_number, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $birth_date, $sex, $occupation, $address, $medical_history, $emergency_name, $emergency_phone, $now, $now]);
+        if ($role_name === 'Member') {
+            // 3. Create Member Record (Full Profile Synergy)
+            $member_code = 'MBR-' . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
+            $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, birth_date, sex, occupation, address, medical_history, emergency_contact_name, emergency_contact_number, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+            $stmtMember->execute([$new_user_id, $gym_id, $member_code, $birth_date, $sex, $occupation, $address, $medical_history, $emergency_name, $emergency_phone, $now, $now]);
+        } else {
+            // 3. Create Staff Record
+            $stmtStaff = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, 'Full-Time', ?, 'Active', ?, ?)");
+            $stmtStaff->execute([$new_user_id, $gym_id, $role_name, date('Y-m-d'), $now, $now]);
+
+            if ($invitation_id) {
+                $stmtInvUpdate = $pdo->prepare("UPDATE staff_invitations SET invitation_status = 'Accepted', accepted_at = ? WHERE invitation_id = ?");
+                $stmtInvUpdate->execute([$now, $invitation_id]);
+            }
+        }
 
         // 4. Create Verification PIN (Synergy Flow)
         $otp_code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);

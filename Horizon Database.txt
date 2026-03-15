@@ -103,6 +103,7 @@ CREATE TABLE user_roles (
     user_id INT NOT NULL,
     role_id INT NOT NULL,
     gym_id INT,
+    tenant_code VARCHAR(50),
     role_status VARCHAR(50) NOT NULL,
     assigned_at DATETIME NOT NULL
 );
@@ -159,6 +160,8 @@ CREATE TABLE tenant_pages (
     logo_path LONGTEXT,
     banner_image LONGTEXT,
     theme_color VARCHAR(100) NOT NULL,
+    bg_color VARCHAR(100) DEFAULT '#FFFFFF',
+    font_family VARCHAR(100) DEFAULT 'Inter',
     about_text TEXT,
     contact_text TEXT,
     app_download_link VARCHAR(255),
