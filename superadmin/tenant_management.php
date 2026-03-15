@@ -150,15 +150,6 @@ foreach ($tenants as $t) {
                 <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Tenant <span class="text-primary">Management</span></h2>
                 <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Manage Gym Accounts & Subscriptions</p>
             </div>
-            <div class="flex flex-wrap items-center gap-3 bg-surface-dark p-3 rounded-2xl border border-white/5">
-                <div class="relative">
-                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
-                    <input type="text" placeholder="Search tenants..." class="bg-background-dark border-none rounded-lg text-[10px] font-bold py-2 pl-9 pr-4 focus:ring-1 focus:ring-primary text-white w-48">
-                </div>
-                <button class="bg-primary text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase hover:bg-primary/90 transition-all flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">add_business</span> Add Tenant
-                </button>
-            </div>
         </header>
 
         <?php if (isset($_SESSION['success_msg'])): ?>
