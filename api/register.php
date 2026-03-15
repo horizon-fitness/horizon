@@ -35,34 +35,49 @@ if ($action === 'register') {
     $invitation_id = null;
     $tenant_code = null;
 
-    // Resolve tenant_code or staff token if alphanumeric
-    if (!is_numeric($gym_id)) {
-        // 1. Check if it's a Staff Invitation Token
+    // Trim and Resolve tenant_code and gym_id Synergy
+    $raw_gym_input = trim($gym_id);
+    
+    // 1. Try as Gym Tenant Code (Case-Insensitive Synergy)
+    $stmtLookup = $pdo->prepare("SELECT gym_id, tenant_code FROM gyms WHERE LOWER(tenant_code) = LOWER(?) LIMIT 1");
+    $stmtLookup->execute([$raw_gym_input]);
+    $gym_data = $stmtLookup->fetch();
+
+    if ($gym_data) {
+        $gym_id = $gym_data['gym_id'];
+        $tenant_code = $gym_data['tenant_code'];
+        $role_name = 'Member';
+    } else {
+        // 2. Try as Staff Invitation Token
         $stmtInv = $pdo->prepare("SELECT invitation_id, gym_id, staff_role FROM staff_invitations WHERE token = ? AND invitation_status = 'Pending' LIMIT 1");
-        $stmtInv->execute([$gym_id]);
+        $stmtInv->execute([$raw_gym_input]);
         $inv = $stmtInv->fetch();
 
         if ($inv) {
             $gym_id = $inv['gym_id'];
-            $role_name = $inv['staff_role']; // e.g., 'Admin', 'Coach'
+            $role_name = $inv['staff_role']; 
             $invitation_id = $inv['invitation_id'];
             
-            // Fetch tenant_code for this gym
             $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = ? LIMIT 1");
             $stmtT->execute([$gym_id]);
             $tenant_code = $stmtT->fetchColumn();
         } else {
-            // 2. Check if it's a Gym Tenant Code (Walk-in Member)
-            $stmtLookup = $pdo->prepare("SELECT gym_id FROM gyms WHERE tenant_code = ? LIMIT 1");
-            $stmtLookup->execute([$gym_id]);
-            $found_id = $stmtLookup->fetchColumn();
-            if ($found_id) {
-                $tenant_code = $gym_id; // Current gym_id is the code
-                $gym_id = $found_id;
-                $role_name = 'Member';
+            // 3. Try as Numeric Gym ID
+            if (is_numeric($raw_gym_input)) {
+                $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = ? LIMIT 1");
+                $stmtT->execute([$raw_gym_input]);
+                $found_code = $stmtT->fetchColumn();
+                if ($found_code) {
+                    $gym_id = (int)$raw_gym_input;
+                    $tenant_code = $found_code;
+                    // Default to Member for manual ID entry unless specified
+                    $role_name = 'Member'; 
+                } else {
+                    $gym_id = 1;
+                    $tenant_code = '000';
+                }
             } else {
-                // Fallback Synergy: Default to Gym 1 (Horizon Systems) if code is unknown
-                // This ensures every registration creates a role/membership context.
+                // 4. Default Fallback Synergy (Gym 1 - Horizon)
                 $gym_id = 1; 
                 $role_name = 'Member';
                 $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = 1 LIMIT 1");
@@ -70,11 +85,6 @@ if ($action === 'register') {
                 $tenant_code = $stmtT->fetchColumn() ?: '000';
             }
         }
-    } else {
-        // gym_id is numeric, fetch its tenant_code
-        $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = ? LIMIT 1");
-        $stmtT->execute([$gym_id]);
-        $tenant_code = $stmtT->fetchColumn();
     }
 
     try {

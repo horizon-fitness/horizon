@@ -23,12 +23,9 @@ try {
     
     $params = [':u1' => $username, ':u2' => $username];
     
-    if (!empty($tenant_id)) {
-        // Allow Global Access for Management Roles, otherwise enforce tenant context
-        $sql .= " AND (g.tenant_code = :t1 OR g.gym_id = :t2 OR r.role_name IN ('Superadmin', 'Admin', 'Coach', 'Staff', 'Tenant'))";
-        $params[':t1'] = $tenant_id;
-        $params[':t2'] = $tenant_id;
-    }
+    // Global Login: Management and Members can log in from any tenant context.
+    // The system will accurately return their assigned gym/branding data regardless of entry point.
+    // This fixed "User Not Found or Tenant Access" errors for members.
     
     $sql .= " LIMIT 1";
     
