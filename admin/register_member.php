@@ -3,9 +3,9 @@ session_start();
 require_once '../db.php';
 require_once '../includes/mailer.php';
 
-// Security Check: Only Tenants/Admins/Staff
+// Security Check: Only Staff/Coach
 $role = strtolower($_SESSION['role'] ?? '');
-if (!isset($_SESSION['user_id']) || ($role !== 'tenant' && $role !== 'admin' && $role !== 'staff' && $role !== 'coach')) {
+if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
     header("Location: ../login.php");
     exit;
 }
@@ -199,23 +199,23 @@ $active_page = "register_member";
     </div>
     
     <div class="flex flex-col gap-5 flex-1 overflow-y-auto no-scrollbar pr-2">
-        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="admin_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>
         <a href="register_member.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'register_member') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">person_add</span> Walk-in Member
         </a>
-        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">palette</span> Page Customize
+        <a href="admin_users.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl">group</span> My Users
         </a>
-        <a href="staff_management.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'staff') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">group</span> Staff Management
+        <a href="admin_transaction.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
+            <span class="material-symbols-outlined text-xl">receipt_long</span> Transactions
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">person_search</span> Member Directory
+        <a href="admin_attendance.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
+            <span class="material-symbols-outlined text-xl">history</span> Attendance
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">payments</span> Billing & Revenue
+        <a href="admin_appointment.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
+            <span class="material-symbols-outlined text-xl">event_available</span> Appointment
         </a>
     </div>
 

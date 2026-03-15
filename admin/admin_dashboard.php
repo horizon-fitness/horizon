@@ -117,7 +117,7 @@ $admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
         <a href="admin_dashboard.php" class="nav-link active-nav text-primary flex items-center gap-3">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>
-        <a href="../tenant/register_member.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
+        <a href="register_member.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
             <span class="material-symbols-outlined text-xl">person_add</span> Walk-in Member
         </a>
         <a href="admin_users.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">

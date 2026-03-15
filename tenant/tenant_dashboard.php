@@ -129,9 +129,6 @@ $active_page = "dashboard";
         <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>
-        <a href="register_member.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'register_member') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">person_add</span> Walk-in Member
-        </a>
         <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">palette</span> Page Customize
         </a>
@@ -249,26 +246,12 @@ $active_page = "dashboard";
                     </a>
                 </div>
             </div>
-
             <!-- Quick Actions -->
             <div class="glass-card p-8">
                 <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
                     <span class="material-symbols-outlined text-primary">bolt</span> Quick Actions
                 </h4>
                 <div class="grid grid-cols-1 gap-4">
-                    <a href="register_member.php" class="group p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/50 transition-all flex items-center justify-between">
-                        <div class="flex items-center gap-4">
-                            <div class="size-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                <span class="material-symbols-outlined">person_add</span>
-                            </div>
-                            <div>
-                                <p class="text-xs font-black uppercase italic italic">Member Walk-in</p>
-                                <p class="text-[9px] text-gray-500 uppercase font-black">Register a customer now</p>
-                            </div>
-                        </div>
-                        <span class="material-symbols-outlined text-gray-600 group-hover:translate-x-1 transition-transform">arrow_forward_ios</span>
-                    </a>
-
                     <a href="staff_management.php" class="group p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/50 transition-all flex items-center justify-between">
                         <div class="flex items-center gap-4">
                             <div class="size-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
@@ -283,6 +266,7 @@ $active_page = "dashboard";
                     </a>
                 </div>
             </div>
+
         </div>
 </div>
 
