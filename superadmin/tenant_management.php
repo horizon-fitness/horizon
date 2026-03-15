@@ -412,19 +412,14 @@ foreach ($tenants as $t) {
     </main>
 </div>
 <!-- Application Viewer Modal -->
-<div id="applicationModal" class="fixed inset-0 z-[100] hidden overflow-hidden">
-    <!-- Backdrop -->
-    <div class="absolute inset-0 bg-background-dark/80 backdrop-blur-md transition-opacity duration-300 opacity-0" id="modalBackdrop"></div>
+<div id="applicationModal" class="fixed inset-y-0 left-64 lg:left-72 right-0 z-[100] hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none">
+    <!-- Backdrop: Only blurs the right side (main content area) -->
+    <div class="fixed inset-y-0 left-64 lg:left-72 right-0 bg-background-dark/20 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto" id="modalBackdrop"></div>
     
-    <!-- Modal Content Container -->
-    <div class="absolute inset-y-0 right-0 w-full max-w-2xl bg-surface-dark border-l border-white/5 shadow-2xl transition-transform duration-500 translate-x-full overflow-hidden flex flex-col" id="modalContainer">
-        <div id="modalLoading" class="absolute inset-0 bg-surface-dark z-10 flex flex-col items-center justify-center gap-4">
-            <div class="size-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
-            <p class="text-[10px] font-black uppercase tracking-widest text-primary animate-pulse">Fetching Application...</p>
-        </div>
-        
-        <div id="modalContent" class="flex-1 p-8 md:p-10 opacity-0 transition-opacity duration-300">
-            <!-- Content will be injected here via AJAX -->
+    <!-- Modal Content Container: Centers automatically within its parent (which is offset by sidebar) -->
+    <div class="relative w-full max-w-4xl bg-surface-dark/60 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden flex flex-col max-h-[85vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto" id="modalContainer">
+        <div id="modalContent" class="flex-1 p-8 md:p-10 opacity-0 transition-opacity duration-500 overflow-y-auto no-scrollbar">
+            <!-- Content injected via AJAX -->
         </div>
     </div>
 </div>
@@ -436,63 +431,50 @@ foreach ($tenants as $t) {
         const modal = document.getElementById('applicationModal');
         const backdrop = document.getElementById('modalBackdrop');
         const container = document.getElementById('modalContainer');
-        const loading = document.getElementById('modalLoading');
         const content = document.getElementById('modalContent');
 
-        // Reset & Show
-        modal.classList.remove('hidden');
-        loading.classList.remove('hidden');
-        content.classList.add('opacity-0');
+        // Show Modal & Start Animations
+        modal.classList.replace('hidden', 'flex');
         
-        // Trigger animations
-        setTimeout(() => {
-            backdrop.classList.replace('opacity-0', 'opacity-100');
-            container.classList.replace('translate-x-full', 'translate-x-0');
-        }, 10);
-
-        // Fetch Content
+        // Fetch Content Immediately (No Loading Overlay)
         fetch(`view_application.php?id=${appId}&ajax=1`)
             .then(response => response.text())
             .then(html => {
                 content.innerHTML = html;
-                loading.classList.add('hidden');
                 content.classList.replace('opacity-0', 'opacity-100');
+                
+                // Trigger visual entry only after content starts loading or is ready
+                setTimeout(() => {
+                    backdrop.classList.replace('opacity-0', 'opacity-100');
+                    container.classList.replace('scale-95', 'scale-100');
+                    container.classList.replace('opacity-0', 'opacity-100');
+                }, 10);
             })
             .catch(error => {
-                console.error('Error fetching application:', error);
-                content.innerHTML = `
-                    <div class="flex flex-col items-center justify-center h-full gap-4 text-center">
-                        <span class="material-symbols-outlined text-red-500 text-6xl">error</span>
-                        <h3 class="text-xl font-black uppercase italic">Failed to load</h3>
-                        <p class="text-xs text-gray-500">The application details could not be retrieved at this time.</p>
-                        <button onclick="closeApplicationModal()" class="mt-4 px-8 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase">Dismiss</button>
-                    </div>
-                `;
-                loading.classList.add('hidden');
-                content.classList.replace('opacity-0', 'opacity-100');
+                modal.classList.replace('flex', 'hidden');
+                alert('Connection error. Please try again.');
             });
     }
 
     function closeApplicationModal() {
+        const modal = document.getElementById('applicationModal');
         const backdrop = document.getElementById('modalBackdrop');
         const container = document.getElementById('modalContainer');
-        const modal = document.getElementById('applicationModal');
+        const content = document.getElementById('modalContent');
 
         backdrop.classList.replace('opacity-100', 'opacity-0');
-        container.classList.replace('translate-x-0', 'translate-x-full');
+        container.classList.replace('scale-100', 'scale-95');
+        container.classList.replace('opacity-100', 'opacity-0');
 
         setTimeout(() => {
-            modal.classList.add('hidden');
+            modal.classList.replace('flex', 'hidden');
+            content.classList.replace('opacity-100', 'opacity-0');
+            content.innerHTML = ''; // Clear content
         }, 500);
     }
 
-    // Close on backdrop click
     document.getElementById('modalBackdrop').addEventListener('click', closeApplicationModal);
-
-    // Escape key support
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeApplicationModal();
-    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeApplicationModal(); });
 </script>
 
 </body>
