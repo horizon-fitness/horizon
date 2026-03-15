@@ -124,11 +124,19 @@ function closeImageViewer() {
     document.body.style.overflow = '';
 }
 
-// Add functionality to all images with 'viewable' class or auto-init
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('img.viewable').forEach(img => {
-        img.style.cursor = 'zoom-in';
-        img.onclick = () => openImageViewer(img.src);
-    });
+// Global click delegation for image popups
+// Works for both static and AJAX-loaded content
+document.addEventListener('click', function(e) {
+    // 1. Check if clicked element or its parent is a modal-img-preview
+    let target = e.target.closest('.modal-img-preview');
+    if (target && target.dataset.src) {
+        openImageViewer(target.dataset.src);
+        return;
+    }
+
+    // 2. Check if clicked element is an img with 'viewable' class
+    if (e.target.tagName === 'IMG' && e.target.classList.contains('viewable')) {
+        openImageViewer(e.target.src);
+    }
 });
 </script>

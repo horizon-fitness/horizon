@@ -226,35 +226,28 @@ if ($is_ajax): ?>
         <!-- Formal Document Viewer -->
         <div>
             <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3 mb-6">Credential Verification</h4>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <?php foreach ($documents as $doc): 
                     $docPath = $doc['file_path'];
-                    // Logic to ensure path is correct for both Base64 and legacy paths
                     if (!str_starts_with($docPath, 'data:')) {
-                        if (str_starts_with($docPath, 'uploads/')) {
-                            $docPath = '../' . $docPath;
-                        } elseif (!str_starts_with($docPath, '../') && !str_starts_with($docPath, 'http')) {
-                            $docPath = '../uploads/applications/' . $docPath;
-                        }
+                        if (str_starts_with($docPath, 'uploads/')) { $docPath = '../' . $docPath; }
+                        elseif (!str_starts_with($docPath, '../') && !str_starts_with($docPath, 'http')) { $docPath = '../uploads/applications/' . $docPath; }
                     }
                 ?>
-                    <div class="group relative bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden aspect-[4/3] cursor-zoom-in modal-img-preview shadow-lg hover:border-primary/50 transition-all" data-src="<?= htmlspecialchars($docPath) ?>">
-                        <!-- Picture Frame -->
-                        <div class="absolute inset-0 p-2">
-                            <div class="w-full h-full rounded-xl overflow-hidden bg-background-dark/50">
-                                <img src="<?= htmlspecialchars($docPath) ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 group-hover:opacity-100">
+                    <div class="flex flex-col gap-3">
+                        <div class="group relative bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden aspect-[4/3] cursor-zoom-in modal-img-preview shadow-lg hover:border-primary/50 transition-all" data-src="<?= htmlspecialchars($docPath) ?>">
+                            <div class="absolute inset-0 p-2">
+                                <div class="w-full h-full rounded-xl overflow-hidden bg-background-dark/50">
+                                    <img src="<?= htmlspecialchars($docPath) ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 group-hover:opacity-100">
+                                </div>
+                            </div>
+                            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-sm">
+                                 <span class="material-symbols-outlined text-primary text-3xl">fullscreen</span>
                             </div>
                         </div>
-                        <!-- Formal Label Overlay -->
-                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent p-4 flex flex-col justify-end translate-y-1 group-hover:translate-y-0 transition-transform">
-                             <div class="flex items-center gap-2 mb-1">
-                                 <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
-                                 <p class="text-[9px] font-black uppercase text-white tracking-[0.1em]"><?= htmlspecialchars($doc['document_type']) ?></p>
-                             </div>
-                             <div class="flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                                 <span class="text-[8px] font-bold text-gray-500 uppercase tracking-widest">Certified Document</span>
-                                 <span class="material-symbols-outlined text-primary text-sm">fullscreen</span>
-                             </div>
+                        <div class="px-2">
+                            <p class="text-[10px] font-black uppercase text-white tracking-[0.1em]"><?= htmlspecialchars($doc['document_type']) ?></p>
+                            <p class="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Certified Document</p>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -435,32 +428,28 @@ endif;
         <!-- Formal Document Viewer (Full Page) -->
         <div class="glass-card p-8 mb-10">
             <h3 class="text-sm font-black italic uppercase tracking-widest mb-6 text-primary border-b border-white/5 pb-4">Document Verification Portfolio</h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
                 <?php foreach ($documents as $doc): 
                     $docPath = $doc['file_path'];
                     if (!str_starts_with($docPath, 'data:')) {
-                        if (str_starts_with($docPath, 'uploads/')) {
-                            $docPath = '../' . $docPath;
-                        } elseif (!str_starts_with($docPath, '../') && !str_starts_with($docPath, 'http')) {
-                            $docPath = '../uploads/applications/' . $docPath;
-                        }
+                        if (str_starts_with($docPath, 'uploads/')) { $docPath = '../' . $docPath; }
+                        elseif (!str_starts_with($docPath, '../') && !str_starts_with($docPath, 'http')) { $docPath = '../uploads/applications/' . $docPath; }
                     }
                 ?>
-                    <div class="group relative bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden aspect-[4/3] cursor-zoom-in modal-img-preview shadow-lg hover:border-primary/50 transition-all" data-src="<?= htmlspecialchars($docPath) ?>">
-                        <div class="absolute inset-0 p-2">
-                            <div class="w-full h-full rounded-xl overflow-hidden bg-background-dark/50">
-                                <img src="<?= htmlspecialchars($docPath) ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 group-hover:opacity-100">
+                    <div class="flex flex-col gap-4">
+                        <div class="group relative bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden aspect-[4/3] cursor-zoom-in modal-img-preview shadow-lg hover:border-primary/50 transition-all" data-src="<?= htmlspecialchars($docPath) ?>">
+                            <div class="absolute inset-0 p-2">
+                                <div class="w-full h-full rounded-xl overflow-hidden bg-background-dark/50">
+                                    <img src="<?= htmlspecialchars($docPath) ?>" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 group-hover:opacity-100">
+                                </div>
+                            </div>
+                            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-sm">
+                                 <span class="material-symbols-outlined text-primary text-4xl">fullscreen</span>
                             </div>
                         </div>
-                        <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent p-4 flex flex-col justify-end translate-y-1 group-hover:translate-y-0 transition-transform">
-                             <div class="flex items-center gap-2 mb-1">
-                                 <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
-                                 <p class="text-[10px] font-black uppercase text-white tracking-[0.1em]"><?= htmlspecialchars($doc['document_type']) ?></p>
-                             </div>
-                             <div class="flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                                 <span class="text-[8px] font-bold text-gray-500 uppercase tracking-widest">Formal Verification</span>
-                                 <span class="material-symbols-outlined text-primary text-sm">zoom_in</span>
-                             </div>
+                        <div class="px-2">
+                            <p class="text-xs font-black uppercase text-white tracking-[0.1em]"><?= htmlspecialchars($doc['document_type']) ?></p>
+                            <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Formal Verification</p>
                         </div>
                     </div>
                 <?php endforeach; ?>
