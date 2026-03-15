@@ -151,7 +151,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 <a href="#register" class="h-14 px-10 rounded-2xl btn-premium flex items-center justify-center text-sm font-bold text-white">
                     Get Started
                 </a>
-                <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-semibold text-white transition-all group">
+                <a id="app-download-btn" href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-semibold text-white transition-all group">
                     <span class="material-symbols-outlined text-xl mr-2.5">smartphone</span>
                     Download App
                 </a>
@@ -192,7 +192,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
                     <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 flex items-center justify-center text-xs font-semibold text-white transition-all">
                         Web Login
                     </a>
-                    <a href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 flex items-center justify-center text-xs font-bold transition-all">
+                    <a id="staff-app-btn" href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 flex items-center justify-center text-xs font-bold transition-all">
                         Staff App
                     </a>
                 </div>
@@ -204,7 +204,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
             <p class="text-white text-3xl md:text-5xl font-bold leading-[1.2] mb-10 font-display">
                 "Modern technology meets <br/> <span class="text-primary">unwavering dedication</span>."
             </p>
-            <p class="text-gray-400 text-lg italic leading-relaxed font-body font-light opacity-90 max-w-2xl mx-auto">
+            <p id="about-text-display" class="text-gray-400 text-lg italic leading-relaxed font-body font-light opacity-90 max-w-2xl mx-auto">
                 <?= nl2br(htmlspecialchars($page['about_text'] ?? 'Experience fitness like never before with our cutting-edge multi-tenant facility.')) ?>
             </p>
         </section>
@@ -233,7 +233,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
                     </div>
                     <div class="space-y-4">
                         <p class="text-[10px] font-bold uppercase text-primary tracking-[0.3em] font-display">Location</p>
-                        <p class="text-gray-400 text-sm italic leading-relaxed font-body font-light">
+                        <p id="contact-text-display" class="text-gray-400 text-sm italic leading-relaxed font-body font-light">
                             <?= nl2br(htmlspecialchars($page['contact_text'] ?? 'Visit us at our primary training facility.')) ?>
                         </p>
                     </div>
@@ -295,6 +295,24 @@ $font_family = $page['font_family'] ?? 'Lexend';
                     document.title = data.page_title + " | Horizon Systems";
                     const names = document.querySelectorAll('.gym-name-display');
                     names.forEach(n => n.innerText = data.page_title);
+                }
+
+                // Update App Download Links
+                if (data.app_download_link) {
+                    const downloadBtns = [document.getElementById('app-download-btn'), document.getElementById('staff-app-btn')];
+                    downloadBtns.forEach(btn => { if(btn) btn.href = data.app_download_link; });
+                }
+
+                // Update About Text
+                if (data.about_text !== undefined) {
+                    const aboutDisp = document.getElementById('about-text-display');
+                    if (aboutDisp) aboutDisp.innerText = data.about_text;
+                }
+
+                // Update Contact Text
+                if (data.contact_text !== undefined) {
+                    const contactDisp = document.getElementById('contact-text-display');
+                    if (contactDisp) contactDisp.innerText = data.contact_text;
                 }
             }
         });

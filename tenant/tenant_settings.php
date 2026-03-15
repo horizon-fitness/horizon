@@ -33,6 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $theme_color = $_POST['theme_color'];
     $bg_color = $_POST['bg_color'];
     $font_family = $_POST['font_family'];
+    $app_download_link = $_POST['app_download_link'] ?? '';
+    $about_text = $_POST['about_text'] ?? '';
+    $contact_text = $_POST['contact_text'] ?? '';
     $now = date('Y-m-d H:i:s');
 
     // Handle Logo Upload
@@ -45,12 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if ($page) {
-            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, theme_color = ?, bg_color = ?, font_family = ?, updated_at = ? WHERE gym_id = ?");
-            $stmtUpdate->execute([$page_title, $logo_path, $theme_color, $bg_color, $font_family, $now, $gym_id]);
+            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, theme_color = ?, bg_color = ?, font_family = ?, app_download_link = ?, about_text = ?, contact_text = ?, updated_at = ? WHERE gym_id = ?");
+            $stmtUpdate->execute([$page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now, $gym_id]);
         } else {
             $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name']));
-            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, bg_color, font_family, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $bg_color, $font_family, $now]);
+            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, bg_color, font_family, app_download_link, about_text, contact_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now]);
         }
         $_SESSION['success_msg'] = "Portal settings saved!";
         header("Location: tenant_settings.php");
@@ -262,20 +265,41 @@ $active_page = "settings";
                     </div>
                 </div>
 
+                <div class="glass-card p-8">
+                    <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-primary">info</span> Content & Links
+                    </h4>
+                    <div class="space-y-6">
+                        <div class="space-y-1.5">
+                            <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">App Download Link (APK URL)</label>
+                            <input type="url" name="app_download_link" oninput="updatePreview()" value="<?= htmlspecialchars($page['app_download_link'] ?? '') ?>" placeholder="https://..." class="input-dark">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">About the Facility</label>
+                            <textarea name="about_text" oninput="updatePreview()" rows="3" class="input-dark h-24"><?= htmlspecialchars($page['about_text'] ?? '') ?></textarea>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Contact / Location Details</label>
+                            <textarea name="contact_text" oninput="updatePreview()" rows="2" class="input-dark h-20"><?= htmlspecialchars($page['contact_text'] ?? '') ?></textarea>
+                        </div>
+                    </div>
+                </div>
+
                 <button type="submit" class="w-full h-16 rounded-2xl bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3">
                     <span class="material-symbols-outlined">save</span> Save & Publish Changes
                 </button>
             </div>
 
-            <!-- Right: High-Fidelity App Preview -->
-            <div class="flex items-center justify-center relative">
-                <div class="absolute inset-0 bg-primary/5 rounded-full blur-[100px] -z-10 animate-pulse"></div>
-                <div class="phone-mockup">
-                    <div class="phone-screen">
-                        <iframe id="previewIframe" src="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>&preview=1" class="w-full h-full border-none"></iframe>
+            <!-- Right: High-Fidelity App Preview (Sticky) -->
+            <div class="relative">
+                <div class="sticky top-0 pt-4">
+                    <div class="absolute inset-0 bg-primary/5 rounded-full blur-[100px] -z-10 animate-pulse"></div>
+                    <div class="phone-mockup mx-auto">
+                        <div class="phone-screen">
+                            <iframe id="previewIframe" src="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>&preview=1" class="w-full h-full border-none"></iframe>
+                        </div>
                     </div>
                 </div>
-                
             </div>
         </form>
     </div>

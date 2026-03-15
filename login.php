@@ -108,6 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             header("Location: tenant/tenant_gateway.php");
                             exit;
                         case 'coach':
+                        case 'staff':
                             header("Location: coach/coach_dashboard.php");
                             exit;
                         case 'member':
