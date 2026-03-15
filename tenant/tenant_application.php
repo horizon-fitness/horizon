@@ -79,7 +79,7 @@
             </div>
         </div>
 
-        <form id="multi-step-form" action="../action/submit_application.php" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <form id="multi-step-form" action="process_application.php" method="POST" enctype="multipart/form-data" class="space-y-6">
             
             <div class="step-container" data-step="1">
                 <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">

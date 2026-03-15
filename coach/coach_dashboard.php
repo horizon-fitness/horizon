@@ -65,7 +65,7 @@
                     </div>
                 </div>
 
-                <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+                <a href="logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
                     <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
                     <span class="nav-link">Sign Out</span>
                 </a>

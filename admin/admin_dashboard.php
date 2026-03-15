@@ -33,14 +33,11 @@
         .status-card-green { border: 1px solid #10b981; background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(20,18,26,1) 100%); }
         .status-card-yellow { border: 1px solid #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(20,18,26,1) 100%); }
         .dashed-container { border: 2px dashed rgba(255,255,255,0.1); border-radius: 24px; }
-
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0 overflow-x-hidden">
+<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
@@ -54,7 +51,7 @@
         </div>
     </div>
     
-    <div class="flex flex-col gap-7 flex-1 overflow-y-auto no-scrollbar">
+    <div class="flex flex-col gap-7 flex-1">
         <a href="admin_dashboard.php" class="nav-link active-nav flex items-center gap-3">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>

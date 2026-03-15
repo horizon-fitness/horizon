@@ -67,7 +67,7 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
         <div class="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent opacity-50"></div>
         <div class="relative flex items-center gap-5">
             <?php if($page['logo_path']): ?>
-                <img src="<?= htmlspecialchars($page['logo_path']) ?>" alt="Logo" class="h-10 w-auto filter drop-shadow-2xl viewable">
+                <img src="<?= htmlspecialchars($page['logo_path']) ?>" alt="Logo" class="h-10 w-auto filter drop-shadow-2xl">
             <?php else: ?>
                 <div class="size-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
                     <span class="material-symbols-outlined text-white text-2xl">bolt</span>
@@ -124,7 +124,7 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
                 </div>
                 <h3 class="text-3xl font-black italic uppercase tracking-tighter mb-4 text-white">Join the Community</h3>
                 <p class="text-gray-500 text-sm mb-10 leading-relaxed font-medium">Become a member today to unlock exclusive access to classes, real-time tracking, and our premium mobile experience.</p>
-                <a href="member/member_registration.php?gym=<?= $page['gym_id'] ?>" class="h-16 rounded-2xl btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em] mt-auto">
+                <a href="member_registration.php?gym=<?= $page['gym_id'] ?>" class="h-16 rounded-2xl btn-primary flex items-center justify-center text-xs font-black uppercase tracking-[0.2em] mt-auto">
                     Create Member Account
                 </a>
             </div>
@@ -203,6 +203,5 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
         </div>
     </footer>
 
-    <?php include 'includes/image_viewer.php'; ?>
 </body>
 </html>

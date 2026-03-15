@@ -64,14 +64,11 @@ $active_page = "dashboard";
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
-        
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0 overflow-x-hidden">
+<nav class="flex flex-col w-64 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
             <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
@@ -85,7 +82,7 @@ $active_page = "dashboard";
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2 no-scrollbar">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
         <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
         </a>
@@ -170,7 +167,7 @@ $active_page = "dashboard";
                             }
                             ?>
                             <?php if($logo_src): ?>
-                                <img src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain viewable">
+                                <img src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain">
                             <?php else: ?>
                                 <span class="material-symbols-outlined text-gray-700">image</span>
                             <?php endif; ?>
@@ -194,11 +191,21 @@ $active_page = "dashboard";
                     </a>
                 </div>
             </div>
-    
+
+            <div class="glass-card p-8 flex flex-col items-center justify-center text-center">
+                <div class="size-20 rounded-full bg-white/5 flex items-center justify-center text-gray-700 mb-6 border border-white/5 border-dashed">
+                    <span class="material-symbols-outlined text-4xl">inventory_2</span>
+                </div>
+                <h4 class="font-black italic uppercase text-sm tracking-tighter mb-2">Inventory Multi-Level</h4>
+                <p class="text-xs text-gray-500 max-w-xs mb-8">Set up your gym services and membership plans to start accepting registrations.</p>
+                <div class="flex gap-3 w-full max-w-sm">
+                   <button class="flex-1 h-12 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-[10px] font-black uppercase tracking-widest">Add Service</button>
+                   <button class="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-[10px] font-black uppercase tracking-widest">Plan Setup</button>
+                </div>
+            </div>
+        </div>
     </main>
 </div>
-
-<?php include '../includes/image_viewer.php'; ?>
 
 </body>
 </html>
