@@ -188,13 +188,20 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 <p class="text-gray-400 text-sm mb-10 leading-relaxed font-body font-light">
                     Access the professional management dashboard or download the dedicated staff APK for on-the-floor operations.
                 </p>
-                <div class="grid grid-cols-2 gap-4 mt-auto">
-                    <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 flex items-center justify-center text-xs font-semibold text-white transition-all">
-                        Web Login
+                <div class="flex flex-col gap-4 mt-auto">
+                    <div class="grid grid-cols-2 gap-4">
+                        <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 rounded-xl bg-white/5 border border-white/8 hover:bg-white/10 flex items-center justify-center text-xs font-semibold text-white transition-all">
+                            Web Login
+                        </a>
+                        <a id="staff-app-btn" href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 flex items-center justify-center text-xs font-bold transition-all">
+                            Staff App
+                        </a>
+                    </div>
+                    <?php if ($page['allow_staff_self_reg']): ?>
+                    <a href="staff_registration.php?gym=<?= $page['gym_id'] ?>" class="h-14 rounded-xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 flex items-center justify-center text-sm font-bold text-emerald-400 transition-all">
+                        <span class="material-symbols-outlined mr-2">person_add</span> Join Our Team
                     </a>
-                    <a id="staff-app-btn" href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 flex items-center justify-center text-xs font-bold transition-all">
-                        Staff App
-                    </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </section>

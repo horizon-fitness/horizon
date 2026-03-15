@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $app_download_link = $_POST['app_download_link'] ?? '';
     $about_text = $_POST['about_text'] ?? '';
     $contact_text = $_POST['contact_text'] ?? '';
+    $allow_staff_self_reg = isset($_POST['allow_staff_self_reg']) ? 1 : 0;
     $now = date('Y-m-d H:i:s');
 
     // Handle Logo Upload
@@ -48,12 +49,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if ($page) {
-            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, theme_color = ?, bg_color = ?, font_family = ?, app_download_link = ?, about_text = ?, contact_text = ?, updated_at = ? WHERE gym_id = ?");
-            $stmtUpdate->execute([$page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now, $gym_id]);
+            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, theme_color = ?, bg_color = ?, font_family = ?, app_download_link = ?, about_text = ?, contact_text = ?, allow_staff_self_reg = ?, updated_at = ? WHERE gym_id = ?");
+            $stmtUpdate->execute([$page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $allow_staff_self_reg, $now, $gym_id]);
         } else {
             $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name']));
-            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, bg_color, font_family, app_download_link, about_text, contact_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now]);
+            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, bg_color, font_family, app_download_link, about_text, contact_text, allow_staff_self_reg, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $allow_staff_self_reg, $now]);
         }
         $_SESSION['success_msg'] = "Portal settings saved!";
         header("Location: tenant_settings.php");
@@ -278,6 +279,18 @@ $active_page = "settings";
                         <div class="space-y-1.5">
                             <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Contact / Location Details</label>
                             <textarea name="contact_text" oninput="updatePreview()" rows="2" class="input-dark h-20"><?= htmlspecialchars($page['contact_text'] ?? '') ?></textarea>
+                        </div>
+                        <div class="space-y-1.5 pt-4 border-t border-white/5">
+                            <label class="flex items-center gap-3 cursor-pointer group">
+                                <div class="relative size-6 shrink-0">
+                                    <input type="checkbox" name="allow_staff_self_reg" value="1" <?= ($page['allow_staff_self_reg'] ?? 0) ? 'checked' : '' ?> class="peer appearance-none size-full rounded-md border border-white/10 bg-background-dark checked:bg-primary transition-all">
+                                    <span class="material-symbols-outlined absolute inset-0 text-white text-sm flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-white italic leading-tight">Enable Staff Self-Registration</p>
+                                    <p class="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Allow potential staff to register themselves via your portal.</p>
+                                </div>
+                            </label>
                         </div>
                     </div>
                 </div>
