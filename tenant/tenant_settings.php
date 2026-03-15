@@ -153,14 +153,16 @@ $active_page = "settings";
             <h1 class="text-xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($gym['gym_name']) ?></h1>
         </div>
         <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
-            <div class="flex items-center justify-between mb-2">
+            <div class="mb-2">
                 <p id="sidebarClock" class="text-white font-black italic text-base leading-none">00:00:00 AM</p>
-                <span class="px-2 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">Active</span>
             </div>
             <p class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mb-1"><?= date('l, M d') ?></p>
             <div class="pt-2 border-t border-white/5 mt-2">
                 <p class="text-[8px] font-black uppercase text-gray-600 tracking-widest mb-1">Current Plan</p>
-                <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
+                <div class="flex items-center justify-between">
+                    <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
+                    <span class="px-2 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">Active</span>
+                </div>
             </div>
         </div>
     </div>
