@@ -134,37 +134,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">First Name</label>
-                        <input type="text" name="first_name" class="input-field" placeholder="John" required>
+                        <input type="text" name="first_name" class="input-field" placeholder="John" autocomplete="given-name" required>
                     </div>
                     <div class="space-y-2">
                         <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Last Name</label>
-                        <input type="text" name="last_name" class="input-field" placeholder="Doe" required>
+                        <input type="text" name="last_name" class="input-field" placeholder="Doe" autocomplete="family-name" required>
                     </div>
                 </div>
 
                 <div class="space-y-2">
                     <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Username</label>
-                    <input type="text" name="username" class="input-field" placeholder="johndoe123" required>
+                    <input type="text" name="username" class="input-field" placeholder="johndoe123" autocomplete="username" required>
                 </div>
 
                 <div class="space-y-2">
                     <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Email Address</label>
-                    <input type="email" name="email" class="input-field" placeholder="john@example.com" required>
+                    <input type="email" name="email" class="input-field" placeholder="john@example.com" autocomplete="email" required>
                 </div>
 
                 <div class="space-y-2">
                     <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Phone Number</label>
-                    <input type="text" name="phone_number" class="input-field" placeholder="0912 345 6789">
+                    <input type="text" name="phone_number" class="input-field" placeholder="0912 345 6789" autocomplete="tel">
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
                         <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Birth Date</label>
-                        <input type="date" name="birth_date" class="input-field" required>
+                        <input type="date" name="birth_date" class="input-field" autocomplete="bday" required>
                     </div>
                     <div class="space-y-2">
                         <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Sex</label>
-                        <select name="sex" class="input-field appearance-none">
+                        <select name="sex" class="input-field appearance-none" autocomplete="sex">
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                             <option value="Other">Other</option>
@@ -179,13 +179,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <div class="space-y-2">
                         <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Emergency Phone</label>
-                        <input type="text" name="emergency_contact_number" class="input-field" placeholder="09XX XXX XXXX" required>
+                        <input type="text" name="emergency_contact_number" class="input-field" placeholder="09XX XXX XXXX" autocomplete="tel" required>
                     </div>
                 </div>
 
                 <div class="space-y-2 pb-6">
                     <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Initial Password</label>
-                    <input type="password" name="password" class="input-field" placeholder="••••••••" required>
+                    <input type="password" name="password" class="input-field" placeholder="••••••••" autocomplete="new-password" required>
                 </div>
 
                 <button type="submit" class="w-full h-16 rounded-2xl bg-primary text-white text-sm font-black uppercase tracking-[0.2em] hover:scale-[1.02] transition-all shadow-lg shadow-primary/20">

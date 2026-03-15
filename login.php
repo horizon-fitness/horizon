@@ -222,6 +222,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         class="flex h-14 w-full rounded-xl border border-input-border bg-black/40 pl-12 pr-4 text-base text-white placeholder:text-gray-700 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
                         name="username"
                         placeholder="Username"
+                        autocomplete="username"
                         required
                         type="text"
                     />
@@ -240,6 +241,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         class="flex h-14 w-full rounded-xl border border-input-border bg-black/40 pl-12 pr-14 text-base text-white placeholder:text-gray-700 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
                         name="password"
                         placeholder="••••••••"
+                        autocomplete="current-password"
                         required
                         type="password"
                     />

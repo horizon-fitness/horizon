@@ -79,7 +79,7 @@
             </div>
         </div>
 
-        <form id="multi-step-form" action="../action/submit_application.php" method="POST" enctype="multipart/form-data" class="space-y-6" autocomplete="off">
+        <form id="multi-step-form" action="../action/submit_application.php" method="POST" enctype="multipart/form-data" class="space-y-6">
             
             <div class="step-container" data-step="1">
                 <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">
@@ -93,39 +93,39 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">First Name</label>
-                            <input type="text" name="first_name" required placeholder="e.g. Juan" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="first_name" required placeholder="e.g. Juan" autocomplete="given-name" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Middle Name (Optional)</label>
-                            <input type="text" name="middle_name" placeholder="e.g. Santos" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="middle_name" placeholder="e.g. Santos" autocomplete="additional-name" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Last Name</label>
-                            <input type="text" name="last_name" required placeholder="e.g. Dela Cruz" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="last_name" required placeholder="e.g. Dela Cruz" autocomplete="family-name" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Email Address</label>
-                            <input type="email" name="owner_email" required placeholder="e.g. name@example.com" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="email" name="owner_email" required placeholder="e.g. name@example.com" autocomplete="email" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Contact Number</label>
-                            <input type="text" name="owner_contact" id="owner_contact" required placeholder="09123456789" maxlength="11" pattern="09\d{9}" inputmode="numeric" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none numeric-only">
+                            <input type="text" name="owner_contact" id="owner_contact" required placeholder="09123456789" maxlength="11" pattern="09\d{9}" inputmode="numeric" autocomplete="tel" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none numeric-only">
                         </div>
                     </div>
 
                     <div class="space-y-1.5 mb-5">
                         <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Username (For Login)</label>
-                        <input type="text" name="username" required placeholder="e.g. juan_owner2026" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        <input type="text" name="username" required placeholder="e.g. juan_owner2026" autocomplete="username" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Password</label>
                             <div class="relative group">
-                                <input type="password" id="reg-password" name="password" required placeholder="••••••••" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                                <input type="password" id="reg-password" name="password" required placeholder="••••••••" autocomplete="new-password" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                                 <button type="button" onclick="togglePasswordVisibility('reg-password', 'eye-icon-pass')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors">
                                     <span id="eye-icon-pass" class="material-symbols-outlined text-[20px]">visibility</span>
                                 </button>
@@ -142,7 +142,7 @@
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Confirm Password</label>
                             <div class="relative group">
-                                <input type="password" id="reg-confirm-password" name="confirm_password" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                                <input type="password" id="reg-confirm-password" name="confirm_password" required autocomplete="new-password" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                                 <button type="button" onclick="togglePasswordVisibility('reg-confirm-password', 'eye-icon-confirm')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors">
                                     <span id="eye-icon-confirm" class="material-symbols-outlined text-[20px]">visibility</span>
                                 </button>
