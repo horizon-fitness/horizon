@@ -146,11 +146,15 @@ $active_page = "settings";
 
 <nav class="flex flex-col w-64 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
     <div class="mb-12">
-        <div class="flex items-center gap-4 mb-6">
-            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+        <div class="flex items-center gap-3 mb-6">
+            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($page['logo_path'])): ?>
+                    <img id="sidebar-logo" src="<?= $page['logo_path'] ?>" class="size-full object-contain">
+                <?php else: ?>
+                    <span id="sidebar-icon" class="material-symbols-outlined text-white text-2xl">bolt</span>
+                <?php endif; ?>
             </div>
-            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($gym['gym_name']) ?></h1>
+            <h1 class="text-lg font-black italic uppercase tracking-tighter text-white leading-none break-words line-clamp-2 gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?></h1>
         </div>
         <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
             <div class="mb-2">
@@ -289,9 +293,25 @@ $active_page = "settings";
         if (input.files && input.files[0]) {
             var reader = new FileReader();
             reader.onload = function(e) {
-                document.getElementById('logo-preview').src = e.target.result;
-                document.getElementById('logo-preview').classList.remove('hidden');
+                // Update Main Preview Logo
+                const logoPreview = document.getElementById('logo-preview');
+                logoPreview.src = e.target.result;
+                logoPreview.classList.remove('hidden');
                 document.getElementById('logo-placeholder').classList.add('hidden');
+                
+                // Update Sidebar Logo
+                const sidebarLogo = document.getElementById('sidebar-logo');
+                const sidebarIcon = document.getElementById('sidebar-icon');
+                if (sidebarLogo) {
+                    sidebarLogo.src = e.target.result;
+                } else if (sidebarIcon) {
+                    const newImg = document.createElement('img');
+                    newImg.id = "sidebar-logo";
+                    newImg.src = e.target.result;
+                    newImg.className = "size-full object-contain";
+                    sidebarIcon.replaceWith(newImg);
+                }
+
                 updatePreview(e.target.result);
             }
             reader.readAsDataURL(input.files[0]);

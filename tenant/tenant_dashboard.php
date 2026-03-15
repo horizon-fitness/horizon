@@ -100,11 +100,15 @@ $active_page = "dashboard";
 
 <nav class="flex flex-col w-64 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
     <div class="mb-12">
-        <div class="flex items-center gap-4 mb-6">
-            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+        <div class="flex items-center gap-3 mb-6">
+            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($page['logo_path'])): ?>
+                    <img src="<?= $page['logo_path'] ?>" class="size-full object-contain">
+                <?php else: ?>
+                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                <?php endif; ?>
             </div>
-            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($gym['gym_name']) ?></h1>
+            <h1 class="text-lg font-black italic uppercase tracking-tighter text-white leading-none break-words line-clamp-2"><?= htmlspecialchars($gym['gym_name']) ?></h1>
         </div>
         <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
             <div class="mb-2">
