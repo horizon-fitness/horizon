@@ -13,7 +13,7 @@ if ($action === 'register') {
     $email = trim($input['email'] ?? '');
     $username = trim($input['username'] ?? '');
     $password = $input['password'] ?? '';
-    $phone = trim($input['phone_number'] ?? '');
+    $phone = trim($input['phone'] ?? $input['phone_number'] ?? '');
     
     // Member specific fields
     $birth_date = $input['birth_date'] ?? '2000-01-01';
@@ -21,8 +21,8 @@ if ($action === 'register') {
     $occupation = trim($input['occupation'] ?? '');
     $address = trim($input['address'] ?? '');
     $medical_history = trim($input['medical_history'] ?? '');
-    $emergency_name = trim($input['emergency_contact_name'] ?? '');
-    $emergency_phone = trim($input['emergency_contact_number'] ?? '');
+    $emergency_name = trim($input['emergency_name'] ?? $input['emergency_contact_name'] ?? '');
+    $emergency_phone = trim($input['emergency_phone'] ?? $input['emergency_contact_number'] ?? '');
 
     $now = date('Y-m-d H:i:s');
 

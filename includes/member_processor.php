@@ -11,14 +11,14 @@ function processMemberRegistration($pdo, $data) {
     $middle_name = trim($data['middle_name'] ?? '');
     $last_name = trim($data['last_name'] ?? '');
     $email = trim($data['email'] ?? '');
-    $phone = trim($data['phone_number'] ?? '');
+    $phone = trim($data['phone'] ?? $data['phone_number'] ?? '');
     $address = trim($data['address'] ?? '');
     $birth_date = $data['birth_date'] ?? '2000-01-01';
     $sex = $data['sex'] ?? 'Not Specified';
     $occupation = trim($data['occupation'] ?? '');
     $medical_history = trim($data['medical_history'] ?? '');
-    $emergency_name = trim($data['emergency_contact_name'] ?? '');
-    $emergency_phone = trim($data['emergency_contact_number'] ?? '');
+    $emergency_name = trim($data['emergency_name'] ?? $data['emergency_contact_name'] ?? '');
+    $emergency_phone = trim($data['emergency_phone'] ?? $data['emergency_contact_number'] ?? '');
     $gym_id = $data['gym_id'];
     $source = $data['registration_source'] ?? 'Self'; // 'Self' or 'Walk-in'
     $registered_by = $data['registered_by_user_id'] ?? null;
@@ -36,22 +36,25 @@ function processMemberRegistration($pdo, $data) {
     }
 
     // Handle Credentials
-    if ($source === 'Walk-in') {
-        // Auto-generate for staff-led walk-in
-        $username = strtolower($first_name . $last_name . rand(100, 999));
-        $plain_password = bin2hex(random_bytes(4));
-    } else {
-        // User-provided for self-registration
-        $username = trim($data['username'] ?? strtolower($first_name . $last_name . rand(100, 999)));
-        $plain_password = $data['password'] ?? '';
-        if (empty($plain_password)) throw new Exception("Password is required for self-registration.");
-        
-        // Double check username uniqueness for self-reg
-        $stmtUCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
-        $stmtUCheck->execute([$username]);
-        if ($stmtUCheck->fetch()) {
-            throw new Exception("Username is already taken.");
+    $username = trim($data['username'] ?? '');
+    $plain_password = $data['password'] ?? '';
+
+    if (empty($username) || empty($plain_password)) {
+        if ($source === 'Walk-in') {
+            // Auto-generate if not provided for staff-led walk-in
+            if (empty($username)) $username = strtolower($first_name . $last_name . rand(100, 999));
+            if (empty($plain_password)) $plain_password = bin2hex(random_bytes(4));
+        } else {
+            // User-provided required for self-registration
+            if (empty($plain_password)) throw new Exception("Password is required for registration.");
         }
+    }
+
+    // Double check username uniqueness
+    $stmtUCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
+    $stmtUCheck->execute([$username]);
+    if ($stmtUCheck->fetch()) {
+        throw new Exception("Username '$username' is already taken.");
     }
 
     try {
