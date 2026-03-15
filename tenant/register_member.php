@@ -16,11 +16,15 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $first_name = trim($_POST['first_name'] ?? '');
+    $middle_name = trim($_POST['middle_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone_number'] ?? '');
+    $address = trim($_POST['address'] ?? '');
     $birth_date = $_POST['birth_date'] ?? '2000-01-01';
     $sex = $_POST['sex'] ?? 'Not Specified';
+    $occupation = trim($_POST['occupation'] ?? '');
+    $medical_history = trim($_POST['medical_history'] ?? '');
     $emergency_name = trim($_POST['emergency_contact_name'] ?? '');
     $emergency_phone = trim($_POST['emergency_contact_number'] ?? '');
     $now = date('Y-m-d H:i:s');
@@ -44,8 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // 1. Create User Account
             $password_hash = password_hash($plain_password, PASSWORD_BCRYPT);
-            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)");
-            $stmtUser->execute([$username, $email, $password_hash, $first_name, $last_name, $phone, $now, $now]);
+            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)");
+            $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $now, $now]);
             $new_user_id = $pdo->lastInsertId();
 
             // 2. Assign 'Member' Role
@@ -64,8 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // 3. Create Member Record
             $member_code = "WALK-" . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
-            $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, birth_date, sex, emergency_contact_name, emergency_contact_number, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-            $stmtMember->execute([$new_user_id, $gym_id, $member_code, $birth_date, $sex, $emergency_name, $emergency_phone, $now, $now]);
+            $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, birth_date, sex, occupation, address, medical_history, emergency_contact_name, emergency_contact_number, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+            $stmtMember->execute([$new_user_id, $gym_id, $member_code, $birth_date, $sex, $occupation, $address, $medical_history, $emergency_name, $emergency_phone, $now, $now]);
 
             // 4. Record as Member Registration (For logs)
             $stmtReg = $pdo->prepare("INSERT INTO member_registrations (gym_id, user_id, email, registration_source, registered_by_user_id, registration_status, completed_at, created_at) VALUES (?, ?, ?, 'Walk-in', ?, 'Completed', ?, ?)");
@@ -206,10 +210,14 @@ $active_page = "register_member";
         <?php endif; ?>
 
         <form method="POST" class="space-y-6">
-            <div class="grid grid-cols-2 gap-6">
+            <div class="grid grid-cols-3 gap-6">
                 <div class="space-y-2">
                     <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">First Name</label>
                     <input type="text" name="first_name" class="input-field" placeholder="John" required>
+                </div>
+                <div class="space-y-2">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Middle Name</label>
+                    <input type="text" name="middle_name" class="input-field" placeholder="Quincy">
                 </div>
                 <div class="space-y-2">
                     <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Last Name</label>
@@ -220,6 +228,11 @@ $active_page = "register_member";
             <div class="space-y-2">
                 <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Email Address</label>
                 <input type="email" name="email" class="input-field" placeholder="member@example.com" required>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Home Address</label>
+                <input type="text" name="address" class="input-field" placeholder="123 Street, Brgy, City" required>
             </div>
 
             <div class="grid grid-cols-2 gap-6">
@@ -235,6 +248,16 @@ $active_page = "register_member";
                         <option value="Other">Other</option>
                     </select>
                 </div>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Occupation</label>
+                <input type="text" name="occupation" class="input-field" placeholder="Software Engineer">
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Medical History / Allergies</label>
+                <textarea name="medical_history" class="input-field h-24" placeholder="Mention any medical conditions or allergies..."></textarea>
             </div>
 
             <div class="grid grid-cols-2 gap-6 pt-6 border-t border-white/5">

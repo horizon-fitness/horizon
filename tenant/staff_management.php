@@ -18,9 +18,11 @@ $error_msg = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_staff'])) {
     $first_name = trim($_POST['first_name'] ?? '');
+    $middle_name = trim($_POST['middle_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $username = trim($_POST['username'] ?? '');
+    $contact_number = trim($_POST['contact_number'] ?? '');
     $password = $_POST['password'] ?? '';
     $staff_role = $_POST['staff_role'] ?? 'Staff';
     $employment_type = $_POST['employment_type'] ?? 'Full-time';
@@ -47,8 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_staff'])) {
 
             // 1. Create User
             $password_hash = password_hash($plain_password, PASSWORD_BCRYPT);
-            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, '', 1, ?, ?)");
-            $stmtUser->execute([$username, $email, $password_hash, $first_name, $last_name, $now, $now]);
+            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)");
+            $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $contact_number, $now, $now]);
             $new_user_id = $pdo->lastInsertId();
 
             // 2. Assign Role
@@ -394,10 +396,14 @@ foreach($staff_members as $s) {
             <form method="POST" class="space-y-6">
                 <input type="hidden" name="add_staff" value="1">
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="space-y-2">
                         <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">First Name</label>
                         <input type="text" name="first_name" class="input-field" placeholder="John" required>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Middle Name</label>
+                        <input type="text" name="middle_name" class="input-field" placeholder="Quincy">
                     </div>
                     <div class="space-y-2">
                         <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Last Name</label>
@@ -405,9 +411,15 @@ foreach($staff_members as $s) {
                     </div>
                 </div>
 
-                <div class="space-y-2">
-                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Email Address</label>
-                    <input type="email" name="email" class="input-field" placeholder="staff@example.com" required>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Email Address</label>
+                        <input type="email" name="email" class="input-field" placeholder="staff@example.com" required>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Contact Number</label>
+                        <input type="text" name="contact_number" class="input-field" placeholder="09XX XXX XXXX" required>
+                    </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -427,7 +439,6 @@ foreach($staff_members as $s) {
                         <select name="staff_role" class="input-field appearance-none">
                             <option value="Coach">Coach / Instructor</option>
                             <option value="Staff">General Staff / Receptionist</option>
-                            <option value="Manager">Manager</option>
                         </select>
                     </div>
                     <div class="space-y-2">
