@@ -14,7 +14,7 @@ if (empty($username) || empty($password)) {
 
 try {
     // 1. Build Query with Tenant Context Synergy
-    $sql = "SELECT u.*, ur.role_id, r.role_name, ur.gym_id, g.tenant_code 
+    $sql = "SELECT u.*, ur.role_id, r.role_name, ur.gym_id, g.tenant_code, g.gym_name 
             FROM users u 
             JOIN user_roles ur ON u.user_id = ur.user_id 
             JOIN roles r ON ur.role_id = r.role_id 
@@ -78,7 +78,8 @@ try {
                 'last_name' => $user['last_name'],
                 'role' => $user['role_name'],
                 'gym_id' => $user['gym_id'],
-                'tenant_id' => $user['tenant_code']
+                'tenant_id' => $user['tenant_code'],
+                'gym_name' => $user['gym_name']
             ],
             'branding' => $branding
         ]);
