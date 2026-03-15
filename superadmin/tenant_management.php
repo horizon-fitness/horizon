@@ -57,11 +57,6 @@ foreach ($tenants as $t) {
             darkMode: "class",
             theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
         }
-        function updateHeaderClock() {
-            const now = new Date();
-            if(document.getElementById('sidebarClock')) document.getElementById('sidebarClock').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }
-        window.onload = function() { setInterval(updateHeaderClock, 1000); updateHeaderClock(); };
     </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
@@ -71,12 +66,32 @@ foreach ($tenants as $t) {
         .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
         
         @media (max-width: 1023px) { .active-nav::after { display: none; } }
-        /* Custom Scrollbar */
+        
+        /* Custom Scrollbar for Main Page */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0a090d; }
         ::-webkit-scrollbar-thumb { background: #14121a; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #1a1824; }
+        
+        /* Hide scrollbar for Sidebar specifically */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    <script>
+        function updateSidebarClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('sidebarClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateSidebarClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+    </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
@@ -94,7 +109,7 @@ foreach ($tenants as $t) {
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto no-scrollbar pr-2">
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>
@@ -122,13 +137,13 @@ foreach ($tenants as $t) {
         <a href="support_tickets.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'tickets') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">confirmation_number</span> Support Tickets
         </a>
-        
-        <div class="mt-auto pt-8 border-t border-white/10">
-            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-                <span class="nav-link">Sign Out</span>
-            </a>
-        </div>
+    </div>
+
+    <div class="mt-auto pt-8 border-t border-white/10">
+        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
+            <span class="nav-link">Sign Out</span>
+        </a>
     </div>
 </nav>
 

@@ -103,6 +103,21 @@ $active_page = "settings";
             theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
         }
     </script>
+    <script>
+        function updateSidebarClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('sidebarClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateSidebarClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+    </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0c0b10; color: white; overflow: hidden; }
         .glass-sidebar { background: #0a090d; border-right: 1px solid rgba(255,255,255,0.05); }
@@ -137,6 +152,17 @@ $active_page = "settings";
             </div>
             <h1 class="text-xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($gym['gym_name']) ?></h1>
         </div>
+        <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
+            <div class="flex items-center justify-between mb-2">
+                <p id="sidebarClock" class="text-white font-black italic text-base leading-none">00:00:00 AM</p>
+                <span class="px-2 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">Active</span>
+            </div>
+            <p class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mb-1"><?= date('l, M d') ?></p>
+            <div class="pt-2 border-t border-white/5 mt-2">
+                <p class="text-[8px] font-black uppercase text-gray-600 tracking-widest mb-1">Current Plan</p>
+                <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
+            </div>
+        </div>
     </div>
     
     <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2 no-scrollbar">
@@ -152,12 +178,13 @@ $active_page = "settings";
         <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">person_search</span> Member Directory
         </a>
-        <div class="mt-auto pt-8 border-t border-white/10">
-            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-                <span class="nav-link">Sign Out</span>
-            </a>
-        </div>
+    </div>
+
+    <div class="mt-auto pt-8 border-t border-white/10 shrink-0">
+        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
+            <span class="nav-link">Sign Out</span>
+        </a>
     </div>
 </nav>
 
