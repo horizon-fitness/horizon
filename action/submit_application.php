@@ -130,8 +130,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mail->isSMTP();
             $mail->Host       = 'smtp.gmail.com'; 
             $mail->SMTPAuth   = true;
-            $mail->Username   = 'horizonfitnesscorp@gmail.com'; 
-            $mail->Password   = 'haog wnjy zhwe qnmn';    
+            $mail->Username   = 'horizonfitnesscorp@gmail.com'; // Update this
+            $mail->Password   = 'haog wnjy zhwe qnmn';    // Update this
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->Port       = 587;
 

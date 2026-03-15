@@ -20,11 +20,13 @@ $stmt = $pdo->prepare("
     SELECT a.*, 
            u.first_name, u.middle_name, u.last_name, u.email as owner_email, u.contact_number as owner_contact,
            ad.address_line, ad.barangay, ad.city, ad.province, ad.region,
-           r.first_name as reviewer_first, r.last_name as reviewer_last
+           r.first_name as reviewer_first, r.last_name as reviewer_last,
+           g.gym_id -- Get gym ID if it exists
     FROM gym_owner_applications a
     JOIN users u ON a.user_id = u.user_id
     JOIN gym_addresses ad ON a.address_id = ad.address_id
     LEFT JOIN users r ON a.reviewed_by = r.user_id
+    LEFT JOIN gyms g ON a.application_id = g.application_id
     WHERE a.application_id = ?
 ");
 $stmt->execute([$app_id]);
@@ -32,6 +34,20 @@ $app = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$app) {
     die("Application not found.");
+}
+
+// Fetch Latest Subscription if Gym exists
+$subscription = null;
+if (!empty($app['gym_id'])) {
+    $stmtSub = $pdo->prepare("
+        SELECT cs.*, wp.plan_name, wp.price, wp.billing_cycle, wp.duration_months
+        FROM client_subscriptions cs
+        JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+        WHERE cs.gym_id = ?
+        ORDER BY cs.created_at DESC LIMIT 1
+    ");
+    $stmtSub->execute([$app['gym_id']]);
+    $subscription = $stmtSub->fetch(PDO::FETCH_ASSOC);
 }
 
 // Fetch documents
@@ -128,6 +144,39 @@ $page_title = "Application Details: " . $app['gym_name'];
             </div>
         </div>
 
+        <?php if ($subscription): ?>
+        <!-- Subscription Information -->
+        <div class="glass-card p-8 mb-10 border border-primary/20 bg-primary/5">
+            <h3 class="text-sm font-black italic uppercase tracking-widest mb-6 text-primary border-b border-white/5 pb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined">card_membership</span>
+                Gym Subscription
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                    <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Current Plan</p>
+                    <p class="text-lg font-black italic uppercase text-white"><?= htmlspecialchars($subscription['plan_name']) ?></p>
+                    <p class="text-[10px] text-primary font-bold uppercase tracking-widest mt-1">₱<?= number_format($subscription['price'], 2) ?> / <?= htmlspecialchars($subscription['billing_cycle']) ?></p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Status</p>
+                    <?php if ($subscription['subscription_status'] === 'Active'): ?>
+                        <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-500 font-black uppercase italic tracking-widest">Active</span>
+                    <?php else: ?>
+                        <span class="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] text-red-500 font-black uppercase italic tracking-widest"><?= htmlspecialchars($subscription['subscription_status']) ?></span>
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Start Date</p>
+                    <p class="text-sm font-bold"><?= date('M d, Y', strtotime($subscription['start_date'])) ?></p>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">End Date</p>
+                    <p class="text-sm font-bold"><?= $subscription['end_date'] ? date('M d, Y', strtotime($subscription['end_date'])) : 'N/A' ?></p>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Compliance and Remarks -->
         <div class="glass-card p-8 mb-10">
             <h3 class="text-sm font-black italic uppercase tracking-widest mb-6 text-primary border-b border-white/5 pb-4">Compliance Information</h3>
@@ -155,12 +204,25 @@ $page_title = "Application Details: " . $app['gym_name'];
         <div class="glass-card p-8 mb-10">
             <h3 class="text-sm font-black italic uppercase tracking-widest mb-6 text-primary border-b border-white/5 pb-4">Uploaded Documents</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <?php foreach ($documents as $doc): ?>
+                <?php foreach ($documents as $doc): 
+                    $docPath = $doc['file_path'];
+                    // Logic to ensure path is correct
+                    // 1. If it's Base64 (starts with data:image), use as is.
+                    // 2. If it's a legacy file path (starts with uploads/), fix relative path.
+                    // 3. If it's just a filename, assume legacy location.
+                    if (!str_starts_with($docPath, 'data:image')) {
+                        if (str_starts_with($docPath, 'uploads/')) {
+                            $docPath = '../' . $docPath;
+                        } elseif (!str_starts_with($docPath, '../') && !str_starts_with($docPath, 'http')) {
+                            $docPath = '../uploads/applications/' . $docPath;
+                        }
+                    }
+                ?>
                     <div class="group relative bg-white/5 border border-white/5 rounded-2xl overflow-hidden aspect-video">
-                        <img src="<?= htmlspecialchars($doc['file_path']) ?>" alt="<?= htmlspecialchars($doc['document_type']) ?>" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4">
+                        <img src="<?= htmlspecialchars($docPath) ?>" alt="<?= htmlspecialchars($doc['document_type']) ?>" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity viewable">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4 pointer-events-none">
                             <p class="text-[10px] font-black uppercase text-primary tracking-widest"><?= htmlspecialchars($doc['document_type']) ?></p>
-                            <a href="<?= htmlspecialchars($doc['file_path']) ?>" target="_blank" class="text-xs font-bold text-white hover:underline mt-1">View Full Image</a>
+                            <p class="text-[10px] font-bold text-white mt-1">Click to expand</p>
                         </div>
                     </div>
                 <?php endforeach; ?>
@@ -200,5 +262,6 @@ $page_title = "Application Details: " . $app['gym_name'];
 
     </div>
 
+    <?php include '../includes/image_viewer.php'; ?>
 </body>
 </html>

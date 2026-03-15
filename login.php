@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         case 'admin':
                         case 'tenant': 
                             // Directed to the tenant's primary entry-point
-                            header("Location: tenant/index.php");
+                            header("Location: tenant/tenant_gateway.php");
                             exit;
                         case 'coach':
                             header("Location: coach/coach_dashboard.php");
