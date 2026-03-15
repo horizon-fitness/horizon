@@ -21,6 +21,8 @@ if (!$page) {
 }
 
 $primary_color = $page['theme_color'] ?? '#8c2bee';
+$bg_color = $page['bg_color'] ?? '#0a090d';
+$font_family = $page['font_family'] ?? 'Lexend';
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -39,23 +41,24 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
                 extend: { 
                     colors: { 
                         "primary": "<?= $primary_color ?>", 
-                        "background-dark": "#0a090d", 
-                        "surface-dark": "#121017"
+                        "background-dark": "<?= $bg_color ?>", 
+                        "surface-dark": "<?= $bg_color ?>" // Simplified to use same as BG for flat premium look
                     },
-                    fontFamily: { "display": ["Lexend", "sans-serif"] }
+                    fontFamily: { "display": ["<?= $font_family ?>", "sans-serif"] }
                 }
             }
         }
     </script>
-    <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; scroll-behavior: smooth; }
-        .glass-card { background: rgba(18, 16, 23, 0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 32px; backdrop-filter: blur(20px); }
+    <style id="dynamic-styles">
+        body { font-family: '<?= $font_family ?>', sans-serif; background-color: <?= $bg_color ?>; color: white; scroll-behavior: smooth; }
+        .glass-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 32px; backdrop-filter: blur(20px); }
         .btn-primary { 
             background: linear-gradient(135deg, <?= $primary_color ?>, <?= $primary_color ?>dd); 
             color: white; 
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
             box-shadow: 0 10px 40px -15px <?= $primary_color ?>66;
         }
+    </style>
         .btn-primary:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 20px 40px -10px <?= $primary_color ?>aa; }
         .text-glow { text-shadow: 0 0 30px <?= $primary_color ?>44; }
         .hero-gradient { background: radial-gradient(circle at center, <?= $primary_color ?>11 0%, transparent 70%); }
@@ -202,6 +205,45 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
             </div>
         </div>
     </footer>
-
+    
+    <script>
+        // Real-time Preview Listener
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'updateStyles') {
+                const data = event.data.data;
+                const primary = data.theme_color || '<?= $primary_color ?>';
+                const bg = data.bg_color || '<?= $bg_color ?>';
+                const font = data.font_family || '<?= $font_family ?>';
+                
+                // Update CSS variables/styles
+                const styleEl = document.getElementById('dynamic-styles');
+                styleEl.innerHTML = `
+                    body { font-family: '${font}', sans-serif; background-color: ${bg}; color: white; scroll-behavior: smooth; }
+                    .glass-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 32px; backdrop-filter: blur(20px); }
+                    .btn-primary { 
+                        background: linear-gradient(135deg, ${primary}, ${primary}dd); 
+                        color: white; 
+                        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+                        box-shadow: 0 10px 40px -15px ${primary}66;
+                    }
+                `;
+                
+                // Update Logo
+                if (data.logo_preview) {
+                    const logoImg = document.querySelector('header img');
+                    if (logoImg) logoImg.src = data.logo_preview;
+                }
+                
+                // Update Gym Name/Title
+                if (data.page_title) {
+                    document.title = data.page_title + " | Horizon Systems";
+                    const headers = document.querySelectorAll('h1, h2 span.gym-name');
+                    headers.forEach(h => {
+                        if (h.tagName === 'H1') h.innerText = data.page_title;
+                    });
+                }
+            }
+        });
+    </script>
 </body>
 </html>

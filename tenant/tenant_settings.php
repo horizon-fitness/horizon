@@ -29,12 +29,10 @@ $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $_POST['page_slug']));
     $page_title = $_POST['page_title'];
     $theme_color = $_POST['theme_color'];
-    $about_text = $_POST['about_text'];
-    $contact_text = $_POST['contact_text'];
-    $app_link = $_POST['app_download_link'];
+    $bg_color = $_POST['bg_color'];
+    $font_family = $_POST['font_family'];
     $now = date('Y-m-d H:i:s');
 
     // Handle Logo Upload (Store as Base64 in Database)
@@ -47,13 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
         if ($page) {
-            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_slug = ?, page_title = ?, logo_path = ?, theme_color = ?, about_text = ?, contact_text = ?, app_download_link = ?, updated_at = ? WHERE gym_id = ?");
-            $stmtUpdate->execute([$page_slug, $page_title, $logo_path, $theme_color, $about_text, $contact_text, $app_link, $now, $gym_id]);
+            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, theme_color = ?, bg_color = ?, font_family = ?, updated_at = ? WHERE gym_id = ?");
+            $stmtUpdate->execute([$page_title, $logo_path, $theme_color, $bg_color, $font_family, $now, $gym_id]);
         } else {
-            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, about_text, contact_text, app_download_link, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $about_text, $contact_text, $app_link, $now]);
+            // If page doesn't exist, create a slug based on gym name
+            $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name']));
+            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, bg_color, font_family, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $bg_color, $font_family, $now]);
         }
-        $_SESSION['success_msg'] = "Portal settings updated successfully!";
+        $_SESSION['success_msg'] = "Portal customized successfully!";
         header("Location: tenant_settings.php");
         exit;
     } catch (Exception $e) {
@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$page_title = "Page Customize";
+$page_title = "Portal Customize";
 $active_page = "settings";
 ?>
 <!DOCTYPE html>
@@ -69,7 +69,7 @@ $active_page = "settings";
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title><?= $page_title ?> | Horizon Partners</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&family=Inter:wght@400;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -79,8 +79,8 @@ $active_page = "settings";
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
+        .glass-sidebar { background: #0a090d; border-right: 1px solid rgba(255,255,255,0.05); }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { 
@@ -94,37 +94,19 @@ $active_page = "settings";
             background: #8c2bee; 
             border-radius: 99px; 
         }
-
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        /* Hide scrollbar for IE, Edge and Firefox */
-        .no-scrollbar {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
-        }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Layout Adjustments */
+        .preview-container { background: #1a1824; border-radius: 40px; border: 8px solid #2a2835; transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5); }
+        .preview-mobile { width: 375px; height: 667px; margin: auto; }
+        .input-dark { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; color: white; padding: 0.75rem 1rem; font-size: 0.75rem; width: 100%; outline: none; transition: border-color 0.2s; }
+        .input-dark:focus { border-color: #8c2bee; }
     </style>
-    <script>
-        function updateSidebarClock() {
-            const now = new Date();
-            const clockEl = document.getElementById('sidebarClock');
-            if (clockEl) {
-                clockEl.textContent = now.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit' 
-                });
-            }
-        }
-        setInterval(updateSidebarClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateSidebarClock);
-    </script>
 </head>
-<body class="antialiased flex flex-row min-h-screen">
+<body class="antialiased flex h-screen overflow-hidden">
 
-<nav class="flex flex-col w-64 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
+<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0 overflow-x-hidden">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
             <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
@@ -138,29 +120,22 @@ $active_page = "settings";
                 <span class="px-2 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">Active</span>
             </div>
             <p class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mb-1"><?= date('l, M d') ?></p>
-            <div class="pt-2 border-t border-white/5 mt-2">
-                <p class="text-[8px] font-black uppercase text-gray-600 tracking-widest mb-1">Current Plan</p>
-                <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
-            </div>
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto no-scrollbar pr-2">
-        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2 no-scrollbar text-gray-400">
+        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 hover:text-white">
             <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
         </a>
-        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 active-nav text-primary">
             <span class="material-symbols-outlined text-xl">palette</span> Page Customize
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
+        <a href="#" class="nav-link flex items-center gap-3 hover:text-white">
             <span class="material-symbols-outlined text-xl">group</span> Staff Management
-        </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">person_search</span> Member Directory
         </a>
     </div>
 
-    <div class="mt-auto pt-8 border-t border-white/10">
+    <div class="mt-auto pt-8 border-t border-white/10 shrink-0">
         <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
             <span class="nav-link">Sign Out</span>
@@ -168,136 +143,160 @@ $active_page = "settings";
     </div>
 </nav>
 
-<div class="flex-1 p-10 max-w-[1200px] w-full mx-auto overflow-y-auto">
-    <header class="mb-10 flex justify-between items-end">
-        <div>
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Page <span class="text-primary">Customize</span></h2>
-            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Customize your gym's public landing portal</p>
-        </div>
-        <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="h-10 px-6 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
-           <span class="material-symbols-outlined text-xs">visibility</span> Preview Portal
-        </a>
-    </header>
+<div class="flex-1 flex overflow-hidden">
+    <!-- Left: Controls Panel (50%) -->
+    <div class="w-1/2 glass-sidebar overflow-y-auto p-12 no-scrollbar flex flex-col">
+        <header class="mb-10">
+            <h2 class="text-3xl font-black italic uppercase tracking-tighter">Portal <span class="text-primary">Customize</span></h2>
+            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Industrial Brand Management</p>
+        </header>
 
-    <?php if (isset($_SESSION['success_msg'])): ?>
-        <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest italic">
-            <?= $_SESSION['success_msg']; unset($_SESSION['success_msg']); ?>
-        </div>
-    <?php endif; ?>
+        <?php if (isset($_SESSION['success_msg'])): ?>
+            <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest italic">
+                <?= $_SESSION['success_msg']; unset($_SESSION['success_msg']); ?>
+            </div>
+        <?php endif; ?>
 
-    <form method="POST" enctype="multipart/form-data" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div class="lg:col-span-2 space-y-8">
-            <div class="glass-card p-8">
-                <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">id_card</span> Basic Information
-                </h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="space-y-1.5">
-                        <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Portal Page Title</label>
-                        <input type="text" name="page_title" required value="<?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?>" class="w-full h-12 bg-background-dark border border-white/5 rounded-xl px-4 text-xs focus:border-primary outline-none transition-all">
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Portal URL Slug</label>
-                        <div class="relative">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-[10px] font-bold">portal.php?gym=</span>
-                            <input type="text" name="page_slug" required value="<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="w-full h-12 bg-background-dark border border-white/5 rounded-xl pl-[88px] pr-4 text-xs focus:border-primary outline-none transition-all">
+        <form id="customizeForm" method="POST" enctype="multipart/form-data" class="flex-1 space-y-8">
+            <div class="space-y-6">
+                <!-- Branding -->
+                <div class="space-y-4">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-primary border-b border-primary/20 pb-2 block">Branding Assets</label>
+                    <div class="flex items-center gap-6">
+                        <div class="relative group size-24 rounded-2xl bg-white/5 border border-dashed border-white/10 flex items-center justify-center overflow-hidden">
+                            <img id="logo-preview" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" class="size-full object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
+                            <span id="logo-placeholder" class="material-symbols-outlined text-gray-600 <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">add_photo_alternate</span>
+                            <input type="file" name="logo" class="absolute inset-0 opacity-0 cursor-pointer" onchange="previewLogo(this)">
+                        </div>
+                        <div class="flex-1 space-y-2">
+                             <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Portal Display Name</label>
+                             <input type="text" name="page_title" value="<?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?>" class="input-dark" placeholder="Gym Name">
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="glass-card p-8">
-                <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">description</span> Public Content
-                </h4>
-                <div class="space-y-6">
-                    <div class="space-y-1.5">
-                        <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">About Us Description</label>
-                        <textarea name="about_text" rows="4" class="w-full bg-background-dark border border-white/5 rounded-xl p-4 text-xs focus:border-primary outline-none transition-all"><?= htmlspecialchars($page['about_text'] ?? '') ?></textarea>
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Contact Details (Footer)</label>
-                        <textarea name="contact_text" rows="3" class="w-full bg-background-dark border border-white/5 rounded-xl p-4 text-xs focus:border-primary outline-none transition-all"><?= htmlspecialchars($page['contact_text'] ?? '') ?></textarea>
-                    </div>
-                </div>
-            </div>
-
-            <div class="glass-card p-8">
-                <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">download</span> App Distribution
-                </h4>
-                <div class="space-y-1.5">
-                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">Mobile App APK Link</label>
-                    <input type="url" name="app_download_link" placeholder="https://drive.google.com/..." value="<?= htmlspecialchars($page['app_download_link'] ?? '') ?>" class="w-full h-12 bg-background-dark border border-white/5 rounded-xl px-4 text-xs focus:border-primary outline-none transition-all">
-                    <p class="text-[9px] text-gray-600 italic">Provide the direct link where your staff and members can download the Android APK.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="space-y-8">
-            <div class="glass-card p-8">
-                <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">brush</span> Branding
-                </h4>
-                <div class="space-y-6 text-center">
-                    <div class="space-y-3">
-                        <label class="text-[9px] font-black uppercase tracking-widest text-gray-500">Gym Logo</label>
-                        <div class="size-32 mx-auto rounded-3xl bg-background-dark border-2 border-dashed border-white/5 flex items-center justify-center overflow-hidden relative group">
-                            <?php 
-                            $logo_src = $page['logo_path'] ?? '';
-                            if ($logo_src) {
-                                if (strpos($logo_src, 'data:') === 0) {
-                                    // It's a Base64 string, use as is
-                                } elseif (strpos($logo_src, 'uploads/') === 0) {
-                                    // It's a relative path from the root (common for applications)
-                                    $logo_src = '../' . $logo_src;
-                                }
-                            }
-                            ?>
-                            <?php if($logo_src): ?>
-                                <img id="logo-preview" src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain">
-                            <?php else: ?>
-                                <span id="logo-placeholder" class="material-symbols-outlined text-3xl text-gray-800">add_photo_alternate</span>
-                            <?php endif; ?>
-                            <input type="file" name="logo" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer" onchange="previewImage(this)">
+                <!-- Visuals -->
+                <div class="space-y-4">
+                    <label class="text-[10px] font-black uppercase tracking-widest text-primary border-b border-primary/20 pb-2 block">Visual Identity</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Font Family</label>
+                            <select name="font_family" onchange="updatePreview()" class="input-dark bg-surface-dark">
+                                <option value="Lexend" <?= ($page['font_family'] ?? '') == 'Lexend' ? 'selected' : '' ?>>Lexend (Sporty)</option>
+                                <option value="Inter" <?= ($page['font_family'] ?? '') == 'Inter' ? 'selected' : '' ?>>Inter (Modern)</option>
+                                <option value="Outfit" <?= ($page['font_family'] ?? '') == 'Outfit' ? 'selected' : '' ?>>Outfit (Premium)</option>
+                            </select>
                         </div>
-                        <p class="text-[9px] text-gray-600 italic">Click to upload (Transparent PNG recommended)</p>
+                        <div class="space-y-2">
+                            <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Primary Color</label>
+                            <div class="flex items-center gap-3 bg-white/5 rounded-xl border border-white/5 p-2 px-3">
+                                <input type="color" name="theme_color" oninput="updatePreview()" value="<?= $page['theme_color'] ?? '#8c2bee' ?>" class="size-8 rounded-lg bg-transparent border-none cursor-pointer">
+                                <span id="primary-hex" class="text-[10px] font-bold uppercase text-gray-400">#8C2BEE</span>
+                            </div>
+                        </div>
                     </div>
-
-                    <div class="space-y-3 pt-4 border-t border-white/5">
-                        <label class="text-[9px] font-black uppercase tracking-widest text-gray-500">Theme Primary Color</label>
-                        <div class="flex items-center gap-4 bg-background-dark p-2 rounded-xl">
-                            <input type="color" name="theme_color" value="<?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
-                            <span class="text-xs font-black italic uppercase"><?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?></span>
+                    <div class="space-y-2">
+                        <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Background Color</label>
+                        <div class="flex items-center gap-3 bg-white/5 rounded-xl border border-white/5 p-2 px-3 w-1/2">
+                            <input type="color" name="bg_color" oninput="updatePreview()" value="<?= $page['bg_color'] ?? '#0a090d' ?>" class="size-8 rounded-lg bg-transparent border-none cursor-pointer">
+                            <span id="bg-hex" class="text-[10px] font-bold uppercase text-gray-400">#0A090D</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             <button type="submit" class="w-full h-16 rounded-2xl bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3">
-                <span class="material-symbols-outlined">save</span> Save All Settings
+                <span class="material-symbols-outlined">auto_fix_high</span> Apply Customizations
             </button>
+        </form>
+        
+        <div class="mt-8 pt-6 border-t border-white/5">
+             <a href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" target="_blank" class="text-[9px] font-black uppercase tracking-widest text-gray-500 hover:text-primary transition-all flex items-center gap-2">
+                 <span class="material-symbols-outlined text-sm">open_in_new</span> Launch Live Portal
+             </a>
         </div>
-    </form>
+    </div>
+
+    <!-- Right: Preview Area (50%) -->
+    <div class="flex-1 bg-[#121118] p-10 flex flex-col relative overflow-hidden">
+        <div class="absolute top-10 right-10 z-10">
+             <div class="px-4 py-2 rounded-full border border-primary/20 bg-primary/5 flex items-center gap-2">
+                <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
+                <span class="text-[8px] font-black uppercase tracking-[0.2em] text-primary">Live Mobile Preview</span>
+            </div>
+        </div>
+
+        <div class="flex-1 flex items-center justify-center">
+            <div id="previewFrameContainer" class="preview-container preview-mobile overflow-hidden relative">
+                <iframe id="previewIframe" src="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>&preview=1" class="w-full h-full border-none"></iframe>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
-function previewImage(input) {
-    if (input.files && input.files[0]) {
-        var reader = new FileReader();
-        reader.onload = function(e) {
-            let preview = document.getElementById('logo-preview');
-            if(!preview) {
-                preview = document.createElement('img');
-                preview.id = 'logo-preview';
-                preview.className = 'w-full h-full object-contain';
-                document.getElementById('logo-placeholder').replaceWith(preview);
+    function previewLogo(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('logo-preview').src = e.target.result;
+                document.getElementById('logo-preview').classList.remove('hidden');
+                document.getElementById('logo-placeholder').classList.add('hidden');
+                updatePreview(e.target.result);
             }
-            preview.src = e.target.result;
+            reader.readAsDataURL(input.files[0]);
         }
-        reader.readAsDataURL(input.files[0]);
     }
-}
+
+    function updatePreview(logoData = null) {
+        const form = document.getElementById('customizeForm');
+        const formData = new FormData(form);
+        const data = {};
+        formData.forEach((value, key) => {
+            if (key !== 'logo') data[key] = value;
+        });
+        
+        if (logoData) {
+            data.logo_preview = logoData;
+        } else {
+            const currentLogo = document.getElementById('logo-preview');
+            if (currentLogo && !currentLogo.classList.contains('hidden')) {
+                data.logo_preview = currentLogo.src;
+            }
+        }
+
+        // Update HEX labels
+        const primaryHex = document.getElementById('primary-hex');
+        const bgHex = document.getElementById('bg-hex');
+        if (primaryHex) primaryHex.innerText = data.theme_color.toUpperCase();
+        if (bgHex) bgHex.innerText = data.bg_color.toUpperCase();
+        
+        // Send to iframe
+        const iframe = document.getElementById('previewIframe');
+        if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({ type: 'updateStyles', data: data }, '*');
+        }
+    }
+
+    // Live listening
+    document.querySelectorAll('#customizeForm input, #customizeForm select').forEach(el => {
+        el.addEventListener('input', () => updatePreview());
+    });
+
+    function updateSidebarClock() {
+        const now = new Date();
+        const clockEl = document.getElementById('sidebarClock');
+        if (clockEl) {
+            clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', minute: '2-digit', second: '2-digit' 
+            });
+        }
+    }
+    setInterval(updateSidebarClock, 1000);
+    window.addEventListener('DOMContentLoaded', () => {
+        updateSidebarClock();
+        setTimeout(updatePreview, 1000);
+    });
 </script>
 
 </body>
