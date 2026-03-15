@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
             $stmtRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', ?)");
             $stmtRole->execute([$app['user_id'], $roleId, $gym_id, $now]);
 
-            // 5. Generate a Tenant Page for CMS Customization
+            // 5. Generate a Tenant Page for Page Customize
             $stmtPage = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, theme_color, updated_at) VALUES (?, ?, ?, '#7f13ec', ?)");
             $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']));
             $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $now]);

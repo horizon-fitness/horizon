@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$page_title = "CMS Customization";
+$page_title = "Page Customize";
 $active_page = "settings";
 ?>
 <!DOCTYPE html>
@@ -150,7 +150,7 @@ $active_page = "settings";
             <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
         </a>
         <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">palette</span> CMS Customization
+            <span class="material-symbols-outlined text-xl">palette</span> Page Customize
         </a>
         <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">group</span> Staff Management
@@ -171,7 +171,7 @@ $active_page = "settings";
 <div class="flex-1 p-10 max-w-[1200px] w-full mx-auto overflow-y-auto">
     <header class="mb-10 flex justify-between items-end">
         <div>
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">CMS <span class="text-primary">Settings</span></h2>
+            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Page <span class="text-primary">Customize</span></h2>
             <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Customize your gym's public landing portal</p>
         </div>
         <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="h-10 px-6 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-2">

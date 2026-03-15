@@ -52,6 +52,12 @@ $active_page = "dashboard";
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+        }
+    </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
@@ -101,12 +107,14 @@ $active_page = "dashboard";
             <h1 class="text-xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($gym['gym_name']) ?></h1>
         </div>
         <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
-            <p id="sidebarClock" class="text-white font-black italic text-xl leading-none mb-1">00:00:00 AM</p>
-            <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-3"><?= date('l, M d') ?></p>
-            
-            <div class="pt-3 border-t border-white/5">
-                <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 mb-1">Active Plan</p>
-                <p class="text-primary text-xs font-black uppercase tracking-widest italic"><?= htmlspecialchars($sub['plan_name']) ?></p>
+            <div class="flex items-center justify-between mb-2">
+                <p id="sidebarClock" class="text-white font-black italic text-base leading-none">00:00:00 AM</p>
+                <span class="px-2 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">Active</span>
+            </div>
+            <p class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mb-1"><?= date('l, M d') ?></p>
+            <div class="pt-2 border-t border-white/5 mt-2">
+                <p class="text-[8px] font-black uppercase text-gray-600 tracking-widest mb-1">Current Plan</p>
+                <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
             </div>
         </div>
     </div>
@@ -116,7 +124,7 @@ $active_page = "dashboard";
             <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
         </a>
         <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">palette</span> CMS Customization
+            <span class="material-symbols-outlined text-xl">palette</span> Page Customize
         </a>
         <a href="add_staff.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">group</span> Staff Management
@@ -137,12 +145,11 @@ $active_page = "dashboard";
     </div>
 </nav>
 
-<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
-    <main class="flex-1 p-10 max-w-[1400px] w-full mx-auto">
-        <header class="mb-10">
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Owner <span class="text-primary">Dashboard</span></h2>
-            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Management Overview for <?= htmlspecialchars($gym['gym_name']) ?></p>
-        </header>
+<div class="flex-1 p-10 max-w-[1200px] w-full mx-auto overflow-y-auto">
+    <header class="mb-10">
+        <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Owner <span class="text-primary">Dashboard</span></h2>
+        <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Management Overview for <?= htmlspecialchars($gym['gym_name']) ?></p>
+    </header>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
             <div class="glass-card p-6 flex items-center gap-4">
@@ -185,7 +192,9 @@ $active_page = "dashboard";
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div class="glass-card p-8">
-                <h4 class="font-black italic uppercase text-sm tracking-tighter mb-6">Digital Presence (CMS)</h4>
+                <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">palette</span> Page Customize
+                </h4>
                 <div class="p-6 rounded-2xl bg-background-dark border border-white/5 mb-6">
                     <div class="flex items-center gap-4 mb-4">
                         <div class="size-12 rounded-lg bg-surface-dark border border-white/10 flex items-center justify-center overflow-hidden">
@@ -212,10 +221,10 @@ $active_page = "dashboard";
                     </div>
                 </div>
                 <div class="flex gap-4">
-                    <a href="tenant_settings.php" class="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center text-xs font-black uppercase tracking-widest gap-2">
+                    <a href="tenant_settings.php" class="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest gap-2">
                         <span class="material-symbols-outlined text-sm">edit</span> Customize Page
                     </a>
-                    <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug']) ?>" class="flex-1 h-12 rounded-xl bg-primary hover:bg-primary-hover transition-all flex items-center justify-center text-xs font-black uppercase tracking-widest gap-2">
+                    <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug']) ?>" class="flex-1 h-12 rounded-xl bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest gap-2">
                         <span class="material-symbols-outlined text-sm">open_in_new</span> View Portal
                     </a>
                 </div>
@@ -225,7 +234,7 @@ $active_page = "dashboard";
                 <div class="size-20 rounded-full bg-white/5 flex items-center justify-center text-gray-700 mb-6 border border-white/5 border-dashed">
                     <span class="material-symbols-outlined text-4xl">inventory_2</span>
                 </div>
-                <h4 class="font-black italic uppercase text-sm tracking-tighter mb-2">Inventory Multi-Level</h4>
+                <h4 class="text-sm font-black italic uppercase tracking-tighter mb-2">Service Inventory</h4>
                 <p class="text-xs text-gray-500 max-w-xs mb-8">Set up your gym services and membership plans to start accepting registrations.</p>
                 <div class="flex gap-3 w-full max-w-sm">
                    <button class="flex-1 h-12 rounded-xl border border-white/10 hover:bg-white/5 transition-all text-[10px] font-black uppercase tracking-widest">Add Service</button>
@@ -233,7 +242,6 @@ $active_page = "dashboard";
                 </div>
             </div>
         </div>
-    </main>
 </div>
 
 </body>
