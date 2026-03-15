@@ -19,9 +19,9 @@ try {
             JOIN user_roles ur ON u.user_id = ur.user_id 
             JOIN roles r ON ur.role_id = r.role_id 
             LEFT JOIN gyms g ON ur.gym_id = g.gym_id
-            WHERE (u.username = :u OR u.email = :u)";
+            WHERE (u.username = :u1 OR u.email = :u2)";
     
-    $params = [':u' => $username];
+    $params = [':u1' => $username, ':u2' => $username];
     
     if (!empty($tenant_id)) {
         // Enforce login within the specific tenant gym context
