@@ -59,7 +59,7 @@ $active_page = "dashboard";
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
+        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
@@ -96,7 +96,7 @@ $active_page = "dashboard";
         window.addEventListener('DOMContentLoaded', updateSidebarClock);
     </script>
 </head>
-<body class="antialiased flex flex-row min-h-screen">
+<body class="antialiased flex h-screen overflow-hidden">
 
 <nav class="flex flex-col w-64 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
     <div class="mb-12">
@@ -145,10 +145,17 @@ $active_page = "dashboard";
     </div>
 </nav>
 
-<div class="flex-1 p-10 max-w-[1200px] w-full mx-auto overflow-y-auto">
-    <header class="mb-10">
-        <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Owner <span class="text-primary">Dashboard</span></h2>
-        <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Management Overview for <?= htmlspecialchars($gym['gym_name']) ?></p>
+<div class="flex-1 p-10 max-w-[1400px] w-full mx-auto overflow-y-auto no-scrollbar">
+    <header class="mb-10 flex justify-between items-end">
+        <div>
+            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Owner <span class="text-primary">Dashboard</span></h2>
+            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Industrial Brand Management</p>
+        </div>
+        <div class="flex gap-2">
+            <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="px-5 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                <span class="material-symbols-outlined text-sm">open_in_new</span> Full Web Portal
+            </a>
+        </div>
     </header>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
