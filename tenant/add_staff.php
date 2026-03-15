@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $employment_type = $_POST['employment_type'] ?? 'Full-time';
     $now = date('Y-m-d H:i:s');
 
-    if (empty($first_name) || empty($last_name) || empty($email) || empty($username) || empty($password)) {
+    if (empty($first_name) || empty($last_name) || empty($email) || empty($username)) {
         $error = "All fields are required.";
     } else {
         try {
@@ -36,8 +36,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("Username or Email already exists.");
             }
 
+            // Generate Random Password if empty
+            $plain_password = $password;
+            if (empty($plain_password)) {
+                $plain_password = bin2hex(random_bytes(4)); // 8 character random hex
+            }
+
             // 1. Create User
-            $password_hash = password_hash($password, PASSWORD_BCRYPT);
+            $password_hash = password_hash($plain_password, PASSWORD_BCRYPT);
             $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, '', 1, ?, ?)");
             $stmtUser->execute([$username, $email, $password_hash, $first_name, $last_name, $now, $now]);
             $new_user_id = $pdo->lastInsertId();
@@ -60,14 +66,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtStaff = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, status, hire_date, created_at, updated_at) VALUES (?, ?, ?, ?, 'Active', ?, ?, ?)");
             $stmtStaff->execute([$new_user_id, $gym_id, $staff_role, $employment_type, date('Y-m-d'), $now, $now]);
 
+            // --- SEND EMAIL CREDENTIALS ---
+            require_once '../includes/mailer.php';
+            $gymName = $gym['gym_name'] ?? 'Horizon Portal';
+            $subject = "Your Staff Account Credentials - $gymName";
+            $emailBody = getEmailTemplate(
+                "Welcome to the Team!",
+                "<p>Hello $first_name,</p>
+                <p>An account has been created for you at <strong>$gymName</strong>.</p>
+                <p>You can now log in to the portal using the following credentials:</p>
+                <div style='background: #f4f4f4; padding: 15px; border-radius: 8px; margin: 20px 0;'>
+                    <strong>Username:</strong> $username<br>
+                    <strong>Password:</strong> $plain_password
+                </div>
+                <p>Please change your password after your first login for security.</p>"
+            );
+            
+            sendSystemEmail($email, $subject, $emailBody);
+
             $pdo->commit();
-            $success = "Staff member $first_name added successfully!";
+            $success = "Staff member $first_name added successfully! Credentials have been sent to their email.";
         } catch (Exception $e) {
             $pdo->rollBack();
             $error = $e->getMessage();
         }
     }
 }
+
 // Fetch Gym Details
 $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]);

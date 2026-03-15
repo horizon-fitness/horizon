@@ -72,8 +72,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtMember->execute([$new_user_id, $gym_id, $member_code, $birth_date, $sex, $emergency_name, $emergency_phone, $now, $now]);
 
             $pdo->commit();
-            $success = "Registration successful! You can now log in via our mobile application.";
+
+            // --- SEND EMAIL CREDENTIALS ---
+            require_once 'includes/mailer.php';
+            $gymName = $gym['gym_name'] ?? 'Horizon Gym';
+            $subject = "Welcome to $gymName - Your Account Details";
+            $emailBody = getEmailTemplate(
+                "Welcome to the Community!",
+                "<p>Hello $first_name,</p>
+                <p>You have successfully registered at <strong>$gymName</strong>.</p>
+                <p>Your account is ready for use on our mobile application and web portal.</p>
+                <div style='background: #f4f4f4; padding: 15px; border-radius: 8px; margin: 20px 0;'>
+                    <strong>Username:</strong> $username<br>
+                    <strong>Password:</strong> $password
+                </div>
+                <p>You can download our mobile app from the website to start tracking your progress!</p>"
+            );
+            
+            sendSystemEmail($email, $subject, $emailBody);
+
+            $success = "Registration successful! Your credentials have been sent to your email. You can now log in via our mobile application.";
         } catch (Exception $e) {
+
             $pdo->rollBack();
             $error = $e->getMessage();
         }

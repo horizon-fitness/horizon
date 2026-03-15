@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_staff'])) {
     $employment_type = $_POST['employment_type'] ?? 'Full-time';
     $now = date('Y-m-d H:i:s');
 
-    if (empty($first_name) || empty($last_name) || empty($email) || empty($username) || empty($password)) {
+    if (empty($first_name) || empty($last_name) || empty($email) || empty($username)) {
         $error_msg = "All fields are required.";
     } else {
         try {
@@ -39,8 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_staff'])) {
                 throw new Exception("Username or Email already exists.");
             }
 
+            // Generate Random Password if empty
+            $plain_password = $password;
+            if (empty($plain_password)) {
+                $plain_password = bin2hex(random_bytes(4));
+            }
+
             // 1. Create User
-            $password_hash = password_hash($password, PASSWORD_BCRYPT);
+            $password_hash = password_hash($plain_password, PASSWORD_BCRYPT);
             $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, '', 1, ?, ?)");
             $stmtUser->execute([$username, $email, $password_hash, $first_name, $last_name, $now, $now]);
             $new_user_id = $pdo->lastInsertId();
@@ -63,14 +69,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_staff'])) {
             $stmtStaff = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, status, hire_date, created_at, updated_at) VALUES (?, ?, ?, ?, 'Active', ?, ?, ?)");
             $stmtStaff->execute([$new_user_id, $gym_id, $staff_role, $employment_type, date('Y-m-d'), $now, $now]);
 
+            // --- SEND EMAIL CREDENTIALS ---
+            require_once '../includes/mailer.php';
+            $gymName = $gym['gym_name'] ?? 'Horizon Portal';
+            $subject = "Your Staff Account Credentials - $gymName";
+            $emailBody = getEmailTemplate(
+                "Welcome to the Team!",
+                "<p>Hello $first_name,</p>
+                <p>An account has been created for you at <strong>$gymName</strong>.</p>
+                <div style='background: #f4f4f4; padding: 15px; border-radius: 8px; margin: 20px 0;'>
+                    <strong>Username:</strong> $username<br>
+                    <strong>Password:</strong> $plain_password
+                </div>"
+            );
+            sendSystemEmail($email, $subject, $emailBody);
+
             $pdo->commit();
-            $success_msg = "Staff member $first_name added successfully!";
+            $success_msg = "Staff member $first_name added successfully! Credentials sent to email.";
         } catch (Exception $e) {
             $pdo->rollBack();
             $error_msg = $e->getMessage();
         }
     }
 }
+
 
 // Fetch Gym Details
 $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
@@ -185,6 +207,9 @@ foreach($staff_members as $s) {
     <div class="flex flex-col gap-5 flex-1 overflow-y-auto no-scrollbar pr-2">
         <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
+        </a>
+        <a href="register_member.php" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl">person_add</span> Walk-in Member
         </a>
         <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">palette</span> Page Customize
