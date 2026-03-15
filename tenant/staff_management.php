@@ -216,15 +216,13 @@ foreach($staff_members as $s) {
         <a href="staff_management.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'staff') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">group</span> Staff Management
         </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">person_search</span> Member Directory
-        </a>
-        <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl">payments</span> Billing & Revenue
-        </a>
     </div>
 
-    <div class="mt-auto pt-8 border-t border-white/10">
+    <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-5">
+        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-3 group">
+            <span class="material-symbols-outlined transition-transform group-hover:text-primary">person</span>
+            <span class="nav-link">Profile</span>
+        </a>
         <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
             <span class="nav-link">Sign Out</span>
