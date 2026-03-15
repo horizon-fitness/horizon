@@ -13,19 +13,18 @@ use PHPMailer\PHPMailer\Exception;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // Directory setup for file uploads
-    $uploadDir = '../uploads/applications/';
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
-
-    function uploadFile($fileInputName, $uploadDir) {
+    /**
+     * Converts a file upload into a Base64 string for database storage.
+     * 
+     * @param string $fileInputName The name attribute of the file input
+     * @return string|null The Base64 string (data:image/...) or null if upload failed
+     */
+    function convertFileToBase64($fileInputName) {
         if (isset($_FILES[$fileInputName]) && $_FILES[$fileInputName]['error'] == 0) {
-            $fileName = time() . '_' . basename($_FILES[$fileInputName]['name']);
-            $targetPath = $uploadDir . $fileName;
-            if (move_uploaded_file($_FILES[$fileInputName]['tmp_name'], $targetPath)) {
-                return $targetPath;
-            }
+            $tmpPath = $_FILES[$fileInputName]['tmp_name'];
+            $fileType = $_FILES[$fileInputName]['type'];
+            $fileData = file_get_contents($tmpPath);
+            return 'data:' . $fileType . ';base64,' . base64_encode($fileData);
         }
         return null;
     }
@@ -99,7 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmtApp->execute([$user_id, $gym_name, $business_name, $business_type, $address_id, $owner_valid_id_type, $bir_number, $business_permit_no, $gym_contact, $gym_email, $application_status, $current_date, $facility_remarks]);
         $application_id = $pdo->lastInsertId();
 
-        // 4. Handle File Uploads and Insert into `application_documents`
+        // 4. Handle File Uploads (Convert to Base64) and Insert into `application_documents`
         $filesToUpload = [
             'owner_valid_id_file' => 'Valid ID',
             'bir_document' => 'BIR Document',
@@ -110,9 +109,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmtDoc = $pdo->prepare("INSERT INTO application_documents (application_id, document_type, file_path, uploaded_at) VALUES (?, ?, ?, ?)");
 
         foreach ($filesToUpload as $inputName => $docType) {
-            $filePath = uploadFile($inputName, $uploadDir);
-            if ($filePath) {
-                $stmtDoc->execute([$application_id, $docType, $filePath, $current_date]);
+            $base64Data = convertFileToBase64($inputName);
+            if ($base64Data) {
+                $stmtDoc->execute([$application_id, $docType, $base64Data, $current_date]);
             }
         }
 
@@ -131,8 +130,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mail->isSMTP();
             $mail->Host       = 'smtp.gmail.com'; 
             $mail->SMTPAuth   = true;
-            $mail->Username   = 'horizonfitnesscorp@gmail.com'; // Update this
-            $mail->Password   = 'haog wnjy zhwe qnmn';    // Update this
+            $mail->Username   = 'horizonfitnesscorp@gmail.com'; 
+            $mail->Password   = 'haog wnjy zhwe qnmn';    
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->Port       = 587;
 

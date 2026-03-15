@@ -204,9 +204,22 @@ $page_title = "Application Details: " . $app['gym_name'];
         <div class="glass-card p-8 mb-10">
             <h3 class="text-sm font-black italic uppercase tracking-widest mb-6 text-primary border-b border-white/5 pb-4">Uploaded Documents</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <?php foreach ($documents as $doc): ?>
+                <?php foreach ($documents as $doc): 
+                    $docPath = $doc['file_path'];
+                    // Logic to ensure path is correct
+                    // 1. If it's Base64 (starts with data:image), use as is.
+                    // 2. If it's a legacy file path (starts with uploads/), fix relative path.
+                    // 3. If it's just a filename, assume legacy location.
+                    if (!str_starts_with($docPath, 'data:image')) {
+                        if (str_starts_with($docPath, 'uploads/')) {
+                            $docPath = '../' . $docPath;
+                        } elseif (!str_starts_with($docPath, '../') && !str_starts_with($docPath, 'http')) {
+                            $docPath = '../uploads/applications/' . $docPath;
+                        }
+                    }
+                ?>
                     <div class="group relative bg-white/5 border border-white/5 rounded-2xl overflow-hidden aspect-video">
-                        <img src="<?= htmlspecialchars($doc['file_path']) ?>" alt="<?= htmlspecialchars($doc['document_type']) ?>" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity viewable">
+                        <img src="<?= htmlspecialchars($docPath) ?>" alt="<?= htmlspecialchars($doc['document_type']) ?>" class="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity viewable">
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4 pointer-events-none">
                             <p class="text-[10px] font-black uppercase text-primary tracking-widest"><?= htmlspecialchars($doc['document_type']) ?></p>
                             <p class="text-[10px] font-bold text-white mt-1">Click to expand</p>
