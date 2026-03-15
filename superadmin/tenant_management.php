@@ -272,9 +272,9 @@ foreach ($tenants as $t) {
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     <div class="inline-flex gap-2">
-                                        <a href="view_application.php?id=<?= $app['application_id'] ?>" class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                        <button onclick="openApplicationModal(<?= $app['application_id'] ?>)" class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
                                             <span class="material-symbols-outlined text-sm">visibility</span> View
-                                        </a>
+                                        </button>
                                         <form method="POST" action="../action/process_application.php" class="inline-flex gap-2">
                                             <input type="hidden" name="application_id" value="<?= $app['application_id'] ?>">
                                             <button type="submit" name="action" value="approve" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
@@ -362,9 +362,9 @@ foreach ($tenants as $t) {
                                     <td class="px-8 py-5 text-right">
                                         <div class="inline-flex gap-2">
                                             <?php if ($t['application_id']): ?>
-                                                <a href="view_application.php?id=<?= $t['application_id'] ?>" title="View Application Details" class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 flex items-center justify-center transition-colors">
+                                                <button onclick="openApplicationModal(<?= $t['application_id'] ?>)" title="View Application Details" class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 flex items-center justify-center transition-colors">
                                                     <span class="material-symbols-outlined text-[18px]">visibility</span>
-                                                </a>
+                                                </button>
                                             <?php endif; ?>
 
                                             <form method="POST" action="../action/process_tenant.php" class="inline-flex gap-2" onsubmit="return confirm('Are you sure you want to proceed with this action?');">
@@ -411,5 +411,89 @@ foreach ($tenants as $t) {
 
     </main>
 </div>
+<!-- Application Viewer Modal -->
+<div id="applicationModal" class="fixed inset-0 z-[100] hidden overflow-hidden">
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-background-dark/80 backdrop-blur-md transition-opacity duration-300 opacity-0" id="modalBackdrop"></div>
+    
+    <!-- Modal Content Container -->
+    <div class="absolute inset-y-0 right-0 w-full max-w-2xl bg-surface-dark border-l border-white/5 shadow-2xl transition-transform duration-500 translate-x-full overflow-hidden flex flex-col" id="modalContainer">
+        <div id="modalLoading" class="absolute inset-0 bg-surface-dark z-10 flex flex-col items-center justify-center gap-4">
+            <div class="size-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-primary animate-pulse">Fetching Application...</p>
+        </div>
+        
+        <div id="modalContent" class="flex-1 p-8 md:p-10 opacity-0 transition-opacity duration-300">
+            <!-- Content will be injected here via AJAX -->
+        </div>
+    </div>
+</div>
+
+<script>
+    function openApplicationModal(appId) {
+        if (!appId) return;
+        
+        const modal = document.getElementById('applicationModal');
+        const backdrop = document.getElementById('modalBackdrop');
+        const container = document.getElementById('modalContainer');
+        const loading = document.getElementById('modalLoading');
+        const content = document.getElementById('modalContent');
+
+        // Reset & Show
+        modal.classList.remove('hidden');
+        loading.classList.remove('hidden');
+        content.classList.add('opacity-0');
+        
+        // Trigger animations
+        setTimeout(() => {
+            backdrop.classList.replace('opacity-0', 'opacity-100');
+            container.classList.replace('translate-x-full', 'translate-x-0');
+        }, 10);
+
+        // Fetch Content
+        fetch(`view_application.php?id=${appId}&ajax=1`)
+            .then(response => response.text())
+            .then(html => {
+                content.innerHTML = html;
+                loading.classList.add('hidden');
+                content.classList.replace('opacity-0', 'opacity-100');
+            })
+            .catch(error => {
+                console.error('Error fetching application:', error);
+                content.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full gap-4 text-center">
+                        <span class="material-symbols-outlined text-red-500 text-6xl">error</span>
+                        <h3 class="text-xl font-black uppercase italic">Failed to load</h3>
+                        <p class="text-xs text-gray-500">The application details could not be retrieved at this time.</p>
+                        <button onclick="closeApplicationModal()" class="mt-4 px-8 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase">Dismiss</button>
+                    </div>
+                `;
+                loading.classList.add('hidden');
+                content.classList.replace('opacity-0', 'opacity-100');
+            });
+    }
+
+    function closeApplicationModal() {
+        const backdrop = document.getElementById('modalBackdrop');
+        const container = document.getElementById('modalContainer');
+        const modal = document.getElementById('applicationModal');
+
+        backdrop.classList.replace('opacity-100', 'opacity-0');
+        container.classList.replace('translate-x-0', 'translate-x-full');
+
+        setTimeout(() => {
+            modal.classList.add('hidden');
+        }, 500);
+    }
+
+    // Close on backdrop click
+    document.getElementById('modalBackdrop').addEventListener('click', closeApplicationModal);
+
+    // Escape key support
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeApplicationModal();
+    });
+</script>
+
 </body>
 </html>
