@@ -111,17 +111,34 @@ if ($is_ajax): ?>
     <!-- AJAX Modal Content Only -->
     <div class="space-y-8 max-h-[80vh] overflow-y-auto px-1 pr-3 custom-scrollbar">
         <header class="flex justify-between items-start border-b border-white/5 pb-6">
-            <div>
-                <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($app['gym_name']) ?></h2>
-                <div class="flex items-center gap-3 mt-2">
-                    <?php if ($app['application_status'] === 'Pending'): ?>
-                        <span class="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-500 font-bold uppercase tracking-wider">Pending</span>
-                    <?php elseif ($app['application_status'] === 'Approved'): ?>
-                        <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-bold uppercase tracking-wider">Approved</span>
-                    <?php else: ?>
-                        <span class="px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-bold uppercase tracking-wider">Rejected</span>
-                    <?php endif; ?>
-                    <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider italic">Submitted: <?= date('M d, Y', strtotime($app['submitted_at'])) ?></span>
+            <div class="flex items-center gap-5">
+                <?php 
+                    $logo = array_filter($documents, fn($d) => $d['document_type'] === 'Gym Logo');
+                    $logoPath = !empty($logo) ? reset($logo)['file_path'] : null;
+                    if ($logoPath && !str_starts_with($logoPath, 'data:')) {
+                        if (str_starts_with($logoPath, 'uploads/')) { $logoPath = '../' . $logoPath; }
+                        elseif (!str_starts_with($logoPath, '../') && !str_starts_with($logoPath, 'http')) { $logoPath = '../uploads/applications/' . $logoPath; }
+                    }
+                ?>
+                <?php if ($logoPath): ?>
+                    <img src="<?= htmlspecialchars($logoPath) ?>" class="size-16 rounded-2xl object-cover border border-white/10 shadow-lg">
+                <?php else: ?>
+                    <div class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black italic text-xl uppercase">
+                        <?= substr($app['gym_name'], 0, 1) ?>
+                    </div>
+                <?php endif; ?>
+                <div>
+                    <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($app['gym_name']) ?></h2>
+                    <div class="flex items-center gap-3 mt-2">
+                        <?php if ($app['application_status'] === 'Pending'): ?>
+                            <span class="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-500 font-bold uppercase tracking-wider">Pending</span>
+                        <?php elseif ($app['application_status'] === 'Approved'): ?>
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-bold uppercase tracking-wider">Approved</span>
+                        <?php else: ?>
+                            <span class="px-2 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-bold uppercase tracking-wider">Rejected</span>
+                        <?php endif; ?>
+                        <span class="text-[9px] text-gray-500 font-bold uppercase tracking-wider italic">Submitted: <?= date('M d, Y', strtotime($app['submitted_at'])) ?></span>
+                    </div>
                 </div>
             </div>
             <button onclick="closeApplicationModal()" class="size-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 group transition-all">
@@ -167,9 +184,14 @@ if ($is_ajax): ?>
                         <p class="text-sm font-bold text-white leading-relaxed tracking-tight">
                             <?= htmlspecialchars($app['address_line']) ?><br>
                             <span class="text-[11px] text-gray-400 font-medium italic">
-                                <?= htmlspecialchars($app['barangay'] . ', ' . $app['city'] . ', ' . $app['province']) ?>
+                                <?= htmlspecialchars($app['barangay'] . ', ' . $app['city'] . ', ' . $app['province'] . ', ' . $app['region']) ?>
                             </span>
                         </p>
+                    </div>
+                    <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Gym Contact / Email</p>
+                        <p class="text-sm font-bold text-white tracking-tight"><?= htmlspecialchars($app['email']) ?></p>
+                        <p class="text-[11px] text-gray-400 mt-1.5 font-medium tracking-tight"><?= htmlspecialchars($app['contact_number']) ?></p>
                     </div>
                     <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Tax / Registration</p>
@@ -198,7 +220,11 @@ if ($is_ajax): ?>
                         <span class="text-xs font-black text-white italic uppercase"><?= htmlspecialchars($app['bank_name'] ?: 'Not Provided') ?></span>
                     </div>
                     <div class="flex justify-between items-center bg-white/[0.02] p-3 rounded-xl border border-white/5">
-                        <span class="text-[10px] text-gray-400 uppercase font-black tracking-widest">Account</span>
+                        <span class="text-[10px] text-gray-400 uppercase font-black tracking-widest">Account Name</span>
+                        <span class="text-xs font-black text-white uppercase italic"><?= htmlspecialchars($app['account_name'] ?: '---') ?></span>
+                    </div>
+                    <div class="flex justify-between items-center bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                        <span class="text-[10px] text-gray-400 uppercase font-black tracking-widest">Account Number</span>
                         <span class="text-xs font-black text-white"><?= htmlspecialchars($app['account_number'] ?: '---') ?></span>
                     </div>
                     <div class="flex justify-between items-center bg-white/[0.02] p-3 rounded-xl border border-white/5">
@@ -220,6 +246,17 @@ if ($is_ajax): ?>
                     <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_wifi'] ? 'text-primary' : 'text-gray-600 line-through' ?>">Wi-Fi</span>
                     <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_lockers'] ? 'text-primary' : 'text-gray-600 line-through' ?>">Lockers</span>
                 </div>
+        </div>
+
+        <!-- About & Rules -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-7 shadow-xl">
+                <h4 class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] mb-4 border-b border-white/5 pb-3">About the Gym</h4>
+                <p class="text-xs text-gray-400 leading-relaxed italic"><?= nl2br(htmlspecialchars($app['about_text'] ?: 'No description provided.')) ?></p>
+            </div>
+            <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-7 shadow-xl">
+                <h4 class="text-[9px] font-black uppercase text-gray-400 tracking-[0.2em] mb-4 border-b border-white/5 pb-3">Gym House Rules</h4>
+                <p class="text-xs text-gray-400 leading-relaxed italic"><?= nl2br(htmlspecialchars($app['rules_text'] ?: 'No rules provided.')) ?></p>
             </div>
         </div>
 
@@ -308,19 +345,28 @@ endif;
         </a>
 
         <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-            <div>
-                <div class="flex items-center gap-3 mb-2">
-                    <span class="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] text-primary font-black uppercase italic tracking-widest">Application Details</span>
-                    <?php if ($app['application_status'] === 'Pending'): ?>
-                        <span class="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-500 font-black uppercase italic tracking-widest">Status: Pending</span>
-                    <?php elseif ($app['application_status'] === 'Approved'): ?>
-                        <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-500 font-black uppercase italic tracking-widest">Status: Approved</span>
-                    <?php else: ?>
-                        <span class="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] text-red-500 font-black uppercase italic tracking-widest">Status: Rejected</span>
-                    <?php endif; ?>
+            <div class="flex items-center gap-6">
+                <?php if ($logoPath): ?>
+                    <img src="<?= htmlspecialchars($logoPath) ?>" class="size-24 rounded-[32px] object-cover border-2 border-primary/20 shadow-2xl shadow-primary/10">
+                <?php else: ?>
+                    <div class="size-24 rounded-[32px] bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-primary font-black italic text-4xl uppercase">
+                        <?= substr($app['gym_name'], 0, 1) ?>
+                    </div>
+                <?php endif; ?>
+                <div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <span class="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] text-primary font-black uppercase italic tracking-widest">Application Details</span>
+                        <?php if ($app['application_status'] === 'Pending'): ?>
+                            <span class="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-500 font-black uppercase italic tracking-widest">Status: Pending</span>
+                        <?php elseif ($app['application_status'] === 'Approved'): ?>
+                            <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-500 font-black uppercase italic tracking-widest">Status: Approved</span>
+                        <?php else: ?>
+                            <span class="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] text-red-500 font-black uppercase italic tracking-widest">Status: Rejected</span>
+                        <?php endif; ?>
+                    </div>
+                    <h2 class="text-4xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($app['gym_name']) ?></h2>
+                    <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Submitted on <?= date('M d, Y h:i A', strtotime($app['submitted_at'])) ?></p>
                 </div>
-                <h2 class="text-4xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($app['gym_name']) ?></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Submitted on <?= date('M d, Y h:i A', strtotime($app['submitted_at'])) ?></p>
             </div>
         </header>
 
@@ -357,8 +403,13 @@ endif;
                         <p class="text-sm font-bold tracking-tight text-white"><?= formatLabel($app['business_type'], $friendlyNames) ?></p>
                     </div>
                     <div>
+                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Gym Official Contact</p>
+                        <p class="text-sm font-bold tracking-tight text-white"><?= htmlspecialchars($app['email']) ?></p>
+                        <p class="text-[11px] text-gray-400 font-medium italic mt-1"><?= htmlspecialchars($app['contact_number']) ?></p>
+                    </div>
+                    <div>
                         <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Facility Address</p>
-                        <p class="text-sm font-bold leading-relaxed tracking-tight text-white"><?= htmlspecialchars($app['address_line'] . ', ' . $app['barangay'] . ', ' . $app['city'] . ', ' . $app['province']) ?></p>
+                        <p class="text-sm font-bold leading-relaxed tracking-tight text-white"><?= htmlspecialchars($app['address_line'] . ', ' . $app['barangay'] . ', ' . $app['city'] . ', ' . $app['province'] . ', ' . $app['region']) ?></p>
                     </div>
                 </div>
             </div>
@@ -379,7 +430,11 @@ endif;
                     </div>
                     <div class="col-span-2">
                         <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Account Holder</p>
-                        <p class="text-sm font-bold text-white"><?= htmlspecialchars($app['account_name'] ?: '---') ?></p>
+                        <p class="text-sm font-bold text-white uppercase italic tracking-tight"><?= htmlspecialchars($app['account_name'] ?: '---') ?></p>
+                    </div>
+                    <div class="col-span-2 pt-2 border-t border-white/5">
+                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Settlement Preference</p>
+                        <p class="text-[10px] font-black uppercase text-primary italic tracking-tight"><?= formatLabel($app['platform_fee_preference'], $friendlyNames) ?></p>
                     </div>
                 </div>
             </div>
@@ -401,6 +456,19 @@ endif;
                     <span class="px-2.5 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-black uppercase tracking-widest <?= $app['has_wifi'] ? 'text-primary' : 'text-gray-600 line-through' ?>">Wi-Fi</span>
                     <span class="px-2.5 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-black uppercase tracking-widest <?= $app['has_lockers'] ? 'text-primary' : 'text-gray-600 line-through' ?>">Lockers</span>
                 </div>
+            </div>
+            </div>
+        </div>
+
+        <!-- About & Rules (Full Page) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+            <div class="glass-card p-8 bg-white/[0.02]">
+                <h3 class="text-sm font-black italic uppercase tracking-widest mb-6 text-primary border-b border-white/5 pb-4">About the Gym</h3>
+                <p class="text-xs text-gray-400 leading-relaxed italic"><?= nl2br(htmlspecialchars($app['about_text'] ?: 'No description provided.')) ?></p>
+            </div>
+            <div class="glass-card p-8 bg-white/[0.02]">
+                <h3 class="text-sm font-black italic uppercase tracking-widest mb-6 text-primary border-b border-white/5 pb-4">Gym House Rules</h3>
+                <p class="text-xs text-gray-400 leading-relaxed italic"><?= nl2br(htmlspecialchars($app['rules_text'] ?: 'No rules provided.')) ?></p>
             </div>
         </div>
 

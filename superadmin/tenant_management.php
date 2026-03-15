@@ -416,8 +416,14 @@ foreach ($tenants as $t) {
     <!-- Backdrop: Only blurs the right side (main content area) -->
     <div class="fixed inset-y-0 left-64 lg:left-72 right-0 bg-background-dark/20 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto" id="modalBackdrop"></div>
     
-    <!-- Modal Content Container: Centers automatically within its parent (which is offset by sidebar) -->
+    <!-- Modal Content Container: Centers automatically within its parent -->
     <div class="relative w-full max-w-4xl bg-surface-dark/60 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden flex flex-col max-h-[85vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto" id="modalContainer">
+        <!-- Loading State -->
+        <div id="modalLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-surface-dark/80 backdrop-blur-md z-10 transition-opacity duration-300">
+            <div class="size-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
+            <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] italic">Loading Details...</p>
+        </div>
+
         <div id="modalContent" class="flex-1 p-8 md:p-10 opacity-0 transition-opacity duration-500 overflow-y-auto no-scrollbar">
             <!-- Content injected via AJAX -->
         </div>
@@ -432,26 +438,39 @@ foreach ($tenants as $t) {
         const backdrop = document.getElementById('modalBackdrop');
         const container = document.getElementById('modalContainer');
         const content = document.getElementById('modalContent');
+        const loading = document.getElementById('modalLoading');
 
         // Show Modal & Start Animations
         modal.classList.replace('hidden', 'flex');
         
-        // Fetch Content Immediately (No Loading Overlay)
+        // Trigger visual entry
+        setTimeout(() => {
+            backdrop.classList.replace('opacity-0', 'opacity-100');
+            container.classList.replace('scale-95', 'scale-100');
+            container.classList.replace('opacity-0', 'opacity-100');
+        }, 10);
+
+        loading.classList.replace('opacity-0', 'opacity-100');
+        loading.classList.remove('hidden');
+        content.classList.replace('opacity-100', 'opacity-0');
+
+        // Fetch Content
         fetch(`view_application.php?id=${appId}&ajax=1`)
             .then(response => response.text())
             .then(html => {
                 content.innerHTML = html;
-                content.classList.replace('opacity-0', 'opacity-100');
                 
-                // Trigger visual entry only after content starts loading or is ready
+                // Hide loading then show content
                 setTimeout(() => {
-                    backdrop.classList.replace('opacity-0', 'opacity-100');
-                    container.classList.replace('scale-95', 'scale-100');
-                    container.classList.replace('opacity-0', 'opacity-100');
-                }, 10);
+                    loading.classList.replace('opacity-100', 'opacity-0');
+                    setTimeout(() => {
+                        loading.classList.add('hidden');
+                        content.classList.replace('opacity-0', 'opacity-100');
+                    }, 300);
+                }, 500);
             })
             .catch(error => {
-                modal.classList.replace('flex', 'hidden');
+                closeApplicationModal();
                 alert('Connection error. Please try again.');
             });
     }
