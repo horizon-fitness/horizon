@@ -84,7 +84,33 @@ $active_page = "settings";
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
     </style>
+    <script>
+        function updateSidebarClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('sidebarClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateSidebarClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+    </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
@@ -96,9 +122,20 @@ $active_page = "settings";
             </div>
             <h1 class="text-xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($gym['gym_name']) ?></h1>
         </div>
+        <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
+            <div class="flex items-center justify-between mb-2">
+                <p id="sidebarClock" class="text-white font-black italic text-base leading-none">00:00:00 AM</p>
+                <span class="px-2 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">Active</span>
+            </div>
+            <p class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mb-1"><?= date('l, M d') ?></p>
+            <div class="pt-2 border-t border-white/5 mt-2">
+                <p class="text-[8px] font-black uppercase text-gray-600 tracking-widest mb-1">Current Plan</p>
+                <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
+            </div>
+        </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto no-scrollbar pr-2">
         <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
         </a>
@@ -111,12 +148,13 @@ $active_page = "settings";
         <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">person_search</span> Member Directory
         </a>
-        <div class="mt-auto pt-8 border-t border-white/10">
-            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-                <span class="nav-link">Sign Out</span>
-            </a>
-        </div>
+    </div>
+
+    <div class="mt-auto pt-8 border-t border-white/10">
+        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
+            <span class="nav-link">Sign Out</span>
+        </a>
     </div>
 </nav>
 

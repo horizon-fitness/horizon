@@ -49,17 +49,6 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
-        }
-        function updateHeaderClock() {
-            const now = new Date();
-            if(document.getElementById('sidebarClock')) document.getElementById('sidebarClock').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }
-        window.onload = function() { setInterval(updateHeaderClock, 1000); updateHeaderClock(); };
-    </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
@@ -78,12 +67,32 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         .status-card-red { border: 1px solid #ef4444; background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(20,18,26,1) 100%); }
         .dashed-container { border: 2px dashed rgba(255,255,255,0.1); border-radius: 24px; }
         
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0a090d; }
-        ::-webkit-scrollbar-thumb { background: #14121a; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #1a1824; }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
     </style>
+    <script>
+        function updateSidebarClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('sidebarClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateSidebarClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+    </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
@@ -101,7 +110,7 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto no-scrollbar pr-2">
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
         </a>
@@ -129,13 +138,13 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         <a href="support_tickets.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'tickets') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">confirmation_number</span> Support Tickets
         </a>
-        
-        <div class="mt-auto pt-8 border-t border-white/10">
-            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-                <span class="nav-link">Sign Out</span>
-            </a>
-        </div>
+    </div>
+
+    <div class="mt-auto pt-8 border-t border-white/10">
+        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
+            <span class="nav-link">Sign Out</span>
+        </a>
     </div>
 </nav>
 

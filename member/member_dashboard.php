@@ -11,16 +11,6 @@
             darkMode: "class",
             theme: { extend: { colors: { "primary": "#8c2bee", "surface-dark": "#14121a", "background-dark": "#0a090d" } } }
         }
-        function updateHeaderClock() {
-            const now = new Date();
-            if(document.getElementById('sidebarClock')) document.getElementById('sidebarClock').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }
-        function toggleMobileMenu() {
-            const menu = document.getElementById('mobileMenu');
-            menu.classList.toggle('hidden');
-        }
-        window.onload = function() { setInterval(updateHeaderClock, 1000); updateHeaderClock(); };
-    </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
@@ -34,7 +24,33 @@
         }
         .alert-dot { animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
     </style>
+    <script>
+        function updateSidebarClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('sidebarClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateSidebarClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+    </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
@@ -52,7 +68,7 @@
             </div>
         </div>
         
-        <div class="flex flex-col gap-8 flex-1">
+        <div class="flex flex-col gap-8 flex-1 overflow-y-auto no-scrollbar pr-2">
             <a href="member_dashboard.php" class="nav-link active-nav flex items-center gap-3">
                 <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
             </a>
@@ -68,19 +84,19 @@
             <a href="member_appointment.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
                 <span class="material-symbols-outlined text-xl">event_available</span> Appointment
             </a>
-            
-            <div class="mt-auto pt-8 border-t border-white/10">
-                <div class="flex items-center gap-3 mb-8">
-                    <a href="member_profile.php" class="size-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 hover:border-primary transition-all">
-                        <span class="material-symbols-outlined text-gray-400 text-xl">person</span>
-                    </a>
-                    <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Profile Settings</p>
-                </div>
-                <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-                    <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-                    <span class="nav-link">Sign Out</span>
+        </div>
+
+        <div class="mt-auto pt-8 border-t border-white/10">
+            <div class="flex items-center gap-3 mb-8">
+                <a href="member_profile.php" class="size-10 rounded-full bg-white/5 flex items-center justify-center border border-white/10 hover:border-primary transition-all">
+                    <span class="material-symbols-outlined text-gray-400 text-xl">person</span>
                 </a>
+                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Profile Settings</p>
             </div>
+            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
+                <span class="nav-link">Sign Out</span>
+            </a>
         </div>
     </nav>
 

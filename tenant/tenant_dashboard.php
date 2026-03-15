@@ -52,19 +52,39 @@ $active_page = "dashboard";
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
-        }
-    </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { content: ''; position: absolute; right: -32px; top: 0; width: 4px; height: 100%; background: #8c2bee; border-radius: 2px; }
+        
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
     </style>
+    <script>
+        function updateSidebarClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('sidebarClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateSidebarClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+    </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
@@ -77,12 +97,17 @@ $active_page = "dashboard";
             <h1 class="text-xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($gym['gym_name']) ?></h1>
         </div>
         <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
-            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 mb-1">Active Plan</p>
-            <p class="text-primary text-xs font-black uppercase tracking-widest italic"><?= htmlspecialchars($sub['plan_name']) ?></p>
+            <p id="sidebarClock" class="text-white font-black italic text-xl leading-none mb-1">00:00:00 AM</p>
+            <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-3"><?= date('l, M d') ?></p>
+            
+            <div class="pt-3 border-t border-white/5">
+                <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 mb-1">Active Plan</p>
+                <p class="text-primary text-xs font-black uppercase tracking-widest italic"><?= htmlspecialchars($sub['plan_name']) ?></p>
+            </div>
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto pr-2">
+    <div class="flex flex-col gap-5 flex-1 overflow-y-auto no-scrollbar pr-2">
         <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
         </a>
@@ -98,13 +123,13 @@ $active_page = "dashboard";
         <a href="#" class="nav-link flex items-center gap-3 text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl">payments</span> Billing & Revenue
         </a>
-        
-        <div class="mt-auto pt-8 border-t border-white/10">
-            <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-                <span class="nav-link">Sign Out</span>
-            </a>
-        </div>
+    </div>
+
+    <div class="mt-auto pt-8 border-t border-white/10">
+        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
+            <span class="nav-link">Sign Out</span>
+        </a>
     </div>
 </nav>
 

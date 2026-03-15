@@ -11,12 +11,6 @@
             darkMode: "class",
             theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
         }
-        function updateHeaderClock() {
-            const now = new Date();
-            if(document.getElementById('headerClock')) document.getElementById('headerClock').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }
-        window.onload = function() { setInterval(updateHeaderClock, 1000); updateHeaderClock(); };
-    </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; padding-bottom: 100px; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
@@ -27,19 +21,51 @@
         .mobile-taskbar { background: rgba(20, 18, 26, 0.9); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.05); }
         .alert-dot { animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
     </style>
+    <script>
+        function updateSidebarClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('sidebarClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateSidebarClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+    </script>
 </head>
 <body class="antialiased flex flex-col lg:flex-row min-h-screen">
 
     <nav class="hidden lg:flex flex-col w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
-        <div class="flex items-center gap-4 mb-12">
-            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+        <div class="mb-12">
+            <div class="flex items-center gap-4 mb-6">
+                <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
+                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                </div>
+                <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Herdoza <span class="text-primary">Coach</span></h1>
             </div>
-            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Herdoza <span class="text-primary">Coach</span></h1>
+            <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
+                <p id="sidebarClock" class="text-white font-black italic text-xl leading-none mb-1">00:00:00 AM</p>
+                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em]"><?= date('l, M d') ?></p>
+            </div>
         </div>
         
-        <div class="flex flex-col gap-8 flex-1">
+        <div class="flex flex-col gap-8 flex-1 overflow-y-auto no-scrollbar pr-2">
             <a href="dashboard_coach.php" class="nav-link active-nav flex items-center gap-3">
                 <span class="material-symbols-outlined text-xl">grid_view</span>
                 Dashboard
@@ -53,23 +79,23 @@
                 <span class="material-symbols-outlined text-xl">groups</span>
                 My Members
             </a>
-            
-            <div class="mt-auto pt-8 border-t border-white/10">
-                <div class="flex items-center gap-3 mb-8">
-                    <a href="coach_profile.php" class="size-10 rounded-full bg-white/5 flex items-center justify-center border border-white/5 hover:border-primary transition-all group">
-                        <span class="material-symbols-outlined text-gray-400 text-xl group-hover:text-primary">psychology</span>
-                    </a>
-                    <div class="overflow-hidden">
-                        <p id="headerClock" class="text-white font-black italic text-[11px] leading-none mb-1">00:00:00 AM</p>
-                        <p class="text-[9px] font-black uppercase text-primary leading-none truncate">@<?= htmlspecialchars($_SESSION['username'] ?? 'coach') ?></p>
-                    </div>
-                </div>
+        </div>
 
-                <a href="logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-                    <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-                    <span class="nav-link">Sign Out</span>
+        <div class="mt-auto pt-8 border-t border-white/10">
+            <div class="flex items-center gap-3 mb-8">
+                <a href="coach_profile.php" class="size-10 rounded-full bg-white/5 flex items-center justify-center border border-white/5 hover:border-primary transition-all group">
+                    <span class="material-symbols-outlined text-gray-400 text-xl group-hover:text-primary">psychology</span>
                 </a>
+                <div class="overflow-hidden">
+                    <p class="text-[9px] font-black uppercase text-primary leading-none truncate mb-1">Coach</p>
+                    <p class="text-[9px] font-black uppercase text-gray-500 leading-none truncate">@<?= htmlspecialchars($_SESSION['username'] ?? 'coach') ?></p>
+                </div>
             </div>
+
+            <a href="logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
+                <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
+                <span class="nav-link">Sign Out</span>
+            </a>
         </div>
     </nav>
 
