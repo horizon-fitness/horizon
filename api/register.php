@@ -20,6 +20,19 @@ if ($action === 'register') {
         exit;
     }
 
+    // Resolve tenant_code if alphanumeric
+    if (!is_numeric($gym_id)) {
+        $stmtLookup = $pdo->prepare("SELECT gym_id FROM gyms WHERE tenant_code = ? LIMIT 1");
+        $stmtLookup->execute([$gym_id]);
+        $found_id = $stmtLookup->fetchColumn();
+        if ($found_id) {
+            $gym_id = $found_id;
+        } else {
+            echo json_encode(['success' => false, 'message' => "Tenant Code '$gym_id' not found."]);
+            exit;
+        }
+    }
+
     try {
         $pdo->beginTransaction();
 

@@ -12,15 +12,21 @@ if (empty($username) || empty($password)) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT u.*, ur.role_id, r.role_name, ur.gym_id 
+    $stmt = $pdo->prepare("SELECT u.*, ur.role_id, r.role_name, ur.gym_id, g.tenant_code 
                            FROM users u 
                            JOIN user_roles ur ON u.user_id = ur.user_id 
                            JOIN roles r ON ur.role_id = r.role_id 
+                           LEFT JOIN gyms g ON ur.gym_id = g.gym_id
                            WHERE u.username = ? OR u.email = ? LIMIT 1");
     $stmt->execute([$username, $username]);
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password_hash'])) {
+        if (!$user['is_verified']) {
+            echo json_encode(['success' => false, 'message' => 'Please verify your account first.', 'unverified' => true, 'user_id' => $user['user_id']]);
+            exit;
+        }
+
         if (!$user['is_active']) {
             echo json_encode(['success' => false, 'message' => 'Account is suspended.']);
             exit;
@@ -43,7 +49,8 @@ try {
                 'first_name' => $user['first_name'],
                 'last_name' => $user['last_name'],
                 'role' => $user['role_name'],
-                'gym_id' => $user['gym_id']
+                'gym_id' => $user['gym_id'],
+                'tenant_id' => $user['tenant_code']
             ],
             'branding' => $branding
         ]);
