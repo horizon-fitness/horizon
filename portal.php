@@ -111,7 +111,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
                     <span class="material-symbols-outlined text-white text-xl">bolt</span>
                 </div>
             <?php endif; ?>
-            <h1 class="text-xl font-bold tracking-tight text-white font-display uppercase tracking-widest"><?= htmlspecialchars($page['gym_name']) ?></h1>
+            <h1 class="text-xl font-bold tracking-tight text-white font-display uppercase tracking-widest gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h1>
         </div>
         <div class="hidden md:flex items-center gap-8">
             <nav class="flex items-center gap-6">
@@ -140,7 +140,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
             </div>
             
             <h2 class="text-5xl md:text-8xl font-bold tracking-tight text-white mb-8 leading-[1.1] font-display">
-                Elevate Your <span class="text-primary">Fitness</span> <br class="hidden md:block"/> at <span class="text-gradient"><?= htmlspecialchars($page['gym_name']) ?></span>
+                Elevate Your <span class="text-primary">Fitness</span> <br class="hidden md:block"/> at <span class="text-gradient gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
             </h2>
             
             <p class="text-gray-400 text-base md:text-xl max-w-2xl mx-auto leading-relaxed mb-12 font-body font-light">
@@ -217,7 +217,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
                     <div class="size-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
                         <span class="material-symbols-outlined text-white text-lg">bolt</span>
                     </div>
-                    <h1 class="text-xl font-bold tracking-tight text-white font-display uppercase tracking-wider"><?= htmlspecialchars($page['gym_name']) ?></h1>
+                    <h1 class="text-xl font-bold tracking-tight text-white font-display uppercase tracking-wider gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h1>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-10">
                     <div class="space-y-4">
@@ -293,8 +293,8 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 // Update Gym Name/Title
                 if (data.page_title) {
                     document.title = data.page_title + " | Horizon Systems";
-                    const headers = document.querySelectorAll('h1');
-                    headers.forEach(h => h.innerText = data.page_title);
+                    const names = document.querySelectorAll('.gym-name-display');
+                    names.forEach(n => n.innerText = data.page_title);
                 }
             }
         });
