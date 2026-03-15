@@ -48,7 +48,7 @@ foreach ($tenants as $t) {
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title><?= $page_title ?> | Herdoza Fitness</title>
+    <title><?= $page_title ?> | Horizon System</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -111,7 +111,7 @@ foreach ($tenants as $t) {
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
             </div>
-            <h1 class="text-2xl font-black italic uppercase tracking-tighter text-white">Herdoza</h1>
+            <h1 class="text-2xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
         </div>
         <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
             <p id="sidebarClock" class="text-white font-black italic text-xl leading-none mb-1">00:00:00 AM</p>
@@ -126,30 +126,13 @@ foreach ($tenants as $t) {
         <a href="tenant_management.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl">business</span> Tenant Management
         </a>
-        <a href="subscription_logs.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">history_edu</span> Subscription Logs
-        </a>
-        <a href="rbac_management.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">security</span> Access Control
-        </a>
-        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">group</span> Real-Time Occupancy
-        </a>
-        <a href="recent_transactions.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">receipt_long</span> Recent Transactions
-        </a>
-        <a href="system_alerts.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">notifications_active</span> System Alerts
-        </a>
-        <a href="system_status.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'status') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">monitor_heart</span> System Status
-        </a>
-        <a href="support_tickets.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'tickets') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">confirmation_number</span> Support Tickets
-        </a>
     </div>
 
-    <div class="mt-auto pt-8 border-t border-white/10">
+    <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-5">
+        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-3 group">
+            <span class="material-symbols-outlined transition-transform group-hover:text-primary">person</span>
+            <span class="nav-link">Profile</span>
+        </a>
         <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
             <span class="nav-link">Sign Out</span>
