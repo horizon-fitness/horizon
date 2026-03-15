@@ -25,9 +25,9 @@ if ($active_sub) {
 $plansCheck = $pdo->query("SELECT COUNT(*) FROM website_plans")->fetchColumn();
 if ($plansCheck == 0) {
     $plans = [
-        ['Basic Horizon', 1999.00, 'Monthly', 1, 'Single Location, Basic Analytics, Secure Tenant ID'],
-        ['Business Prime', 4999.00, 'Monthly', 1, 'Multi-Tenant Management, Advanced Revenue Reports, Priority Uptime'],
-        ['Enterprise', 15000.00, 'Yearly', 12, 'API Access, Custom Security, Dedicated Support']
+        ['6-Month Kickstart', 24999.00, '6 Months', 6, 'Multi-Tenant Management, Base64 Document Engine, Core Analytics'],
+        ['1-Year Momentum', 44999.00, '1 Year', 12, 'Advanced Revenue Reports, Priority Support, Gym Page Customizer'],
+        ['3-Year Legacy', 99999.00, '3 Years', 36, 'Full White-Label Access, API Integration, Unlimited Team Accounts']
     ];
     $stmtSeed = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, features) VALUES (?, ?, ?, ?, ?)");
     foreach ($plans as $p) {
