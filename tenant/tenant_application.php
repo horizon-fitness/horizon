@@ -1,4 +1,8 @@
-<?php session_start(); ?>
+<?php 
+session_start(); 
+$form_data = $_SESSION['application_data'] ?? [];
+unset($_SESSION['application_data']);
+?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
@@ -554,6 +558,33 @@
         }
     });
     // --- NEW VALIDATION CODE END ---
+
+    // --- RESTORE FORM DATA ---
+    const formData = <?= json_encode($form_data) ?>;
+    if (formData && Object.keys(formData).length > 0) {
+        Object.keys(formData).forEach(key => {
+            // Do not restore passwords, username, or owner_email (if there's an error)
+            if (['password', 'confirm_password', 'username', 'owner_email'].includes(key)) return;
+            
+            if (key === 'platform_fee_preference') {
+                const radio = document.querySelector(`input[name="${key}"][value="${formData[key]}"]`);
+                if (radio) radio.checked = true;
+                return;
+            }
+
+            const checkbox = document.querySelector(`input[type="checkbox"][name="${key}"]`);
+            if (checkbox) {
+                // Checkboxes from form submission hold the 'value' submitted, e.g., '1'
+                if (formData[key] === checkbox.value) checkbox.checked = true;
+                return;
+            }
+
+            const input = document.querySelector(`[name="${key}"]`);
+            if (input && input.type !== 'file') {
+                input.value = formData[key];
+            }
+        });
+    }
 
     prevBtn.addEventListener('click', () => {
         if (currentStep > 1) {

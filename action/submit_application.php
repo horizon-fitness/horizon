@@ -171,6 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->rollBack();
         }
         $_SESSION['application_error'] = $e->getMessage();
+        $_SESSION['application_data'] = $_POST;
         header("Location: ../tenant/tenant_application.php");
         exit;
     }
