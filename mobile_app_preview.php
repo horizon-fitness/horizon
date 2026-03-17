@@ -15,13 +15,13 @@ if (!$page) {
     $page = [
         'page_title' => 'Horizon Systems',
         'gym_name' => 'Horizon Systems',
-        'theme_color' => '#8c2bee',
+        'theme_color' => '#1a73e8',
         'bg_color' => '#0a090d',
-        'font_family' => 'Lexend',
+        'font_family' => 'Inter',
         'logo_path' => 'assets/default_logo.png',
-        'banner_image' => 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop',
+        'banner_image' => 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070&auto=format&fit=crop',
         'about_text' => 'Welcome to Horizon Systems. Your fitness journey starts here.',
-        'contact_text' => 'Visit us at our primary training facility.'
+        'contact_text' => ''
     ];
 }
 
@@ -65,91 +65,80 @@ $font = $page['font_family'];
             flex-direction: column;
         }
         .android-status-bar {
-            height: 38px;
+            height: 32px;
             padding: 0 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             font-size: 11px;
-            font-weight: 700;
-        }
-        .android-nav-bar {
-            height: 48px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        .nav-line {
-            width: 80px;
-            height: 3px;
-            background: rgba(255,exp255,255,0.3);
-            border-radius: 99px;
+            font-weight: 500;
+            color: white;
+            opacity: 0.9;
         }
         .header-logo-card {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             background-color: var(--primary);
-            border-radius: 10px;
+            border-radius: 8px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
         .banner-card {
             width: calc(100% - 32px);
-            height: 220px;
-            margin: 16px auto;
-            border-radius: 24px;
+            height: 200px;
+            margin: 12px auto;
+            border-radius: 20px;
             overflow: hidden;
             position: relative;
+            border: 1px solid rgba(255,255,255,0.1);
         }
         .banner-card img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-        .banner-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0,0,0,0.1);
-        }
         .btn-primary {
             background-color: var(--primary);
-            height: 60px;
+            height: 56px;
             width: calc(100% - 64px);
             margin: 0 auto;
-            border-radius: 18px;
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 800;
-            text-transform: none;
-            font-size: 16px;
+            font-weight: 700;
+            font-size: 15px;
+            color: white;
+            box-shadow: 0 8px 20px -6px var(--primary);
         }
         .btn-outline {
-            border: 1px solid rgba(255,255,255,0.1);
-            height: 60px;
+            background: #0d0d0d;
+            border: 1px solid rgba(255,255,255,0.05);
+            height: 56px;
             width: calc(100% - 64px);
             margin: 0 auto;
-            border-radius: 18px;
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 800;
-            font-size: 16px;
-            color: white;
+            font-weight: 700;
+            font-size: 15px;
+            color: #888;
         }
         .badge {
             background: rgba(255,255,255,0.03);
-            padding: 8px 18px;
+            background: #111;
+            padding: 6px 16px;
             border-radius: 99px;
-            font-size: 11px;
+            font-size: 10.5px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.15em;
+            letter-spacing: 0.1em;
             color: var(--primary);
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
         }
         .dot {
             width: 6px;
@@ -161,48 +150,58 @@ $font = $page['font_family'];
 </head>
 <body class="no-scrollbar">
 
-    <!-- App Content (No Status Bar as requested) -->
-    <div class="flex-1 flex flex-col">
-        <!-- Native Header (Matching activity_landing.xml) -->
-        <div class="px-6 h-[72px] flex items-center gap-[14px]">
-            <div id="header-logo-container" class="header-logo-card">
-                <img id="logo-img" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" class="size-6 object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
-                <span id="logo-icon" class="material-symbols-outlined text-white text-xl <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">bolt</span>
+    <!-- App Content -->
+    <div class="flex-1 flex flex-col pt-1">
+        
+        <!-- Status Bar -->
+        <div class="android-status-bar">
+            <span>7:06</span>
+            <div class="flex items-center gap-1.5 opacity-60">
+                <span class="material-symbols-outlined text-[14px]">signal_cellular_4_bar</span>
+                <span class="material-symbols-outlined text-[14px]">wifi</span>
+                <span class="material-symbols-outlined text-[14px]">battery_full</span>
             </div>
-            <span class="text-[16px] font-bold tracking-[0.1em] text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
+        </div>
+
+        <!-- Native Header -->
+        <div class="px-5 h-[56px] flex items-center gap-3.5">
+            <div id="header-logo-container" class="header-logo-card">
+                <img id="logo-img" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" class="size-5 object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
+                <span id="logo-icon" class="material-symbols-outlined text-white text-lg <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">bolt</span>
+            </div>
+            <span class="text-[16px] font-bold tracking-[0.05em] text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
         </div>
 
         <div class="android-content-area no-scrollbar">
             <!-- Banner Section -->
             <div class="banner-card">
-                <img id="banner-img" src="<?= !empty($page['banner_image']) ? $page['banner_image'] : 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop' ?>">
-                <div class="banner-overlay"></div>
+                <img id="banner-img" src="<?= !empty($page['banner_image']) ? $page['banner_image'] : 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070&auto=format&fit=crop' ?>">
             </div>
 
             <!-- Hero Section -->
-            <div class="text-center mt-6">
-                <div class="badge mx-auto">
+            <div class="text-center mt-5">
+                <div class="badge mx-auto bg-[#131217]">
                     <span class="dot"></span>
-                    <span>Open for Registration</span>
+                    <span>Open for Membership</span>
                 </div>
 
-                <h1 class="text-[36px] font-bold uppercase text-white mt-5 px-6 leading-[1.1]">
-                    Your Vision,<br/>Our Platform.
+                <h1 id="hero-title" class="text-[30px] font-bold text-white mt-6 px-4 leading-[1.2]">
+                    Elevate Your Fitness at <br/> <span class="gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
                 </h1>
 
-                <p id="about-text" class="text-[14px] font-medium text-white/50 mt-4 px-10 leading-relaxed">
-                    <?= htmlspecialchars($page['about_text'] ?? 'Empowering fitness owners with Horizon\'s industry-leading technology.') ?>
+                <p id="about-text" class="text-[14px] font-medium text-white/50 mt-4 px-8 leading-relaxed">
+                    <?= htmlspecialchars($page['about_text'] ?? 'Welcome to Horizon Systems. Your fitness journey starts here.') ?>
                 </p>
             </div>
 
-            <!-- Buttons Row (Exact match for Material Design) -->
+            <!-- Buttons Row -->
             <div class="mt-8 flex flex-col gap-3.5 pb-12">
                 <div class="btn-primary">Sign In</div>
                 <div class="btn-primary">Register</div>
                 <div class="btn-outline">Get Member APK</div>
                 
                 <!-- Footer Contact (Matching XML exactly) -->
-                <div id="contact-text" class="mt-8 text-[10px] font-bold uppercase tracking-[0.1em] text-white/20 text-center px-8 leading-loose">
+                <div id="contact-text" class="mt-8 text-[11px] font-bold uppercase tracking-[0.05em] text-white/20 text-center px-10 leading-loose">
                     <?= htmlspecialchars($page['contact_text'] ?? '') ?>
                 </div>
             </div>
