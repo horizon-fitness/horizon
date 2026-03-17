@@ -77,13 +77,8 @@ function processMemberRegistration($pdo, $data) {
             $role_id = $pdo->lastInsertId();
         }
 
-        // Fetch tenant_code for synergy
-        $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = ? LIMIT 1");
-        $stmtT->execute([$gym_id]);
-        $tenant_code = $stmtT->fetchColumn() ?: '000';
-
-        $stmtUR = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, tenant_code, role_status, assigned_at) VALUES (?, ?, ?, ?, 'Active', ?)");
-        $stmtUR->execute([$new_user_id, $role_id, $gym_id, $tenant_code, $now]);
+        $stmtUR = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', ?)");
+        $stmtUR->execute([$new_user_id, $role_id, $gym_id, $now]);
 
         // 3. Create Member Record
         $prefix = ($source === 'Walk-in') ? 'WALK-' : 'MBR-';
