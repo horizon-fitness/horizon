@@ -110,40 +110,31 @@ $active_page = "settings";
         
         /* High-Fidelity Phone Frame */
         .phone-mockup {
-            width: 320px;
-            height: 650px;
+            width: 310px;
+            height: 640px;
             background: #000;
-            border-radius: 50px;
-            border: 12px solid #2a2835;
+            border-radius: 48px;
+            border: 8px solid #2a2835;
             position: relative;
             box-shadow: 0 50px 100px -20px rgba(0,0,0,0.8), 0 0 0 4px #1a1824;
             overflow: visible;
         }
+        /* Android Punch Hole Camera */
         .phone-mockup::before {
             content: '';
             position: absolute;
-            top: 0;
+            top: 12px;
             left: 50%;
             transform: translateX(-50%);
-            width: 150px;
-            height: 25px;
-            background: #2a2835;
-            border-bottom-left-radius: 20px;
-            border-bottom-right-radius: 20px;
+            width: 12px;
+            height: 12px;
+            background: #111;
+            border: 2px solid #2a2835;
+            border-radius: 50%;
             z-index: 20;
         }
-        .phone-mockup::after {
-            content: '';
-            position: absolute;
-            bottom: 8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100px;
-            height: 4px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 99px;
-            z-index: 20;
-        }
+        /* Remove physical bottom bar */
+        .phone-mockup::after { display: none; }
         .phone-screen {
             width: 100%;
             height: 100%;

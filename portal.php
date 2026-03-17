@@ -107,6 +107,38 @@ $font_family = $page['font_family'] ?? 'Lexend';
             box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
         }
         .banner-card img { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* Android UI Elements */
+        .android-status-bar {
+            height: 38px;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: white;
+            z-index: 100;
+            width: 100%;
+            background: transparent;
+        }
+        .android-nav-bar {
+            height: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            position: fixed;
+            bottom: 0;
+            background: transparent;
+            z-order: 100;
+        }
+        .android-nav-line {
+            width: 80px;
+            height: 3px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 99px;
+        }
         <?php endif; ?>
     </style>
 </head>
@@ -141,42 +173,58 @@ $font_family = $page['font_family'] ?? 'Lexend';
         <div class="fixed bottom-[10%] left-[-5%] size-[500px] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
 
         <?php if (isset($_GET['preview'])): ?>
+        <!-- Android Status Bar -->
+        <div class="android-status-bar">
+            <span>6:42</span>
+            <div class="flex items-center gap-1.5 opacity-80">
+                <span class="material-symbols-outlined text-[14px]">signal_cellular_4_bar</span>
+                <span class="material-symbols-outlined text-[14px]">wifi</span>
+                <span class="material-symbols-outlined text-[14px]">battery_full</span>
+            </div>
+        </div>
+
         <!-- Mobile Landing Page Replica -->
         <div class="w-full max-w-[340px] flex flex-col items-center pt-2">
+            <!-- Header Row (Logo + Title) -->
+            <div class="flex items-center gap-3 mb-6 w-full px-4 pt-2">
+                <div id="preview-logo-container" class="size-9 rounded-xl bg-primary flex items-center justify-center">
+                    <img id="logo-image-display" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" alt="Logo" class="size-6 object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
+                    <span id="logo-placeholder-icon" class="material-symbols-outlined text-white text-lg <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">bolt</span>
+                </div>
+                <h1 class="text-[15px] font-black tracking-widest text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h1>
+            </div>
+
             <!-- Banner Card -->
-            <div class="banner-card">
+            <div class="banner-card mx-4">
                 <img id="banner-image-display" src="<?= !empty($page['banner_image']) ? $page['banner_image'] : 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop' ?>" alt="Banner">
             </div>
 
-            <!-- Header Row (Simplified Mobile Header) -->
-            <div class="flex items-center gap-3 mb-8 w-full px-2">
-                <div class="size-8 rounded-lg bg-primary flex items-center justify-center">
-                    <span class="material-symbols-outlined text-white text-lg">bolt</span>
-                </div>
-                <h1 class="text-sm font-bold tracking-widest text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h1>
+            <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/[0.03] border border-white/[0.02] mb-8 text-primary shadow-inner">
+                <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
+                <span class="text-[10px] font-black uppercase tracking-[0.2em]">Open for Membership</span>
             </div>
 
-            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 mb-6 text-primary">
-                <span class="text-[9px] font-black uppercase tracking-[0.2em]">● Open for Membership</span>
-            </div>
-
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white mb-4 leading-tight text-center">
-                Elevate Your <br/> <span class="text-primary italic">Fitness</span> at <br/> <span class="gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
+            <h2 class="text-4xl font-black uppercase tracking-tighter text-white mb-4 leading-[1.1] text-center px-4">
+                Elevate Your <br/> Fitness at <br/> <span class="gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
             </h2>
 
-            <p id="hero-description-display" class="text-gray-400 text-xs font-medium leading-relaxed mb-10 px-4 text-center">
-                <?= htmlspecialchars($page['about_text'] ?? 'Discover a premium workout experience powered by Horizon\'s technology.') ?>
+            <p id="hero-description-display" class="text-gray-400 text-[13px] font-medium leading-relaxed mb-12 px-6 text-center opacity-70">
+                <?= htmlspecialchars($page['about_text'] ?? 'Welcome to Horizon Systems. Your fitness journey starts here.') ?>
             </p>
 
-            <div class="w-full space-y-3 px-2">
-                <div class="h-14 rounded-2xl bg-primary flex items-center justify-center text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-primary/20">Sign In</div>
-                <div class="h-14 rounded-2xl bg-primary flex items-center justify-center text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-primary/20">Register</div>
-                <div class="h-14 rounded-2xl border border-white/10 flex items-center justify-center text-xs font-bold text-gray-400">Get Member APK</div>
+            <div class="w-full space-y-3.5 px-4 mb-10">
+                <div class="h-[60px] rounded-2xl bg-primary flex items-center justify-center text-[13px] font-black uppercase tracking-widest text-white shadow-xl shadow-primary/10 transition-transform active:scale-95">Sign In</div>
+                <div class="h-[60px] rounded-2xl bg-primary flex items-center justify-center text-[13px] font-black uppercase tracking-widest text-white shadow-xl shadow-primary/10 transition-transform active:scale-95">Register</div>
             </div>
 
-            <div id="contact-text-mobile" class="mt-12 text-[9px] font-black uppercase tracking-widest text-gray-500 text-center px-6 leading-loose">
+            <div id="contact-text-mobile" class="mt-8 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 text-center px-8 leading-loose opacity-60">
                 <?= htmlspecialchars($page['contact_text'] ?? '') ?>
             </div>
+        </div>
+
+        <!-- Android Nav Bar -->
+        <div class="android-nav-bar">
+            <div class="android-nav-line"></div>
         </div>
         <?php else: ?>
         <section class="max-w-5xl w-full text-center relative mb-24 mt-10 md:mt-20">
@@ -301,13 +349,13 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 
                 // Update Logo
                 if (data.logo_preview) {
+                    // Update Header Logo
                     let logoContainer = document.querySelector('header .flex.items-center.gap-4');
                     if (logoContainer) {
                         let logoImg = logoContainer.querySelector('img');
                         if (logoImg) {
                             logoImg.src = data.logo_preview;
                         } else {
-                            // Replace placeholder div with img tag
                             let placeholder = logoContainer.querySelector('div.size-9');
                             if (placeholder) {
                                 const newImg = document.createElement('img');
@@ -317,6 +365,17 @@ $font_family = $page['font_family'] ?? 'Lexend';
                                 placeholder.replaceWith(newImg);
                             }
                         }
+                    }
+                    
+                    // Update Mobile Preview Logo
+                    const mobileLogoImg = document.getElementById('logo-image-display');
+                    const mobileLogoPlaceholder = document.getElementById('logo-placeholder-icon');
+                    if (mobileLogoImg) {
+                        mobileLogoImg.src = data.logo_preview;
+                        mobileLogoImg.classList.remove('hidden');
+                    }
+                    if (mobileLogoPlaceholder) {
+                        mobileLogoPlaceholder.classList.add('hidden');
                     }
                 }
                 
