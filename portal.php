@@ -93,10 +93,20 @@ $font_family = $page['font_family'] ?? 'Lexend';
             -webkit-text-fill-color: transparent;
         }
         
-        /* APK App Mode Adjustments */
+        /* APK App Mode Adjustments (High-Fidelity Mobile Landing Replica) */
         <?php if (isset($_GET['preview'])): ?>
         header { display: none !important; }
-        main { padding-top: 2rem !important; }
+        main { padding-top: 0 !important; }
+        .hero-section { text-align: center; }
+        .banner-card { 
+            width: 100%; 
+            height: 200px; 
+            border-radius: 20px; 
+            margin-bottom: 24px; 
+            overflow: hidden; 
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+        }
+        .banner-card img { width: 100%; height: 100%; object-fit: cover; }
         <?php endif; ?>
     </style>
 </head>
@@ -125,11 +135,50 @@ $font_family = $page['font_family'] ?? 'Lexend';
         </div>
     </header>
 
-    <main class="flex-1 flex flex-col items-center <?= isset($_GET['preview']) ? 'pt-12' : 'pt-32' ?> pb-20 px-6 relative overflow-hidden">
+    <main class="flex-1 flex flex-col items-center <?= isset($_GET['preview']) ? 'pt-4' : 'pt-32' ?> pb-20 px-6 relative overflow-hidden">
         <!-- Premium Ambient Glows -->
         <div class="fixed top-[-10%] right-[-5%] size-[600px] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
         <div class="fixed bottom-[10%] left-[-5%] size-[500px] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
 
+        <?php if (isset($_GET['preview'])): ?>
+        <!-- Mobile Landing Page Replica -->
+        <div class="w-full max-w-[340px] flex flex-col items-center pt-2">
+            <!-- Banner Card -->
+            <div class="banner-card">
+                <img id="banner-image-display" src="<?= !empty($page['banner_image']) ? $page['banner_image'] : 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop' ?>" alt="Banner">
+            </div>
+
+            <!-- Header Row (Simplified Mobile Header) -->
+            <div class="flex items-center gap-3 mb-8 w-full px-2">
+                <div class="size-8 rounded-lg bg-primary flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-lg">bolt</span>
+                </div>
+                <h1 class="text-sm font-bold tracking-widest text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h1>
+            </div>
+
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 mb-6 text-primary">
+                <span class="text-[9px] font-black uppercase tracking-[0.2em]">● Open for Membership</span>
+            </div>
+
+            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white mb-4 leading-tight text-center">
+                Elevate Your <br/> <span class="text-primary italic">Fitness</span> at <br/> <span class="gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
+            </h2>
+
+            <p id="hero-description-display" class="text-gray-400 text-xs font-medium leading-relaxed mb-10 px-4 text-center">
+                <?= htmlspecialchars($page['about_text'] ?? 'Discover a premium workout experience powered by Horizon\'s technology.') ?>
+            </p>
+
+            <div class="w-full space-y-3 px-2">
+                <div class="h-14 rounded-2xl bg-primary flex items-center justify-center text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-primary/20">Sign In</div>
+                <div class="h-14 rounded-2xl bg-primary flex items-center justify-center text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-primary/20">Register</div>
+                <div class="h-14 rounded-2xl border border-white/10 flex items-center justify-center text-xs font-bold text-gray-400">Get Member APK</div>
+            </div>
+
+            <div id="contact-text-mobile" class="mt-12 text-[9px] font-black uppercase tracking-widest text-gray-500 text-center px-6 leading-loose">
+                <?= htmlspecialchars($page['contact_text'] ?? '') ?>
+            </div>
+        </div>
+        <?php else: ?>
         <section class="max-w-5xl w-full text-center relative mb-24 mt-10 md:mt-20">
             <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 mb-8">
                 <span class="relative flex h-2 w-2">
@@ -157,6 +206,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 </a>
             </div>
         </section>
+        <?php endif; ?>
 
         <section class="max-w-5xl w-full" id="portal-info">
             <!-- Information Card -->
@@ -293,6 +343,20 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 if (data.contact_text !== undefined) {
                     const contactDisp = document.getElementById('contact-text-display');
                     if (contactDisp) contactDisp.innerText = data.contact_text;
+                    const contactMobile = document.getElementById('contact-text-mobile');
+                    if (contactMobile) contactMobile.innerText = data.contact_text;
+                }
+
+                // Update Banner Preview
+                if (data.banner_preview) {
+                    const bannerImg = document.getElementById('banner-image-display');
+                    if (bannerImg) bannerImg.src = data.banner_preview;
+                }
+
+                // Update About/Hero Description
+                if (data.about_text !== undefined) {
+                    const heroDesc = document.getElementById('hero-description-display');
+                    if (heroDesc) heroDesc.innerText = data.about_text;
                 }
             }
         });

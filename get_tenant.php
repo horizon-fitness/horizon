@@ -16,8 +16,9 @@ if (!$result) {
         'gym_name' => 'Horizon Systems',
         'tenant_code' => '000',
         'logo_path' => 'assets/default_logo.png',
+        'banner_image' => 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop',
         'theme_color' => '#1a73e8',
-        'bg_color' => '#ffffff',
+        'bg_color' => '#0a090d',
         'font_family' => 'Inter',
         'about_text' => 'Welcome to the Horizon Systems official app. Your fitness journey starts here.',
         'app_download_link' => 'https://horizonfitnesscorp.gt.tc/download.php'
