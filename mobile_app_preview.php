@@ -15,7 +15,7 @@ if (!$page) {
     $page = [
         'page_title' => 'Horizon Systems',
         'gym_name' => 'Horizon Systems',
-        'theme_color' => '#1a73e8',
+        'theme_color' => '#8c2bee',
         'bg_color' => '#0a090d',
         'font_family' => 'Lexend',
         'logo_path' => 'assets/default_logo.png',
@@ -49,8 +49,18 @@ $font = $page['font_family'];
             font-family: var(--font);
             margin: 0;
             padding: 0;
-            overflow-x: hidden;
+            overflow: hidden;
             height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Hide scrollbars for true App feel */
+        ::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .android-content-area {
+            flex: 1;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
         }
@@ -151,28 +161,18 @@ $font = $page['font_family'];
 </head>
 <body class="no-scrollbar">
 
-    <!-- Status Bar -->
-    <div class="android-status-bar">
-        <span>6:42</span>
-        <div class="flex items-center gap-1.5 opacity-60">
-            <span class="material-symbols-outlined text-[14px]">signal_cellular_4_bar</span>
-            <span class="material-symbols-outlined text-[14px]">wifi</span>
-            <span class="material-symbols-outlined text-[14px]">battery_full</span>
-        </div>
-    </div>
-
-    <!-- App Content -->
-    <div class="flex-1 flex flex-col pt-2">
-        <!-- Native Header -->
-        <div class="px-6 h-[56px] flex items-center gap-4 mb-4">
+    <!-- App Content (No Status Bar as requested) -->
+    <div class="flex-1 flex flex-col">
+        <!-- Native Header (Matching activity_landing.xml) -->
+        <div class="px-6 h-[72px] flex items-center gap-[14px]">
             <div id="header-logo-container" class="header-logo-card">
                 <img id="logo-img" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" class="size-6 object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
                 <span id="logo-icon" class="material-symbols-outlined text-white text-xl <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">bolt</span>
             </div>
-            <span class="text-[17px] font-black tracking-widest text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
+            <span class="text-[16px] font-bold tracking-[0.1em] text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
         </div>
 
-        <div class="flex-1 overflow-y-auto no-scrollbar pb-12">
+        <div class="android-content-area no-scrollbar">
             <!-- Banner Section -->
             <div class="banner-card">
                 <img id="banner-img" src="<?= !empty($page['banner_image']) ? $page['banner_image'] : 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop' ?>">
@@ -186,25 +186,25 @@ $font = $page['font_family'];
                     <span>Open for Registration</span>
                 </div>
 
-                <h1 class="text-[34px] font-black uppercase text-white mt-8 px-8 leading-[1.1]">
+                <h1 class="text-[36px] font-bold uppercase text-white mt-5 px-6 leading-[1.1]">
                     Your Vision,<br/>Our Platform.
                 </h1>
 
-                <p id="about-text" class="text-[14px] font-medium text-white/60 mt-4 px-10 leading-relaxed">
+                <p id="about-text" class="text-[14px] font-medium text-white/50 mt-4 px-10 leading-relaxed">
                     <?= htmlspecialchars($page['about_text'] ?? 'Empowering fitness owners with Horizon\'s industry-leading technology.') ?>
                 </p>
             </div>
 
-            <!-- Buttons Row -->
-            <div class="mt-10 flex flex-col gap-4">
+            <!-- Buttons Row (Exact match for Material Design) -->
+            <div class="mt-8 flex flex-col gap-3.5 pb-12">
                 <div class="btn-primary">Sign In</div>
                 <div class="btn-primary">Register</div>
                 <div class="btn-outline">Get Member APK</div>
-            </div>
-
-            <!-- Footer Contact -->
-            <div id="contact-text" class="mt-16 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 text-center px-12 leading-loose">
-                <?= htmlspecialchars($page['contact_text'] ?? '') ?>
+                
+                <!-- Footer Contact (Matching XML exactly) -->
+                <div id="contact-text" class="mt-8 text-[10px] font-bold uppercase tracking-[0.1em] text-white/20 text-center px-8 leading-loose">
+                    <?= htmlspecialchars($page['contact_text'] ?? '') ?>
+                </div>
             </div>
         </div>
     </div>
