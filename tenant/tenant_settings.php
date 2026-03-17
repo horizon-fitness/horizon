@@ -138,7 +138,7 @@ $active_page = "settings";
         .phone-screen {
             width: 100%;
             height: 100%;
-            border-radius: 38px;
+            border-radius: 40px;
             overflow: hidden;
             background: #000;
         }
@@ -325,7 +325,7 @@ $active_page = "settings";
                     <div class="absolute inset-0 bg-primary/5 rounded-full blur-[100px] -z-10 animate-pulse"></div>
                     <div class="phone-mockup mx-auto">
                         <div class="phone-screen">
-                            <iframe id="previewIframe" src="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>&preview=1" class="w-full h-full border-none"></iframe>
+                            <iframe id="previewIframe" src="../mobile_app_preview.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="w-full h-full border-none"></iframe>
                         </div>
                     </div>
                 </div>
