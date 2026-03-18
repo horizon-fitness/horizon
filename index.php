@@ -1,17 +1,18 @@
 <?php
 session_start();
 ?>
-
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
     <title>Horizon | Multi-Tenant Management System</title>
-    <link href="https://fonts.googleapis.com" rel="preconnect"/>
-    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=Lexend:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <script id="tailwind-config">
         tailwind.config = {
@@ -21,171 +22,384 @@ session_start();
                     colors: {
                         "primary": "#7f13ec",
                         "primary-dark": "#5e0eb3",
-                        "background-dark": "#0f0d12", 
-                        "surface-dark": "#1a1621",
+                        "background-dark": "#050505", 
+                        "surface-dark": "rgba(21, 21, 24, 0.4)",
                         "text-secondary": "#ab9db9"
                     },
-                    fontFamily: { "display": ["Lexend", "sans-serif"] },
+                    fontFamily: { 
+                        "display": ["Lexend", "sans-serif"],
+                        "sans": ["Plus Jakarta Sans", "Inter", "sans-serif"]
+                    },
+                    borderRadius: { 'custom': '12px' }
                 },
             },
         }
     </script>
     <style>
         html { scroll-behavior: smooth; }
-        .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        .hero-pattern {
-            background-color: #0f0d12;
-            background-image: linear-gradient(rgba(15, 13, 18, 0.85), rgba(15, 13, 18, 0.7), rgba(15, 13, 18, 0.95)), url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop');
-            background-size: cover;
-            background-position: center;
+        body { background-color: #050505; color: #f3f4f6; }
+        
+        .glass-nav {
+            background: transparent;
+            border-bottom: 1px solid transparent;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-nav.scrolled {
+            background: rgba(5, 5, 5, 0.8);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 0.75rem;
+            padding-bottom: 0.75rem;
+        }
+
+        .nav-link {
+            position: relative;
+            transition: color 0.3s ease;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -4px;
+            left: 0;
+            background-color: #7f13ec;
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::after, .nav-link:focus::after {
+            width: 100%;
+        }
+        .nav-link:hover {
+            color: white;
+        }
+
+        .dashboard-window {
+            background: #08080a;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1.25rem;
+            position: relative;
+        }
+
+        .text-gradient {
+            background: linear-gradient(to right, #ffffff 10%, #bf80ff 50%, #7f13ec 95%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+            padding-right: 0.25em;
+            margin-right: -0.25em;
+            filter: drop-shadow(0 0 25px rgba(127, 19, 236, 0.4));
+        }
+
+        .hero-glow {
+            background: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.18), transparent 70%);
+        }
+
+        .plan-card {
+            background: #0d0d10;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.3s ease;
+        }
+        .plan-card:hover {
+            border-color: #7f13ec;
+            transform: translateY(-5px);
         }
     </style>
 </head>
-<body class="bg-background-dark font-display text-white overflow-x-hidden transition-colors duration-300 antialiased">
-<div class="relative flex flex-col min-h-screen w-full">
-    
-    <nav class="sticky top-0 z-50 w-full border-b border-white/5 bg-background-dark/95 backdrop-blur-md">
-        <div class="max-w-[1280px] mx-auto px-4 sm:px-10 py-4">
+<body class="font-sans antialiased overflow-x-hidden">
+
+    <nav id="topNav" class="glass-nav fixed top-0 w-full z-50">
+        <div class="max-w-7xl mx-auto px-6 py-5 transition-all duration-300">
             <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="flex items-center justify-center size-10 rounded-lg bg-primary/20 text-primary border border-primary/30">
-                        <span class="material-symbols-outlined text-2xl">wb_twilight</span>
+                <div class="flex items-center gap-12">
+                    <div class="flex items-center gap-3">
+                        <div class="size-10 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
+                            <span class="material-symbols-outlined text-primary">blur_on</span>
+                        </div>
+                        <h2 class="text-xl font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
                     </div>
-                    <h2 class="text-xl font-bold tracking-tight text-white uppercase italic">Horizon <span class="text-primary">Systems</span></h2>
-                </div>
-                
-                <div class="hidden md:flex flex-1 justify-end items-center gap-8">
-                    <nav class="flex items-center gap-8 text-sm font-medium">
-                        <a class="hover:text-primary transition-colors text-white" href="#">Solution</a>
-                        <a class="hover:text-primary transition-colors text-gray-400" href="#features">Features</a>
-                    </nav>
-                    <div class="flex gap-3">
-                        <a href="login.php" class="flex h-10 px-5 items-center justify-center rounded-lg border border-white/10 hover:bg-white/5 text-sm font-bold transition-all">Staff Login</a>
-                        <a href="tenant/tenant_application.php" class="flex h-10 px-5 items-center justify-center rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-bold shadow-lg shadow-primary/20 transition-all">Register Gym</a>
+
+                    <div class="hidden md:flex items-center gap-8 text-[11px] font-display font-bold uppercase tracking-widest text-gray-500">
+                        <a href="#" class="nav-link">Home</a>
+                        <a href="#about" class="nav-link">About Us</a>
+                        <a href="#plans" class="nav-link">Plan</a>
+                        <a href="#contact" class="nav-link">Contact</a>
                     </div>
                 </div>
 
-                <button class="md:hidden text-white" id="mobile-toggle">
-                    <span class="material-symbols-outlined text-3xl">menu</span>
-                </button>
+                <div class="flex items-center gap-4">
+                    <a href="login.php" class="font-display bg-white/5 hover:bg-white/10 text-white border border-white/10 px-5 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all">
+                        Staff Login
+                    </a>
+                    <a href="tenant/tenant_application.php" class="font-display bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-primary/20">
+                        Register Gym
+                    </a>
+                </div>
             </div>
         </div>
     </nav>
 
-    <main class="flex-1 flex flex-col items-center">
-        <section class="w-full max-w-[1400px] px-4 py-6">
-            <div class="relative w-full rounded-3xl overflow-hidden min-h-[550px] sm:min-h-[650px] flex flex-col items-center justify-center text-center p-6 hero-pattern border border-white/5">
-                <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/10 via-transparent to-background-dark/95 pointer-events-none"></div>
-                
-                <div class="relative z-10 flex flex-col gap-6 sm:gap-8 max-w-4xl">
-                    <div class="inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md w-fit mx-auto">
-                        <span class="material-symbols-outlined text-primary text-sm">rocket_launch</span>
-                        <span class="text-gray-300 text-[10px] font-black uppercase tracking-[0.2em]">Next-Gen Multi-Tenant Platform</span>
+    <main class="hero-glow">
+        <section class="relative pt-32 pb-20 md:pt-48 md:pb-40 px-6 flex items-center justify-center">
+            <div class="max-w-7xl w-full grid lg:grid-cols-2 gap-16 items-center relative z-10">
+                <div class="text-left">
+                    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
+                        <span class="material-symbols-outlined text-sm">hub</span>
+                        Next-Gen Multi-Tenant Platform
                     </div>
                     
-                    <h1 class="text-4xl sm:text-7xl md:text-8xl font-black leading-[1] sm:leading-[0.9] tracking-tighter text-white uppercase italic">
+                    <h1 class="text-6xl md:text-8xl font-display font-black leading-[0.85] tracking-tighter text-white uppercase italic mb-8">
                         Expand Your <br/>
-                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-[#b06bfd]">Horizon</span>
+                        <span class="text-gradient">Horizon</span>
                     </h1>
                     
-                    <p class="text-sm sm:text-lg text-gray-400 font-medium leading-relaxed max-w-2xl mx-auto italic px-4">
-                        A robust management architecture built for fitness entrepreneurs. Isolate your data and scale your business across unlimited locations.
+                    <p class="text-lg text-gray-500 font-medium leading-relaxed max-w-md mb-10 italic">
+                        Together with <span class="text-white font-bold">HORIZON</span>, your fitness business will really form and scale. Interested? Join now!
                     </p>
                     
-                    <div class="flex flex-col sm:flex-row gap-4 justify-center mt-4 px-8 sm:px-0">
-                        <a href="tenant/tenant_application.php" class="h-14 px-10 rounded-xl bg-primary hover:bg-primary-dark text-white text-sm font-black uppercase tracking-widest transition-all shadow-xl shadow-primary/40 transform hover:-translate-y-1 flex items-center justify-center">
-                            Start Your Journey
-                        </a>
+                    <div class="flex gap-4 mb-16">
+                        <a href="tenant/tenant_application.php" class="font-display px-10 py-5 bg-primary text-white font-bold rounded-custom text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20">Join us</a>
+                    </div>
+
+                    <div class="flex gap-12 border-t border-white/5 pt-10">
+                        <div>
+                            <h3 class="text-3xl font-display font-black text-primary">28</h3>
+                            <p class="text-[10px] text-gray-600 uppercase font-black tracking-widest mt-1">Exercise Programs</p>
+                        </div>
+                        <div>
+                            <h3 class="text-3xl font-display font-black text-white">980+</h3>
+                            <p class="text-[10px] text-gray-600 uppercase font-black tracking-widest mt-1">Total Members</p>
+                        </div>
+                        <div>
+                            <h3 class="text-3xl font-display font-black text-white">180+</h3>
+                            <p class="text-[10px] text-gray-600 uppercase font-black tracking-widest mt-1">Professional Coaches</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="relative">
+                    <div class="dashboard-window w-full rounded-2xl p-8 overflow-hidden">
+                        <div class="flex flex-col mb-10">
+                            <h3 class="text-2xl font-display font-black text-white uppercase italic tracking-tight">System <span class="text-primary">Overview</span></h3>
+                            <p class="text-[10px] text-gray-600 font-bold uppercase tracking-[0.3em] mt-1">Next-Gen Multi-Tenant Platform</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+                            <div class="metric-card border border-emerald-500/20">
+                                <p class="text-[9px] text-gray-500 uppercase font-black mb-3 tracking-widest">Global Revenue</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-2xl font-black text-white">₱0.00</span>
+                                    <span class="material-symbols-outlined text-emerald-500/40 text-2xl">payments</span>
+                                </div>
+                                <p class="text-[8px] text-emerald-500/80 uppercase font-bold mt-3">Across All Tenants</p>
+                            </div>
+
+                            <div class="metric-card border border-amber-500/20">
+                                <p class="text-[9px] text-gray-500 uppercase font-black mb-3 tracking-widest">Active Tenants</p>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-2xl font-black text-white">3 Gyms</span>
+                                    <span class="material-symbols-outlined text-amber-500/40 text-2xl">domain</span>
+                                </div>
+                                <p class="text-[8px] text-amber-500/80 uppercase font-bold mt-3">Live Subscriptions</p>
+                            </div>
+                        </div>
+
+                        <div class="metric-card border-dashed border-white/5 flex items-center justify-center h-40 bg-white/[0.01]">
+                            <div class="text-center">
+                                <span class="material-symbols-outlined text-gray-800 text-4xl mb-2">monitoring</span>
+                                <p class="text-[10px] text-gray-700 uppercase font-black tracking-[0.4em]">Analytics Engine Active</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="absolute -bottom-10 -left-10 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="about" class="py-32 px-6 relative border-t border-white/5 bg-gradient-to-b from-transparent to-black/50">
+            <div class="max-w-7xl mx-auto">
+                <div class="grid lg:grid-cols-2 gap-20 items-center">
+                    <div>
+                        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6">
+                            Behind the System
+                        </div>
+                        <h2 class="text-5xl font-display font-black text-white uppercase italic leading-tight mb-8">
+                            One Platform.<br/>
+                            <span class="text-gradient">Infinite Gyms.</span>
+                        </h2>
+                        <div class="space-y-6 text-gray-400 italic leading-relaxed">
+                            <p>
+                                Horizon is more than just a management tool; it is a multi-tenant ecosystem designed to revolutionize how fitness centers operate. We provide the digital backbone that allows gym owners to automate their workflow.
+                            </p>
+                            <p>
+                                Our architecture ensures that every gym enjoys a private, secure environment with custom analytics and dedicated resources, all while operating under the powerful Horizon umbrella.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-6 mt-12">
+                            <div class="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                                <span class="material-symbols-outlined text-primary mb-2">security</span>
+                                <h4 class="text-white text-xs font-bold uppercase tracking-widest mb-1 italic">Data Isolation</h4>
+                                <p class="text-[10px] text-gray-600">Your gym's data is strictly yours. Secure tenant separation at every layer.</p>
+                            </div>
+                            <div class="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                                <span class="material-symbols-outlined text-primary mb-2">speed</span>
+                                <h4 class="text-white text-xs font-bold uppercase tracking-widest mb-1 italic">High Velocity</h4>
+                                <p class="text-[10px] text-gray-600">Optimized for real-time check-ins and instant membership updates.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="relative">
+                        <div class="rounded-2xl overflow-hidden border border-white/10 shadow-2xl relative z-10 bg-surface-dark p-2">
+                            <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop" alt="Gym" class="w-full rounded-xl grayscale hover:grayscale-0 transition-all duration-1000">
+                        </div>
+                        <div class="absolute -bottom-10 -left-10 w-48 h-48 rounded-2xl overflow-hidden border border-white/10 z-20 hidden md:block">
+                            <img src="https://images.unsplash.com/photo-1593079831268-3381b0db4a77?q=80&w=2069&auto=format&fit=crop" class="w-full h-full object-cover">
+                        </div>
+                        <div class="absolute -top-6 -right-6 w-32 h-32 bg-primary/30 blur-3xl rounded-full"></div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <section id="features" class="w-full max-w-[1280px] px-4 sm:px-10 py-10 sm:py-16">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-                <div class="p-8 rounded-2xl bg-surface-dark border border-white/5 flex flex-col gap-4 hover:border-primary/50 transition-all">
-                    <span class="material-symbols-outlined text-primary text-4xl">shield_person</span>
-                    <h3 class="text-xl font-black uppercase italic">Safe-Guard Isolation</h3>
-                    <p class="text-sm text-text-secondary leading-relaxed">Advanced tenant isolation protocols ensuring that every gym's database remains strictly private and secure.</p>
-                </div>
-                <div class="p-8 rounded-2xl bg-surface-dark border border-white/5 flex flex-col gap-4 hover:border-primary/50 transition-all">
-                    <span class="material-symbols-outlined text-primary text-4xl">dashboard_customize</span>
-                    <h3 class="text-xl font-black uppercase italic">Universal Portal</h3>
-                    <p class="text-sm text-text-secondary leading-relaxed">A sleek, high-performance athlete interface designed to give your members a premium management experience.</p>
-                </div>
-                <div class="p-8 rounded-2xl bg-surface-dark border border-white/5 flex flex-col gap-4 hover:border-primary/50 transition-all">
-                    <span class="material-symbols-outlined text-primary text-4xl">account_balance_wallet</span>
-                    <h3 class="text-xl font-black uppercase italic">Verified Revenue</h3>
-                    <p class="text-sm text-text-secondary leading-relaxed">Integrated payment logic that handles membership verifications and financial tracking across all tenants.</p>
-                </div>
-            </div>
-        </section>
-
-        <section id="memberships" class="w-full max-w-[1280px] px-4 sm:px-10 py-16 border-t border-white/5">
-            <div class="text-center mb-16">
-                <h2 class="text-3xl sm:text-5xl font-black uppercase italic tracking-tighter mb-4">Horizon <span class="text-primary">Partners</span></h2>
-                <p class="text-gray-400 max-w-xl mx-auto">Scalable solutions for independent gyms and large-scale fitness franchises.</p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="p-8 rounded-3xl bg-surface-dark border border-white/5 flex flex-col hover:border-primary/50 transition-all relative overflow-hidden group">
-                    <h3 class="text-xl font-black uppercase italic text-gray-300">Basic Horizon</h3>
-                    <div class="my-6">
-                        <span class="text-4xl font-black text-white">Entry</span>
+        <section id="plans" class="py-32 px-6 relative border-t border-white/5">
+            <div class="max-w-7xl mx-auto text-center">
+                <div class="mb-16">
+                    <div class="inline-flex items-center justify-center p-3 rounded-xl bg-primary/10 border border-primary/20 mb-6">
+                        <span class="material-symbols-outlined text-primary">workspace_premium</span>
                     </div>
-                    <ul class="space-y-4 text-sm text-gray-400 mb-8 flex-1">
-                        <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Single Location Access</li>
-                        <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Basic Data Analytics</li>
-                        <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Secure Tenant ID</li>
-                    </ul>
-                    <a href="tenant/tenant_application.php" class="w-full py-4 rounded-xl border border-white/10 text-white font-bold uppercase text-xs tracking-widest hover:bg-white/5 text-center transition-all">Register Now</a>
+                    <h2 class="text-4xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
+                        Choose Your <span class="text-primary">Growth Plan</span>
+                    </h2>
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">Select a plan to activate your gym's digital infrastructure</p>
                 </div>
 
-                <div class="p-8 rounded-3xl bg-primary/5 border border-primary/30 flex flex-col relative overflow-hidden shadow-2xl shadow-primary/10">
-                    <div class="absolute top-0 right-0 bg-primary text-white text-[10px] font-black uppercase px-4 py-2 rounded-bl-xl tracking-widest">Recommended</div>
-                    <h3 class="text-xl font-black uppercase italic text-white">Business Prime</h3>
-                    <div class="my-6">
-                        <span class="text-4xl font-black text-white">Scale</span>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="plan-card rounded-2xl p-10 flex flex-col text-left">
+                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">6-Month Kickstart</h3>
+                        <p class="text-[9px] text-gray-600 font-bold uppercase tracking-widest mb-8">6 Months Billing</p>
+                        <div class="mb-10">
+                            <span class="text-4xl font-display font-black text-white">₱4,999</span>
+                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ Term</span>
+                        </div>
+                        <ul class="space-y-4 mb-12 flex-grow">
+                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Multi-Tenant Management
+                            </li>
+                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Base64 Document Engine
+                            </li>
+                        </ul>
+                        <a href="#" class="w-full py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-white/5 transition-all">Select Plan</a>
                     </div>
-                    <ul class="space-y-4 text-sm text-gray-300 mb-8 flex-1">
-                        <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Multi-Tenant Management</li>
-                        <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Advanced Revenue Reports</li>
-                        <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Priority Server Uptime</li>
-                    </ul>
-                    <a href="tenant/tenant_application.php" class="w-full py-4 rounded-xl bg-primary hover:bg-primary-dark text-white font-bold uppercase text-xs tracking-widest text-center transition-all shadow-lg">Onboard Now</a>
-                </div>
 
-                <div class="p-8 rounded-3xl bg-surface-dark border border-white/5 flex flex-col hover:border-primary/50 transition-all relative overflow-hidden group">
-                    <h3 class="text-xl font-black uppercase italic text-gray-300">Enterprise</h3>
-                    <div class="my-6">
-                        <span class="text-4xl font-black text-white">Global</span>
+                    <div class="plan-card rounded-2xl p-10 flex flex-col text-left border-primary/50 bg-primary/5 scale-105">
+                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">1-Year Momentum</h3>
+                        <p class="text-[9px] text-primary font-bold uppercase tracking-widest mb-8">Most Popular</p>
+                        <div class="mb-10">
+                            <span class="text-4xl font-display font-black text-white">₱14,999</span>
+                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ Yr</span>
+                        </div>
+                        <ul class="space-y-4 mb-12 flex-grow">
+                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Advanced Reports
+                            </li>
+                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Priority Support
+                            </li>
+                        </ul>
+                        <a href="#" class="w-full py-4 bg-primary rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-primary-dark transition-all">Select Plan</a>
                     </div>
-                    <ul class="space-y-4 text-sm text-gray-400 mb-8 flex-1">
-                        <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> API Access for Integration</li>
-                        <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Custom Security Protocols</li>
-                        <li class="flex items-center gap-3"><span class="material-symbols-outlined text-primary text-sm">check</span> Dedicated Success Manager</li>
-                    </ul>
-                    <a href="#" class="w-full py-4 rounded-xl border border-white/10 text-white font-bold uppercase text-xs tracking-widest hover:bg-white/5 text-center transition-all">Contact Sales</a>
+
+                    <div class="plan-card rounded-2xl p-10 flex flex-col text-left">
+                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">3-Year Legacy</h3>
+                        <p class="text-[9px] text-gray-600 font-bold uppercase tracking-widest mb-8">3 Years Billing</p>
+                        <div class="mb-10">
+                            <span class="text-4xl font-display font-black text-white">₱29,999</span>
+                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ Term</span>
+                        </div>
+                        <ul class="space-y-4 mb-12 flex-grow">
+                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> API Integration
+                            </li>
+                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Unlimited Accounts
+                            </li>
+                        </ul>
+                        <a href="#" class="w-full py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-white/5 transition-all">Select Plan</a>
+                    </div>
                 </div>
             </div>
         </section>
     </main>
 
-    <footer class="w-full border-t border-white/5 bg-background-dark py-10 mt-auto">
-        <div class="max-w-[1280px] mx-auto px-4 sm:px-10 flex flex-col md:flex-row justify-between items-center gap-8">
-            <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary text-2xl">wb_twilight</span>
-                <span class="text-sm font-black uppercase italic text-white">Horizon Systems</span>
+    <footer id="contact" class="bg-black border-t border-white/5 py-16 px-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16 border-b border-white/5 pb-16">
+                <div class="space-y-6">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-primary">blur_on</span>
+                        <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">
+                            Horizon <span class="text-primary text-[10px] align-top">TM</span>
+                        </h2>
+                    </div>
+                    <p class="text-[11px] text-gray-500 font-medium leading-relaxed uppercase tracking-wider">
+                        The ultimate digital backbone for fitness center excellence and multi-tenant management.
+                    </p>
+                </div>
+
+                <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-8">
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2 text-primary">
+                            <span class="material-symbols-outlined text-sm">mail</span>
+                            <p class="text-[10px] font-black uppercase tracking-widest">Email Us</p>
+                        </div>
+                        <p class="text-xs text-white font-medium">horizonfitnesscorp@gmail.com</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2 text-primary">
+                            <span class="material-symbols-outlined text-sm">call</span>
+                            <p class="text-[10px] font-black uppercase tracking-widest">Phone</p>
+                        </div>
+                        <p class="text-xs text-white font-medium">0976-241-1986</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-2 text-primary">
+                            <span class="material-symbols-outlined text-sm">location_on</span>
+                            <p class="text-[10px] font-black uppercase tracking-widest">Location</p>
+                        </div>
+                        <p class="text-xs text-white font-medium">Baliwag, Bulacan</p>
+                    </div>
+                </div>
             </div>
-            <p class="text-text-secondary text-[10px] uppercase tracking-widest font-bold">© 2026 Horizon Multi-Tenant Solutions. All rights reserved.</p>
+
+            <div class="flex flex-col md:row justify-between items-center gap-4">
+                <p class="text-[10px] font-bold text-gray-700 uppercase tracking-widest">
+                    © 2026 HORIZON SYSTEM. ALL RIGHTS RESERVED.
+                </p>
+            </div>
         </div>
     </footer>
-</div>
 
-<script>
-    document.getElementById('mobile-toggle').addEventListener('click', function() {
-        document.getElementById('mobile-menu').classList.toggle('hidden');
-    });
-</script>
+    <script>
+        const nav = document.getElementById('topNav');
+        window.onscroll = function() {
+            if (window.scrollY > 50) {
+                nav.classList.add('scrolled');
+            } else {
+                nav.classList.remove('scrolled');
+            }
+        };
+    </script>
 </body>
 </html>
