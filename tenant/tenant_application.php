@@ -87,12 +87,12 @@ unset($_SESSION['application_data']);
 <body class="font-sans antialiased min-h-screen flex flex-col hero-glow">
 
 <header class="relative z-20 w-full px-8 py-6 flex justify-between items-center bg-transparent">
-    <div class="flex items-center gap-3">
+    <a href="../index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
         <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
             <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
         </div>
         <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
-    </div>
+    </a>
     <div class="flex items-center gap-6">
         <a href="../login.php" class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 hover:text-white transition-all flex items-center gap-2">
             <span class="material-symbols-outlined text-sm">arrow_back</span>

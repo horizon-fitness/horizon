@@ -115,8 +115,8 @@ session_start();
 </head>
 <body class="font-sans antialiased overflow-x-hidden">
 
-    <nav id="topNav" class="glass-nav fixed top-0 w-full z-50">
-        <div class="max-w-7xl mx-auto px-6 py-5 transition-all duration-300">
+    <nav id="topNav" class=" glass-nav fixed top-0 w-full z-50">
+        <div class="max-w-7xl mx-auto px-6 py-4 transition-all duration-300">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-12">
                     <div class="flex items-center gap-3">
@@ -147,7 +147,7 @@ session_start();
     </nav>
 
     <main class="hero-glow">
-        <section class="relative pt-32 pb-20 md:pt-48 md:pb-40 px-6 flex items-center justify-center">
+        <section class="relative pt-20 pb-20 md:pt-32 md:pb-40 px-6 flex items-center justify-center">
             <div class="max-w-7xl w-full grid lg:grid-cols-2 gap-16 items-center relative z-10">
                 <div class="text-left">
                     <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
@@ -341,51 +341,94 @@ session_start();
         </section>
     </main>
 
-    <footer id="contact" class="bg-black border-t border-white/5 py-16 px-6">
+    <!-- CTA Section -->
+    <section class="w-full bg-[#0a0a0c] border-y border-white/5 py-20 px-6 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-primary/10 opacity-30"></div>
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
+            <div class="text-center md:text-left">
+                <h2 class="text-3xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">Ready to transform?</h2>
+                <p class="text-sm text-gray-400 font-medium italic">Activate your gym's digital infrastructure today.</p>
+            </div>
+            <a href="tenant/tenant_application.php" class="bg-primary hover:bg-primary-dark text-white px-10 py-5 rounded-xl font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-2xl hover:scale-105 active:scale-95">Register Now</a>
+        </div>
+    </section>
+
+    <!-- Main Footer -->
+    <footer id="contact" class="bg-[#08080a] border-t border-white/5 pt-24 pb-12 px-6">
         <div class="max-w-7xl mx-auto">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16 border-b border-white/5 pb-16">
-                <div class="space-y-6">
-                    <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-primary">blur_on</span>
-                        <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">
-                            Horizon <span class="text-primary text-[10px] align-top">TM</span>
-                        </h2>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-16 mb-24">
+                <!-- Brand Column -->
+                <div class="space-y-8">
+                    <div>
+                        <div class="flex items-center gap-3 mb-6">
+                            <span class="material-symbols-outlined text-primary text-3xl">blur_on</span>
+                            <h2 class="text-2xl font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
+                        </div>
+                        <p class="text-[10px] text-primary font-black uppercase tracking-[0.4em] mb-6">Expand Your Horizon</p>
+                        <p class="text-xs text-gray-500 font-medium leading-relaxed italic max-w-sm">
+                            Together with HORIZON, your fitness business will really form and scale.
+                        </p>
                     </div>
-                    <p class="text-[11px] text-gray-500 font-medium leading-relaxed uppercase tracking-wider">
-                        The ultimate digital backbone for fitness center excellence and multi-tenant management.
-                    </p>
+                    
+                    <div class="flex gap-4">
+                        <a href="#" class="size-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-primary/20 hover:border-primary/50 transition-all group">
+                            <svg class="w-4 h-4 fill-current group-hover:scale-110 transition-transform" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        </a>
+                        <a href="#" class="size-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-primary/20 hover:border-primary/50 transition-all group">
+                            <svg class="w-4 h-4 fill-current group-hover:scale-110 transition-transform" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 1.366.062 2.633.332 3.608 1.308.975.975 1.245 2.242 1.308 3.608.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.063 1.366-.333 2.633-1.308 3.608-.975.975-2.242 1.246-3.608 1.308-1.266.058-1.646.07-4.85.07s-3.584-.012-4.85-.07c-1.366-.062-2.633-.332-3.608-1.308-.975-.975-1.245-2.242-1.308-3.608-.058-1.266-.07-1.646-.07-4.85s.012-3.584.07-4.85c.062-1.366.332-2.633 1.308-3.608.975-.975 2.242-1.245 3.608-1.308 1.266-.058 1.646-.07 4.85-.07zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948s.014 3.667.072 4.947c.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072s3.667-.014 4.947-.072c4.358-.2 6.78-2.618 6.98-6.98.058-1.281.072-1.689.072-4.948s-.014-3.667-.072-4.947c-.2-4.358-2.618-6.78-6.98-6.98-1.28-.059-1.688-.073-4.947-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                        </a>
+                    </div>
                 </div>
 
-                <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-8">
-                    <div class="space-y-3">
-                        <div class="flex items-center gap-2 text-primary">
-                            <span class="material-symbols-outlined text-sm">mail</span>
-                            <p class="text-[10px] font-black uppercase tracking-widest">Email Us</p>
-                        </div>
-                        <p class="text-xs text-white font-medium">horizonfitnesscorp@gmail.com</p>
+                <!-- Quick Links Column -->
+                <div class="flex flex-col gap-8">
+                    <h4 class="text-sm font-display font-black text-white uppercase italic tracking-[0.2em] relative inline-block">
+                        Quick Links
+                        <span class="absolute -bottom-2 left-0 w-8 h-0.5 bg-primary"></span>
+                    </h4>
+                    <div class="flex flex-col gap-6 text-xs font-bold text-gray-500 uppercase tracking-widest">
+                        <a href="#" class="hover:text-primary transition-all flex items-center gap-2 group">Home</a>
+                        <a href="#about" class="hover:text-primary transition-all flex items-center gap-2 group">Programs</a>
+                        <a href="#about" class="hover:text-primary transition-all flex items-center gap-2 group">About Us</a>
+                        <a href="#plans" class="hover:text-primary transition-all flex items-center gap-2 group">Trainers</a>
+                        <a href="login.php" class="hover:text-primary transition-all flex items-center gap-2 group">Staff Login</a>
                     </div>
+                </div>
 
-                    <div class="space-y-3">
-                        <div class="flex items-center gap-2 text-primary">
-                            <span class="material-symbols-outlined text-sm">call</span>
-                            <p class="text-[10px] font-black uppercase tracking-widest">Phone</p>
+                <!-- Contact Column -->
+                <div class="flex flex-col gap-8">
+                    <h4 class="text-sm font-display font-black text-white uppercase italic tracking-[0.2em] relative inline-block">
+                        Contact Us
+                        <span class="absolute -bottom-2 left-0 w-8 h-0.5 bg-primary"></span>
+                    </h4>
+                    <div class="space-y-8">
+                        <div class="flex items-start gap-4 group">
+                            <div class="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                                <span class="material-symbols-outlined text-xl">location_on</span>
+                            </div>
+                            <p class="text-xs text-gray-500 font-medium leading-relaxed italic">
+                                Baliwag, Bulacan,<br/>Philippines, 3006
+                            </p>
                         </div>
-                        <p class="text-xs text-white font-medium">0976-241-1986</p>
-                    </div>
-
-                    <div class="space-y-3">
-                        <div class="flex items-center gap-2 text-primary">
-                            <span class="material-symbols-outlined text-sm">location_on</span>
-                            <p class="text-[10px] font-black uppercase tracking-widest">Location</p>
+                        <div class="flex items-center gap-4 group">
+                            <div class="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                                <span class="material-symbols-outlined text-xl">call</span>
+                            </div>
+                            <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">0976-241-1986</p>
                         </div>
-                        <p class="text-xs text-white font-medium">Baliwag, Bulacan</p>
+                        <div class="flex items-center gap-4 group">
+                            <div class="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                                <span class="material-symbols-outlined text-xl">mail</span>
+                            </div>
+                            <p class="text-xs text-gray-500 font-medium lowercase tracking-wider">horizonfitnesscorp@gmail.com</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <div class="flex flex-col md:row justify-between items-center gap-4">
-                <p class="text-[10px] font-bold text-gray-700 uppercase tracking-widest">
-                    © 2026 HORIZON SYSTEM. ALL RIGHTS RESERVED.
+            <div class="pt-10 border-t border-white/5 text-center">
+                <p class="text-[9px] font-bold text-gray-700 uppercase tracking-[0.5em]">
+                    © 2026 HORIZON SYSTEM. SECURE ENVIRONMENT. ALL RIGHTS RESERVED.
                 </p>
             </div>
         </div>

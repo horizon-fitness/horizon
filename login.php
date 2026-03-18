@@ -206,12 +206,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body class="font-sans antialiased min-h-screen flex flex-col hero-glow">
 
     <nav class="w-full px-8 py-6 flex justify-between items-center relative z-20">
-        <div class="flex items-center gap-3">
+        <a href="index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
                 <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
             </div>
             <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
-        </div>
+        </a>
         
         <div class="flex items-center gap-4">
             <?php if(isset($_GET['gym'])): ?>
