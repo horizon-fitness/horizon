@@ -139,7 +139,7 @@ session_start();
                         Staff Login
                     </a>
                     <a href="tenant/tenant_application.php" class="font-display bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-primary/20">
-                        Register Gym
+                        Apply Now
                     </a>
                 </div>
             </div>
@@ -165,7 +165,7 @@ session_start();
                     </p>
                     
                     <div class="flex gap-4 mb-16">
-                        <a href="tenant/tenant_application.php" class="font-display px-10 py-5 bg-primary text-white font-bold rounded-custom text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20">Join us</a>
+                        <a href="tenant/tenant_application.php" class="font-display px-10 py-5 bg-primary text-white font-bold rounded-custom text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20">Apply Now</a>
                     </div>
 
                     <div class="flex gap-12 border-t border-white/5 pt-10">
@@ -298,7 +298,7 @@ session_start();
                                 <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Base64 Document Engine
                             </li>
                         </ul>
-                        <a href="#" class="w-full py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-white/5 transition-all">Select Plan</a>
+                        <a href="tenant/tenant_application.php" class="w-full py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-white/5 transition-all">Select Plan</a>
                     </div>
 
                     <div class="plan-card rounded-2xl p-10 flex flex-col text-left border-primary/50 bg-primary/5 scale-105">
@@ -316,7 +316,7 @@ session_start();
                                 <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Priority Support
                             </li>
                         </ul>
-                        <a href="#" class="w-full py-4 bg-primary rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-primary-dark transition-all">Select Plan</a>
+                        <a href="tenant/tenant_application.php" class="w-full py-4 bg-primary rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-primary-dark transition-all">Select Plan</a>
                     </div>
 
                     <div class="plan-card rounded-2xl p-10 flex flex-col text-left">
@@ -334,7 +334,7 @@ session_start();
                                 <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Unlimited Accounts
                             </li>
                         </ul>
-                        <a href="#" class="w-full py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-white/5 transition-all">Select Plan</a>
+                        <a href="tenant/tenant_application.php" class="w-full py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-white/5 transition-all">Select Plan</a>
                     </div>
                 </div>
             </div>
@@ -349,7 +349,7 @@ session_start();
                 <h2 class="text-3xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">Ready to transform?</h2>
                 <p class="text-sm text-gray-400 font-medium italic">Activate your gym's digital infrastructure today.</p>
             </div>
-            <a href="tenant/tenant_application.php" class="bg-primary hover:bg-primary-dark text-white px-10 py-5 rounded-xl font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-2xl hover:scale-105 active:scale-95">Register Now</a>
+            <a href="tenant/tenant_application.php" class="bg-primary hover:bg-primary-dark text-white px-10 py-5 rounded-xl font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-2xl hover:scale-105 active:scale-95">Apply Now</a>
         </div>
     </section>
 
@@ -388,10 +388,9 @@ session_start();
                     </h4>
                     <div class="flex flex-col gap-6 text-xs font-bold text-gray-500 uppercase tracking-widest">
                         <a href="#" class="hover:text-primary transition-all flex items-center gap-2 group">Home</a>
-                        <a href="#about" class="hover:text-primary transition-all flex items-center gap-2 group">Programs</a>
                         <a href="#about" class="hover:text-primary transition-all flex items-center gap-2 group">About Us</a>
-                        <a href="#plans" class="hover:text-primary transition-all flex items-center gap-2 group">Trainers</a>
-                        <a href="login.php" class="hover:text-primary transition-all flex items-center gap-2 group">Staff Login</a>
+                        <a href="#plans" class="hover:text-primary transition-all flex items-center gap-2 group">Plan</a>
+                        <a href="#contact" class="hover:text-primary transition-all flex items-center gap-2 group">Contact</a>
                     </div>
                 </div>
 
