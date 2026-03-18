@@ -303,7 +303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
 
-    <footer class="relative z-20 w-full py-10 text-center">
+    <footer class="relative z-20 w-full py-6 text-center -mt-10">
         <p class="text-[9px] font-display font-bold text-gray-700 uppercase tracking-[0.4em]">
             © 2026 HORIZON SYSTEM. SECURE ENVIRONMENT.
         </p>
