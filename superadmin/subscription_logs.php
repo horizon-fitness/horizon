@@ -9,8 +9,9 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 }
 
 $page_title = "Tenant Management";
-$active_page = "tenants"; 
+$active_page = "tenants"; // This highlights the correct nav link
 
+// Fetch Gyms/Tenants with their owner details and latest subscription status
 $stmtTenants = $pdo->query("
     SELECT g.*, 
            u.first_name, u.last_name, u.email as owner_email,
@@ -23,31 +24,23 @@ $stmtTenants = $pdo->query("
     ORDER BY g.created_at DESC
 ");
 $tenants = $stmtTenants->fetchAll(PDO::FETCH_ASSOC);
+<?php 
+$page_title = "System Alerts";
+$active_page = "alerts";
 
-$stmtPending = $pdo->query("
-    SELECT a.*, u.first_name, u.last_name, u.email 
-    FROM gym_owner_applications a 
-    JOIN users u ON a.user_id = u.user_id 
-    WHERE a.application_status = 'Pending'
-    ORDER BY a.submitted_at DESC
-");
-$pending_apps = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
-
-$total_tenants = count($tenants);
-$active_count = 0;
-$suspended_count = 0;
-$pending_count = count($pending_apps);
-
-foreach ($tenants as $t) {
-    if ($t['status'] === 'Active') $active_count++;
-    if ($t['status'] === 'Suspended') $suspended_count++;
-}
+// Mock Data for Alerts
+$alerts = [
+    ['id' => 1, 'type' => 'Payment Failure', 'source' => 'Iron Works', 'message' => 'Subscription payment failed for TRX-9840.', 'time' => '2 hours ago', 'priority' => 'High'],
+    ['id' => 2, 'type' => 'Pending Approval', 'source' => 'System', 'message' => 'New tenant "Gravity Fitness" is waiting for account activation.', 'time' => '5 hours ago', 'priority' => 'Medium'],
+    ['id' => 3, 'type' => 'Expired Membership', 'source' => 'Power Fitness', 'message' => 'Tenant subscription expired for Power Fitness (Legacy Plan).', 'time' => '1 day ago', 'priority' => 'High'],
+    ['id' => 4, 'type' => 'Warning', 'source' => 'Server', 'message' => 'Database storage reaching 85% capacity.', 'time' => '2 days ago', 'priority' => 'Low'],
+];
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title><?= $page_title ?> | Horizon System</title>
+    <title><?php echo $page_title ?? 'Super Admin Dashboard'; ?> | Horizon System</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -96,15 +89,15 @@ foreach ($tenants as $t) {
             border-radius: 99px; 
         }
         
-        @media (max-width: 1023px) { .active-nav::after { display: none; } }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0a090d; }
-        ::-webkit-scrollbar-thumb { background: #14121a; border-radius: 10px; }
+        @media (max-width: 1023px) {
+            .active-nav::after { display: none; }
+        }
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
     <script>
-        function updateSidebarClock() {
+        function updateTopClock() {
             const now = new Date();
             const clockEl = document.getElementById('topNavClock');
             if (clockEl) {
@@ -115,8 +108,8 @@ foreach ($tenants as $t) {
                 });
             }
         }
-        setInterval(updateSidebarClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+        setInterval(updateTopClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateTopClock);
     </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
@@ -177,15 +170,228 @@ foreach ($tenants as $t) {
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
 
-        <header class="mb-10 flex flex-row justify-between items-end gap-6">
+<header class="mb-10 flex flex-row justify-between items-end gap-4">
+    <div>
+        <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">System <span class="text-primary">Alerts</span></h2>
+        <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Critical notifications and system warnings</p>
+    </div>
+    
+    <div class="text-right">
+        <p id="topNavClock" class="text-white font-black italic text-4xl leading-none mb-1">00:00:00 AM</p>
+        <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em]"><?= date('l, M d, Y') ?></p>
+    </div>
+</header>
+
+<div class="flex justify-end mb-4">
+    <button class="text-[10px] font-black uppercase text-gray-500 hover:text-white transition-colors">Mark all as read</button>
+</div>
+
+<div class="space-y-4">
+    <?php foreach($alerts as $alert): ?>
+    <div class="glass-card p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 <?= ($alert['priority'] == 'High') ? 'border-red-500' : (($alert['priority'] == 'Medium') ? 'border-amber-500' : 'border-blue-500') ?> hover:bg-white/[0.02] transition-all">
+        <div class="flex items-start gap-4">
+            <div class="size-10 rounded-xl flex items-center justify-center <?= ($alert['priority'] == 'High') ? 'bg-red-500/10 text-red-500' : (($alert['priority'] == 'Medium') ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500') ?>">
+                <span class="material-symbols-outlined">
+                    <?= ($alert['type'] == 'Payment Failure') ? 'credit_card_off' : (($alert['type'] == 'Pending Approval') ? 'person_add' : (($alert['type'] == 'Expired Membership') ? 'event_busy' : 'warning')) ?>
+                </span>
+            </div>
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <h4 class="text-sm font-black italic uppercase text-white"><?= $alert['type'] ?></h4>
+                    <span class="text-[8px] font-black uppercase px-1.5 py-0.5 bg-white/5 text-gray-500 rounded"><?= $alert['source'] ?></span>
+                </div>
+                <p class="text-xs text-gray-400 font-medium"><?= $alert['message'] ?></p>
+                <p class="text-[9px] text-gray-600 font-black uppercase mt-2 italic"><?= $alert['time'] ?></p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <button class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-[9px] font-black uppercase transition-all">View Details</button>
+            <button class="size-8 flex items-center justify-center text-gray-600 hover:text-red-500 transition-colors">
+                <span class="material-symbols-outlined text-sm">close</span>
+            </button>
+        </div>
+    </div>
+    <?php endforeach; ?>
+</div>
+
+<div class="mt-10 flex justify-center">
+    <button class="px-8 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/10 transition-all italic">Load Older Alerts</button>
+</div>
+
+    </main>
+</div>
+</body>
+</html>
+// Fetch Pending Applications
+$stmtPending = $pdo->query("
+    SELECT a.*, u.first_name, u.last_name, u.email 
+    FROM gym_owner_applications a 
+    JOIN users u ON a.user_id = u.user_id 
+    WHERE a.application_status = 'Pending'
+    ORDER BY a.submitted_at DESC
+");
+$pending_apps = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
+
+// Counters for metrics
+$total_tenants = count($tenants);
+$active_count = 0;
+$suspended_count = 0;
+$pending_count = count($pending_apps);
+
+foreach ($tenants as $t) {
+    if ($t['status'] === 'Active') $active_count++;
+    if ($t['status'] === 'Suspended') $suspended_count++;
+}
+?>
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title><?= $page_title ?> | Horizon System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+        }
+    </script>
+    <style>
+        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        
+        /* Sidebar Hover Logic */
+        .sidebar-nav {
+            width: 100px;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+        .sidebar-nav:hover {
+            width: 280px;
+        }
+        .nav-text {
+            opacity: 0;
+            transform: translateX(-10px);
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .sidebar-nav:hover .nav-text {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+        /* End Sidebar Hover Logic */
+
+        .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
+        .active-nav { color: #8c2bee !important; position: relative; }
+        .active-nav::after { 
+            content: ''; 
+            position: absolute; 
+            right: 0px; 
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px; 
+            height: 20px; 
+            background: #8c2bee; 
+            border-radius: 99px; 
+        }
+        
+        @media (max-width: 1023px) { .active-nav::after { display: none; } }
+        
+        /* Custom Scrollbar for Main Page */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0a090d; }
+        ::-webkit-scrollbar-thumb { background: #14121a; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #1a1824; }
+        
+        /* Hide scrollbar for Sidebar specifically */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+    <script>
+        function updateSidebarClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('sidebarClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateSidebarClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+    </script>
+</head>
+<body class="antialiased flex flex-row min-h-screen">
+
+<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
+    <div class="mb-12">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
+                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+            </div>
+            <h1 class="nav-text text-2xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+        </div>
+        <div class="p-4 rounded-2xl bg-white/5 border border-white/5 overflow-hidden">
+            <p id="sidebarClock" class="text-white font-black italic text-xl leading-none mb-1">00:00:00 AM</p>
+            <p class="nav-text text-primary text-[9px] font-black uppercase tracking-[0.2em]"><?= date('l, M d') ?></p>
+        </div>
+    </div>
+    
+    <div class="flex flex-col gap-8 flex-1 overflow-y-auto no-scrollbar pr-2">
+        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
+            <span class="nav-text">Dashboard</span>
+        </a>
+        <a href="tenant_management.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
+            <span class="nav-text">Tenant Management</span>
+        </a>
+        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">history_edu</span> 
+            <span class="nav-text">Subscription Logs</span>
+        </a>
+        <a href="rbac_management.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">security</span> 
+            <span class="nav-text">Access Control</span>
+        </a>
+        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">group</span> 
+            <span class="nav-text">Real-Time Occupancy</span>
+        </a>
+        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">receipt_long</span> 
+            <span class="nav-text">Recent Transactions</span>
+        </a>
+        <a href="system_alerts.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">notifications_active</span> 
+            <span class="nav-text">System Alerts</span>
+        </a>
+    </div>
+
+    <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-8">
+        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
+            <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
+            <span class="nav-link nav-text">Profile</span>
+        </a>
+        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-4 group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-2xl shrink-0">logout</span>
+            <span class="nav-link nav-text">Sign Out</span>
+        </a>
+    </div>
+</nav>
+
+<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
+
+        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div>
                 <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Tenant <span class="text-primary">Management</span></h2>
                 <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Manage Gym Accounts & Subscriptions</p>
-            </div>
-            
-            <div class="text-right">
-                <p id="topNavClock" class="text-white font-black italic text-4xl leading-none mb-1">00:00:00 AM</p>
-                <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em]"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
@@ -244,6 +450,7 @@ foreach ($tenants as $t) {
             </div>
         </div>
         
+        <!-- Tab Navigation -->
         <div class="flex items-center gap-8 mb-8 border-b border-white/5 px-2">
             <button onclick="switchTab('registered')" id="tabBtn-registered" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-primary">
                 Registered Gyms
@@ -474,27 +681,39 @@ foreach ($tenants as $t) {
     }
 </script>
 
+<!-- Application Viewer Modal -->
 <div id="applicationModal" class="fixed inset-y-0 left-64 lg:left-72 right-0 z-[100] hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none">
+    <!-- Backdrop: Only blurs the right side (main content area) -->
     <div class="fixed inset-y-0 left-64 lg:left-72 right-0 bg-background-dark/20 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto" id="modalBackdrop"></div>
+    
+    <!-- Modal Content Container: Centers automatically within its parent -->
     <div class="relative w-full max-w-4xl bg-surface-dark/60 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden flex flex-col max-h-[85vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto" id="modalContainer">
+        <!-- Loading State -->
         <div id="modalLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-surface-dark/80 backdrop-blur-md z-10 transition-opacity duration-300">
             <div class="size-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
             <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] italic">Loading Details...</p>
         </div>
-        <div id="modalContent" class="flex-1 p-8 md:p-10 opacity-0 transition-opacity duration-500 overflow-y-auto no-scrollbar"></div>
+
+        <div id="modalContent" class="flex-1 p-8 md:p-10 opacity-0 transition-opacity duration-500 overflow-y-auto no-scrollbar">
+            <!-- Content injected via AJAX -->
+        </div>
     </div>
 </div>
 
 <script>
     function openApplicationModal(appId) {
         if (!appId) return;
+        
         const modal = document.getElementById('applicationModal');
         const backdrop = document.getElementById('modalBackdrop');
         const container = document.getElementById('modalContainer');
         const content = document.getElementById('modalContent');
         const loading = document.getElementById('modalLoading');
 
+        // Show Modal & Start Animations
         modal.classList.replace('hidden', 'flex');
+        
+        // Trigger visual entry
         setTimeout(() => {
             backdrop.classList.replace('opacity-0', 'opacity-100');
             container.classList.replace('scale-95', 'scale-100');
@@ -505,10 +724,13 @@ foreach ($tenants as $t) {
         loading.classList.remove('hidden');
         content.classList.replace('opacity-100', 'opacity-0');
 
+        // Fetch Content
         fetch(`view_application.php?id=${appId}&ajax=1`)
             .then(response => response.text())
             .then(html => {
                 content.innerHTML = html;
+                
+                // Hide loading then show content
                 setTimeout(() => {
                     loading.classList.replace('opacity-100', 'opacity-0');
                     setTimeout(() => {
@@ -536,7 +758,7 @@ foreach ($tenants as $t) {
         setTimeout(() => {
             modal.classList.replace('flex', 'hidden');
             content.classList.replace('opacity-100', 'opacity-0');
-            content.innerHTML = ''; 
+            content.innerHTML = ''; // Clear content
         }, 500);
     }
 
@@ -544,6 +766,6 @@ foreach ($tenants as $t) {
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeApplicationModal(); });
 </script>
 
-<?php include '../includes/image_viewer.php'; ?>
+    <?php include '../includes/image_viewer.php'; ?>
 </body>
 </html>
