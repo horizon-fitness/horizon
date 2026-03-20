@@ -33,6 +33,16 @@ try {
     $stmt->execute($params);
     $user = $stmt->fetch();
 
+    // 2. Tenant Isolation Check Synergy
+    // If a tenant_id is provided by the mobile app, ensure the user belongs to it.
+    // Superadmins are exempt from isolation.
+    if ($user && !empty($tenant_id) && strtolower($user['role_name']) !== 'superadmin') {
+        if ($user['tenant_code'] !== $tenant_id) {
+            echo json_encode(['success' => false, 'message' => 'This account does not have access to this gym portal.']);
+            exit;
+        }
+    }
+
     if (!$user) {
         // ULTIMATE FAILSAFE: If the database is completely empty, allow a Demo Login
         $stmtCount = $pdo->query("SELECT COUNT(*) FROM users");
@@ -90,7 +100,7 @@ try {
         // Fetch Tenant Branding for Mobile App Synergy
         $branding = null;
         if ($user['gym_id']) {
-            $stmtPage = $pdo->prepare("SELECT page_title, logo_path, theme_color, bg_color, font_family FROM tenant_pages WHERE gym_id = ? LIMIT 1");
+            $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
             $stmtPage->execute([$user['gym_id']]);
             $branding = $stmtPage->fetch(PDO::FETCH_ASSOC);
         }
@@ -98,17 +108,26 @@ try {
         echo json_encode([
             'success' => true,
             'user' => [
-                'user_id' => $user['user_id'],
+                'user_id' => (int)$user['user_id'],
                 'username' => $user['username'],
                 'email' => $user['email'],
                 'first_name' => $user['first_name'],
                 'last_name' => $user['last_name'],
                 'role' => $user['role_name'],
-                'gym_id' => $user['gym_id'],
-                'tenant_id' => $user['tenant_code'],
-                'gym_name' => $user['gym_name']
+                'gym_id' => (int)($user['gym_id'] ?? 0),
+                'tenant_id' => $user['tenant_code'] ?? '000',
+                'gym_name' => $user['gym_name'] ?? 'Horizon System'
             ],
-            'branding' => $branding
+            'branding' => $branding ?: [
+                'page_id' => 0,
+                'gym_id' => (int)($user['gym_id'] ?? 0),
+                'tenant_code' => $user['tenant_code'] ?? '000',
+                'page_slug' => 'default',
+                'page_title' => $user['gym_name'] ?? 'Horizon System',
+                'theme_color' => '#7f13ec',
+                'bg_color' => '#050505',
+                'logo_path' => 'assets/default_logo.png'
+            ]
         ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid credentials.']);

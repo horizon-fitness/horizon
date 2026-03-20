@@ -42,6 +42,15 @@ try {
 // --- END AUTO-SEED DEFAULT SUPERADMIN ---
 
 $error = '';
+$branding = null;
+
+// Fetch branding if gym slug is provided
+if (isset($_GET['gym'])) {
+    $slug = $_GET['gym'];
+    $stmtBranding = $pdo->prepare("SELECT tp.*, g.gym_name, g.tenant_code FROM tenant_pages tp JOIN gyms g ON tp.gym_id = g.gym_id WHERE tp.page_slug = ? LIMIT 1");
+    $stmtBranding->execute([$slug]);
+    $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
@@ -50,9 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($username) || empty($password)) {
         $error = "Please enter both username and password.";
     } else {
-        // Fetch user from the database
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
-        $stmt->execute([$username]);
+        // Fetch user from the database (Allow Username or Email)
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1");
+        $stmt->execute([$username, $username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // Verify user exists and password is correct
@@ -73,7 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Not verified, redirect them to the verification page
                 $_SESSION['verify_user_id'] = $user['user_id'];
                 $_SESSION['verify_email'] = $displayEmail;
-                header("Location: tenant/verify_email.php");
+                $gym_param = $branding ? "?gym=" . urlencode($slug) : "";
+                header("Location: tenant/verify_email.php" . $gym_param);
                 exit;
             } 
             else {
@@ -104,11 +114,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             exit;
                         case 'admin':
                         case 'tenant': 
+                            // Tenant Isolation Check: If logging in via a specific gym portal, ensure they belong to it
+                            if ($branding && strtolower($roleData['role_name']) !== 'superadmin') {
+                                if ($roleData['gym_id'] != $branding['gym_id']) {
+                                    $error = "This account is not authorized to access " . $branding['gym_name'] . "'s portal.";
+                                    unset($_SESSION['user_id']); // Clear session
+                                    break;
+                                }
+                            }
                             // Directed to the tenant's primary entry-point
                             header("Location: tenant/tenant_gateway.php");
                             exit;
                         case 'coach':
                         case 'staff':
+                            // Tenant Isolation Check for Staff/Coach
+                            if ($branding) {
+                                if ($roleData['gym_id'] != $branding['gym_id']) {
+                                    $error = "This account is not authorized to access " . $branding['gym_name'] . "'s portal.";
+                                    unset($_SESSION['user_id']);
+                                    break;
+                                }
+                            }
                             header("Location: admin/admin_dashboard.php");
                             exit;
                         case 'member':
@@ -162,14 +188,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#7f13ec",
-                        "primary-dark": "#5e0eb3",
-                        "background-dark": "#050505", 
+                        "primary": "<?= $branding['theme_color'] ?? '#7f13ec' ?>",
+                        "primary-dark": "<?= $branding['theme_color'] ?? '#5e0eb3' ?>",
+                        "background-dark": "<?= $branding['bg_color'] ?? '#050505' ?>", 
                         "surface-dark": "rgba(21, 21, 24, 0.4)",
                         "text-secondary": "#ab9db9"
                     },
                     fontFamily: { 
-                        "display": ["Lexend", "sans-serif"],
+                        "display": ["<?= $branding['font_family'] ?? 'Lexend' ?>", "sans-serif"],
                         "sans": ["Plus Jakarta Sans", "Inter", "sans-serif"]
                     },
                     borderRadius: { 'custom': '12px' }
@@ -207,10 +233,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <nav class="w-full px-8 py-6 flex justify-between items-center relative z-20">
         <a href="index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
-                <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
+            <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
+                <?php if ($branding && !empty($branding['logo_path'])): ?>
+                    <img src="<?= $branding['logo_path'] ?>" class="size-full object-contain">
+                <?php else: ?>
+                    <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
+                <?php endif; ?>
             </div>
-            <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
+            <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>
         </a>
         
         <div class="flex items-center gap-4">
@@ -236,7 +266,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
                         Secure Access
                     </div>
-                    <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">Welcome <span class="text-primary">Back</span></h1>
+                    <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">
+                        <?= $branding ? 'Access <span class="text-primary">Portal</span>' : 'Welcome <span class="text-primary">Back</span>' ?>
+                    </h1>
                     <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Authorized Personnel Only</p>
                 </div>
 

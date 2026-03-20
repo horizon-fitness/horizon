@@ -26,5 +26,8 @@ if (!$result) {
 }
 
 header('Content-Type: application/json');
+if (isset($result['gym_id'])) {
+    $result['gym_id'] = (int)$result['gym_id'];
+}
 echo json_encode($result);
 ?>

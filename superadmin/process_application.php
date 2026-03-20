@@ -44,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['application_id']) && 
                 VALUES (?, ?, 'Active', ?, ?, NOW())
             ");
             $stmtGym->execute([$app['gym_name'], $app['user_id'], $tenant_code, $app_id]);
+            $gym_id = $pdo->lastInsertId();
 
             // Update application status
             $stmtUpdate = $pdo->prepare("
@@ -53,9 +54,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['application_id']) && 
             ");
             $stmtUpdate->execute([$reviewer_id, $app_id]);
 
-            // Update user role to GymOwner
-            $stmtUser = $pdo->prepare("UPDATE users SET role = 'GymOwner' WHERE user_id = ?");
-            $stmtUser->execute([$app['user_id']]);
+            // 3. Get 'Tenant' role ID
+            $stmtRole = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = 'Tenant' LIMIT 1");
+            $stmtRole->execute();
+            $role = $stmtRole->fetch(PDO::FETCH_ASSOC);
+            $role_id = $role ? $role['role_id'] : 2; // Default to 2 if not found (Tenant)
+
+            // 4. Assign role to user in user_roles table
+            $stmtUserRole = $pdo->prepare("
+                INSERT INTO user_roles (user_id, role_id, gym_id, tenant_code, role_status, assigned_at)
+                VALUES (?, ?, ?, ?, 'Active', NOW())
+            ");
+            $stmtUserRole->execute([$app['user_id'], $role_id, $gym_id, $tenant_code]);
 
             $pdo->commit();
             $_SESSION['success_msg'] = "Application approved. Gym account created with code: $tenant_code";

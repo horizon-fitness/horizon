@@ -4,7 +4,7 @@ require_once '../db.php';
 
 // Security Check
 $role = strtolower($_SESSION['role'] ?? '');
-if (!isset($_SESSION['user_id']) || $role !== 'staff') {
+if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
     header("Location: ../login.php");
     exit;
 }
@@ -36,7 +36,7 @@ $admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+            theme: { extend: { colors: { "primary": "<?= $page['theme_color'] ?? '#8c2bee' ?>", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
         }
     </script>
     <style>
@@ -98,8 +98,14 @@ $admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
 <nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
-            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($page['logo_path'])): 
+                    $logo_src = (strpos($page['logo_path'], 'data:image') === 0) ? $page['logo_path'] : '../' . $page['logo_path'];
+                ?>
+                    <img src="<?= $logo_src ?>" class="size-full object-contain">
+                <?php else: ?>
+                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                <?php endif; ?>
             </div>
             <h1 class="text-xl font-black italic uppercase tracking-tighter text-white leading-none">Staff Dashboard</h1>
         </div>
