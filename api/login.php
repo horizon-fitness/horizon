@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 ob_start(); // Buffer all output to prevent stray whitespace/warnings from corrupting JSON
 header('Content-Type: application/json; charset=UTF-8');
 
@@ -8,6 +8,7 @@ try {
     $input = json_decode(file_get_contents('php://input'), true);
     $username = isset($input['username']) ? trim((string)$input['username']) : '';
     $password = isset($input['password']) ? (string)$input['password'] : '';
+    $tenant_code = isset($input['tenant_code']) ? (string)$input['tenant_code'] : '';
 
     if (empty($username) || empty($password)) {
         ob_end_clean();
@@ -15,16 +16,16 @@ try {
         exit;
     }
 
-    // Capture User with Role and Gym synergy
+    // Capture User with Role and Gym synergy - Filtered by tenant_code for strict multi-tenancy
     $sql = "SELECT u.*, ur.gym_id, r.role_name, g.tenant_code, g.gym_name 
             FROM users u 
             JOIN user_roles ur ON u.user_id = ur.user_id 
             JOIN roles r ON ur.role_id = r.role_id 
             LEFT JOIN gyms g ON ur.gym_id = g.gym_id
-            WHERE u.username = ? OR u.email = ? LIMIT 1";
+            WHERE (u.username = ? OR u.email = ?) AND (g.tenant_code = ? OR ? = '') LIMIT 1";
             
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$username, $username]);
+    $stmt->execute([$username, $username, $tenant_code, $tenant_code]);
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password_hash'])) {
