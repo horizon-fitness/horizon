@@ -1,15 +1,21 @@
 <?php 
 session_start();
-// Security and Database logic
-$page_title = "System Alerts";
-$active_page = "alerts";
+require_once '../db.php';
 
-$alerts = [
-    ['id' => 1, 'type' => 'Payment Failure', 'source' => 'Iron Works', 'message' => 'Subscription payment failed for TRX-9840.', 'time' => '2 hours ago', 'priority' => 'High'],
-    ['id' => 2, 'type' => 'Pending Approval', 'source' => 'System', 'message' => 'New tenant "Gravity Fitness" is waiting for account activation.', 'time' => '5 hours ago', 'priority' => 'Medium'],
-    ['id' => 3, 'type' => 'Expired Membership', 'source' => 'Power Fitness', 'message' => 'Tenant subscription expired for Power Fitness (Legacy Plan).', 'time' => '1 day ago', 'priority' => 'High'],
-    ['id' => 4, 'type' => 'Warning', 'source' => 'Server', 'message' => 'Database storage reaching 85% capacity.', 'time' => '2 days ago', 'priority' => 'Low'],
-];
+// Security Check
+if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmin') {
+    header("Location: ../login.php");
+    exit;
+}
+
+$page_title = "System Settings";
+$active_page = "settings";
+
+// Handle Form Submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
+    // Logic to update your 'system_settings' table would go here
+    $success_msg = "System configurations updated successfully!";
+}
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -28,73 +34,17 @@ $alerts = [
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        
-        /* Sidebar Hover Logic - ADJUSTED WIDTHS */
-        .sidebar-nav {
-            width: 110px; /* Increased slightly from 100px */
-            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
-        }
-        .sidebar-nav:hover {
-            width: 300px; /* Increased from 280px for better text fit */
-        }
-        .nav-text {
-            opacity: 0;
-            transform: translateX(-15px);
-            transition: all 0.3s ease;
-            white-space: nowrap;
-            pointer-events: none;
-        }
-        .sidebar-nav:hover .nav-text {
-            opacity: 1;
-            transform: translateX(0);
-            pointer-events: auto;
-        }
-        /* End Sidebar Hover Logic */
-
+        .sidebar-nav { width: 100px; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; }
+        .sidebar-nav:hover { width: 280px; }
+        .nav-text { opacity: 0; transform: translateX(-10px); transition: all 0.2s ease; white-space: nowrap; pointer-events: none; }
+        .sidebar-nav:hover .nav-text { opacity: 1; transform: translateX(0); pointer-events: auto; }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { 
-            content: ''; 
-            position: absolute; 
-            right: 0px; 
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px; 
-            height: 20px; 
-            background: #8c2bee; 
-            border-radius: 99px; 
-        }
-        
-        @media (max-width: 1023px) {
-            .active-nav::after { display: none; }
-        }
-        .alert-pulse { animation: alert-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes alert-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-        
-        .status-card-green { border: 1px solid #10b981; background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(20,18,26,1) 100%); }
-        .status-card-yellow { border: 1px solid #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(20,18,26,1) 100%); }
-        .status-card-red { border: 1px solid #ef4444; background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(20,18,26,1) 100%); }
-        .dashed-container { border: 2px dashed rgba(255,255,255,0.1); border-radius: 24px; }
-        
+        .active-nav::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 20px; background: #8c2bee; border-radius: 99px; }
+        .input-field { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 16px; color: white; font-size: 13px; transition: all 0.2s; }
+        .input-field:focus { border-color: #8c2bee; outline: none; background: rgba(140,43,238,0.05); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
-    <script>
-        function updateHeaderClock() {
-            const now = new Date();
-            const clockEl = document.getElementById('headerClock');
-            if (clockEl) {
-                clockEl.textContent = now.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit' 
-                });
-            }
-        }
-        setInterval(updateHeaderClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateHeaderClock);
-    </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
@@ -178,51 +128,101 @@ $alerts = [
 </nav>
 
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
-    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
+    <main class="flex-1 p-6 md:p-10 max-w-[1200px] w-full mx-auto">
+
         <header class="mb-10 flex flex-row justify-between items-end gap-6">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">System <span class="text-primary">Alerts</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Super Admin Control Center</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">System <span class="text-primary">Settings</span></h2>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Global Configuration & Control</p>
             </div>
             <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
                 <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
-            <div class="space-y-4">
-                <?php foreach($alerts as $alert): ?>
-                    <div class="glass-card p-6 border-l-4 <?= ($alert['priority'] == 'High') ? 'border-red-500 bg-red-500/5' : 'border-primary bg-primary/5' ?> hover:bg-white/[0.04] transition-all">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-4">
-                                <span class="material-symbols-outlined text-2xl text-primary">notifications_active</span>
-                                <div>
-                                    <h4 class="text-sm font-black italic uppercase text-white tracking-tighter"><?= $alert['type'] ?></h4>
-                                    <p class="text-xs text-gray-400"><?= $alert['message'] ?></p>
-                                </div>
-                            </div>
-                            <button class="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">View Details</button>
+        <?php if (isset($success_msg)): ?>
+            <div class="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3">
+                <span class="material-symbols-outlined text-sm">check_circle</span> <?= $success_msg ?>
+            </div>
+        <?php endif; ?>
+
+        <form action="" method="POST" class="space-y-8">
+            <div class="glass-card p-8">
+                <div class="flex items-center gap-4 mb-8">
+                    <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary">palette</span>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black italic uppercase tracking-widest text-white">System Branding</h3>
+                        <p class="text-[10px] text-gray-500 font-bold uppercase">Customize names and visuals</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Platform Name</label>
+                        <input type="text" name="system_name" class="input-field" placeholder="e.g. Horizon System">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Admin Email Notice</label>
+                        <input type="email" name="admin_email" class="input-field" placeholder="admin@horizonsystem.com">
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-8">
+                <div class="flex items-center gap-4 mb-8">
+                    <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary">gavel</span>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Tenant Limits & Rules</h3>
+                        <p class="text-[10px] text-gray-500 font-bold uppercase">Global restrictions for gym owners</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Max Staff per Tenant</label>
+                        <input type="number" name="max_staff" class="input-field" value="10">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Grace Period (Days)</label>
+                        <input type="number" name="grace_period" class="input-field" value="7">
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">New Tenant Status</label>
+                        <select name="default_status" class="input-field appearance-none">
+                            <option value="Pending">Pending Approval</option>
+                            <option value="Active">Auto-Activate</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-8 border-dashed border-primary/20 bg-transparent">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div class="flex items-center gap-4">
+                        <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-gray-400">admin_panel_settings</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-black italic uppercase tracking-widest text-white">User Roles & Permissions</h3>
+                            <p class="text-[10px] text-gray-500 font-bold uppercase">Advanced access control settings</p>
                         </div>
                     </div>
-                <?php endforeach; ?>
+                    <a href="rbac_management.php" class="px-6 py-2 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all">Configure Roles</a>
+                </div>
             </div>
-        </main>
-    </div>
 
-    <script>
-        function updateHeaderClock() {
-            const now = new Date();
-            const clockEl = document.getElementById('headerClock');
-            if (clockEl) {
-                clockEl.textContent = now.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit' 
-                });
-            }
-        }
-        setInterval(updateHeaderClock, 1000);
-        updateHeaderClock();
-    </script>
+            <div class="flex justify-end">
+                <button type="submit" name="save_settings" class="bg-primary text-black px-10 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-[0_0_30px_rgba(140,43,238,0.2)]">
+                    Save Configurations
+                </button>
+            </div>
+        </form>
+    </main>
+</div>
+
 </body>
 </html>

@@ -15,10 +15,21 @@ $stmtTenants = $pdo->query("
     SELECT g.*, 
            u.first_name, u.last_name, u.email as owner_email,
            tp.logo_path,
-           (SELECT subscription_status FROM client_subscriptions cs WHERE cs.gym_id = g.gym_id ORDER BY created_at DESC LIMIT 1) as sub_status
+           cs.subscription_status as sub_status,
+           wp.plan_name
     FROM gyms g
     JOIN users u ON g.owner_user_id = u.user_id
     LEFT JOIN tenant_pages tp ON g.gym_id = tp.gym_id
+    LEFT JOIN (
+        SELECT cs1.gym_id, cs1.subscription_status, cs1.website_plan_id
+        FROM client_subscriptions cs1
+        INNER JOIN (
+            SELECT gym_id, MAX(created_at) as max_created
+            FROM client_subscriptions
+            GROUP BY gym_id
+        ) cs2 ON cs1.gym_id = cs2.gym_id AND cs1.created_at = cs2.max_created
+    ) cs ON g.gym_id = cs.gym_id
+    LEFT JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
     WHERE g.status != 'Deleted'
     ORDER BY g.created_at DESC
 ");
@@ -61,24 +72,26 @@ foreach ($tenants as $t) {
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         
-        /* Sidebar Hover Logic - Fixed Clipping */
+        /* Sidebar Hover Logic - ADJUSTED WIDTHS */
         .sidebar-nav {
-            width: 88px;
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 110px; /* Increased slightly from 100px */
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
         }
         .sidebar-nav:hover {
-            width: 280px;
+            width: 300px; /* Increased from 280px for better text fit */
         }
         .nav-text {
             opacity: 0;
-            transition: all 0.2s ease;
+            transform: translateX(-15px);
+            transition: all 0.3s ease;
             white-space: nowrap;
-            display: none;
+            pointer-events: none;
         }
         .sidebar-nav:hover .nav-text {
             opacity: 1;
-            display: block;
+            transform: translateX(0);
+            pointer-events: auto;
         }
         /* End Sidebar Hover Logic */
 
@@ -96,17 +109,24 @@ foreach ($tenants as $t) {
             border-radius: 99px; 
         }
         
-        @media (max-width: 1023px) { .active-nav::after { display: none; } }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0a090d; }
-        ::-webkit-scrollbar-thumb { background: #14121a; border-radius: 10px; }
+        @media (max-width: 1023px) {
+            .active-nav::after { display: none; }
+        }
+        .alert-pulse { animation: alert-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes alert-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        
+        .status-card-green { border: 1px solid #10b981; background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(20,18,26,1) 100%); }
+        .status-card-yellow { border: 1px solid #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(20,18,26,1) 100%); }
+        .status-card-red { border: 1px solid #ef4444; background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(20,18,26,1) 100%); }
+        .dashed-container { border: 2px dashed rgba(255,255,255,0.1); border-radius: 24px; }
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
     <script>
-        function updateSidebarClock() {
+        function updateHeaderClock() {
             const now = new Date();
-            const clockEl = document.getElementById('topNavClock');
+            const clockEl = document.getElementById('headerClock');
             if (clockEl) {
                 clockEl.textContent = now.toLocaleTimeString('en-US', { 
                     hour: '2-digit', 
@@ -115,50 +135,76 @@ foreach ($tenants as $t) {
                 });
             }
         }
-        setInterval(updateSidebarClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+        setInterval(updateHeaderClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);
     </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-6 z-50 shrink-0">
+<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
             </div>
-            <h1 class="nav-text text-2xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
         </div>
     </div>
     
-    <div class="flex flex-col gap-8 flex-1 overflow-y-auto no-scrollbar pr-2">
-        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+    <div class="flex flex-col gap-6 flex-1 overflow-y-auto no-scrollbar pr-2">
+        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
         </a>
-        <a href="tenant_management.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        
+        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
             <span class="nav-text">Tenant Management</span>
         </a>
-        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">history_edu</span> 
             <span class="nav-text">Subscription Logs</span>
         </a>
-        <a href="rbac_management.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="rbac_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">security</span> 
             <span class="nav-text">Access Control</span>
         </a>
-        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">group</span> 
             <span class="nav-text">Real-Time Occupancy</span>
         </a>
-        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">receipt_long</span> 
             <span class="nav-text">Recent Transactions</span>
         </a>
-        <a href="system_alerts.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">notifications_active</span> 
             <span class="nav-text">System Alerts</span>
+        </a>
+
+        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">analytics</span> 
+            <span class="nav-text">Reports</span>
+        </a>
+
+        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">monitoring</span> 
+            <span class="nav-text">Sales Reports</span>
+        </a>
+
+        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">assignment</span> 
+            <span class="nav-text">Audit Logs</span>
+        </a>
+
+        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">settings</span> 
+            <span class="nav-text">Settings</span>
         </a>
     </div>
 
@@ -184,8 +230,8 @@ foreach ($tenants as $t) {
             </div>
             
             <div class="text-right">
-                <p id="topNavClock" class="text-white font-black italic text-4xl leading-none mb-1">00:00:00 AM</p>
-                <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em]"><?= date('l, M d, Y') ?></p>
+                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
+                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
@@ -303,7 +349,7 @@ foreach ($tenants as $t) {
                                         <button onclick="openApplicationModal(<?= $app['application_id'] ?>)" class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
                                             <span class="material-symbols-outlined text-sm">visibility</span> View
                                         </button>
-                                        <form method="POST" action="../action/process_application.php" class="inline-flex gap-2">
+                                        <form method="POST" action="action/process_application.php" class="inline-flex gap-2">
                                             <input type="hidden" name="application_id" value="<?= $app['application_id'] ?>">
                                             <button type="submit" name="action" value="approve" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
                                                 <span class="material-symbols-outlined text-sm">check_circle</span> Approve
@@ -339,7 +385,7 @@ foreach ($tenants as $t) {
                         <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
                             <th class="px-8 py-4">Gym Identity</th>
                             <th class="px-8 py-4">Owner Contact</th>
-                            <th class="px-8 py-4">Sub Status</th>
+                            <th class="px-8 py-4">Plan & Status</th>
                             <th class="px-8 py-4">Account Status</th>
                             <th class="px-8 py-4 text-right">Actions</th>
                         </tr>
@@ -374,16 +420,19 @@ foreach ($tenants as $t) {
                                         <p class="text-[10px] text-gray-500"><?= htmlspecialchars($t['owner_email']) ?></p>
                                     </td>
                                     <td class="px-8 py-5">
-                                        <?php 
-                                            $sub = $t['sub_status'] ?? 'None';
-                                            if ($sub === 'Active'):
-                                        ?>
-                                            <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase italic">Active Plan</span>
-                                        <?php elseif ($sub === 'Expired' || $sub === 'Overdue'): ?>
-                                            <span class="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-black uppercase italic">Payment Issue</span>
-                                        <?php else: ?>
-                                            <span class="px-3 py-1 rounded-full bg-gray-500/10 border border-gray-500/20 text-[9px] text-gray-400 font-black uppercase italic">No Plan</span>
-                                        <?php endif; ?>
+                                        <div class="flex flex-col gap-1.5">
+                                            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
+                                            <?php 
+                                                $sub = $t['sub_status'] ?? 'None';
+                                                if ($sub === 'Active'):
+                                            ?>
+                                                <span class="w-fit px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase italic">Active Plan</span>
+                                            <?php elseif ($sub === 'Expired' || $sub === 'Overdue'): ?>
+                                                <span class="w-fit px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-black uppercase italic">Payment Issue</span>
+                                            <?php else: ?>
+                                                <span class="w-fit px-3 py-1 rounded-full bg-gray-500/10 border border-gray-500/20 text-[9px] text-gray-400 font-black uppercase italic">No Active Subscription</span>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td class="px-8 py-5">
                                         <?php if ($t['status'] === 'Active'): ?>
@@ -395,6 +444,11 @@ foreach ($tenants as $t) {
                                             <div class="flex items-center gap-2 text-amber-400">
                                                 <span class="relative inline-flex rounded-full size-2 bg-amber-500"></span>
                                                 <span class="text-xs font-black uppercase italic tracking-wider">Suspended</span>
+                                            </div>
+                                        <?php elseif ($t['status'] === 'Deactivated'): ?>
+                                            <div class="flex items-center gap-2 text-red-400">
+                                                <span class="relative inline-flex rounded-full size-2 bg-red-500"></span>
+                                                <span class="text-xs font-black uppercase italic tracking-wider">Deactivated</span>
                                             </div>
                                         <?php else: ?>
                                             <span class="text-xs font-black uppercase italic text-gray-500 tracking-wider"><?= htmlspecialchars($t['status']) ?></span>
@@ -408,7 +462,7 @@ foreach ($tenants as $t) {
                                                 </button>
                                             <?php endif; ?>
 
-                                            <form method="POST" action="../action/process_tenant.php" class="inline-flex gap-2" onsubmit="return confirm('Are you sure you want to proceed with this action?');">
+                                            <form method="POST" action="action/process_tenant.php" class="inline-flex gap-2" onsubmit="return confirm('Are you sure you want to proceed with this action?');">
                                                 <input type="hidden" name="gym_id" value="<?= $t['gym_id'] ?>">
                                                 
                                                 <?php if ($t['status'] !== 'Active'): ?>
@@ -417,9 +471,15 @@ foreach ($tenants as $t) {
                                                     </button>
                                                 <?php endif; ?>
 
-                                                <?php if ($t['status'] !== 'Suspended'): ?>
+                                                <?php if ($t['status'] === 'Active'): ?>
                                                     <button type="submit" name="action" value="suspend" title="Suspend Account (e.g. Unpaid Subscription)" class="size-8 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 flex items-center justify-center transition-colors">
                                                         <span class="material-symbols-outlined text-[18px]">pause_circle</span>
+                                                    </button>
+                                                <?php endif; ?>
+
+                                                <?php if ($t['status'] !== 'Deactivated'): ?>
+                                                    <button type="submit" name="action" value="deactivate" title="Deactivate Account" class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-colors">
+                                                        <span class="material-symbols-outlined text-[18px]">cancel</span>
                                                     </button>
                                                 <?php endif; ?>
                                             </form>
