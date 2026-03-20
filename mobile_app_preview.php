@@ -150,8 +150,11 @@ $font = $page['font_family'];
 </head>
 <body class="no-scrollbar">
 
+    <!-- Subtle Ambient Glow (Matching Android) -->
+    <div style="position: absolute; top: -100px; right: -100px; width: 300px; height: 300px; background: var(--primary); filter: blur(80px); opacity: 0.15; border-radius: 50%; pointer-events: none;"></div>
+
     <!-- App Content -->
-    <div class="flex-1 flex flex-col pt-1">
+    <div class="flex-1 flex flex-col pt-1 relative z-10">
         
         <!-- Status Bar -->
         <div class="android-status-bar">
@@ -166,42 +169,46 @@ $font = $page['font_family'];
         <!-- Native Header -->
         <div class="px-5 h-[56px] flex items-center gap-3.5">
             <div id="header-logo-container" class="header-logo-card">
-                <img id="logo-img" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" class="size-5 object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
-                <span id="logo-icon" class="material-symbols-outlined text-white text-lg <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">bolt</span>
+                <img id="logo-img" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" class="size-6 object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
+                <span id="logo-icon" class="material-symbols-outlined text-white text-lg <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">send</span>
             </div>
-            <span class="text-[16px] font-bold tracking-[0.05em] text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
+            <span class="text-[15px] font-bold tracking-[0.1em] text-white uppercase"><?= htmlspecialchars($page['gym_name'] ?? 'HORIZON') ?></span>
         </div>
 
         <div class="android-content-area no-scrollbar">
             <!-- Banner Section -->
-            <div class="banner-card">
+            <div class="banner-card shadow-2xl">
                 <img id="banner-img" src="<?= !empty($page['banner_image']) ? $page['banner_image'] : 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070&auto=format&fit=crop' ?>">
+                <div style="position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.4));"></div>
             </div>
 
             <!-- Hero Section -->
-            <div class="text-center mt-5">
-                <div class="badge mx-auto bg-[#131217]">
+            <div class="text-center mt-6">
+                <div id="hero-subtitle" class="badge mx-auto bg-white/5 border border-white/10" style="color: var(--primary)">
                     <span class="dot"></span>
                     <span>Open for Membership</span>
                 </div>
 
-                <h1 id="hero-title" class="text-[30px] font-bold text-white mt-6 px-4 leading-[1.2]">
-                    Elevate Your Fitness at <br/> <span class="gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
+                <h1 id="hero-title" class="text-[26px] font-bold text-white mt-5 px-8 leading-[1.2] tracking-tight">
+                    <?php if (empty($page['page_title']) || $page['page_title'] == 'Horizon Systems'): ?>
+                        Elevate Your Fitness at <br/> <span class="gym-name-display"><?= htmlspecialchars($page['gym_name']) ?></span>
+                    <?php else: ?>
+                        <?= htmlspecialchars($page['page_title']) ?>
+                    <?php endif; ?>
                 </h1>
 
-                <p id="about-text" class="text-[14px] font-medium text-white/50 mt-4 px-8 leading-relaxed">
+                <p id="about-text" class="text-[14px] font-medium text-white/40 mt-4 px-10 leading-relaxed">
                     <?= htmlspecialchars($page['about_text'] ?? 'Welcome to Horizon Systems. Your fitness journey starts here.') ?>
                 </p>
             </div>
 
-            <!-- Buttons Row -->
-            <div class="mt-8 flex flex-col gap-3.5 pb-12">
-                <div class="btn-primary">Sign In</div>
-                <div class="btn-primary">Register</div>
-                <div class="btn-outline">Get Member APK</div>
+            <!-- Buttons Container (Matching XML) -->
+            <div class="mt-8 flex flex-col gap-3 pb-12 px-8">
+                <div class="btn-primary" style="width: 100%; border-radius: 20px;">Sign In</div>
+                <div class="btn-primary" style="width: 100%; border-radius: 20px;">Create an Account</div>
                 
-                <!-- Footer Contact (Matching XML exactly) -->
-                <div id="contact-text" class="mt-8 text-[11px] font-bold uppercase tracking-[0.05em] text-white/20 text-center px-10 leading-loose">
+                <!-- Footer Contact -->
+                <div id="contact-text" class="mt-10 text-[10px] font-bold uppercase tracking-[0.1em] text-white/20 text-center px-4 leading-loose">
                     <?= htmlspecialchars($page['contact_text'] ?? '') ?>
                 </div>
             </div>
@@ -225,7 +232,7 @@ $font = $page['font_family'];
                 
                 // Text
                 if (data.page_title) {
-                    document.querySelectorAll('.gym-name-display').forEach(n => n.innerText = data.page_title);
+                    document.getElementById('hero-title').innerText = data.page_title;
                 }
                 if (data.about_text !== undefined) document.getElementById('about-text').innerText = data.about_text;
                 if (data.contact_text !== undefined) document.getElementById('contact-text').innerText = data.contact_text;
