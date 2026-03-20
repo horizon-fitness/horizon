@@ -227,7 +227,7 @@ $active_page = "dashboard";
                         </div>
                         <div>
                             <p class="text-xs font-bold italic"><?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?></p>
-                            <p class="text-[9px] font-black uppercase tracking-widest text-primary">Slug: p/<?= htmlspecialchars($page['page_slug'] ?? '') ?></p>
+                            <p class="text-[9px] font-black uppercase tracking-widest text-primary">Slug: p/<?= htmlspecialchars($page['page_slug']) ?></p>
                         </div>
                     </div>
                     <div class="flex gap-2">
@@ -239,7 +239,7 @@ $active_page = "dashboard";
                     <a href="tenant_settings.php" class="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest gap-2">
                         <span class="material-symbols-outlined text-sm">edit</span> Customize Page
                     </a>
-                    <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="flex-1 h-12 rounded-xl bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest gap-2">
+                    <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug']) ?>" class="flex-1 h-12 rounded-xl bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest gap-2">
                         <span class="material-symbols-outlined text-sm">open_in_new</span> View Portal
                     </a>
                 </div>

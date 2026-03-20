@@ -106,7 +106,6 @@ function formatLabel($key, $map) {
 
 $is_ajax = isset($_GET['ajax']);
 $page_title = "Application Details: " . $app['gym_name'];
-$active_page = "tenants"; 
 
 if ($is_ajax): ?>
     <!-- AJAX Modal Content Only -->
@@ -296,13 +295,13 @@ if ($is_ajax): ?>
 
         <?php if ($app['application_status'] === 'Pending'): ?>
             <div class="flex gap-3 pt-6 border-t border-white/5">
-                <form method="POST" action="action/process_application.php" class="flex-1">
+                <form method="POST" action="../action/process_application.php" class="flex-1">
                     <input type="hidden" name="application_id" value="<?= $app_id ?>">
                     <button type="submit" name="action" value="approve" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all">
                         Approve Now
                     </button>
                 </form>
-                <form method="POST" action="action/process_application.php" class="flex-1">
+                <form method="POST" action="../action/process_application.php" class="flex-1">
                     <input type="hidden" name="application_id" value="<?= $app_id ?>">
                     <button type="submit" name="action" value="reject" class="w-full py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-widest transition-all">
                         Reject
@@ -332,140 +331,20 @@ endif;
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        
-        /* Sidebar Hover Logic - ADJUSTED WIDTHS */
-        .sidebar-nav {
-            width: 110px; /* Increased slightly from 100px */
-            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
-        }
-        .sidebar-nav:hover {
-            width: 300px; /* Increased from 280px for better text fit */
-        }
-        .nav-text {
-            opacity: 0;
-            transform: translateX(-15px);
-            transition: all 0.3s ease;
-            white-space: nowrap;
-            pointer-events: none;
-        }
-        .sidebar-nav:hover .nav-text {
-            opacity: 1;
-            transform: translateX(0);
-            pointer-events: auto;
-        }
-        /* End Sidebar Hover Logic */
-
-        .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
-        .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { 
-            content: ''; 
-            position: absolute; 
-            right: 0px; 
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px; 
-            height: 20px; 
-            background: #8c2bee; 
-            border-radius: 99px; 
-        }
-        
-        @media (max-width: 1023px) {
-            .active-nav::after { display: none; }
-        }
-        .alert-pulse { animation: alert-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes alert-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-        
-        .status-card-green { border: 1px solid #10b981; background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(20,18,26,1) 100%); }
-        .status-card-yellow { border: 1px solid #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(20,18,26,1) 100%); }
-        .status-card-red { border: 1px solid #ef4444; background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(20,18,26,1) 100%); }
-        .dashed-container { border: 2px dashed rgba(255,255,255,0.1); border-radius: 24px; }
-        
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #0a090d; }
         ::-webkit-scrollbar-thumb { background: #14121a; border-radius: 10px; }
     </style>
-    <script>
-        function updateHeaderClock() {
-            const now = new Date();
-            const clockEl = document.getElementById('headerClock');
-            if (clockEl) {
-                clockEl.textContent = now.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit' 
-                });
-            }
-        }
-        setInterval(updateHeaderClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateHeaderClock);
-    </script>
 </head>
-<body class="antialiased flex flex-row min-h-screen">
+<body class="antialiased min-h-screen p-6 md:p-10">
 
-<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
-    <div class="mb-12">
-        <div class="flex items-center gap-4 mb-6">
-            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
-            </div>
-            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
-        </div>
-    </div>
-    
-    <div class="flex flex-col gap-8 flex-1 overflow-y-auto no-scrollbar pr-2">
-        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
-            <span class="nav-text">Dashboard</span>
-        </a>
-        <a href="tenant_management.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
-            <span class="nav-text">Tenant Management</span>
-        </a>
-        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">history_edu</span> 
-            <span class="nav-text">Subscription Logs</span>
-        </a>
-        <a href="rbac_management.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">security</span> 
-            <span class="nav-text">Access Control</span>
-        </a>
-        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">group</span> 
-            <span class="nav-text">Real-Time Occupancy</span>
-        </a>
-        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">receipt_long</span> 
-            <span class="nav-text">Recent Transactions</span>
-        </a>
-        <a href="system_alerts.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">notifications_active</span> 
-            <span class="nav-text">System Alerts</span>
-        </a>
-    </div>
-
-    <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-8">
-        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
-            <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
-            <span class="nav-link nav-text">Profile</span>
-        </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-4 group">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-2xl shrink-0">logout</span>
-            <span class="nav-link nav-text">Sign Out</span>
-        </a>
-    </div>
-</nav>
-
-<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
-    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
+    <div class="max-w-4xl mx-auto">
         <a href="javascript:history.back()" class="inline-flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-8 group">
             <span class="material-symbols-outlined transition-transform group-hover:-translate-x-1">arrow_back</span>
             <span class="text-xs font-black uppercase tracking-widest">Back to Management</span>
         </a>
 
-        <header class="mb-10 flex flex-row justify-between items-end gap-6">
+        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
             <div class="flex items-center gap-6">
                 <?php if ($logoPath): ?>
                     <img src="<?= htmlspecialchars($logoPath) ?>" class="size-24 rounded-[32px] object-cover border-2 border-primary/20 shadow-2xl shadow-primary/10">
@@ -485,13 +364,9 @@ endif;
                             <span class="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] text-red-500 font-black uppercase italic tracking-widest">Status: Rejected</span>
                         <?php endif; ?>
                     </div>
-                    <h2 class="text-4xl font-black italic uppercase tracking-tighter text-white leading-none"><?= htmlspecialchars($app['gym_name']) ?></h2>
+                    <h2 class="text-4xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($app['gym_name']) ?></h2>
                     <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Submitted on <?= date('M d, Y h:i A', strtotime($app['submitted_at'])) ?></p>
                 </div>
-            </div>
-            <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
@@ -655,13 +530,13 @@ endif;
 
         <?php if ($app['application_status'] === 'Pending'): ?>
             <div class="flex flex-col sm:flex-row gap-4">
-                <form method="POST" action="action/process_application.php" class="flex-1">
+                <form method="POST" action="../action/process_application.php" class="flex-1">
                     <input type="hidden" name="application_id" value="<?= $app_id ?>">
                     <button type="submit" name="action" value="approve" class="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black italic uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined">verified</span> Approve Application
                     </button>
                 </form>
-                <form method="POST" action="action/process_application.php" class="flex-1">
+                <form method="POST" action="../action/process_application.php" class="flex-1">
                     <input type="hidden" name="application_id" value="<?= $app_id ?>">
                     <button type="submit" name="action" value="reject" class="w-full py-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 font-black italic uppercase tracking-widest transition-all flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined">cancel</span> Reject
@@ -680,8 +555,8 @@ endif;
                 </div>
             </div>
         <?php endif; ?>
-    </main>
-</div>
+
+    </div>
 
     <?php include '../includes/image_viewer.php'; ?>
 </body>

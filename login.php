@@ -147,184 +147,145 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
-    <title>Horizon | Secure Login</title>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=Lexend:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Member Portal | Herdoza Fitness</title>
+
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-    
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
     <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#7f13ec",
-                        "primary-dark": "#5e0eb3",
-                        "background-dark": "#050505", 
-                        "surface-dark": "rgba(21, 21, 24, 0.4)",
-                        "text-secondary": "#ab9db9"
-                    },
-                    fontFamily: { 
-                        "display": ["Lexend", "sans-serif"],
-                        "sans": ["Plus Jakarta Sans", "Inter", "sans-serif"]
-                    },
-                    borderRadius: { 'custom': '12px' }
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                colors: {
+                    "primary": "#7f13ec",
+                    "primary-hover": "#6a11c9",
+                    "background-dark": "#0a090d",
+                    "card-dark": "#121017",
+                    "input-dark": "#1a1721",
+                    "input-border": "#2d2838",
                 },
+                fontFamily: { "display": ["Lexend", "sans-serif"] },
             },
-        }
-    </script>
-    <style>
-        html, body { 
-            background-color: #050505 !important; 
-            color: #f3f4f6;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-        }
-        
-        .hero-glow {
-            background-image: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.18), transparent 70%);
-        }
-
-        .dashboard-window {
-            background: #08080a;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
-        }
-
-        .input-gradient-focus:focus-within {
-            border-color: #7f13ec;
-            box-shadow: 0 0 0 1px rgba(127, 19, 236, 0.3);
-        }
-    </style>
-</head>
-
-<body class="font-sans antialiased min-h-screen flex flex-col hero-glow">
-
-    <nav class="w-full px-8 py-6 flex justify-between items-center relative z-20">
-        <a href="index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
-                <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
-            </div>
-            <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
-        </a>
-        
-        <div class="flex items-center gap-4">
-            <?php if(isset($_GET['gym'])): ?>
-                <a href="portal.php?gym=<?= htmlspecialchars($_GET['gym']) ?>" class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 hover:text-white transition-all mr-4 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">arrow_back</span>
-                    Back to Website
-                </a>
-            <?php endif; ?>
-            <a href="tenant/tenant_application.php" class="font-display bg-white/5 hover:bg-white/10 text-white border border-white/10 px-5 py-2.5 rounded-custom text-[10px] font-bold uppercase tracking-widest transition-all">
-                Register Gym
-            </a>
-        </div>
-    </nav>
-
-    <main class="flex-1 flex items-center justify-center p-6 relative z-10">
-        <div class="dashboard-window w-full max-w-[440px] rounded-2xl p-10 md:p-12 relative overflow-hidden">
-            <!-- Subtle accent glow inside the card -->
-            <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
-            
-            <div class="relative z-10">
-                <div class="text-center mb-10">
-                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
-                        Secure Access
-                    </div>
-                    <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">Welcome <span class="text-primary">Back</span></h1>
-                    <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Authorized Personnel Only</p>
-                </div>
-
-                <?php if (!empty($error)): ?>
-                <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] flex items-center gap-3 font-bold uppercase tracking-wider">
-                    <span class="material-symbols-outlined text-lg">security</span>
-                    <?= $error ?>
-                </div>
-                <?php endif; ?>
-
-                <form method="POST" class="space-y-6">
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Identity</label>
-                        <div class="relative group input-gradient-focus rounded-xl transition-all">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">person</span>
-                            <input
-                                class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-12 pr-4 text-sm text-white placeholder:text-gray-700 focus:outline-none transition-all"
-                                name="username"
-                                placeholder="Username"
-                                autocomplete="username"
-                                required
-                                type="text"
-                            />
-                        </div>
-                    </div>
-
-                    <div class="space-y-2">
-                        <div class="flex justify-between items-center px-1">
-                            <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500">Security Key</label>
-                            <a href="#" class="text-[9px] font-display font-bold text-primary hover:text-white transition-colors uppercase tracking-widest">Forgot?</a>
-                        </div>
-                        <div class="relative group input-gradient-focus rounded-xl transition-all">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">lock</span>
-                            <input
-                                id="login-password"
-                                class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-12 pr-14 text-sm text-white placeholder:text-gray-700 focus:outline-none transition-all"
-                                name="password"
-                                placeholder="••••••••"
-                                autocomplete="current-password"
-                                required
-                                type="password"
-                            />
-                            <button type="button" onclick="toggleLoginPassword()" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-primary transition-colors">
-                                <span id="eye-icon" class="material-symbols-outlined text-[20px]">visibility</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <button
-                        class="w-full h-14 mt-6 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98]"
-                        type="submit">
-                        Authorize Entry
-                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
-                    </button>
-                </form>
-
-                <div class="text-center mt-10 pt-8 border-t border-white/5">
-                    <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
-                        New to the family? 
-                        <a class="text-primary hover:text-white transition-colors ml-1" href="tenant/tenant_application.php">Create Account</a>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <footer class="relative z-20 w-full py-6 text-center -mt-10">
-        <p class="text-[9px] font-display font-bold text-gray-700 uppercase tracking-[0.4em]">
-            © 2026 HORIZON SYSTEM. SECURE ENVIRONMENT.
-        </p>
-    </footer>
-
-    <script>
-    function toggleLoginPassword() {
-        const passwordInput = document.getElementById('login-password');
-        const eyeIcon = document.getElementById('eye-icon');
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            eyeIcon.textContent = 'visibility_off';
-        } else {
-            passwordInput.type = 'password';
-            eyeIcon.textContent = 'visibility';
-        }
+        },
     }
     </script>
+</head>
+
+<body class="bg-background-dark text-white font-display min-h-screen flex flex-col antialiased relative overflow-hidden">
+
+<div class="fixed inset-0 z-0">
+    <img class="w-full h-full object-cover" src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop" alt="Gym Background"/>
+    <div class="absolute inset-0 bg-[#0a090d]/85 backdrop-blur-sm"></div>
+</div>
+
+<header class="relative z-20 w-full px-8 py-6 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+         <span class="text-xl font-black tracking-tight uppercase italic">Horizon <span class="text-primary">Systems</span></span>
+    </div>
+    <div class="flex items-center gap-4">
+        <?php if(isset($_GET['gym'])): ?>
+            <a href="portal.php?gym=<?= htmlspecialchars($_GET['gym']) ?>" class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-primary transition-all mr-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Back to Website
+            </a>
+        <?php endif; ?>
+        <span class="text-sm text-gray-400 hidden sm:block">New to the family?</span>
+        <a href="tenant/tenant_application.php" class="px-6 py-2 rounded-full border border-primary/30 hover:bg-primary/10 transition-all text-sm font-bold text-primary">Register Gym</a>
+    </div>
+</header>
+
+<main class="flex-1 flex items-center justify-center p-4 relative z-10">
+    <div class="w-full max-w-[480px] rounded-[32px] overflow-hidden border border-white/5 bg-[#121017]/80 backdrop-blur-xl shadow-[0_0_50px_rgba(127,19,236,0.15)] p-10 sm:p-14">
+        
+        <div class="text-center space-y-3 mb-12">
+            <h2 class="text-4xl font-black tracking-tight uppercase italic">Welcome Back</h2>
+            <p class="text-gray-400 font-medium">Enter your credentials to access your account.</p>
+        </div>
+
+        <?php if (!empty($error)): ?>
+        <div class="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-3 font-semibold">
+            <span class="material-symbols-outlined">security</span>
+            <?= $error ?>
+        </div>
+        <?php endif; ?>
+
+        <form method="POST" class="space-y-8">
+            <div class="space-y-2">
+                <label class="text-xs font-black uppercase tracking-widest text-gray-500 ml-1">Account Identity</label>
+                <div class="relative group">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors">person</span>
+                    <input
+                        class="flex h-14 w-full rounded-xl border border-input-border bg-black/40 pl-12 pr-4 text-base text-white placeholder:text-gray-700 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
+                        name="username"
+                        placeholder="Username"
+                        autocomplete="username"
+                        required
+                        type="text"
+                    />
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="flex justify-between items-center px-1">
+                    <label class="text-xs font-black uppercase tracking-widest text-gray-500">Security Key</label>
+                    <a href="#" class="text-[10px] uppercase font-black text-primary hover:underline tracking-tighter">Forgot key?</a>
+                </div>
+                <div class="relative group">
+                    <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors">lock</span>
+                    <input
+                        id="login-password"
+                        class="flex h-14 w-full rounded-xl border border-input-border bg-black/40 pl-12 pr-14 text-base text-white placeholder:text-gray-700 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all"
+                        name="password"
+                        placeholder="••••••••"
+                        autocomplete="current-password"
+                        required
+                        type="password"
+                    />
+                    <button type="button" onclick="toggleLoginPassword()" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-primary transition-colors">
+                        <span id="eye-icon" class="material-symbols-outlined text-[20px]">visibility</span>
+                    </button>
+                </div>
+            </div>
+
+            <button
+                class="w-full h-14 mt-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-black uppercase tracking-widest text-sm transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-3 hover:scale-[1.01] active:scale-[0.99]"
+                type="submit">
+                Authorize Entry
+                <span class="material-symbols-outlined text-xl">arrow_forward</span>
+            </button>
+        </form>
+
+        <div class="text-center mt-10">
+            <p class="text-xs text-gray-500 font-medium">
+                Not registered? 
+                <a class="text-primary font-black uppercase tracking-tighter hover:underline ml-1" href="tenant/tenant_application.php">Create Account</a>
+            </p>
+        </div>
+    </div>
+</main>
+
+<footer class="relative z-20 w-full py-6 text-center opacity-30">
+    <span class="text-[9px] font-black uppercase tracking-[0.4em] text-gray-500">Secure Environment Access</span>
+</footer>
+
+<script>
+function toggleLoginPassword() {
+    const passwordInput = document.getElementById('login-password');
+    const eyeIcon = document.getElementById('eye-icon');
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        eyeIcon.textContent = 'visibility_off';
+    } else {
+        passwordInput.type = 'password';
+        eyeIcon.textContent = 'visibility';
+    }
+}
+</script>
 
 </body>
 </html>
-<?php
-// Note: The PHP logic remains at the top of the file.
-?>

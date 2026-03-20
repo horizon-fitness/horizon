@@ -10,61 +10,33 @@ unset($_SESSION['application_data']);
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Gym Onboarding | Horizon Systems</title>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com"/>
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=Lexend:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
     <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "primary": "#7f13ec",
-                        "primary-dark": "#5e0eb3",
-                        "background-dark": "#050505", 
-                        "surface-dark": "rgba(21, 21, 24, 0.4)",
-                        "text-secondary": "#ab9db9"
-                    },
-                    fontFamily: { 
-                        "display": ["Lexend", "sans-serif"],
-                        "sans": ["Plus Jakarta Sans", "Inter", "sans-serif"]
-                    },
-                    borderRadius: { 'custom': '12px' }
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                colors: {
+                    "primary": "#7f13ec",
+                    "primary-hover": "#6a11c9",
+                    "background-dark": "#0a090d",
+                    "card-dark": "#121017",
                 },
+                fontFamily: { "display": ["Lexend", "sans-serif"] },
             },
-        }
+        },
+    }
     </script>
     <style>
-        html, body { 
-            background-color: #050505 !important; 
-            color: #f3f4f6;
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
-        }
-        
-        .hero-glow {
-            background-image: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.18), transparent 70%);
-        }
-
-        .dashboard-window {
-            background: #08080a;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
-        }
-
-        .input-gradient-focus:focus-within {
-            border-color: #7f13ec;
-            box-shadow: 0 0 0 1px rgba(127, 19, 236, 0.3);
-        }
-
         .step-hidden { display: none; }
         
         select option {
-            background-color: #08080a;
+            background-color: #121017;
             color: white;
             padding: 10px;
         }
@@ -84,31 +56,28 @@ unset($_SESSION['application_data']);
     </style>
 </head>
 
-<body class="font-sans antialiased min-h-screen flex flex-col hero-glow">
+<body class="bg-background-dark text-white font-display min-h-screen antialiased flex flex-col">
 
-<header class="relative z-20 w-full px-8 py-6 flex justify-between items-center bg-transparent">
-    <a href="../index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-        <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
-            <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
-        </div>
-        <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
-    </a>
+<div class="fixed inset-0 z-0">
+    <div class="absolute inset-0 bg-gradient-to-br from-primary/5 via-background-dark to-background-dark"></div>
+</div>
+
+<header class="relative z-20 w-full px-8 py-6 flex justify-between items-center border-b border-white/5 bg-background-dark/50 backdrop-blur-md">
+    <div class="flex items-center gap-3">
+         <span class="material-symbols-outlined text-primary text-2xl">wb_twilight</span>
+         <span class="text-xl font-black tracking-tight uppercase italic text-white">Horizon <span class="text-primary">Partners</span></span>
+    </div>
     <div class="flex items-center gap-6">
-        <a href="../login.php" class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 hover:text-white transition-all flex items-center gap-2">
-            <span class="material-symbols-outlined text-sm">arrow_back</span>
-            Back to Login
-        </a>
+        <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&q=80&w=100" alt="Gym" class="size-10 rounded-full object-cover border border-primary/50 shadow-lg shadow-primary/20">
+        <a href="../login.php" class="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-white transition-colors">Back to Login</a>
     </div>
 </header>
 
-<main class="flex-1 flex flex-col items-center py-12 px-4 relative z-10 w-full overflow-x-hidden">
+<main class="relative z-10 flex-1 flex flex-col items-center py-10 px-4">
     <div class="w-full max-w-2xl">
-        <div class="text-center mb-10">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
-                Partner Registration
-            </div>
-            <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">Apply for <span class="text-primary">Partnership</span></h1>
-            <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Step <span id="step-number">1</span> of 4: Provider Details</p>
+        <div class="mb-8">
+            <h1 class="text-3xl font-black tracking-tight uppercase italic">Apply for <span class="text-primary">Partnership</span></h1>
+            <p class="text-gray-400 mt-2 text-sm">Step <span id="step-number">1</span> of 4: Fill in your details below.</p>
             
             <?php if (isset($_SESSION['application_error'])): ?>
                 <div class="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-bold flex items-center gap-3">
@@ -117,7 +86,7 @@ unset($_SESSION['application_data']);
                 <?php unset($_SESSION['application_error']); ?>
             <?php endif; ?>
 
-            <div class="w-full bg-white/5 h-1.5 mt-8 rounded-full overflow-hidden">
+            <div class="w-full bg-white/5 h-1.5 mt-5 rounded-full overflow-hidden">
                 <div id="progress-bar" class="bg-primary h-full transition-all duration-500" style="width: 25%"></div>
             </div>
         </div>
@@ -125,15 +94,13 @@ unset($_SESSION['application_data']);
         <form id="multi-step-form" action="../action/submit_application.php" method="POST" enctype="multipart/form-data" class="space-y-6">
             
             <div class="step-container" data-step="1">
-                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
-                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-4 mb-8">
-                            <span class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">1</span>
-                            <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Owner Account Details</h3>
-                        </div>
-                        
-                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-8">Primary Administrative Credentials</p>
+                <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">
+                    <div class="flex items-center gap-4 mb-6">
+                        <span class="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">1</span>
+                        <h3 class="text-lg font-bold uppercase italic tracking-tight">Owner Account Details</h3>
+                    </div>
+                    
+                    <p class="text-xs text-gray-400 mb-6">These credentials will be used as your primary login to the Horizon Administrator portal.</p>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
                         <div class="space-y-1.5">
@@ -200,18 +167,15 @@ unset($_SESSION['application_data']);
                         Passwords do not match!
                     </p>
 
-                    </div>
                 </div>
             </div>
 
             <div class="step-container step-hidden" data-step="2">
-                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
-                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-4 mb-8">
-                            <span class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">2</span>
-                            <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Business Profile & Location</h3>
-                        </div>
+                <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">
+                    <div class="flex items-center gap-4 mb-6">
+                        <span class="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">2</span>
+                        <h3 class="text-lg font-bold uppercase italic tracking-tight">Business Profile & Location</h3>
+                    </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                         <div class="space-y-1.5">
@@ -270,18 +234,15 @@ unset($_SESSION['application_data']);
                             <input type="text" name="barangay" placeholder="e.g. Bagong Nayon" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                     </div>
-                    </div>
                 </div>
             </div>
 
             <div class="step-container step-hidden" data-step="3">
-                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
-                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-4 mb-8">
-                            <span class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">3</span>
-                            <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Legal & Financial Verification</h3>
-                        </div>
+                <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">
+                    <div class="flex items-center gap-4 mb-6">
+                        <span class="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">3</span>
+                        <h3 class="text-lg font-bold uppercase italic tracking-tight">Legal & Financial Verification</h3>
+                    </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                         <div class="space-y-1.5">
@@ -347,18 +308,15 @@ unset($_SESSION['application_data']);
                             </label>
                         </div>
                     </div>
-                    </div>
                 </div>
             </div>
 
             <div class="step-container step-hidden" data-step="4">
-                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
-                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-4 mb-8">
-                            <span class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">4</span>
-                            <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Facility Setup</h3>
-                        </div>
+                <div class="bg-card-dark/40 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-2xl">
+                    <div class="flex items-center gap-4 mb-6">
+                        <span class="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">4</span>
+                        <h3 class="text-lg font-bold uppercase italic tracking-tight">Facility Setup</h3>
+                    </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
                         <div class="space-y-1.5">
@@ -403,20 +361,19 @@ unset($_SESSION['application_data']);
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">House Rules</label>
                             <textarea name="rules_text" rows="3" placeholder="e.g. Proper gym attire required..." class="w-full rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none"></textarea>
                         </div>
-                        </div>
                     </div>
                 </div>
             </div>
 
             <div class="flex gap-4 pt-2">
-                <button type="button" id="prev-btn" class="hidden flex-1 h-12 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md text-white font-display font-bold uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">
+                <button type="button" id="prev-btn" class="hidden flex-1 h-12 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md text-white font-semibold uppercase tracking-wider text-sm hover:bg-white/10 transition-all">
                     Previous
                 </button>
-                <button type="button" id="next-btn" class="flex-1 h-12 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[10px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
+                <button type="button" id="next-btn" class="flex-1 h-12 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold uppercase tracking-wider text-sm transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2">
                     Next Step
                     <span class="material-symbols-outlined text-lg">arrow_forward</span>
                 </button>
-                <button type="submit" id="submit-btn" class="hidden flex-1 h-12 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[10px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
+                <button type="submit" id="submit-btn" class="hidden flex-1 h-12 rounded-xl bg-primary hover:bg-primary-hover text-white font-bold uppercase tracking-wider text-sm transition-all shadow-lg shadow-primary/30 flex items-center justify-center gap-2">
                     Submit Application
                     <span class="material-symbols-outlined text-lg">send</span>
                 </button>
@@ -426,13 +383,8 @@ unset($_SESSION['application_data']);
     </div>
 </main>
 
-    </div>
-</main>
-
-<footer class="relative z-20 w-full py-6 text-center -mt-10">
-    <p class="text-[9px] font-display font-bold text-gray-700 uppercase tracking-[0.4em]">
-        © 2026 HORIZON SYSTEM. SECURE ENVIRONMENT.
-    </p>
+<footer class="relative z-10 w-full py-8 text-center opacity-40 border-t border-white/5 bg-background-dark mt-auto">
+    <span class="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-500">Horizon Multi-Tenant Verification System © 2026</span>
 </footer>
 
 <script>

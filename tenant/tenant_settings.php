@@ -46,22 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $logo_path = 'data:image/' . $type . ';base64,' . base64_encode($data);
     }
 
-    // Handle Banner Upload
-    $banner_image = $page['banner_image'] ?? '';
-    if (isset($_FILES['banner']) && $_FILES['banner']['error'] == 0) {
-        $type = pathinfo($_FILES['banner']['name'], PATHINFO_EXTENSION);
-        $data = file_get_contents($_FILES['banner']['tmp_name']);
-        $banner_image = 'data:image/' . $type . ';base64,' . base64_encode($data);
-    }
-
     try {
         if ($page) {
-            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, banner_image = ?, theme_color = ?, bg_color = ?, font_family = ?, app_download_link = ?, about_text = ?, contact_text = ?, updated_at = ? WHERE gym_id = ?");
-            $stmtUpdate->execute([$page_title, $logo_path, $banner_image, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now, $gym_id]);
+            $stmtUpdate = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, theme_color = ?, bg_color = ?, font_family = ?, app_download_link = ?, about_text = ?, contact_text = ?, updated_at = ? WHERE gym_id = ?");
+            $stmtUpdate->execute([$page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now, $gym_id]);
         } else {
             $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name']));
-            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, banner_image, theme_color, bg_color, font_family, app_download_link, about_text, contact_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $banner_image, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now]);
+            $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, bg_color, font_family, app_download_link, about_text, contact_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now]);
         }
         $_SESSION['success_msg'] = "Portal settings saved!";
         header("Location: tenant_settings.php");
@@ -110,35 +102,44 @@ $active_page = "settings";
         
         /* High-Fidelity Phone Frame */
         .phone-mockup {
-            width: 310px;
-            height: 640px;
+            width: 320px;
+            height: 650px;
             background: #000;
-            border-radius: 48px;
-            border: 8px solid #2a2835;
+            border-radius: 50px;
+            border: 12px solid #2a2835;
             position: relative;
             box-shadow: 0 50px 100px -20px rgba(0,0,0,0.8), 0 0 0 4px #1a1824;
             overflow: visible;
         }
-        /* Android Punch Hole Camera */
         .phone-mockup::before {
             content: '';
             position: absolute;
-            top: 12px;
+            top: 0;
             left: 50%;
             transform: translateX(-50%);
-            width: 12px;
-            height: 12px;
-            background: #111;
-            border: 2px solid #2a2835;
-            border-radius: 50%;
+            width: 150px;
+            height: 25px;
+            background: #2a2835;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
             z-index: 20;
         }
-        /* Remove physical bottom bar */
-        .phone-mockup::after { display: none; }
+        .phone-mockup::after {
+            content: '';
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 99px;
+            z-index: 20;
+        }
         .phone-screen {
             width: 100%;
             height: 100%;
-            border-radius: 40px;
+            border-radius: 38px;
             overflow: hidden;
             background: #000;
         }
@@ -242,15 +243,6 @@ $active_page = "settings";
                                     <input type="text" name="page_title" oninput="updatePreview()" value="<?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?>" class="input-dark">
                                 </div>
                                 <div class="space-y-1.5">
-                                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">HERO BANNER IMAGE</label>
-                                    <div class="flex items-center gap-3">
-                                        <div class="h-10 w-20 rounded-lg bg-background-dark border border-white/5 overflow-hidden">
-                                             <img id="banner-preview-small" src="<?= !empty($page['banner_image']) ? $page['banner_image'] : '' ?>" class="size-full object-cover <?= empty($page['banner_image']) ? 'hidden' : '' ?>">
-                                        </div>
-                                        <input type="file" name="banner" class="text-[10px] text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer" onchange="previewBanner(this)">
-                                    </div>
-                                </div>
-                                <div class="space-y-1.5">
                                     <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">FONT FAMILY</label>
                                     <select name="font_family" onchange="updatePreview()" class="input-dark bg-background-dark">
                                         <option value="Lexend" <?= ($page['font_family'] ?? '') == 'Lexend' ? 'selected' : '' ?>>Lexend (Sporty)</option>
@@ -325,7 +317,7 @@ $active_page = "settings";
                     <div class="absolute inset-0 bg-primary/5 rounded-full blur-[100px] -z-10 animate-pulse"></div>
                     <div class="phone-mockup mx-auto">
                         <div class="phone-screen">
-                            <iframe id="previewIframe" src="../mobile_app_preview.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="w-full h-full border-none"></iframe>
+                            <iframe id="previewIframe" src="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>&preview=1" class="w-full h-full border-none"></iframe>
                         </div>
                     </div>
                 </div>
@@ -381,25 +373,12 @@ $active_page = "settings";
         }
     }
 
-    function previewBanner(input) {
-        if (input.files && input.files[0]) {
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                const bannerPreview = document.getElementById('banner-preview-small');
-                bannerPreview.src = e.target.result;
-                bannerPreview.classList.remove('hidden');
-                updatePreview();
-            }
-            reader.readAsDataURL(input.files[0]);
-        }
-    }
-
     function updatePreview(logoData = null) {
         const form = document.getElementById('customizeForm');
         const formData = new FormData(form);
         const data = {};
         formData.forEach((value, key) => {
-            if (key !== 'logo' && key !== 'banner') data[key] = value;
+            if (key !== 'logo') data[key] = value;
         });
         
         if (logoData) {
@@ -409,12 +388,6 @@ $active_page = "settings";
             if (currentLogo && !currentLogo.classList.contains('hidden')) {
                 data.logo_preview = currentLogo.src;
             }
-        }
-
-        // Add Banner Preview
-        const currentBanner = document.getElementById('banner-preview-small');
-        if (currentBanner && !currentBanner.classList.contains('hidden')) {
-            data.banner_preview = currentBanner.src;
         }
 
         const primaryHex = document.getElementById('primary-hex');
