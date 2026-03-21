@@ -39,10 +39,10 @@ $font = $page['font_family'];
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <style>
         :root {
-            --primary: #A133FF;
-            --bg: #08080A;
+            --primary: <?= $page['theme_color'] ?? '#A133FF' ?>;
+            --bg: <?= $page['bg_color'] ?? '#08080A' ?>;
             --field-bg: #121214;
-            --font: 'Lexend', sans-serif;
+            --font: '<?= $page['font_family'] ?? 'Lexend' ?>', sans-serif;
         }
         body {
             background-color: var(--bg);
@@ -94,10 +94,10 @@ $font = $page['font_family'];
         .input-icon { font-size: 24px; color: rgba(255,255,255,0.4); }
         .input-placeholder { font-size: 16px; color: rgba(255,255,255,0.15); font-weight: 500; }
 
-        .btn-authorize { width: 100%; height: 78px; background: #9D35FF; border-radius: 20px; margin-top: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 17px; letter-spacing: 0.05em; gap: 12px; box-shadow: 0 16px 32px rgba(157, 53, 255, 0.2); }
+        .btn-authorize { width: 100%; height: 78px; background: var(--primary); border-radius: 20px; margin-top: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 17px; letter-spacing: 0.05em; gap: 12px; box-shadow: 0 16px 32px rgba(157, 53, 255, 0.2); }
 
         .form-footer { margin-top: 54px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-align: center; color: rgba(255,255,255,0.4); }
-        .form-footer span { color: #9D35FF; margin-left: 4px; }
+        .form-footer span { color: var(--primary); margin-left: 4px; }
 
         .nav-pill {
             width: 120px;
@@ -143,7 +143,7 @@ $font = $page['font_family'];
                 <div class="input-group">
                     <div class="flex justify-between items-center mb-4">
                         <span class="input-label mb-0">SECURITY KEY</span>
-                        <span style="color: #9D35FF; font-size: 11px; font-weight: 900; letter-spacing: 0.05em;">FORGOT?</span>
+                        <span style="color: var(--primary); font-size: 11px; font-weight: 900; letter-spacing: 0.05em;">FORGOT?</span>
                     </div>
                     <div class="input-box">
                         <span class="material-symbols-outlined input-icon">lock</span>

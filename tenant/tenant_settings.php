@@ -99,9 +99,15 @@ $active_page = "settings";
             transform: translateY(-50%);
             width: 4px; 
             height: 20px; 
-            background: #8c2bee; 
+            background: var(--primary-color, #8c2bee); 
             border-radius: 99px; 
         }
+        :root {
+            --primary-color: <?= $page['theme_color'] ?? '#8c2bee' ?>;
+        }
+        .text-primary { color: var(--primary-color) !important; }
+        .bg-primary { background-color: var(--primary-color) !important; }
+        .border-primary { border-color: var(--primary-color) !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
@@ -448,6 +454,19 @@ $active_page = "settings";
         const iframe = document.getElementById('previewIframe');
         if (iframe && iframe.contentWindow) {
             iframe.contentWindow.postMessage({ type: 'updateStyles', data: data }, '*');
+        }
+
+        // Live update dashboard colors
+        if (data.theme_color) {
+            document.documentElement.style.setProperty('--primary-color', data.theme_color);
+        }
+
+        // Live update gym name in sidebar
+        const gymNameDisplays = document.querySelectorAll('.gym-name-display');
+        if (data.page_title) {
+            gymNameDisplays.forEach(el => {
+                el.innerText = data.page_title;
+            });
         }
     }
 
