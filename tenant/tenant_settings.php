@@ -310,14 +310,7 @@ $active_page = "settings";
                     <div class="space-y-6">
                         <div class="space-y-1.5">
                             <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">App Download Link (APK URL)</label>
-                            <div class="flex gap-2">
-                                <input type="url" id="app_download_link" name="app_download_link" oninput="updatePreview()" value="<?= htmlspecialchars($page['app_download_link'] ?? '') ?>" placeholder="https://..." class="input-dark flex-1">
-                                <button type="button" onclick="generateAPK()" id="build-apk-btn" class="px-4 h-11 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all flex items-center gap-2 shrink-0">
-                                    <span class="material-symbols-outlined text-sm">build</span>
-                                    Build APK
-                                </button>
-                            </div>
-                            <p id="build-status" class="text-[9px] font-bold text-gray-500 mt-1 hidden"></p>
+                            <input type="url" name="app_download_link" oninput="updatePreview()" value="<?= htmlspecialchars($page['app_download_link'] ?? '') ?>" placeholder="https://..." class="input-dark">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">About the Facility</label>
@@ -421,52 +414,6 @@ $active_page = "settings";
                 updatePreview();
             }
             reader.readAsDataURL(input.files[0]);
-        }
-    }
-
-    async function generateAPK() {
-        const btn = document.getElementById('build-apk-btn');
-        const status = document.getElementById('build-status');
-        const linkInput = document.getElementById('app_download_link');
-        
-        btn.disabled = true;
-        btn.classList.add('opacity-50', 'cursor-not-allowed');
-        btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">sync</span> Building...';
-        status.classList.remove('hidden');
-        status.innerHTML = '<span class="text-primary italic">Starting build process... This may take up to 2-3 minutes. Please do not close this tab.</span>';
-        
-        try {
-            const response = await fetch('../action/build_apk.php');
-            const text = await response.text();
-            
-            let data;
-            try {
-                data = JSON.parse(text);
-            } catch (e) {
-                console.error('Invalid JSON response:', text);
-                status.innerHTML = '<span class="text-red-500 font-bold">Server Error:</span> <span class="text-[8px] text-gray-500">' + text.substring(0, 100) + '...</span>';
-                return;
-            }
-
-            if (data.success) {
-                status.innerHTML = '<span class="text-emerald-500 font-bold">✓ Success!</span> <span class="text-gray-400">' + data.message + '</span>';
-                if (data.apk_url) {
-                    linkInput.value = data.apk_url;
-                    updatePreview();
-                }
-            } else {
-                status.innerHTML = '<span class="text-red-500 font-bold">⚠ Build Failed:</span> <span class="text-gray-400">' + data.message + '</span>';
-                if (data.output) {
-                    console.log('Build Output:', data.output);
-                }
-            }
-        } catch (error) {
-            status.innerHTML = '<span class="text-red-500 font-bold">Network Error:</span> <span class="text-gray-400">Please check your connection or server status.</span>';
-            console.error('Fetch Error:', error);
-        } finally {
-            btn.disabled = false;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            btn.innerHTML = '<span class="material-symbols-outlined text-sm">build</span> Build APK';
         }
     }
 
