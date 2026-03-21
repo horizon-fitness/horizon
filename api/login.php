@@ -8,7 +8,7 @@ try {
     $input = json_decode(file_get_contents('php://input'), true);
     $username = isset($input['username']) ? trim((string)$input['username']) : '';
     $password = isset($input['password']) ? (string)$input['password'] : '';
-    $tenant_code = isset($input['tenant_code']) ? (string)$input['tenant_code'] : '';
+    $tenant_code = isset($input['tenant_code']) ? (string)$input['tenant_code'] : (isset($input['tenant_id']) ? (string)$input['tenant_id'] : '');
 
     if (empty($username) || empty($password)) {
         ob_end_clean();
@@ -17,15 +17,18 @@ try {
     }
 
     // Capture User with Role and Gym synergy - Filtered by tenant_code for strict multi-tenancy
-    $sql = "SELECT u.*, ur.gym_id, r.role_name, g.tenant_code, g.gym_name 
+    // Relaxed check: Allow login if tenant is '000', empty, or if user is Super Admin
+    $sql = "SELECT u.*, ur.gym_id, r.role_name, ur.tenant_code AS ur_tenant_code, g.tenant_code AS g_tenant_code, g.gym_name 
             FROM users u 
             JOIN user_roles ur ON u.user_id = ur.user_id 
             JOIN roles r ON ur.role_id = r.role_id 
             LEFT JOIN gyms g ON ur.gym_id = g.gym_id
-            WHERE (u.username = ? OR u.email = ?) AND (g.tenant_code = ? OR ? = '') LIMIT 1";
+            WHERE (u.username = :user OR u.email = :user) 
+            AND (ur.tenant_code = :tenant OR :tenant = '' OR :tenant = '000' OR r.role_name = 'Super Admin') 
+            LIMIT 1";
             
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$username, $username, $tenant_code, $tenant_code]);
+    $stmt->execute(['user' => $username, 'tenant' => $tenant_code]);
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password_hash'])) {
@@ -58,14 +61,14 @@ try {
                 'is_active' => (int)($user['is_active'] ?? 1),
                 'created_at' => (string)($user['created_at'] ?? date('Y-m-d H:i:s')),
                 'updated_at' => (string)($user['updated_at'] ?? date('Y-m-d H:i:s')),
-                'tenant_id' => (string)($user['tenant_code'] ?? '000'),
+                'tenant_id' => (string)($user['ur_tenant_code'] ?? ($user['g_tenant_code'] ?? '000')),
                 'gym_name' => (string)($user['gym_name'] ?? 'Horizon'),
                 'gym_id' => (int)($user['gym_id'] ?? 0)
             ],
             'branding' => $branding ? [
                 'page_id' => (int)$branding['page_id'],
                 'gym_id' => (int)$branding['gym_id'],
-                'tenant_code' => (string)($user['tenant_code'] ?? '000'),
+                'tenant_code' => (string)($user['ur_tenant_code'] ?? ($user['g_tenant_code'] ?? '000')),
                 'page_slug' => (string)$branding['page_slug'],
                 'page_title' => (string)$branding['page_title'],
                 'logo_path' => $branding['logo_path'] ? (string)$branding['logo_path'] : null,
@@ -75,7 +78,7 @@ try {
             ] : [
                 'page_id' => 0,
                 'gym_id' => (int)($user['gym_id'] ?? 0),
-                'tenant_code' => (string)($user['tenant_code'] ?? '000'),
+                'tenant_code' => (string)($user['ur_tenant_code'] ?? ($user['g_tenant_code'] ?? '000')),
                 'page_slug' => 'default',
                 'page_title' => (string)($user['gym_name'] ?? 'Horizon'),
                 'theme_color' => '#7f13ec',
