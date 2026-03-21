@@ -23,12 +23,18 @@ try {
             JOIN user_roles ur ON u.user_id = ur.user_id 
             JOIN roles r ON ur.role_id = r.role_id 
             LEFT JOIN gyms g ON ur.gym_id = g.gym_id
-            WHERE (u.username = :user OR u.email = :user) 
-            AND (ur.tenant_code = :tenant OR :tenant = '' OR :tenant = '000' OR r.role_name = 'Super Admin') 
+            WHERE (u.username = :user1 OR u.email = :user2) 
+            AND (ur.tenant_code = :tenant1 OR :tenant2 = '' OR :tenant3 = '000' OR r.role_name = 'Super Admin') 
             LIMIT 1";
             
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(['user' => $username, 'tenant' => $tenant_code]);
+    $stmt->execute([
+        'user1' => $username, 
+        'user2' => $username, 
+        'tenant1' => $tenant_code, 
+        'tenant2' => $tenant_code, 
+        'tenant3' => $tenant_code
+    ]);
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password_hash'])) {
