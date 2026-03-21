@@ -250,10 +250,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Back to Website
                 </a>
             <?php endif; ?>
-            <a href="horizon.apk" class="font-display bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-5 py-2.5 rounded-custom text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">install_mobile</span>
-                Download App
-            </a>
             <a href="tenant/tenant_application.php" class="font-display bg-white/5 hover:bg-white/10 text-white border border-white/10 px-5 py-2.5 rounded-custom text-[10px] font-bold uppercase tracking-widest transition-all">
                 Register Gym
             </a>

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 date_default_timezone_set('Asia/Manila');
 $host    = 'sql202.infinityfree.com';
 $db      = 'if0_41368854_horizon_db';
