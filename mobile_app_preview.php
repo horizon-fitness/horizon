@@ -13,14 +13,14 @@ if (!empty($gym_slug)) {
 // Fallback if not found or no slug
 if (!$page) {
     $page = [
-        'page_title' => 'Horizon Systems',
+        'page_title' => 'WELCOME BACK',
         'gym_name' => 'Horizon Systems',
         'theme_color' => '#1a73e8',
         'bg_color' => '#0a090d',
         'font_family' => 'Inter',
         'logo_path' => 'assets/default_logo.png',
         'banner_image' => 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070&auto=format&fit=crop',
-        'about_text' => 'Welcome to Horizon Systems. Your fitness journey starts here.',
+        'about_text' => 'AUTHORIZED PERSONNEL ONLY',
         'contact_text' => ''
     ];
 }
@@ -39,9 +39,10 @@ $font = $page['font_family'];
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <style>
         :root {
-            --primary: <?= $primary ?>;
-            --bg: <?= $bg ?>;
-            --font: '<?= $font ?>', sans-serif;
+            --primary: #A133FF;
+            --bg: #08080A;
+            --field-bg: #121214;
+            --font: 'Lexend', sans-serif;
         }
         body {
             background-color: var(--bg);
@@ -54,166 +55,134 @@ $font = $page['font_family'];
             display: flex;
             flex-direction: column;
         }
-        /* Hide scrollbars for true App feel */
         ::-webkit-scrollbar { display: none; }
-        * { -ms-overflow-style: none; scrollbar-width: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; box-sizing: border-box; }
 
-        .android-content-area {
-            flex: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
         .android-status-bar {
-            height: 32px;
-            padding: 0 20px;
+            height: 48px;
+            padding: 0 28px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 11px;
-            font-weight: 500;
+            font-size: 14px;
+            font-weight: 600;
             color: white;
-            opacity: 0.9;
+            z-index: 20;
+            margin-top: 8px;
         }
-        .header-logo-card {
-            width: 36px;
-            height: 36px;
-            background-color: var(--primary);
-            border-radius: 8px;
+
+        .android-content-area {
+            flex: 1;
+            padding: 32px;
             display: flex;
-            align-items: center;
+            flex-direction: column;
             justify-content: center;
-        }
-        .banner-card {
-            width: calc(100% - 32px);
-            height: 200px;
-            margin: 12px auto;
-            border-radius: 20px;
-            overflow: hidden;
+            align-items: center;
             position: relative;
-            border: 1px solid rgba(255,255,255,0.1);
         }
-        .banner-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .btn-primary {
-            background-color: var(--primary);
-            height: 56px;
-            width: calc(100% - 64px);
-            margin: 0 auto;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 15px;
-            color: white;
-            box-shadow: 0 8px 20px -6px var(--primary);
-        }
-        .btn-outline {
-            background: #0d0d0d;
-            border: 1px solid rgba(255,255,255,0.05);
-            height: 56px;
-            width: calc(100% - 64px);
-            margin: 0 auto;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            font-size: 15px;
-            color: #888;
-        }
-        .badge {
-            background: rgba(255,255,255,0.03);
-            background: #111;
-            padding: 6px 16px;
+
+        .hero-section { width: 100%; margin-bottom: 48px; text-align: left; }
+        .hero-title { font-size: 42px; font-weight: 800; letter-spacing: -0.01em; margin: 0; color: white; line-height: 1.1; }
+        .hero-subtitle { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; color: rgba(255,255,255,0.3); margin-top: 12px; text-transform: uppercase; }
+
+        .badge-secure { align-self: flex-start; border: 1px solid rgba(255,255,255,0.2); padding: 6px 18px; border-radius: 99px; font-size: 10px; font-weight: 700; letter-spacing: 0.15em; color: rgba(255,255,255,0.5); margin-top: 42px; margin-bottom: 42px; text-transform: uppercase; }
+
+        .login-form { width: 100%; display: flex; flex-direction: column; }
+        .input-group { width: 100%; margin-bottom: 36px; }
+        .input-label { font-size: 11px; font-weight: 800; letter-spacing: 0.15em; color: rgba(255,255,255,0.5); margin-bottom: 16px; display: block; }
+        .input-box { width: 100%; height: 64px; background: var(--field-bg); border-radius: 14px; display: flex; align-items: center; padding: 0 20px; gap: 16px; }
+        .input-icon { font-size: 24px; color: rgba(255,255,255,0.4); }
+        .input-placeholder { font-size: 16px; color: rgba(255,255,255,0.15); font-weight: 500; }
+
+        .btn-authorize { width: 100%; height: 78px; background: #9D35FF; border-radius: 20px; margin-top: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 17px; letter-spacing: 0.05em; gap: 12px; box-shadow: 0 16px 32px rgba(157, 53, 255, 0.2); }
+
+        .form-footer { margin-top: 54px; font-size: 10px; font-weight: 800; letter-spacing: 0.05em; text-align: center; color: rgba(255,255,255,0.4); }
+        .form-footer span { color: #9D35FF; margin-left: 4px; }
+
+        .nav-pill {
+            width: 120px;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
             border-radius: 99px;
-            font-size: 10.5px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--primary);
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .dot {
-            width: 6px;
-            height: 6px;
-            background-color: var(--primary);
-            border-radius: 50%;
+            margin: 12px auto;
         }
     </style>
 </head>
 <body class="no-scrollbar">
 
     <!-- App Content -->
-    <div class="flex-1 flex flex-col pt-1">
-        
+    <div class="flex-1 flex flex-col h-full">
         <!-- Status Bar -->
         <div class="android-status-bar">
-            <span>7:06</span>
-            <div class="flex items-center gap-1.5 opacity-60">
-                <span class="material-symbols-outlined text-[14px]">signal_cellular_4_bar</span>
-                <span class="material-symbols-outlined text-[14px]">wifi</span>
-                <span class="material-symbols-outlined text-[14px]">battery_full</span>
+            <span id="android-clock">--:--</span>
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-[20px]">signal_cellular_4_bar</span>
+                <span class="material-symbols-outlined text-[20px]">wifi</span>
+                <span class="material-symbols-outlined text-[20px]">battery_full</span>
             </div>
         </div>
 
-        <!-- Native Header -->
-        <div class="px-5 h-[56px] flex items-center gap-3.5">
-            <div id="header-logo-container" class="header-logo-card">
-                <img id="logo-img" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" class="size-5 object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
-                <span id="logo-icon" class="material-symbols-outlined text-white text-lg <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">bolt</span>
-            </div>
-            <span class="text-[16px] font-bold tracking-[0.05em] text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
-        </div>
-
-        <div class="android-content-area no-scrollbar">
-            <!-- Banner Section -->
-            <div class="banner-card">
-                <img id="banner-img" src="<?= !empty($page['banner_image']) ? $page['banner_image'] : 'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070&auto=format&fit=crop' ?>">
-            </div>
-
-            <!-- Hero Section -->
-            <div class="text-center mt-5">
-                <div class="badge mx-auto bg-[#131217]">
-                    <span class="dot"></span>
-                    <span>Open for Membership</span>
-                </div>
-
-                <h1 id="hero-title" class="text-[30px] font-bold text-white mt-6 px-4 leading-[1.2]">
-                    Elevate Your Fitness at <br/> <span class="gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
-                </h1>
-
-                <p id="about-text" class="text-[14px] font-medium text-white/50 mt-4 px-8 leading-relaxed">
-                    <?= htmlspecialchars($page['about_text'] ?? 'Welcome to Horizon Systems. Your fitness journey starts here.') ?>
-                </p>
-            </div>
-
-            <!-- Buttons Row -->
-            <div class="mt-8 flex flex-col gap-3.5 pb-12">
-                <div class="btn-primary">Sign In</div>
-                <div class="btn-primary">Register</div>
-                <div class="btn-outline">Get Member APK</div>
+        <div class="android-content-area">
+            
+            <div class="hero-section">
+                <h1 id="hero-title-display" class="hero-title"><?= htmlspecialchars($page['page_title'] ?? 'WELCOME BACK') ?></h1>
+                <p id="hero-subtitle-display" class="hero-subtitle"><?= htmlspecialchars($page['about_text'] ?? 'AUTHORIZED PERSONNEL ONLY') ?></p>
                 
-                <!-- Footer Contact (Matching XML exactly) -->
-                <div id="contact-text" class="mt-8 text-[11px] font-bold uppercase tracking-[0.05em] text-white/20 text-center px-10 leading-loose">
-                    <?= htmlspecialchars($page['contact_text'] ?? '') ?>
+                <div class="badge-secure">Secure Access</div>
+            </div>
+
+            <div class="login-form">
+                <div class="input-group">
+                    <span class="input-label">IDENTITY</span>
+                    <div class="input-box">
+                        <span class="material-symbols-outlined input-icon">person_filled</span>
+                        <span class="input-placeholder">Username</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="input-label mb-0">SECURITY KEY</span>
+                        <span style="color: #9D35FF; font-size: 11px; font-weight: 900; letter-spacing: 0.05em;">FORGOT?</span>
+                    </div>
+                    <div class="input-box">
+                        <span class="material-symbols-outlined input-icon">lock</span>
+                        <span class="input-placeholder flex-1">••••••••</span>
+                        <span class="material-symbols-outlined input-icon" style="opacity: 0.6">visibility</span>
+                    </div>
+                </div>
+
+                <div class="btn-authorize">
+                    AUTHORIZE ENTRY
+                    <span class="material-symbols-outlined">arrow_forward</span>
+                </div>
+
+                <div class="form-footer">
+                    NEW TO THE FAMILY? <span>CREATE ACCOUNT</span>
                 </div>
             </div>
         </div>
+
+        <!-- Bottom Pill -->
+        <div class="nav-pill"></div>
     </div>
+
 
     <!-- Nav Bar -->
     <div class="android-nav-bar">
-        <div class="nav-line"></div>
+        <div class="nav-pill"></div>
     </div>
 
     <script>
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+            const clockEl = document.getElementById('android-clock');
+            if (clockEl) clockEl.innerText = timeStr;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
         window.addEventListener('message', function(event) {
             if (event.data.type === 'updateStyles') {
                 const data = event.data.data;
@@ -223,26 +192,29 @@ $font = $page['font_family'];
                 if (data.bg_color) document.documentElement.style.setProperty('--bg', data.bg_color);
                 if (data.font_family) document.documentElement.style.setProperty('--font', `'${data.font_family}', sans-serif`);
                 
-                // Text
+                // Text - Map form fields to display IDs
                 if (data.page_title) {
-                    document.querySelectorAll('.gym-name-display').forEach(n => n.innerText = data.page_title);
+                    const title = document.getElementById('hero-title-display');
+                    if (title) title.innerText = data.page_title;
                 }
-                if (data.about_text !== undefined) document.getElementById('about-text').innerText = data.about_text;
-                if (data.contact_text !== undefined) document.getElementById('contact-text').innerText = data.contact_text;
+                if (data.about_text) {
+                    const subtitle = document.getElementById('hero-subtitle-display');
+                    if (subtitle) subtitle.innerText = data.about_text;
+                }
                 
                 // Media
                 if (data.logo_preview) {
                     const img = document.getElementById('logo-img');
-                    const icon = document.getElementById('logo-icon');
-                    img.src = data.logo_preview;
-                    img.classList.remove('hidden');
-                    icon.classList.add('hidden');
-                }
-                if (data.banner_preview) {
-                    document.getElementById('banner-img').src = data.banner_preview;
+                    if (img) {
+                        img.src = data.logo_preview;
+                        img.classList.remove('hidden');
+                    }
                 }
             }
         });
+
+        // Notify parent that preview is ready
+        window.parent.postMessage({ type: 'previewReady' }, '*');
     </script>
 </body>
 </html>

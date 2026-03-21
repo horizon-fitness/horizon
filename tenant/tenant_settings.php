@@ -108,39 +108,62 @@ $active_page = "settings";
         .input-dark { background: #0a090d; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; color: white; padding: 0.75rem 1rem; font-size: 0.75rem; width: 100%; outline: none; transition: border-color 0.2s; }
         .input-dark:focus { border-color: #8c2bee; }
         
-        /* High-Fidelity Phone Frame */
+        /* High-Fidelity Emulator Frame */
         .phone-mockup {
-            width: 310px;
-            height: 640px;
-            background: #000;
-            border-radius: 48px;
-            border: 8px solid #2a2835;
+            width: 380px;
+            height: 820px;
+            background: #1A1A1D;
+            border-radius: 54px;
+            padding: 12px;
             position: relative;
-            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.8), 0 0 0 4px #1a1824;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
             overflow: visible;
+            transform-origin: top center;
+            transform: scale(0.75); /* Default scale to fit standard screens */
+            margin-bottom: -180px; /* Pull content up to compensate for scale gap */
         }
-        /* Android Punch Hole Camera */
+        
+        @media (min-height: 900px) {
+            .phone-mockup { transform: scale(0.85); margin-bottom: -100px; }
+        }
+        @media (min-height: 1000px) {
+            .phone-mockup { transform: scale(0.95); margin-bottom: -20px; }
+        }
+
+        /* Punch Hole Camera */
         .phone-mockup::before {
             content: '';
             position: absolute;
-            top: 12px;
+            top: 24px;
             left: 50%;
             transform: translateX(-50%);
-            width: 12px;
-            height: 12px;
-            background: #111;
-            border: 2px solid #2a2835;
+            width: 28px;
+            height: 28px;
+            background: #050505;
             border-radius: 50%;
             z-index: 20;
+            box-shadow: inset 0 0 5px rgba(255,255,255,0.1);
         }
-        /* Remove physical bottom bar */
-        .phone-mockup::after { display: none; }
+        /* Side Buttons */
+        .phone-mockup::after {
+            content: '';
+            position: absolute;
+            right: -3px;
+            top: 160px;
+            width: 3px;
+            height: 60px;
+            background: #1A1A1D;
+            border-radius: 0 4px 4px 0;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.5);
+        }
+
         .phone-screen {
             width: 100%;
             height: 100%;
-            border-radius: 40px;
+            border-radius: 42px;
             overflow: hidden;
             background: #000;
+            position: relative;
         }
     </style>
 </head>
@@ -427,6 +450,12 @@ $active_page = "settings";
             iframe.contentWindow.postMessage({ type: 'updateStyles', data: data }, '*');
         }
     }
+
+    window.addEventListener('message', (event) => {
+        if (event.data.type === 'previewReady') {
+            updatePreview();
+        }
+    });
 
     window.addEventListener('DOMContentLoaded', () => {
         updateSidebarClock();

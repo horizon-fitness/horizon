@@ -12,7 +12,7 @@ if (!$result) {
     $result = [
         'gym_id' => 1,
         'page_slug' => 'horizon',
-        'page_title' => 'Horizon Systems',
+        'page_title' => 'WELCOME BACK',
         'gym_name' => 'Horizon Systems',
         'tenant_code' => '000',
         'logo_path' => 'assets/default_logo.png',
@@ -20,7 +20,7 @@ if (!$result) {
         'theme_color' => '#8c2bee',
         'bg_color' => '#0a090d',
         'font_family' => 'Inter',
-        'about_text' => 'Welcome to the Horizon Systems official app. Your fitness journey starts here.',
+        'about_text' => 'AUTHORIZED PERSONNEL ONLY',
         'app_download_link' => 'https://horizonfitnesscorp.gt.tc/download.php'
     ];
 }
