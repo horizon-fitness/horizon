@@ -248,9 +248,16 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 px-10 rounded-2xl btn-premium flex items-center justify-center text-sm font-bold text-white">
                     Member Login
                 </a>
-                <a id="app-download-btn" href="<?= htmlspecialchars($page['app_download_link'] ?? '#') ?>" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-semibold text-white transition-all group">
-                    <span class="material-symbols-outlined text-xl mr-2.5">smartphone</span>
-                    Download App
+                <!-- Automatic APK Download Logic -->
+                <?php 
+                    $final_apk_link = !empty($page['app_download_link']) ? $page['app_download_link'] : (file_exists('app-debug.apk') ? 'app-debug.apk' : '#');
+                ?>
+                <a id="app-download-btn" href="<?= htmlspecialchars($final_apk_link) ?>" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-bold text-white transition-all group relative overflow-hidden">
+                    <span class="absolute inset-0 bg-primary/20 animate-pulse"></span>
+                    <span class="relative flex items-center">
+                        <span class="material-symbols-outlined text-xl mr-2.5">download</span>
+                        Get App (app-debug.apk)
+                    </span>
                 </a>
             </div>
         </section>
