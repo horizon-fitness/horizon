@@ -310,7 +310,7 @@ $active_page = "settings";
                     <div class="space-y-6">
                         <div class="space-y-1.5">
                             <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">App Download Link (APK URL)</label>
-                            <input type="url" name="app_download_link" oninput="updatePreview()" value="<?= htmlspecialchars($page['app_download_link'] ?? '') ?>" placeholder="Empty defaults to horizon.apk" class="input-dark">
+                            <input type="url" name="app_download_link" oninput="updatePreview()" value="<?= htmlspecialchars($page['app_download_link'] ?? '') ?>" placeholder="https://..." class="input-dark">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">About the Facility</label>
