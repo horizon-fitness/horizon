@@ -135,6 +135,10 @@ session_start();
                 </div>
 
                 <div class="flex items-center gap-4">
+                    <a href="https://drive.google.com/drive/folders/1Mg7gltjfTP5dsb4CG_PVdgSdPYUjaFz6?usp=sharing" class="font-display bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-4 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 mr-2">
+                        <span class="material-symbols-outlined text-[16px]">smartphone</span>
+                        App
+                    </a>
                     <a href="login.php" class="font-display bg-white/5 hover:bg-white/10 text-white border border-white/10 px-5 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all">
                         Staff Login
                     </a>
@@ -164,8 +168,14 @@ session_start();
                         Together with <span class="text-white font-bold">HORIZON</span>, your fitness business will really form and scale. Interested? Join now!
                     </p>
                     
-                    <div class="flex gap-4 mb-16">
-                        <a href="tenant/tenant_application.php" class="font-display px-10 py-5 bg-primary text-white font-bold rounded-custom text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20">Apply Now</a>
+                    <div class="flex flex-wrap gap-4 mb-16">
+                        <a href="tenant/tenant_application.php" class="font-display h-16 px-10 bg-primary text-white font-bold rounded-custom text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20 flex items-center justify-center">
+                            Apply Now
+                        </a>
+                        <a href="https://drive.google.com/drive/folders/1Mg7gltjfTP5dsb4CG_PVdgSdPYUjaFz6?usp=sharing" class="font-display h-16 px-10 bg-white/5 border border-white/10 text-white font-bold rounded-custom text-xs uppercase tracking-widest hover:bg-white/10 hover:scale-105 transition-all flex items-center justify-center gap-3">
+                            <span class="material-symbols-outlined text-lg">smartphone</span>
+                            Download App
+                        </a>
                     </div>
 
                     <div class="flex gap-12 border-t border-white/5 pt-10">
