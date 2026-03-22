@@ -807,62 +807,57 @@ switch ($report_type) {
 
         // Clone and SURGICALLY clean the content
         const contentClone = element.cloneNode(true);
-        
-        // Remove ALL UI styling and classes from EVERY child
+
+        // 1. REMOVE UI ELEMENTS FIRST (while classes still exist)
+        contentClone.querySelectorAll('button, form, span.material-symbols-outlined, header, .border-b, .px-8.py-6, .flex-wrap').forEach(el => el.remove());
+
+        // 2. STRIP ALL CLASSES AND INLINE STYLES + FORCE BLACK TEXT
         contentClone.querySelectorAll('*').forEach(el => {
-            el.className = ''; 
-            el.style.cssText = ''; 
-            el.style.color = '#000'; // Force strict black
-            el.style.backgroundColor = 'transparent';
-            el.style.borderRadius = '0';
-            el.style.boxShadow = 'none';
+            el.removeAttribute('class');
+            el.style.setProperty('color', '#000', 'important');
+            el.style.setProperty('background-color', 'transparent', 'important');
+            el.style.setProperty('border-radius', '0', 'important');
+            el.style.setProperty('box-shadow', 'none', 'important');
+            el.style.setProperty('opacity', '1', 'important');
+            el.style.setProperty('visibility', 'visible', 'important');
         });
 
-        // REMOVE REDUNDANT TITLES: Remove the top bar entirely in the clone
-        // Looking for the container that has h3 and p (titles)
-        const topHeader = contentClone.querySelector('h3, p.text-sm');
-        if (topHeader && topHeader.parentElement) {
-            topHeader.parentElement.remove();
-        }
-        
-        // Broadly remove anything that isn't the table itself
-        contentClone.querySelectorAll('button, form, span.material-symbols-outlined, header, .border-b, .px-8.py-6').forEach(el => el.remove());
-
-        // Transform the Table into a Formal Grid
+        // 3. TRANSFORM TABLE INTO FORMAL GRID (Aggressive Black & White)
         const table = contentClone.querySelector('table');
         if (table) {
-            table.style.width = '100%';
-            table.style.borderCollapse = 'collapse';
-            table.style.fontSize = '11px';
-            table.style.color = '#000';
-            table.style.border = '1px solid #000';
-            table.style.fontFamily = "'Roboto Mono', monospace";
-            table.style.marginTop = '0';
+            table.style.setProperty('width', '100%', 'important');
+            table.style.setProperty('border-collapse', 'collapse', 'important');
+            table.style.setProperty('font-size', '11px', 'important');
+            table.style.setProperty('color', '#000', 'important');
+            table.style.setProperty('border', '1px solid #000', 'important');
+            table.style.setProperty('font-family', "'Roboto Mono', monospace", 'important');
+            table.style.setProperty('margin-top', '0', 'important');
 
             table.querySelectorAll('th').forEach(th => {
-                th.style.backgroundColor = '#e0e0e0'; // Distinct Header Color (Subtle Grey)
-                th.style.color = '#000';
-                th.style.border = '1px solid #000';
-                th.style.padding = '12px 10px';
-                th.style.textTransform = 'uppercase';
-                th.style.fontWeight = '700';
-                th.style.textAlign = 'left';
+                th.style.setProperty('background-color', '#f0f0f0', 'important'); // Very light gray header
+                th.style.setProperty('color', '#000', 'important');
+                th.style.setProperty('border', '1px solid #000', 'important');
+                th.style.setProperty('padding', '12px 10px', 'important');
+                th.style.setProperty('text-transform', 'uppercase', 'important');
+                th.style.setProperty('font-weight', 'bold', 'important');
+                th.style.setProperty('text-align', 'left', 'important');
             });
 
             table.querySelectorAll('td').forEach(td => {
-                td.style.border = '1px solid #000';
-                td.style.padding = '10px 10px';
-                td.style.color = '#000';
-                td.style.backgroundColor = '#fff'; // Strictly white cells
-                td.style.verticalAlign = 'top';
+                td.style.setProperty('border', '1px solid #000', 'important');
+                td.style.setProperty('padding', '10px 10px', 'important');
+                td.style.setProperty('color', '#000', 'important');
+                td.style.setProperty('background-color', '#fff', 'important'); // Strictly white cells
+                td.style.setProperty('vertical-align', 'top', 'important');
 
-                // Ensure all internal elements are visible and black
+                // Ensure all internal elements (p, span, div) are strictly black and bold
                 td.querySelectorAll('*').forEach(ch => {
-                    ch.style.color = '#000';
-                    ch.style.fontSize = '11px';
-                    ch.style.margin = '0';
-                    ch.style.fontWeight = '500';
-                    ch.style.textDecoration = 'none';
+                    ch.style.setProperty('color', '#000', 'important');
+                    ch.style.setProperty('font-size', '11px', 'important');
+                    ch.style.setProperty('margin', '0', 'important');
+                    ch.style.setProperty('font-weight', '700', 'important'); // Hard bold for high visibility
+                    ch.style.setProperty('text-decoration', 'none', 'important');
+                    ch.style.setProperty('opacity', '1', 'important');
                 });
             });
         }
