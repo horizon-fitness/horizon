@@ -36,16 +36,24 @@ $stmtTenants = $pdo->query("
 $tenants = $stmtTenants->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch Existing Tenant Links for the Linking Tab
-$stmtLinks = $pdo->query("
-    SELECT gl.link_id, gl.created_at,
-           g1.gym_name as primary_name, g1.tenant_code as primary_code,
-           g2.gym_name as secondary_name, g2.tenant_code as secondary_code
-    FROM gym_links gl
-    JOIN gyms g1 ON gl.primary_id = g1.gym_id
-    JOIN gyms g2 ON gl.secondary_id = g2.gym_id
-    ORDER BY gl.created_at DESC
-");
-$tenant_links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
+$tenant_links = [];
+try {
+    $stmtLinks = $pdo->query("
+        SELECT gl.link_id, gl.created_at,
+               g1.gym_name as primary_name, g1.tenant_code as primary_code,
+               g2.gym_name as secondary_name, g2.tenant_code as secondary_code
+        FROM gym_links gl
+        JOIN gyms g1 ON gl.primary_id = g1.gym_id
+        JOIN gyms g2 ON gl.secondary_id = g2.gym_id
+        ORDER BY gl.created_at DESC
+    ");
+    if ($stmtLinks) {
+        $tenant_links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (PDOException $e) {
+    // Table might not exist yet
+    $tenant_links = [];
+}
 
 // Fetch All Active Gyms for the Linking Dropdowns
 $stmtActiveGyms = $pdo->query("SELECT gym_id, gym_name, tenant_code FROM gyms WHERE status = 'Active' ORDER BY gym_name ASC");
@@ -511,6 +519,21 @@ foreach ($tenants as $t) {
                     </tbody>
                 </table>
             </div>
+            <div class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center">
+                <p class="text-[10px] font-black uppercase text-gray-600 tracking-widest">Showing <?= count($tenants) ?> of <?= $total_tenants ?> gyms</p>
+                <div class="flex gap-2">
+                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all disabled:opacity-20" disabled>
+                        <span class="material-symbols-outlined text-sm">chevron_left</span>
+                    </button>
+                    <button class="size-8 rounded-lg bg-primary flex items-center justify-center text-white transition-all font-black text-[10px]">1</button>
+                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all font-black text-[10px]">2</button>
+                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all">
+                        <span class="material-symbols-outlined text-sm">chevron_right</span>
+                    </button>
+                </div>
+            </div>
+          </div>
+        </div>
 
         <div id="section-linking" class="hidden">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -605,22 +628,7 @@ foreach ($tenants as $t) {
                 </div>
             </div>
         </div>
-            <div class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center">
-                <p class="text-[10px] font-black uppercase text-gray-600 tracking-widest">Showing <?= count($tenants) ?> of <?= $total_tenants ?> gyms</p>
-                <div class="flex gap-2">
-                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all disabled:opacity-20" disabled>
-                        <span class="material-symbols-outlined text-sm">chevron_left</span>
-                    </button>
-                    <button class="size-8 rounded-lg bg-primary flex items-center justify-center text-white transition-all font-black text-[10px]">1</button>
-                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all font-black text-[10px]">2</button>
-                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all">
-                        <span class="material-symbols-outlined text-sm">chevron_right</span>
-                    </button>
-                </div>
-            </div>
         </div>
-        </div>
-
     </main>
 </div>
 
