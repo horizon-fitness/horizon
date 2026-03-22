@@ -1,4 +1,4 @@
--- Horizon Systems - Simple Basis Schema for InfinityFree
+-- Horizon Systems Updated - Simple Basis Schema for InfinityFree
 
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -54,6 +54,22 @@ CREATE TABLE service_catalog (
     default_description TEXT NOT NULL
 );
 
+CREATE TABLE system_settings (
+    setting_key VARCHAR(50) PRIMARY KEY,
+    setting_value TEXT,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE system_alerts (
+    alert_id INT AUTO_INCREMENT PRIMARY KEY,
+    type VARCHAR(50) NOT NULL,
+    source VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    priority ENUM('High','Medium','Low') DEFAULT 'Low',
+    status ENUM('Unread','Read','Resolved') DEFAULT 'Unread',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE gym_owner_applications (
     application_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -103,6 +119,7 @@ CREATE TABLE user_roles (
     user_id INT NOT NULL,
     role_id INT NOT NULL,
     gym_id INT,
+    tenant_code VARCHAR(50),
     role_status VARCHAR(50) NOT NULL,
     assigned_at DATETIME NOT NULL
 );
@@ -449,8 +466,11 @@ INSERT INTO users (
     NOW()
 );
 
-INSERT INTO user_roles (user_id, role_id, role_status, assigned_at)
-VALUES (1, 1, 'Active', NOW());
+INSERT INTO user_roles (
+    user_id, role_id, gym_id, tenant_code, role_status, assigned_at
+) VALUES (
+    1, 1, NULL, NULL, 'Active', NOW()
+);
 
 INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, features) VALUES
 ('6-Month Kickstart', 5999.00, '6 Months', 6, 'Multi-Tenant Management, Core Analytics, Gym Page Customizer'),
