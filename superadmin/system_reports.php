@@ -772,122 +772,119 @@ switch ($report_type) {
     function exportReportToPDF(preview = false) {
         const element = document.getElementById('detailedTab');
         const reportTitle = "<?= $curr_report['title'] ?>";
-        const dateFrom = "<?= date('M d, Y', strtotime($date_from)) ?>";
-        const dateTo = "<?= date('M d, Y', strtotime($date_to)) ?>";
         const tenantName = "Horizon System";
         const generatedAt = "<?= date('M d, Y h:i A') ?>";
 
         // Create a wrapper for formal PDF styling
         const wrapper = document.createElement('div');
-        wrapper.style.padding = '40px';
+        wrapper.style.padding = '50px';
         wrapper.style.color = '#000';
         wrapper.style.backgroundColor = '#fff';
         wrapper.style.fontFamily = "'Roboto Mono', monospace";
 
-        // Formal Header (Matching Sample)
+        // Formal Header (Matching Reference Image)
         const header = `
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
                 <div style="text-align: left;">
-                    <h1 style="font-family: 'Lexend', sans-serif; font-size: 28px; font-weight: 800; color: #000; margin: 0; text-transform: uppercase; letter-spacing: -0.5px;">${tenantName}</h1>
-                    <div style="font-size: 9px; color: #333; margin-top: 8px; line-height: 1.6;">
-                        <p style="margin: 0;">Baliwag, Bulacan, Philippines, 3006</p>
-                        <p style="margin: 0;">Phone: 0976-241-1986 | Email: horizonfitnesscorp@gmail.com</p>
-                    </div>
+                    <h1 style="font-size: 32px; font-weight: 800; color: #000; margin: 0; text-transform: uppercase; font-family: 'Lexend', sans-serif;">${tenantName}</h1>
                 </div>
                 <div style="text-align: right;">
-                    <h2 style="font-family: 'Lexend', sans-serif; font-size: 18px; font-weight: 700; color: #000; margin: 0; text-transform: uppercase;">${reportTitle}</h2>
-                    <div style="font-size: 9px; color: #333; margin-top: 8px; line-height: 1.6;">
-                        <p style="margin: 0;">Generated on: ${generatedAt}</p>
-                    </div>
+                    <h2 style="font-size: 18px; font-weight: 700; color: #000; margin: 0; text-transform: uppercase;">${reportTitle}</h2>
                 </div>
             </div>
-            <div style="border-bottom: 2px solid #000; margin-bottom: 30px;"></div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; font-size: 10px; line-height: 1.6;">
+                <div style="text-align: left; color: #000;">
+                    <p style="margin: 0;">Baliwag, Bulacan, Philippines, 3006</p>
+                    <p style="margin: 0;">Phone: 0976-241-1986 | Email: horizonfitnesscorp@gmail.com</p>
+                </div>
+                <div style="text-align: right; color: #000;">
+                    <p style="margin: 0;">Generated on: ${generatedAt}</p>
+                    <p style="margin: 0;">Reference ID: RPT-${Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
+                </div>
+            </div>
+            <div style="border-bottom: 2px solid #000; margin-bottom: 40px;"></div>
         `;
 
-        // Clone the content and clean it up
+        // Clone and AGGRESSIVELY clean the content
         const contentClone = element.cloneNode(true);
         
-        // Remove interactive elements from clone
-        const actionBar = contentClone.querySelector('.px-8.py-6.border-b');
-        if (actionBar) actionBar.remove();
-
-        // 1. Clean data: Remove secondary info (clutter) for business report
-        const secondaryTexts = contentClone.querySelectorAll('p.text-\\[9px\\], p.text-\\[8px\\], span.text-\\[9px\\]');
-        secondaryTexts.forEach(el => {
-            if (!el.classList.contains('px-3')) { 
-                el.remove();
-            }
+        // Remove ALL UI styling and classes from EVERY child to ensure text visibility
+        contentClone.querySelectorAll('*').forEach(el => {
+            el.className = ''; 
+            el.style.cssText = ''; // Reset all inline styles
+            el.style.color = '#000';
+            el.style.backgroundColor = 'transparent';
+            el.style.borderRadius = '0';
+            el.style.boxShadow = 'none';
         });
-        
-        // Adjust table for PDF visibility (Excel Style)
+
+        // Remove interactive elements
+        contentClone.querySelectorAll('button, form, span.material-symbols-outlined, div.border-b').forEach(el => el.remove());
+
+        // Transform the Table into a Formal Grid
         const table = contentClone.querySelector('table');
         let recordCount = 0;
         if (table) {
             table.style.width = '100%';
             table.style.borderCollapse = 'collapse';
-            table.style.fontSize = '10px';
+            table.style.fontSize = '11px';
             table.style.color = '#000';
             table.style.border = '1px solid #000';
-            table.style.marginTop = '10px';
+            table.style.fontFamily = "'Roboto Mono', monospace";
 
-            // style headers
-            const ths = table.querySelectorAll('th');
-            ths.forEach(th => {
-                th.style.backgroundColor = '#f3f4f6'; 
+            table.querySelectorAll('th').forEach(th => {
+                th.style.backgroundColor = '#f2f2f2';
                 th.style.color = '#000';
                 th.style.border = '1px solid #000';
                 th.style.padding = '12px 10px';
                 th.style.textTransform = 'uppercase';
-                th.style.fontWeight = '800';
-                th.style.textAlign = 'center';
+                th.style.fontWeight = '700';
+                th.style.textAlign = 'left';
             });
 
-            // style cells
             const rows = table.querySelectorAll('tbody tr');
             recordCount = rows.length;
-            const tds = table.querySelectorAll('td');
-            tds.forEach(td => {
+            table.querySelectorAll('td').forEach(td => {
                 td.style.border = '1px solid #000';
-                td.style.padding = '12px 10px';
+                td.style.padding = '10px 10px';
                 td.style.color = '#000';
-                td.style.verticalAlign = 'middle';
-                const texts = td.querySelectorAll('p, span');
-                texts.forEach(t => t.style.color = '#000');
+                td.style.backgroundColor = '#fff';
+                td.style.verticalAlign = 'top';
+
+                // Ensure all internal elements are visible and black
+                td.querySelectorAll('*').forEach(ch => {
+                    ch.style.color = '#000';
+                    ch.style.fontSize = '11px';
+                    ch.style.margin = '0';
+                    ch.style.fontWeight = '500';
+                });
             });
 
             if (table.querySelector('td[colspan]')) recordCount = 0;
         }
 
-        // Add Summary Section
-        const summary = `
-            <div style="font-size: 10px; font-weight: 700; color: #000; margin-bottom: 15px; display: flex; justify-content: space-between;">
-                <span>TRANSCRIPT OF RECORDS</span>
-                <span>TOTAL RECORDS FOUND: ${recordCount}</span>
-            </div>
-        `;
-
-        wrapper.innerHTML = header + summary;
-        wrapper.appendChild(contentClone);
-
-        // Add Footer
         const footer = document.createElement('div');
-        footer.style.marginTop = '40px';
+        footer.style.marginTop = '60px';
         footer.style.textAlign = 'center';
-        footer.style.fontSize = '8px';
-        footer.style.color = '#666';
-        footer.style.lineHeight = '1.8';
+        footer.style.fontSize = '9px';
+        footer.style.color = '#444';
+        footer.style.borderTop = '1px solid #000';
+        footer.style.paddingTop = '15px';
         footer.innerHTML = `
             <p style="margin: 0;">This document is strictly confidential and generated for internal use only by Horizon System.</p>
             <p style="margin: 0;">&copy; ${new Date().getFullYear()} Horizon System. All Rights Reserved.</p>
         `;
+
+        wrapper.innerHTML = header;
+        wrapper.appendChild(contentClone);
         wrapper.appendChild(footer);
 
         const opt = {
-            margin:       [0.5, 0.5],
+            margin:       [0.3, 0.3],
             filename:     `${reportTitle.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
+            image:        { type: 'jpeg', quality: 1.0 },
             html2canvas:  { 
-                scale: 2, 
+                scale: 3, 
                 backgroundColor: '#ffffff',
                 useCORS: true,
                 letterRendering: true
