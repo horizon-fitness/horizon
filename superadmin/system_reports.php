@@ -782,11 +782,11 @@ switch ($report_type) {
         wrapper.style.backgroundColor = '#fff';
         wrapper.style.fontFamily = "'Roboto Mono', monospace";
 
-        // Formal Header (Matching Reference Image)
+        // Formal Header (Strictly B&W)
         const header = `
             <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
                 <div style="text-align: left;">
-                    <h1 style="font-size: 32px; font-weight: 800; color: #000; margin: 0; text-transform: uppercase; font-family: 'Lexend', sans-serif;">${tenantName}</h1>
+                    <h1 style="font-size: 32px; font-weight: 800; color: #000; margin: 0; text-transform: uppercase;">${tenantName}</h1>
                 </div>
                 <div style="text-align: right;">
                     <h2 style="font-size: 18px; font-weight: 700; color: #000; margin: 0; text-transform: uppercase;">${reportTitle}</h2>
@@ -799,31 +799,37 @@ switch ($report_type) {
                 </div>
                 <div style="text-align: right; color: #000;">
                     <p style="margin: 0;">Generated on: ${generatedAt}</p>
-                    <p style="margin: 0;">Reference ID: RPT-${Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
+                    <p style="margin: 0; font-weight: bold;">OFFICIAL SYSTEM TRANSCRIPT</p>
                 </div>
             </div>
             <div style="border-bottom: 2px solid #000; margin-bottom: 40px;"></div>
         `;
 
-        // Clone and AGGRESSIVELY clean the content
+        // Clone and SURGICALLY clean the content
         const contentClone = element.cloneNode(true);
         
-        // Remove ALL UI styling and classes from EVERY child to ensure text visibility
+        // Remove ALL UI styling and classes from EVERY child
         contentClone.querySelectorAll('*').forEach(el => {
             el.className = ''; 
-            el.style.cssText = ''; // Reset all inline styles
-            el.style.color = '#000';
+            el.style.cssText = ''; 
+            el.style.color = '#000'; // Force strict black
             el.style.backgroundColor = 'transparent';
             el.style.borderRadius = '0';
             el.style.boxShadow = 'none';
         });
 
-        // Remove interactive elements
-        contentClone.querySelectorAll('button, form, span.material-symbols-outlined, div.border-b').forEach(el => el.remove());
+        // REMOVE REDUNDANT TITLES: Remove the top bar entirely in the clone
+        // Looking for the container that has h3 and p (titles)
+        const topHeader = contentClone.querySelector('h3, p.text-sm');
+        if (topHeader && topHeader.parentElement) {
+            topHeader.parentElement.remove();
+        }
+        
+        // Broadly remove anything that isn't the table itself
+        contentClone.querySelectorAll('button, form, span.material-symbols-outlined, header, .border-b, .px-8.py-6').forEach(el => el.remove());
 
         // Transform the Table into a Formal Grid
         const table = contentClone.querySelector('table');
-        let recordCount = 0;
         if (table) {
             table.style.width = '100%';
             table.style.borderCollapse = 'collapse';
@@ -831,9 +837,10 @@ switch ($report_type) {
             table.style.color = '#000';
             table.style.border = '1px solid #000';
             table.style.fontFamily = "'Roboto Mono', monospace";
+            table.style.marginTop = '0';
 
             table.querySelectorAll('th').forEach(th => {
-                th.style.backgroundColor = '#f2f2f2';
+                th.style.backgroundColor = '#e0e0e0'; // Distinct Header Color (Subtle Grey)
                 th.style.color = '#000';
                 th.style.border = '1px solid #000';
                 th.style.padding = '12px 10px';
@@ -842,13 +849,11 @@ switch ($report_type) {
                 th.style.textAlign = 'left';
             });
 
-            const rows = table.querySelectorAll('tbody tr');
-            recordCount = rows.length;
             table.querySelectorAll('td').forEach(td => {
                 td.style.border = '1px solid #000';
                 td.style.padding = '10px 10px';
                 td.style.color = '#000';
-                td.style.backgroundColor = '#fff';
+                td.style.backgroundColor = '#fff'; // Strictly white cells
                 td.style.verticalAlign = 'top';
 
                 // Ensure all internal elements are visible and black
@@ -857,21 +862,20 @@ switch ($report_type) {
                     ch.style.fontSize = '11px';
                     ch.style.margin = '0';
                     ch.style.fontWeight = '500';
+                    ch.style.textDecoration = 'none';
                 });
             });
-
-            if (table.querySelector('td[colspan]')) recordCount = 0;
         }
 
         const footer = document.createElement('div');
         footer.style.marginTop = '60px';
         footer.style.textAlign = 'center';
         footer.style.fontSize = '9px';
-        footer.style.color = '#444';
+        footer.style.color = '#000';
         footer.style.borderTop = '1px solid #000';
         footer.style.paddingTop = '15px';
         footer.innerHTML = `
-            <p style="margin: 0;">This document is strictly confidential and generated for internal use only by Horizon System.</p>
+            <p style="margin: 0; font-weight: bold;">CONFIDENTIAL DOCUMENT - FOR INTERNAL USE ONLY</p>
             <p style="margin: 0;">&copy; ${new Date().getFullYear()} Horizon System. All Rights Reserved.</p>
         `;
 
@@ -881,14 +885,9 @@ switch ($report_type) {
 
         const opt = {
             margin:       [0.3, 0.3],
-            filename:     `${reportTitle.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`,
+            filename:     `${reportTitle.replace(/\s+/g, '_')}_DATE_${new Date().getTime()}.pdf`,
             image:        { type: 'jpeg', quality: 1.0 },
-            html2canvas:  { 
-                scale: 3, 
-                backgroundColor: '#ffffff',
-                useCORS: true,
-                letterRendering: true
-            },
+            html2canvas:  { scale: 3, backgroundColor: '#ffffff', useCORS: true, letterRendering: true },
             jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
         };
 
