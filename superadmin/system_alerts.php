@@ -20,12 +20,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// Get Filter Inputs
+$search = $_GET['search'] ?? '';
+$priority_filter = $_GET['priority'] ?? 'all';
+
 // Fetch System Settings for Branding
 $stmtConfig = $pdo->query("SELECT setting_key, setting_value FROM system_settings");
 $configs = $stmtConfig->fetchAll(PDO::FETCH_KEY_PAIR);
 
-// Fetch active alerts
-$stmtAlerts = $pdo->query("SELECT * FROM system_alerts WHERE status != 'Resolved' ORDER BY created_at DESC");
+// Build fetch active alerts query
+$query = "SELECT * FROM system_alerts WHERE status != 'Resolved'";
+$params = [];
+
+if ($priority_filter !== 'all') {
+    $query .= " AND priority = :priority";
+    $params['priority'] = $priority_filter;
+}
+
+if (!empty($search)) {
+    $query .= " AND (message LIKE :search OR type LIKE :search OR source LIKE :search)";
+    $params['search'] = "%$search%";
+}
+
+$query .= " ORDER BY created_at DESC";
+$stmtAlerts = $pdo->prepare($query);
+$stmtAlerts->execute($params);
 $alerts = $stmtAlerts->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = "System Alerts";
@@ -219,20 +238,26 @@ $active_page = "alerts";
 
         <!-- Filters & Actions -->
         <div class="flex flex-col md:flex-row gap-6 mb-8">
-            <div class="flex-1 glass-card p-2 flex items-center gap-3 px-4">
-                <span class="material-symbols-outlined text-gray-400">search</span>
-                <input type="text" placeholder="Search alerts..." class="bg-transparent border-none outline-none text-xs text-white w-full py-2 placeholder:text-gray-600 font-bold uppercase tracking-widest">
-            </div>
-            <div class="flex gap-4">
-                <button class="px-6 py-3 glass-card text-[9px] font-black uppercase tracking-widest hover:bg-white/5 transition-all flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">filter_list</span> Filter
+            <form method="GET" class="flex-1 flex flex-col md:flex-row gap-6">
+                <div class="flex-1 glass-card p-2 flex items-center gap-3 px-4">
+                    <span class="material-symbols-outlined text-gray-400">search</span>
+                    <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search alerts..." class="bg-transparent border-none outline-none text-xs text-white w-full py-2 placeholder:text-gray-600 font-bold uppercase tracking-widest">
+                </div>
+                <div class="flex gap-4">
+                    <select name="priority" onchange="this.form.submit()" class="px-6 py-3 glass-card text-[9px] font-black uppercase tracking-widest bg-surface-dark border-none outline-none cursor-pointer hover:bg-white/5 transition-all flex items-center gap-2">
+                        <option value="all" <?= $priority_filter == 'all' ? 'selected' : '' ?>>All Priorities</option>
+                        <option value="High" <?= $priority_filter == 'High' ? 'selected' : '' ?>>High Priority</option>
+                        <option value="Medium" <?= $priority_filter == 'Medium' ? 'selected' : '' ?>>Medium Priority</option>
+                        <option value="Low" <?= $priority_filter == 'Low' ? 'selected' : '' ?>>Low Priority</option>
+                    </select>
+                    <button type="submit" class="hidden">Search</button>
+                </div>
+            </form>
+            <form method="POST">
+                <button type="submit" name="clear_all" class="px-6 py-3 bg-primary/20 border border-primary/30 rounded-[20px] text-[9px] font-black uppercase tracking-widest hover:bg-primary/30 transition-all flex items-center gap-2 text-primary">
+                    <span class="material-symbols-outlined text-sm">done_all</span> Clear All
                 </button>
-                <form method="POST">
-                    <button type="submit" name="clear_all" class="px-6 py-3 bg-primary/20 border border-primary/30 rounded-[20px] text-[9px] font-black uppercase tracking-widest hover:bg-primary/30 transition-all flex items-center gap-2 text-primary">
-                        <span class="material-symbols-outlined text-sm">done_all</span> Clear All
-                    </button>
-                </form>
-            </div>
+            </form>
         </div>
 
         <div class="relative">
@@ -241,13 +266,14 @@ $active_page = "alerts";
 
             <div class="space-y-6 relative">
                 <?php foreach($alerts as $alert): 
-                    $priorityClass = ($alert['priority'] == 'High') ? 'text-rose-500 bg-rose-500/10 border-rose-500/20 alert-glow-high' : 'text-primary bg-primary/10 border-primary/20 alert-glow-medium';
-                    $icon = ($alert['priority'] == 'High') ? 'report' : 'info';
+                    $isHigh = ($alert['priority'] == 'High');
+                    $priorityClass = $isHigh ? 'text-rose-500 bg-rose-500/10 border-rose-500/20 alert-glow-high' : 'text-primary bg-primary/10 border-primary/20 alert-glow-medium';
+                    $icon = $isHigh ? 'report' : 'info';
                 ?>
                     <div class="group relative flex flex-col md:flex-row gap-8 items-start">
                         <!-- Timeline Node -->
                         <div class="hidden md:flex size-20 rounded-2xl glass-card shrink-0 items-center justify-center relative z-10 group-hover:border-primary/50 transition-colors">
-                            <span class="material-symbols-outlined <?= $priorityClass === 'text-rose-500' ? 'text-rose-500' : 'text-primary' ?> text-3xl"><?= $icon ?></span>
+                            <span class="material-symbols-outlined <?= $isHigh ? 'text-rose-500' : 'text-primary' ?> text-3xl"><?= $icon ?></span>
                         </div>
 
                         <!-- Alert Card -->

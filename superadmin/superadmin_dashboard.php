@@ -61,6 +61,9 @@ $stmtMonthly = $pdo->query("
 ");
 $monthly_activity = $stmtMonthly->fetchAll(PDO::FETCH_ASSOC);
 
+// 5. System Alerts Analytics
+$stmtActiveAlerts = $pdo->query("SELECT COUNT(*) FROM system_alerts WHERE status != 'Resolved'");
+$active_alerts_count = $stmtActiveAlerts->fetchColumn();
 
 // Fetch Recent Applications
 $stmtList = $pdo->query("
@@ -354,12 +357,12 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
             </div>
 
             <!-- 5. System Alerts -->
-            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
+            <a href="system_alerts.php" class="block glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5 hover:bg-white/10 transition-all">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-red-500">notifications_active</span>
                 <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">System Alerts</p>
-                <h3 class="text-2xl font-black italic uppercase">Active</h3>
+                <h3 class="text-2xl font-black italic uppercase"><?= $active_alerts_count ?> Active</h3>
                 <p class="text-red-500 text-[10px] font-black uppercase mt-2">Urgent Notifications</p>
-            </div>
+            </a>
 
             <!-- 6. Total Occupancy -->
             <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">

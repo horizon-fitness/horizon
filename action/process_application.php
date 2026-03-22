@@ -71,6 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
             $stmtPage = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, updated_at) VALUES (?, ?, ?, ?, '#7f13ec', ?)");
             $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']));
             $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $gymLogo, $now]);
+            
+            // 6. Generate System Alert for Approval
+            $alertMsg = "New Gym Onboarded: " . $app['gym_name'] . " (Code: " . $tenant_code . ")";
+            $stmtAlert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('New Tenant', 'System', ?, 'Medium', 'Unread', ?)");
+            $stmtAlert->execute([$alertMsg, $now]);
 
             // Fetch username for the approval email
             $stmtUser = $pdo->prepare("SELECT username FROM users WHERE user_id = ?");
@@ -150,6 +155,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
         try {
             $stmtUpdate = $pdo->prepare("UPDATE gym_owner_applications SET application_status = 'Rejected', reviewed_by = ?, reviewed_at = ? WHERE application_id = ?");
             $stmtUpdate->execute([$admin_id, $now, $app_id]);
+            
+            // Fetch gym name for alert
+            $stmtApp = $pdo->prepare("SELECT gym_name FROM gym_owner_applications WHERE application_id = ?");
+            $stmtApp->execute([$app_id]);
+            $gym_name = $stmtApp->fetchColumn();
+
+            // Generate System Alert for Rejection
+            $alertMsg = "Gym Application Rejected: " . ($gym_name ?: 'Unknown');
+            $stmtAlert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Application Rejected', 'System', ?, 'High', 'Unread', ?)");
+            $stmtAlert->execute([$alertMsg, $now]);
+
             $_SESSION['success_msg'] = "Application rejected successfully.";
         } catch (Exception $e) {
             $_SESSION['error_msg'] = "Failed to reject: " . $e->getMessage();
