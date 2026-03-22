@@ -54,5 +54,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['primary_tenant']) && 
     }
 }
 
-header("Location: tenant_management.php?tab=linking");
+header("Location: ../superadmin/tenant_management.php?tab=linking");
 exit;

@@ -36,7 +36,7 @@ $stmtTenants = $pdo->query("
         FROM members 
         GROUP BY gym_id
     ) m ON g.gym_id = m.gym_id
-    WHERE g.status != 'Deleted'
+    WHERE g.status IN ('Active', 'Suspended', 'Deleted', 'Deactivated')
     ORDER BY g.created_at DESC
 ");
 $tenants = $stmtTenants->fetchAll(PDO::FETCH_ASSOC);
@@ -82,11 +82,20 @@ $total_tenants = count($tenants);
 $active_count = 0;
 $suspended_count = 0;
 $pending_count = count($pending_apps);
-
+$active_tenants = [];
+$deactivated_tenants = [];
 foreach ($tenants as $t) {
-    if ($t['status'] === 'Active') $active_count++;
-    if ($t['status'] === 'Suspended') $suspended_count++;
+    if ($t['status'] === 'Active') {
+        $active_count++;
+        $active_tenants[] = $t;
+    } elseif ($t['status'] === 'Suspended') {
+        $suspended_count++;
+        $active_tenants[] = $t;
+    } elseif ($t['status'] === 'Deactivated' || $t['status'] === 'Deleted') {
+        $deactivated_tenants[] = $t;
+    }
 }
+$deactivated_count = count($deactivated_tenants);
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -389,14 +398,21 @@ foreach ($tenants as $t) {
         
         <div class="flex items-center gap-8 mb-8 border-b border-white/5 px-2">
             <button onclick="switchTab('registered')" id="tabBtn-registered" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-primary">
-                Registered Gyms
+                Active & Suspended
                 <div id="tabIndicator-registered" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-100"></div>
             </button>
             <button onclick="switchTab('pending')" id="tabBtn-pending" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-gray-500 hover:text-white">
-                Pending Applications
+                Pending Apps
                 <div id="tabIndicator-pending" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0"></div>
                 <?php if ($pending_count > 0): ?>
                     <span class="absolute -top-1 -right-4 size-4 bg-amber-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-amber-500/20"><?= $pending_count ?></span>
+                <?php endif; ?>
+            </button>
+            <button onclick="switchTab('deactivated')" id="tabBtn-deactivated" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-gray-500 hover:text-white">
+                Deactivated
+                <div id="tabIndicator-deactivated" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0"></div>
+                <?php if ($deactivated_count > 0): ?>
+                    <span class="absolute -top-1 -right-4 size-4 bg-red-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-red-500/20"><?= $deactivated_count ?></span>
                 <?php endif; ?>
             </button>
             <button onclick="switchTab('linking')" id="tabBtn-linking" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-gray-500 hover:text-white">
@@ -450,12 +466,13 @@ foreach ($tenants as $t) {
                                         <button onclick="openApplicationModal(<?= $app['application_id'] ?>)" class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
                                             <span class="material-symbols-outlined text-sm">visibility</span> View
                                         </button>
-                                        <form method="POST" action="action/process_application.php" class="inline-flex gap-2">
+                                        <form method="POST" action="../action/process_application.php" class="inline-flex gap-2">
                                             <input type="hidden" name="application_id" value="<?= $app['application_id'] ?>">
-                                            <button type="submit" name="action" value="approve" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                            <input type="hidden" name="action" value="">
+                                            <button type="button" onclick="confirmAction(this.form, 'approve', 'Approve Application', 'Are you sure you want to approve the application for <?= addslashes($app['gym_name']) ?>? This will create a new tenant account.')" class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1 shadow-lg shadow-emerald-500/10">
                                                 <span class="material-symbols-outlined text-sm">check_circle</span> Approve
                                             </button>
-                                            <button type="submit" name="action" value="reject" class="px-4 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                            <button type="button" onclick="confirmAction(this.form, 'reject', 'Reject Application', 'Are you sure you want to reject the application for <?= addslashes($app['gym_name']) ?>? This action cannot be undone.')" class="px-4 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
                                                 <span class="material-symbols-outlined text-sm">cancel</span> Reject
                                             </button>
                                         </form>
@@ -492,12 +509,12 @@ foreach ($tenants as $t) {
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
-                        <?php if (empty($tenants)): ?>
+                        <?php if (empty($active_tenants)): ?>
                             <tr>
-                                <td colspan="5" class="px-8 py-8 text-center text-xs font-bold text-gray-500 italic uppercase">No active tenants found.</td>
+                                <td colspan="5" class="px-8 py-8 text-center text-xs font-bold text-gray-500 italic uppercase">No active/suspended tenants found.</td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($tenants as $t): ?>
+                            <?php foreach ($active_tenants as $t): ?>
                                 <tr class="hover:bg-white/5 transition-all">
                                     <td class="px-8 py-5">
                                         <div class="flex items-center gap-3">
@@ -569,23 +586,24 @@ foreach ($tenants as $t) {
                                                 </button>
                                             <?php endif; ?>
 
-                                            <form method="POST" action="action/process_tenant.php" class="inline-flex gap-2" onsubmit="return confirm('Are you sure you want to proceed with this action?');">
+                                            <form method="POST" action="../action/process_tenant.php" class="inline-flex gap-2">
                                                 <input type="hidden" name="gym_id" value="<?= $t['gym_id'] ?>">
+                                                <input type="hidden" name="action" value="">
                                                 
                                                 <?php if ($t['status'] !== 'Active'): ?>
-                                                    <button type="submit" name="action" value="activate" title="Activate Account" class="size-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors">
+                                                    <button type="button" onclick="confirmAction(this.form, 'activate', 'Activate Gym', 'Are you sure you want to reactivate <?= addslashes($t['gym_name']) ?>?')" title="Activate Account" class="size-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors">
                                                         <span class="material-symbols-outlined text-[18px]">play_circle</span>
                                                     </button>
                                                 <?php endif; ?>
 
                                                 <?php if ($t['status'] === 'Active'): ?>
-                                                    <button type="submit" name="action" value="suspend" title="Suspend Account (e.g. Unpaid Subscription)" class="size-8 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 flex items-center justify-center transition-colors">
+                                                    <button type="button" onclick="confirmAction(this.form, 'suspend', 'Suspend Gym', 'Are you sure you want to suspend <?= addslashes($t['gym_name']) ?>?')" title="Suspend Account" class="size-8 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 flex items-center justify-center transition-colors">
                                                         <span class="material-symbols-outlined text-[18px]">pause_circle</span>
                                                     </button>
                                                 <?php endif; ?>
 
                                                 <?php if ($t['status'] !== 'Deactivated'): ?>
-                                                    <button type="submit" name="action" value="deactivate" title="Deactivate Account" class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-colors">
+                                                    <button type="button" onclick="confirmAction(this.form, 'deactivate', 'Deactivate Gym', 'Are you sure you want to deactivate <?= addslashes($t['gym_name']) ?>? This will revoke all access.')" title="Deactivate Account" class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-colors">
                                                         <span class="material-symbols-outlined text-[18px]">cancel</span>
                                                     </button>
                                                 <?php endif; ?>
@@ -599,19 +617,93 @@ foreach ($tenants as $t) {
                 </table>
             </div>
             <div class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center">
-                <p class="text-[10px] font-black uppercase text-gray-600 tracking-widest">Showing <?= count($tenants) ?> of <?= $total_tenants ?> gyms</p>
+                <p class="text-[10px] font-black uppercase text-gray-600 tracking-widest">Showing <?= count($active_tenants) ?> of <?= $active_count + $suspended_count ?> gyms</p>
                 <div class="flex gap-2">
                     <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all disabled:opacity-20" disabled>
                         <span class="material-symbols-outlined text-sm">chevron_left</span>
                     </button>
                     <button class="size-8 rounded-lg bg-primary flex items-center justify-center text-white transition-all font-black text-[10px]">1</button>
-                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all font-black text-[10px]">2</button>
                     <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all">
                         <span class="material-symbols-outlined text-sm">chevron_right</span>
                     </button>
                 </div>
             </div>
           </div>
+        </div>
+
+        <div id="section-deactivated" class="hidden">
+            <div class="glass-card overflow-hidden">
+                <div class="px-8 py-6 border-b border-white/5 bg-red-500/5 flex justify-between items-center">
+                    <h4 class="font-black italic uppercase text-sm tracking-tighter text-red-400 flex items-center gap-2">
+                        <span class="material-symbols-outlined">cancel</span>
+                        Deactivated Gym Accounts
+                    </h4>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                                <th class="px-8 py-4">Gym Identity</th>
+                                <th class="px-8 py-4">Owner Contact</th>
+                                <th class="px-8 py-4">Status Info</th>
+                                <th class="px-8 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5">
+                            <?php if (empty($deactivated_tenants)): ?>
+                                <tr>
+                                    <td colspan="4" class="px-8 py-12 text-center text-xs font-bold text-gray-500 italic uppercase">No deactivated gyms found.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($deactivated_tenants as $t): ?>
+                                    <tr class="hover:bg-white/5 transition-all">
+                                        <td class="px-8 py-5">
+                                            <div class="flex items-center gap-3">
+                                                <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 grayscale">
+                                                    <?php if (!empty($t['logo_path'])): 
+                                                        $logo_src = (strpos($t['logo_path'], 'data:image') === 0) ? $t['logo_path'] : '../' . $t['logo_path'];
+                                                    ?>
+                                                        <img src="<?= $logo_src ?>" class="size-full object-contain opacity-50">
+                                                    <?php else: ?>
+                                                        <span class="text-gray-500 font-black text-xs"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div>
+                                                    <p class="text-sm font-bold italic text-gray-400"><?= htmlspecialchars($t['gym_name']) ?></p>
+                                                    <p class="text-[10px] text-gray-600 uppercase tracking-wider font-bold"><?= htmlspecialchars($t['tenant_code']) ?></p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-8 py-5">
+                                            <p class="text-xs font-medium text-gray-400"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
+                                            <p class="text-[10px] text-gray-600"><?= htmlspecialchars($t['owner_email']) ?></p>
+                                        </td>
+                                        <td class="px-8 py-5">
+                                            <div class="flex items-center gap-2 text-red-500/50">
+                                                <span class="material-symbols-outlined text-sm">block</span>
+                                                <span class="text-[9px] font-black uppercase italic tracking-wider">Deactivated Account</span>
+                                            </div>
+                                            <p class="text-[9px] text-gray-600 mt-1 italic leading-tight">All login access for this tenant and its staff is revoked.</p>
+                                        </td>
+                                        <td class="px-8 py-5 text-right">
+                                            <form method="POST" action="../action/process_tenant.php">
+                                                <input type="hidden" name="gym_id" value="<?= $t['gym_id'] ?>">
+                                                <input type="hidden" name="action" value="activate">
+                                                <button type="button" onclick="confirmAction(this.form, 'activate', 'Restore Gym Account', 'Are you sure you want to restore access for <?= addslashes($t['gym_name']) ?>?')" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ml-auto shadow-lg shadow-emerald-500/10">
+                                                    <span class="material-symbols-outlined text-sm">play_circle</span> Restore Access
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-8 py-4 border-t border-white/5 bg-white/[0.02]">
+                    <p class="text-[10px] font-black uppercase text-gray-600 tracking-widest italic">Total Deactivated: <?= $deactivated_count ?></p>
+                </div>
+            </div>
         </div>
 
         <div id="section-linking" class="hidden">
@@ -623,7 +715,7 @@ foreach ($tenants as $t) {
                             <span class="material-symbols-outlined text-primary">link</span>
                             <h4 class="font-black italic uppercase text-sm tracking-tighter">Link New Tenants</h4>
                         </div>
-                        <form method="POST" action="process_tenant_link.php" class="flex flex-col gap-6">
+                        <form method="POST" action="../action/process_tenant_link.php" class="flex flex-col gap-6">
                             <div>
                                 <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Primary Tenant</label>
                                 <select name="primary_tenant" required class="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all cursor-pointer">
@@ -690,9 +782,9 @@ foreach ($tenants as $t) {
                                                     <?= date('M d, Y', strtotime($link['created_at'])) ?>
                                                 </td>
                                                 <td class="px-8 py-5 text-right">
-                                                    <form method="POST" action="process_tenant_link.php" onsubmit="return confirm('Disconnect these tenants?');">
+                                                    <form method="POST" action="../action/process_tenant_link.php">
                                                         <input type="hidden" name="delete_link_id" value="<?= $link['link_id'] ?>">
-                                                        <button type="submit" class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
+                                                        <button type="button" onclick="confirmAction(this.form, '', 'Breaking Connection', 'Are you sure you want to disconnect <?= addslashes($link['primary_name']) ?> and <?= addslashes($link['secondary_name']) ?>?')" class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
                                                             <span class="material-symbols-outlined text-[18px]">link_off</span>
                                                         </button>
                                                     </form>
@@ -713,7 +805,7 @@ foreach ($tenants as $t) {
 
 <script>
     function switchTab(tabId) {
-        const sections = ['pending', 'registered', 'linking'];
+        const sections = ['pending', 'registered', 'linking', 'deactivated'];
         
         sections.forEach(s => {
             const section = document.getElementById(`section-${s}`);
@@ -740,11 +832,34 @@ foreach ($tenants as $t) {
     window.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const tab = urlParams.get('tab');
-        if (tab && ['pending', 'registered', 'linking'].includes(tab)) {
+        if (tab && ['pending', 'registered', 'linking', 'deactivated'].includes(tab)) {
             switchTab(tab);
         }
     });
 </script>
+
+<!-- Custom Confirmation Modal -->
+<div id="confirmModal" class="fixed inset-0 z-[150] hidden items-center justify-center p-4 overflow-hidden">
+    <div id="confirmBackdrop" onclick="closeConfirmModal()" class="fixed inset-0 bg-background-dark/60 backdrop-blur-sm transition-opacity duration-300 opacity-0"></div>
+    <div id="confirmContainer" class="relative w-full max-w-md bg-surface-dark border border-white/10 shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0">
+        <div class="p-8 text-center text-white">
+            <div class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
+                <span class="material-symbols-outlined text-3xl text-primary">contact_support</span>
+            </div>
+            <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter mb-2 italic">Confirm Action</h3>
+            <p id="confirmMessage" class="text-gray-400 text-xs font-medium leading-relaxed mb-8"></p>
+            
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()" class="flex-1 py-3 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest transition-all text-gray-400">
+                    Cancel
+                </button>
+                <button onclick="executeConfirmedAction()" class="flex-1 py-3 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
+                    Confirm
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div id="applicationModal" class="fixed inset-y-0 right-0 z-[100] hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none">
     <div class="fixed inset-y-0 right-0 bg-background-dark/40 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto" id="modalBackdrop"></div>
@@ -758,6 +873,52 @@ foreach ($tenants as $t) {
 </div>
 
 <script>
+    let pendingForm = null;
+
+    function confirmAction(form, actionValue, title, message) {
+        pendingForm = form;
+        // Find or create hidden action input
+        let actionInput = form.querySelector('input[name="action"]');
+        if (actionInput) {
+            actionInput.value = actionValue;
+        }
+
+        document.getElementById('confirmTitle').textContent = title;
+        document.getElementById('confirmMessage').textContent = message;
+        
+        const modal = document.getElementById('confirmModal');
+        modal.classList.replace('hidden', 'flex');
+        setTimeout(() => {
+            document.getElementById('confirmBackdrop').classList.replace('opacity-0', 'opacity-100');
+            document.getElementById('confirmContainer').classList.replace('scale-95', 'scale-100');
+            document.getElementById('confirmContainer').classList.replace('opacity-0', 'opacity-100');
+        }, 10);
+    }
+
+    function closeConfirmModal() {
+        const modal = document.getElementById('confirmModal');
+        const backdrop = document.getElementById('confirmBackdrop');
+        const container = document.getElementById('confirmContainer');
+
+        backdrop.classList.replace('opacity-100', 'opacity-0');
+        container.classList.replace('scale-100', 'scale-95');
+        container.classList.replace('opacity-100', 'opacity-0');
+        
+        setTimeout(() => {
+            modal.classList.replace('flex', 'hidden');
+            pendingForm = null;
+        }, 300);
+    }
+
+    function executeConfirmedAction() {
+        if (pendingForm) {
+            // If the action was passed via hidden input in the button, we need to ensure it's set
+            // Wait, the buttons I updated have <input type="hidden" name="action" value="...">
+            // This is safer than relying on button name/value which doesn't work with form.submit()
+            pendingForm.submit();
+        }
+    }
+
     function openApplicationModal(appId) {
         if (!appId) return;
         const modal = document.getElementById('applicationModal');

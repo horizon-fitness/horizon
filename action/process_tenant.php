@@ -16,6 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['gym
     $action = $_POST['action'];
     $now = date('Y-m-d H:i:s');
 
+    // Debug logging
+    error_log("Process Tenant - Gym ID: $gym_id, Action: $action");
+    file_put_contents('debug_action.log', date('Y-m-d H:i:s') . " - Gym ID: $gym_id, Action: $action\n", FILE_APPEND);
+
     try {
         $pdo->beginTransaction();
 
@@ -48,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['gym
 
             $_SESSION['success_msg'] = "Account for {$gym['gym_name']} has been suspended due to policy/billing issues.";
 
-        } elseif ($action === 'delete') {
+        } elseif ($action === 'delete' || $action === 'deactivate') {
             // Soft Delete the Gym
             $stmtUpdate = $pdo->prepare("UPDATE gyms SET status = 'Deleted', updated_at = ? WHERE gym_id = ?");
             $stmtUpdate->execute([$now, $gym_id]);
@@ -57,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['gym
             $stmtRole = $pdo->prepare("UPDATE user_roles SET role_status = 'Revoked' WHERE gym_id = ? AND user_id = ?");
             $stmtRole->execute([$gym_id, $gym['owner_user_id']]);
 
-            $_SESSION['success_msg'] = "Account for {$gym['gym_name']} has been successfully deleted/removed from the system.";
+            $_SESSION['success_msg'] = "Account for {$gym['gym_name']} has been successfully " . ($action === 'delete' ? 'deleted' : 'deactivated') . ".";
 
         } else {
             throw new Exception("Invalid action requested.");
