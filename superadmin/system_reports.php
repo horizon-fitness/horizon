@@ -811,15 +811,20 @@ switch ($report_type) {
         // 1. REMOVE UI ELEMENTS FIRST (while classes still exist)
         contentClone.querySelectorAll('button, form, span.material-symbols-outlined, header, .border-b, .px-8.py-6, .flex-wrap').forEach(el => el.remove());
 
-        // 2. STRIP ALL CLASSES AND INLINE STYLES + FORCE BLACK TEXT
-        contentClone.querySelectorAll('*').forEach(el => {
+        // 2. STRIP ALL CLASSES AND INLINE STYLES + FORCE 100% OPACITY BLACK TEXT
+        // ALSO CLEAR THE ROOT CLONE ELEMENT STYLES
+        [contentClone, ...contentClone.querySelectorAll('*')].forEach(el => {
             el.removeAttribute('class');
-            el.style.setProperty('color', '#000', 'important');
+            el.style.setProperty('color', '#000000', 'important');
             el.style.setProperty('background-color', 'transparent', 'important');
             el.style.setProperty('border-radius', '0', 'important');
             el.style.setProperty('box-shadow', 'none', 'important');
+            el.style.setProperty('text-shadow', 'none', 'important');
+            el.style.setProperty('filter', 'none', 'important');
             el.style.setProperty('opacity', '1', 'important');
             el.style.setProperty('visibility', 'visible', 'important');
+            el.style.setProperty('-webkit-font-smoothing', 'antialiased', 'important');
+            el.style.setProperty('-moz-osx-font-smoothing', 'grayscale', 'important');
         });
 
         // 3. TRANSFORM TABLE INTO FORMAL GRID (Aggressive Black & White)
@@ -828,15 +833,15 @@ switch ($report_type) {
             table.style.setProperty('width', '100%', 'important');
             table.style.setProperty('border-collapse', 'collapse', 'important');
             table.style.setProperty('font-size', '11px', 'important');
-            table.style.setProperty('color', '#000', 'important');
-            table.style.setProperty('border', '1px solid #000', 'important');
+            table.style.setProperty('color', '#000000ff', 'important');
+            table.style.setProperty('border', '2px solid #000000ff', 'important');
             table.style.setProperty('font-family', "'Roboto Mono', monospace", 'important');
             table.style.setProperty('margin-top', '0', 'important');
 
             table.querySelectorAll('th').forEach(th => {
-                th.style.setProperty('background-color', '#f0f0f0', 'important'); // Very light gray header
-                th.style.setProperty('color', '#000', 'important');
-                th.style.setProperty('border', '1px solid #000', 'important');
+                th.style.setProperty('background-color', '#858282ff', 'important'); 
+                th.style.setProperty('color', '#000000ff', 'important');
+                th.style.setProperty('border', '1px solid #000000ff', 'important');
                 th.style.setProperty('padding', '12px 10px', 'important');
                 th.style.setProperty('text-transform', 'uppercase', 'important');
                 th.style.setProperty('font-weight', 'bold', 'important');
@@ -844,18 +849,18 @@ switch ($report_type) {
             });
 
             table.querySelectorAll('td').forEach(td => {
-                td.style.setProperty('border', '1px solid #000', 'important');
+                td.style.setProperty('border', '1px solid #000000ff', 'important');
                 td.style.setProperty('padding', '10px 10px', 'important');
-                td.style.setProperty('color', '#000', 'important');
-                td.style.setProperty('background-color', '#fff', 'important'); // Strictly white cells
+                td.style.setProperty('color', '#000000ff', 'important');
+                td.style.setProperty('background-color', '#ffffffff', 'important'); // Strictly white cells
                 td.style.setProperty('vertical-align', 'top', 'important');
 
                 // Ensure all internal elements (p, span, div) are strictly black and bold
                 td.querySelectorAll('*').forEach(ch => {
-                    ch.style.setProperty('color', '#000', 'important');
+                    ch.style.setProperty('color', '#000000ff', 'important');
                     ch.style.setProperty('font-size', '11px', 'important');
                     ch.style.setProperty('margin', '0', 'important');
-                    ch.style.setProperty('font-weight', '700', 'important'); // Hard bold for high visibility
+                    ch.style.setProperty('font-weight', '700', 'important');
                     ch.style.setProperty('text-decoration', 'none', 'important');
                     ch.style.setProperty('opacity', '1', 'important');
                 });
