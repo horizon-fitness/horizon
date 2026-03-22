@@ -8,20 +8,51 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
     exit;
 }
 
-$page_title = "System Settings";
-$active_page = "settings";
+// Initialize system_settings table if it doesn't exist
+$pdo->exec("
+    CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(50) PRIMARY KEY,
+        setting_value TEXT,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+");
+
+// Seed default settings if empty
+$pdo->exec("
+    INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES 
+    ('system_name', 'Horizon System'),
+    ('admin_email', 'admin@horizonsystem.com'),
+    ('max_staff', '10'),
+    ('grace_period', '7'),
+    ('default_status', 'Pending')
+");
+
+// Fetch all settings
+$stmt = $pdo->query("SELECT setting_key, setting_value FROM system_settings");
+$configs = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
-    // Logic to update your 'system_settings' table would go here
-    $success_msg = "System configurations updated successfully!";
+    unset($_POST['save_settings']); // Remove the button name from the loop
+    
+    $stmtUpdate = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+    
+    try {
+        foreach ($_POST as $key => $value) {
+            $stmtUpdate->execute([$key, $value]);
+            $configs[$key] = $value; // Update the local array for the current view
+        }
+        $success_msg = "System configurations updated successfully!";
+    } catch (PDOException $e) {
+        $error_msg = "Error updating settings: " . $e->getMessage();
+    }
 }
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title><?= $page_title ?> | Horizon System</title>
+    <title><?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?> | System Settings</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -96,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
             </div>
-            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?></h1>
         </div>
     </div>
     
@@ -207,6 +238,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 <span class="material-symbols-outlined text-sm">check_circle</span> <?= $success_msg ?>
             </div>
         <?php endif; ?>
+        <?php if (isset($error_msg)): ?>
+            <div class="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3">
+                <span class="material-symbols-outlined text-sm">error</span> <?= $error_msg ?>
+            </div>
+        <?php endif; ?>
 
         <form action="" method="POST" class="space-y-8">
             <div class="glass-card p-8">
@@ -223,11 +259,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="flex flex-col gap-2">
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Platform Name</label>
-                        <input type="text" name="system_name" class="input-field" placeholder="e.g. Horizon System">
+                        <input type="text" name="system_name" class="input-field" value="<?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>">
                     </div>
                     <div class="flex flex-col gap-2">
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Admin Email Notice</label>
-                        <input type="email" name="admin_email" class="input-field" placeholder="admin@horizonsystem.com">
+                        <input type="email" name="admin_email" class="input-field" value="<?= htmlspecialchars($configs['admin_email'] ?? 'admin@horizonsystem.com') ?>">
                     </div>
                 </div>
             </div>
@@ -246,17 +282,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="flex flex-col gap-2">
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Max Staff per Tenant</label>
-                        <input type="number" name="max_staff" class="input-field" value="10">
+                        <input type="number" name="max_staff" class="input-field" value="<?= htmlspecialchars($configs['max_staff'] ?? '10') ?>">
                     </div>
                     <div class="flex flex-col gap-2">
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Grace Period (Days)</label>
-                        <input type="number" name="grace_period" class="input-field" value="7">
+                        <input type="number" name="grace_period" class="input-field" value="<?= htmlspecialchars($configs['grace_period'] ?? '7') ?>">
                     </div>
                     <div class="flex flex-col gap-2">
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">New Tenant Status</label>
                         <select name="default_status" class="input-field appearance-none">
-                            <option value="Pending">Pending Approval</option>
-                            <option value="Active">Auto-Activate</option>
+                            <option value="Pending" <?= ($configs['default_status'] ?? '') === 'Pending' ? 'selected' : '' ?>>Pending Approval</option>
+                            <option value="Active" <?= ($configs['default_status'] ?? '') === 'Active' ? 'selected' : '' ?>>Auto-Activate</option>
                         </select>
                     </div>
                 </div>
