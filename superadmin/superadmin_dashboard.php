@@ -61,6 +61,7 @@ $stmtMonthly = $pdo->query("
 ");
 $monthly_activity = $stmtMonthly->fetchAll(PDO::FETCH_ASSOC);
 
+
 // Fetch Recent Applications
 $stmtList = $pdo->query("
     SELECT a.*, u.first_name, u.last_name, tp.logo_path
@@ -314,12 +315,15 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         <?php endif; ?>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <!-- 1. Global Revenue -->
             <div class="glass-card p-8 status-card-green relative overflow-hidden group">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">payments</span>
                 <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Global Revenue</p>
                 <h3 class="text-2xl font-black italic uppercase">₱<?= number_format($total_revenue, 2) ?></h3>
                 <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Across All Tenants</p>
             </div>
+
+            <!-- 2. Total Tenants -->
             <div class="glass-card p-8 status-card-yellow relative overflow-hidden group">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">business</span>
                 <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Total Tenants</p>
@@ -329,6 +333,8 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
                     <p class="text-amber-500 text-[9px] font-black uppercase tracking-tighter"><?= $gym_stats['suspended'] ?> Suspended</p>
                 </div>
             </div>
+
+            <!-- 3. User Directory -->
             <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">groups</span>
                 <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">User Directory</p>
@@ -338,11 +344,45 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
                     <p class="text-gray-500 text-[9px] font-black uppercase tracking-tighter"><?= number_format($user_stats['inactive_users']) ?> Inactive</p>
                 </div>
             </div>
+
+            <!-- 4. Pending Applications -->
             <div class="glass-card p-8 relative overflow-hidden group border border-amber-500/20 bg-amber-500/5">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">pending_actions</span>
                 <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending Apps</p>
                 <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_apps_count ?></h3>
                 <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Action Required</p>
+            </div>
+
+            <!-- 5. System Alerts -->
+            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-red-500">notifications_active</span>
+                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">System Alerts</p>
+                <h3 class="text-2xl font-black italic uppercase">Active</h3>
+                <p class="text-red-500 text-[10px] font-black uppercase mt-2">Urgent Notifications</p>
+            </div>
+
+            <!-- 6. Total Occupancy -->
+            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">group</span>
+                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Total Occupancy</p>
+                <h3 class="text-2xl font-black italic uppercase">Live</h3>
+                <p class="text-primary text-[10px] font-black uppercase mt-2">Real-time Monitoring</p>
+            </div>
+
+            <!-- 7. Subscriptions -->
+            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">history_edu</span>
+                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Subscriptions</p>
+                <h3 class="text-2xl font-black italic uppercase">Active Logs</h3>
+                <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Monitoring Health</p>
+            </div>
+
+            <!-- 8. Access Control -->
+            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">security</span>
+                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Access Control</p>
+                <h3 class="text-2xl font-black italic uppercase">RBAC Active</h3>
+                <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Security Managed</p>
             </div>
         </div>
 
