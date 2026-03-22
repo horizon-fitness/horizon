@@ -505,10 +505,9 @@ switch ($report_type) {
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-black/20 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                            <tr class="bg-black/20 text-gray-500 text-xs font-black uppercase tracking-widest">
                                 <?php switch($report_type): 
                                     case 'gym_apps': ?>
-                                        <th class="px-8 py-4">Applicant</th>
                                         <th class="px-8 py-4">Gym / Business</th>
                                         <th class="px-8 py-4">Type</th>
                                         <th class="px-8 py-4">Submitted</th>
@@ -531,7 +530,6 @@ switch ($report_type) {
                                     case 'system_alerts': ?>
                                         <th class="px-8 py-4">Type / Source</th>
                                         <th class="px-8 py-4 w-1/3">Message</th>
-                                        <th class="px-8 py-4 text-center">Priority</th>
                                         <th class="px-8 py-4 text-center">Status</th>
                                         <th class="px-8 py-4 text-right">Timestamp</th>
                                         <?php break;
@@ -559,123 +557,116 @@ switch ($report_type) {
                                     <?php switch($report_type):
                                         case 'gym_apps': ?>
                                             <td class="px-8 py-5">
-                                                <p class="text-sm font-bold text-white mb-1"><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
-                                                <p class="text-[9px] text-gray-500 font-black italic">Applicant ID: #<?= $row['user_id'] ?></p>
+                                                <p class="text-base font-bold text-white mb-1"><?= htmlspecialchars($row['gym_name']) ?></p>
+                                                <p class="text-xs text-primary font-black uppercase tracking-tighter"><?= htmlspecialchars($row['business_name']) ?></p>
                                             </td>
+                                            <td class="px-8 py-5 text-sm text-gray-400 font-bold uppercase tracking-widest italic"><?= htmlspecialchars(str_replace('_', ' ', $row['business_type'])) ?></td>
                                             <td class="px-8 py-5">
-                                                <p class="text-sm font-bold text-white mb-1"><?= htmlspecialchars($row['gym_name']) ?></p>
-                                                <p class="text-[9px] text-primary font-black uppercase tracking-tighter"><?= htmlspecialchars($row['business_name']) ?></p>
-                                            </td>
-                                            <td class="px-8 py-5 text-xs text-gray-400 font-bold uppercase tracking-widest italic"><?= htmlspecialchars($row['business_type']) ?></td>
-                                            <td class="px-8 py-5">
-                                                <p class="text-xs font-bold text-white"><?= date('M d, Y', strtotime($row['submitted_at'])) ?></p>
-                                                <p class="text-[9px] text-gray-500 font-black italic"><?= date('h:i A', strtotime($row['submitted_at'])) ?></p>
+                                                <p class="text-sm font-bold text-white"><?= date('M d, Y', strtotime($row['submitted_at'])) ?></p>
+                                                <p class="text-xs text-gray-500 font-black italic"><?= date('h:i A', strtotime($row['submitted_at'])) ?></p>
                                             </td>
                                             <td class="px-8 py-5 text-center">
                                                 <div class="mb-1">
-                                                    <span class="px-3 py-1 rounded-md bg-white/5 border border-white/10 text-[9px] text-gray-400 font-black uppercase italic">
-                                                        <?= htmlspecialchars($row['application_status']) ?>
+                                                    <?php 
+                                                        $s = $row['application_status'];
+                                                        $sc = 'gray-400';
+                                                        if(strtolower($s) == 'approved') $sc = 'emerald-500';
+                                                        elseif(strtolower($s) == 'pending') $sc = 'amber-500';
+                                                        elseif(strtolower($s) == 'rejected') $sc = 'rose-500';
+                                                    ?>
+                                                    <span class="px-3 py-1 rounded-md bg-<?= $sc ?>/10 border border-<?= $sc ?>/20 text-xs text-<?= $sc ?> font-black uppercase italic">
+                                                        <?= htmlspecialchars(str_replace('_', ' ', $s)) ?>
                                                     </span>
                                                 </div>
-                                                <?php if($row['rev_f']): ?>
-                                                    <p class="text-[8px] text-gray-600 font-bold uppercase tracking-tighter">By: <?= htmlspecialchars($row['rev_f'] . ' ' . $row['rev_l']) ?></p>
-                                                <?php endif; ?>
-                                                <?php if($row['remarks']): ?>
-                                                    <p class="text-[8px] text-primary/50 italic mt-1 truncate max-w-[100px] mx-auto" title="<?= htmlspecialchars($row['remarks']) ?>"><?= htmlspecialchars($row['remarks']) ?></p>
-                                                <?php endif; ?>
                                             </td>
                                             <?php break;
                                         case 'active_gyms': ?>
                                             <td class="px-8 py-5">
-                                                <p class="text-sm font-bold text-white mb-1"><?= htmlspecialchars($row['gym_name']) ?></p>
-                                                <p class="text-[9px] text-primary font-black uppercase tracking-tighter italic"><?= htmlspecialchars($row['tenant_code']) ?></p>
+                                                <p class="text-base font-bold text-white mb-1"><?= htmlspecialchars($row['gym_name']) ?></p>
+                                                <p class="text-xs text-primary font-black uppercase tracking-tighter italic"><?= htmlspecialchars($row['tenant_code']) ?></p>
                                             </td>
                                             <td class="px-8 py-5 text-sm font-bold text-white"><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></td>
                                             <td class="px-8 py-5">
-                                                <p class="text-xs font-bold text-white mb-1"><?= htmlspecialchars($row['contact_number']) ?></p>
-                                                <p class="text-[9px] text-gray-500 font-black uppercase italic"><?= htmlspecialchars($row['email']) ?></p>
+                                                <p class="text-sm font-bold text-white mb-1"><?= htmlspecialchars($row['contact_number']) ?></p>
+                                                <p class="text-xs text-gray-500 font-black uppercase italic"><?= htmlspecialchars($row['email']) ?></p>
                                             </td>
-                                            <td class="px-8 py-5 overflow-hidden max-w-[200px]">
-                                                <p class="text-[10px] text-gray-400 font-bold uppercase leading-tight truncate"><?= htmlspecialchars($row['address_line'] . ', ' . $row['city']) ?></p>
+                                            <td class="px-8 py-5">
+                                                <p class="text-xs text-gray-200 font-bold uppercase leading-tight break-words"><?= htmlspecialchars($row['address_line'] . ', ' . $row['city']) ?></p>
                                             </td>
                                             <td class="px-8 py-5 text-center">
                                                 <?php $c = $row['status'] == 'Active' ? 'emerald-500' : 'rose-500'; ?>
-                                                <span class="px-3 py-1 rounded-md bg-<?= $c ?>/10 border border-<?= $c ?>/20 text-[9px] text-<?= $c ?> font-black uppercase italic">
-                                                    <?= htmlspecialchars($row['status']) ?>
+                                                <span class="px-3 py-1 rounded-md bg-<?= $c ?>/10 border border-<?= $c ?>/20 text-xs text-<?= $c ?> font-black uppercase italic">
+                                                    <?= htmlspecialchars(str_replace('_', ' ', $row['status'])) ?>
                                                 </span>
                                             </td>
                                             <?php break;
                                         case 'client_subs': ?>
                                             <td class="px-8 py-5">
-                                                <p class="text-sm font-bold text-white mb-1"><?= htmlspecialchars($row['gym_name']) ?></p>
-                                                <p class="text-[9px] text-gray-500 font-bold italic"><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
+                                                <p class="text-base font-bold text-white mb-1"><?= htmlspecialchars($row['gym_name']) ?></p>
+                                                <p class="text-xs text-gray-500 font-bold italic"><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
                                             </td>
                                             <td class="px-8 py-5">
-                                                <p class="text-xs font-black text-primary uppercase tracking-widest italic"><?= htmlspecialchars($row['plan_name']) ?></p>
+                                                <p class="text-sm font-black text-primary uppercase tracking-widest italic"><?= htmlspecialchars($row['plan_name']) ?></p>
                                             </td>
                                             <td class="px-8 py-5">
-                                                <p class="text-[10px] text-white font-bold leading-none mb-1"><?= date('M d', strtotime($row['start_date'])) ?> - <?= date('M d, Y', strtotime($row['end_date'])) ?></p>
-                                                <p class="text-[9px] text-gray-500 font-black uppercase tracking-tighter italic">Billing Period</p>
+                                                <p class="text-xs text-white font-bold leading-none mb-1"><?= date('M d', strtotime($row['start_date'])) ?> - <?= date('M d, Y', strtotime($row['end_date'])) ?></p>
+                                                <p class="text-xs text-gray-500 font-black uppercase tracking-tighter italic">Billing Period</p>
                                             </td>
                                             <td class="px-8 py-5 text-center">
                                                 <?php $sc = $row['subscription_status'] == 'Active' ? 'emerald-500' : 'amber-500'; ?>
-                                                <span class="px-3 py-1 rounded-md bg-<?= $sc ?>/10 border border-<?= $sc ?>/20 text-[9px] text-<?= $sc ?> font-black uppercase italic"><?= htmlspecialchars($row['subscription_status']) ?></span>
+                                                <span class="px-3 py-1 rounded-md bg-<?= $sc ?>/10 border border-<?= $sc ?>/20 text-xs text-<?= $sc ?> font-black uppercase italic"><?= htmlspecialchars(str_replace('_', ' ', $row['subscription_status'])) ?></span>
                                             </td>
                                             <td class="px-8 py-5 text-right">
-                                                <p class="text-xs font-black text-emerald-500 italic uppercase"><?= htmlspecialchars($row['payment_status']) ?></p>
+                                                <p class="text-sm font-black text-emerald-500 italic uppercase"><?= htmlspecialchars($row['payment_status']) ?></p>
                                             </td>
                                             <?php break;
                                         case 'system_alerts': ?>
                                             <td class="px-8 py-5">
-                                                <p class="text-xs font-bold text-white mb-1"><?= htmlspecialchars($row['type']) ?></p>
-                                                <p class="text-[9px] text-primary font-black uppercase italic">SRC: <?= htmlspecialchars($row['source']) ?></p>
+                                                <p class="text-sm font-bold text-white mb-1"><?= htmlspecialchars(ucwords(str_replace('_', ' ', strtolower($row['type'])))) ?></p>
+                                                <p class="text-xs text-primary font-black uppercase italic">SRC: <?= htmlspecialchars(str_replace('_', ' ', $row['source'])) ?></p>
                                             </td>
                                             <td class="px-8 py-5">
-                                                <p class="text-[10px] text-gray-400 font-medium leading-relaxed italic line-clamp-2"><?= htmlspecialchars($row['message']) ?></p>
+                                                <p class="text-xs text-gray-200 font-medium leading-relaxed italic break-words"><?= htmlspecialchars($row['message']) ?></p>
                                             </td>
-                                            <td class="px-8 py-5 text-center">
-                                                <?php $pc = $row['priority'] == 'High' ? 'rose-500' : ($row['priority'] == 'Medium' ? 'amber-500' : 'emerald-500'); ?>
-                                                <span class="px-3 py-1 rounded-md bg-<?= $pc ?>/10 border border-<?= $pc ?>/20 text-[9px] text-<?= $pc ?> font-black uppercase italic"><?= htmlspecialchars($row['priority']) ?></span>
-                                            </td>
-                                            <td class="px-8 py-5 text-center text-[9px] font-black uppercase tracking-tighter text-gray-500 italic"><?= htmlspecialchars($row['status']) ?></td>
+                                            <td class="px-8 py-5 text-center text-xs font-black uppercase tracking-tighter text-gray-500 italic"><?= htmlspecialchars(str_replace('_', ' ', $row['status'])) ?></td>
                                             <td class="px-8 py-5 text-right">
-                                                <p class="text-[10px] font-bold text-white"><?= date('M d, Y', strtotime($row['created_at'])) ?></p>
+                                                <p class="text-xs font-bold text-white"><?= date('M d, Y', strtotime($row['created_at'])) ?></p>
                                             </td>
                                             <?php break;
                                         case 'audit_report': ?>
                                             <td class="px-8 py-5">
-                                                <p class="text-sm font-bold text-white mb-1"><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
-                                                <p class="text-[9px] text-primary font-black uppercase italic">Action: <?= htmlspecialchars($row['action_type']) ?></p>
+                                                <p class="text-base font-bold text-white mb-1"><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
+                                                <p class="text-xs text-primary font-black uppercase italic">Action: <?= htmlspecialchars(str_replace('_', ' ', $row['action_type'])) ?></p>
                                             </td>
                                             <td class="px-8 py-5">
-                                                <p class="text-xs font-black text-white italic uppercase tracking-widest"><?= htmlspecialchars($row['table_name']) ?></p>
-                                                <p class="text-[9px] text-gray-500 font-bold italic">Record #<?= $row['record_id'] ?></p>
+                                                <p class="text-sm font-black text-white italic uppercase tracking-widest"><?= htmlspecialchars($row['table_name']) ?></p>
+                                                <p class="text-xs text-gray-500 font-bold italic">Record #<?= $row['record_id'] ?></p>
                                             </td>
-                                            <td class="px-8 py-5 overflow-hidden max-w-[300px]">
-                                                <p class="text-[9px] text-gray-500 italic truncate"><span class="text-rose-500/50">OLD:</span> <?= htmlspecialchars($row['old_values']) ?></p>
-                                                <p class="text-[9px] text-emerald-500/80 italic truncate"><span class="text-emerald-500">NEW:</span> <?= htmlspecialchars($row['new_values']) ?></p>
+                                            <td class="px-8 py-5">
+                                                <p class="text-xs text-gray-500 italic break-words"><span class="text-rose-500/50">OLD:</span> <?= htmlspecialchars($row['old_values']) ?></p>
+                                                <p class="text-xs text-emerald-500/80 italic break-words"><span class="text-emerald-500">NEW:</span> <?= htmlspecialchars($row['new_values']) ?></p>
                                             </td>
                                             <td class="px-8 py-5 text-right">
-                                                <p class="text-[10px] font-bold text-white"><?= date('M d, H:i:s', strtotime($row['created_at'])) ?></p>
+                                                <p class="text-xs font-bold text-white"><?= date('M d, H:i:s', strtotime($row['created_at'])) ?></p>
                                             </td>
                                             <?php break;
                                         default: // tenant_activity ?>
                                             <td class="px-8 py-5">
-                                                <p class="text-sm font-bold text-white leading-none mb-1"><?= htmlspecialchars($row['gym_name']) ?></p>
-                                                <p class="text-[9px] text-primary font-black uppercase tracking-tighter italic"><?= htmlspecialchars($row['tenant_code']) ?></p>
+                                                <p class="text-base font-bold text-white leading-none mb-1"><?= htmlspecialchars($row['gym_name']) ?></p>
+                                                <p class="text-xs text-primary font-black uppercase tracking-tighter italic"><?= htmlspecialchars($row['tenant_code']) ?></p>
                                             </td>
                                             <td class="px-8 py-5 text-center">
-                                                <p class="text-sm font-bold text-white leading-none mb-1"><?= number_format($row['member_count']) ?></p>
+                                                <p class="text-base font-bold text-white leading-none mb-1"><?= number_format($row['member_count']) ?></p>
                                             </td>
                                             <td class="px-8 py-5 text-center">
-                                                <p class="text-sm font-bold text-white leading-none mb-1"><?= number_format($row['activity_count']) ?></p>
+                                                <p class="text-base font-bold text-white leading-none mb-1"><?= number_format($row['activity_count']) ?></p>
                                             </td>
                                             <td class="px-8 py-5 text-center">
                                                 <?php $tc = $row['status'] == 'Active' ? 'emerald-500' : 'rose-500'; ?>
-                                                <span class="px-3 py-1 rounded-md bg-<?= $tc ?>/10 border border-<?= $tc ?>/20 text-[9px] text-<?= $tc ?> font-black uppercase italic"><?= htmlspecialchars($row['status']) ?></span>
+                                                <span class="px-3 py-1 rounded-md bg-<?= $tc ?>/10 border border-<?= $tc ?>/20 text-xs text-<?= $tc ?> font-black uppercase italic"><?= htmlspecialchars(str_replace('_', ' ', $row['status'])) ?></span>
                                             </td>
                                             <td class="px-8 py-5 text-right">
-                                                <p class="text-xs font-bold text-white uppercase leading-none mb-1"><?= date('M d, Y', strtotime($row['joined_date'])) ?></p>
+                                                <p class="text-sm font-bold text-white uppercase leading-none mb-1"><?= date('M d, Y', strtotime($row['joined_date'])) ?></p>
                                             </td>
                                     <?php endswitch; ?>
                                 </tr>
@@ -694,7 +685,7 @@ switch ($report_type) {
                     <div class="flex justify-between items-center mb-8">
                         <div>
                             <h3 class="text-sm font-black italic uppercase tracking-widest text-white">User Registration Growth</h3>
-                            <p class="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-wider">Growth Trends Over Time</p>
+                            <p class="text-xs text-gray-500 font-bold uppercase mt-1 tracking-wider">Growth Trends Over Time</p>
                         </div>
                     </div>
                     <div class="h-[300px] w-full">
@@ -707,17 +698,17 @@ switch ($report_type) {
                     <div class="space-y-6">
                         <div class="p-5 rounded-2xl bg-white/[0.01] border border-white/5 relative overflow-hidden group hover:border-primary/20 transition-colors">
                             <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-5 group-hover:scale-110 transition-transform">groups</span>
-                            <p class="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Total System Users</p>
+                            <p class="text-xs font-black uppercase text-gray-500 mb-1 tracking-widest">Total System Users</p>
                             <h2 class="text-2xl font-black text-white italic"><?= $total_users ?></h2>
                         </div>
                         <div class="p-5 rounded-2xl bg-white/[0.01] border border-white/5 relative overflow-hidden group hover:border-emerald-500/20 transition-colors">
                             <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-5 group-hover:scale-110 transition-transform text-emerald-500">login</span>
-                            <p class="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Avg. Daily Logins</p>
+                            <p class="text-xs font-black uppercase text-gray-500 mb-1 tracking-widest">Avg. Daily Logins</p>
                             <h2 class="text-2xl font-black text-emerald-500 italic"><?= $avg_daily_logins ?></h2>
                         </div>
                         <div class="p-5 rounded-2xl bg-white/[0.01] border border-white/5 relative overflow-hidden group hover:border-primary/20 transition-colors">
                             <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-5 group-hover:scale-110 transition-transform text-primary">schedule</span>
-                            <p class="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Peak Usage Hour</p>
+                            <p class="text-xs font-black uppercase text-gray-500 mb-1 tracking-widest">Peak Usage Hour</p>
                             <h2 class="text-2xl font-black text-primary italic"><?= $peak_hour ?></h2>
                         </div>
                     </div>
@@ -885,7 +876,7 @@ switch ($report_type) {
 
         const opt = {
             margin:       [0.3, 0.3],
-            filename:     `${reportTitle.replace(/\s+/g, '_')}_DATE_${new Date().getTime()}.pdf`,
+            filename:     `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`,
             image:        { type: 'jpeg', quality: 1.0 },
             html2canvas:  { scale: 3, backgroundColor: '#ffffff', useCORS: true, letterRendering: true },
             jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
