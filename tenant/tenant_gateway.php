@@ -11,26 +11,18 @@ if (!isset($_SESSION['user_id']) || ($role !== 'tenant' && $role !== 'admin')) {
 
 $gym_id = $_SESSION['gym_id'];
 
-// Multi-Tenant Logic: Check if they have an active subscription or pending payment
-$stmtSub = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? AND subscription_status != 'Expired' ORDER BY created_at DESC LIMIT 1");
+// Multi-Tenant Logic: Check if they have an active subscription
+$stmtSub = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? AND subscription_status = 'Active' LIMIT 1");
 $stmtSub->execute([$gym_id]);
-$sub = $stmtSub->fetch();
+$active_sub = $stmtSub->fetch();
 
-if (!$sub) {
-    // If no subscription at all, must choose a plan first
+if (!$active_sub) {
+    // If no subscription, must choose a plan first
     header("Location: subscription_plan.php");
-    exit;
-} elseif ($sub['subscription_status'] === 'Active') {
-    // Already has a plan, proceed to dashboard
-    header("Location: tenant_dashboard.php");
-    exit;
-} elseif ($sub['payment_status'] === 'Pending Verification') {
-    // Payment is pending verification, redirect back to login with notification
-    header("Location: ../login.php?payment_success=1");
     exit;
 } else {
-    // Default: no active plan, go to selection
-    header("Location: subscription_plan.php");
+    // Already has a plan, proceed to dashboard
+    header("Location: tenant_dashboard.php");
     exit;
 }
 ?>

@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subscription_id'], $_
         log_audit_event($pdo, $user_id, $gym_id, 'Create', 'payments', $payment_id, [], ['reference_number' => $reference_number, 'amount' => $amount]);
 
         $pdo->commit();
-        header("Location: ../../login.php?payment_success=1");
+        header("Location: ../subscription_plan.php?success=1");
         exit;
     } catch (Exception $e) {
         $pdo->rollBack();
