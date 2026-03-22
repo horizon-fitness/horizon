@@ -138,17 +138,15 @@ foreach ($tenants as $t) {
         }
 
         .nav-section-header {
-            max-height: 0;
             opacity: 0;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            margin: 0 !important;
+            transition: all 0.3s ease-in-out;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
             pointer-events: none;
         }
         .sidebar-nav:hover .nav-section-header {
-            max-height: 20px;
             opacity: 1;
-            margin-bottom: 0.5rem !important;
+            margin-top: 1.25rem; /* Reduced from 1.5rem */
             pointer-events: auto;
         }
         /* Override for Overview which is the first section */
