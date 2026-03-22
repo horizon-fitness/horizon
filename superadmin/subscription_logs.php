@@ -94,7 +94,7 @@ foreach ($logs as $log) {
         .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
 
         .sidebar-content {
-            gap: 2px; /* Much searhc tighter base gap */
+            gap: 2px; /* Much tighter base gap */
             transition: all 0.3s ease-in-out;
         }
         .sidebar-nav:hover .sidebar-content {
@@ -274,7 +274,7 @@ foreach ($logs as $log) {
             </div>
             <div class="glass-card p-6 border border-red-500/20 bg-red-500/5 flex items-center gap-4">
                 <div class="size-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-500"><span class="material-symbols-outlined">event_busy</span></div>
-                <div><p class="text-[10px) font-black uppercase text-red-500/70 tracking-widest">Expired</p><h3 class="text-2xl font-black italic uppercase text-red-400"><?= $expired_subs ?></h3></div>
+                <div><p class="text-[10px] font-black uppercase text-red-500/70 tracking-widest">Expired</p><h3 class="text-2xl font-black italic uppercase text-red-400"><?= $expired_subs ?></h3></div>
             </div>
         </div>
 

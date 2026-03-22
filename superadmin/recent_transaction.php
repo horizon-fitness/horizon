@@ -1,15 +1,27 @@
-<?php 
+session_start();
+require_once '../db.php';
+
+// Security Check: Only Superadmin can access
+if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmin') {
+    header("Location: ../login.php");
+    exit;
+}
+
 $page_title = "Recent Transactions";
 $active_page = "transactions";
 
-// Mock Data for Transactions
-$transactions = [
-    ['id' => 'TRX-9842', 'member' => 'John Doe', 'branch' => 'Power Fitness', 'type' => 'Subscription', 'amount' => 2500.00, 'date' => '2024-03-14 10:30 AM', 'status' => 'Success'],
-    ['id' => 'TRX-9841', 'member' => 'Jane Smith', 'branch' => 'Herdoza Gym', 'type' => 'Walk-in', 'amount' => 500.00, 'date' => '2024-03-14 09:15 AM', 'status' => 'Success'],
-    ['id' => 'TRX-9840', 'member' => 'Mike Ross', 'branch' => 'Iron Works', 'type' => 'Add-on', 'amount' => 1200.00, 'date' => '2024-03-13 04:45 PM', 'status' => 'Failed'],
-    ['id' => 'TRX-9839', 'member' => 'Sarah Connor', 'branch' => 'Elite Athletics', 'type' => 'Subscription', 'amount' => 3500.00, 'date' => '2024-03-13 02:20 PM', 'status' => 'Success'],
-    ['id' => 'TRX-9838', 'member' => 'Peter Parker', 'branch' => 'City Gym', 'type' => 'Subscription', 'amount' => 1500.00, 'date' => '2024-03-13 11:05 AM', 'status' => 'Success'],
-];
+// Fetch Global Transactions (Limit to recent 100 for performance)
+$stmtTrx = $pdo->query("
+    SELECT p.*, g.gym_name,
+           u.username as member_name
+    FROM payments p
+    LEFT JOIN gyms g ON p.gym_id = g.gym_id
+    LEFT JOIN members m ON p.member_id = m.member_id
+    LEFT JOIN users u ON m.user_id = u.user_id
+    ORDER BY p.created_at DESC
+    LIMIT 100
+");
+$transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -70,7 +82,7 @@ $transactions = [
         .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
 
         .sidebar-content {
-            gap: 2px; /* Much searhc tighter base gap */
+            gap: 2px; /* Much tighter base gap */
             transition: all 0.3s ease-in-out;
         }
         .sidebar-nav:hover .sidebar-content {
@@ -250,35 +262,39 @@ $transactions = [
                 </tr>
             </thead>
             <tbody class="divide-y divide-white/5">
-                <?php foreach($transactions as $trx): ?>
-                <tr class="hover:bg-white/5 transition-all">
-                    <td class="px-8 py-5">
-                        <span class="text-[10px] font-black italic text-primary"><?= $trx['id'] ?></span>
-                    </td>
-                    <td class="px-8 py-5">
-                        <div>
-                            <p class="text-sm font-bold italic text-white"><?= htmlspecialchars($trx['member']) ?></p>
-                            <p class="text-[9px] text-gray-500 font-black uppercase tracking-widest italic"><?= htmlspecialchars($trx['branch']) ?></p>
-                        </div>
-                    </td>
-                    <td class="px-8 py-5">
-                        <span class="text-[9px] font-black uppercase tracking-tighter text-gray-400"><?= $trx['type'] ?></span>
-                    </td>
-                    <td class="px-8 py-5">
-                        <p class="text-sm font-black italic text-white">₱<?= number_format($trx['amount'], 2) ?></p>
-                    </td>
-                    <td class="px-8 py-5 text-[10px] font-bold text-gray-500">
-                        <?= $trx['date'] ?>
-                    </td>
-                    <td class="px-8 py-5 text-right">
-                        <?php if($trx['status'] == 'Success'): ?>
-                            <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase italic">Success</span>
-                        <?php else: ?>
-                            <span class="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-black uppercase italic">Failed</span>
-                        <?php endif; ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
+                <?php if (empty($transactions)): ?>
+                    <tr><td colspan="6" class="px-8 py-8 text-center text-xs font-bold text-gray-500 italic uppercase">No transaction records found.</td></tr>
+                <?php else: ?>
+                    <?php foreach($transactions as $trx): ?>
+                    <tr class="hover:bg-white/5 transition-all">
+                        <td class="px-8 py-5">
+                            <span class="text-[10px] font-black italic text-primary">TRX-<?= $trx['reference_number'] ? htmlspecialchars($trx['reference_number']) : $trx['payment_id'] ?></span>
+                        </td>
+                        <td class="px-8 py-5">
+                            <div>
+                                <p class="text-sm font-bold italic text-white"><?= $trx['member_name'] ? htmlspecialchars($trx['member_name']) : 'N/A' ?></p>
+                                <p class="text-[9px] text-gray-500 font-black uppercase tracking-widest italic"><?= $trx['gym_name'] ? htmlspecialchars($trx['gym_name']) : 'System/Admin' ?></p>
+                            </div>
+                        </td>
+                        <td class="px-8 py-5">
+                            <span class="text-[9px] font-black uppercase tracking-tighter text-gray-400"><?= htmlspecialchars($trx['payment_type']) ?></span>
+                        </td>
+                        <td class="px-8 py-5">
+                            <p class="text-sm font-black italic text-white">₱<?= number_format($trx['amount'], 2) ?></p>
+                        </td>
+                        <td class="px-8 py-5 text-[10px] font-bold text-gray-500">
+                            <?= date('M d, Y h:i A', strtotime($trx['created_at'])) ?>
+                        </td>
+                        <td class="px-8 py-5 text-right">
+                            <?php if($trx['payment_status'] == 'Paid' || $trx['payment_status'] == 'Success'): ?>
+                                <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase italic">Success</span>
+                            <?php else: ?>
+                                <span class="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-black uppercase italic"><?= htmlspecialchars($trx['payment_status']) ?></span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
     </div>
