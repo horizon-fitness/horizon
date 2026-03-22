@@ -84,19 +84,19 @@ foreach ($logs as $log) {
         }
         .sidebar-nav:hover .nav-section-header {
             opacity: 1;
-            margin-top: 1.5rem; /* Ensure space appears on hover */
+            margin-top: 1.25rem; /* Reduced from 1.5rem */
             pointer-events: auto;
         }
         /* Override for Overview which is the first section */
-        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 1rem !important; }
-        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.5rem !important; }
+        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0.75rem !important; }
+        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
 
         .sidebar-content {
-            gap: 0.5rem;
+            gap: 2px; /* Much searhc tighter base gap */
             transition: all 0.3s ease-in-out;
         }
         .sidebar-nav:hover .sidebar-content {
-            gap: 1rem;
+            gap: 4px; /* Slightly more space on hover for readability */
         }
         /* End Sidebar Hover Logic */
 
