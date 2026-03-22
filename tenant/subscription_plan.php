@@ -11,14 +11,19 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role'] ?? '') !== 'ten
 $user_id = $_SESSION['user_id'];
 $gym_id = $_SESSION['gym_id'] ?? 0;
 
-// Check if already subscribed
-$stmtSub = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? AND subscription_status = 'Active' LIMIT 1");
+// Check if already subscribed or has pending transaction
+$stmtSub = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? AND (subscription_status = 'Active' OR payment_status = 'Pending Verification') ORDER BY created_at DESC LIMIT 1");
 $stmtSub->execute([$gym_id]);
-$active_sub = $stmtSub->fetch();
+$existing_sub = $stmtSub->fetch();
 
-if ($active_sub) {
-    header("Location: tenant_dashboard.php");
-    exit;
+if ($existing_sub) {
+    if ($existing_sub['subscription_status'] === 'Active') {
+        header("Location: tenant_dashboard.php");
+        exit;
+    } elseif ($existing_sub['payment_status'] === 'Pending Verification') {
+        header("Location: ../login.php?payment_success=1");
+        exit;
+    }
 }
 
 // --- SEED PLANS IF EMPTY ---
