@@ -8,10 +8,8 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
     exit;
 }
 
-$page_title = "Admin (Developer) Dashboard";
+$page_title = "Super Admin Dashboard";
 $active_page = "dashboard";
-$header_title = 'Admin <span class="text-primary">(Developer)</span> Dashboard';
-$header_subtitle = 'Enterprise System Control Center';
 
 // Application messages handled via session
 $success_msg = $_SESSION['success_msg'] ?? '';
@@ -24,36 +22,11 @@ $total_revenue = 0.00; // Place holder for billing later
 $stmtTenants = $pdo->query("SELECT COUNT(*) FROM gyms WHERE status = 'Active'");
 $active_tenants = $stmtTenants->fetchColumn();
 
-$stmtInactiveTenants = $pdo->query("SELECT COUNT(*) FROM gyms WHERE status != 'Active' AND status != 'Deleted'");
-$inactive_tenants = $stmtInactiveTenants->fetchColumn();
-
-$stmtActiveUsers = $pdo->query("SELECT COUNT(*) FROM users WHERE status = 'Active'");
-$active_users = $stmtActiveUsers->fetchColumn();
-
-$stmtInactiveUsers = $pdo->query("SELECT COUNT(*) FROM users WHERE status != 'Active'");
-$inactive_users = $stmtInactiveUsers->fetchColumn();
-
-$stmtTotalUsers = $pdo->query("SELECT COUNT(*) FROM users");
-$total_users = $stmtTotalUsers->fetchColumn();
+$stmtUsers = $pdo->query("SELECT COUNT(*) FROM users");
+$total_users = $stmtUsers->fetchColumn();
 
 $stmtPending = $pdo->query("SELECT COUNT(*) FROM gym_owner_applications WHERE application_status = 'Pending'");
 $pending_apps_count = $stmtPending->fetchColumn();
-
-// Daily/Monthly activity (Logins in the last 30 days)
-$stmtActivity = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM audit_logs WHERE action_type = 'Login' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)");
-$monthly_activity = $stmtActivity->fetchColumn();
-
-$stmtDailyActivity = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM audit_logs WHERE action_type = 'Login' AND created_at >= DATE_SUB(NOW(), INTERVAL 1 DAY)");
-$daily_activity = $stmtDailyActivity->fetchColumn();
-
-// Fetch Data for Charts
-// 1. User Growth (Last 6 Months)
-$stmtUserGrowth = $pdo->query("SELECT DATE_FORMAT(created_at, '%b') as month, COUNT(*) as count FROM users GROUP BY month ORDER BY created_at ASC LIMIT 6");
-$user_growth_data = $stmtUserGrowth->fetchAll(PDO::FETCH_ASSOC);
-
-// 2. Sales Trends (Last 7 Days)
-$stmtSalesTrend = $pdo->query("SELECT DATE_FORMAT(created_at, '%m-%d') as day, SUM(amount) as total FROM client_subscriptions WHERE payment_status = 'Paid' GROUP BY day ORDER BY created_at ASC LIMIT 7");
-$sales_trend_data = $stmtSalesTrend->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch Recent Applications
 $stmtList = $pdo->query("
@@ -74,11 +47,10 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title><?php echo $page_title ?? 'Admin (Developer) Dashboard'; ?> | Horizon System</title>
+    <title><?php echo $page_title ?? 'Super Admin Dashboard'; ?> | Horizon System</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -158,11 +130,102 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<?php include '../includes/superadmin_sidebar.php'; ?>
+<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
+    <div class="mb-12">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
+                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+            </div>
+            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+        </div>
+    </div>
+    
+    <div class="flex flex-col gap-6 flex-1 overflow-y-auto no-scrollbar pr-2">
+        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
+            <span class="nav-text">Dashboard</span>
+        </a>
+        
+        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
+            <span class="nav-text">Tenant Management</span>
+        </a>
+
+        <a href="tenant_linking.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenant_linking') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">link</span> 
+            <span class="nav-text">Tenant Linking</span>
+        </a>
+
+        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">history_edu</span> 
+            <span class="nav-text">Subscription Logs</span>
+        </a>
+
+        <a href="rbac_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">security</span> 
+            <span class="nav-text">Access Control</span>
+        </a>
+
+        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">group</span> 
+            <span class="nav-text">Real-Time Occupancy</span>
+        </a>
+
+        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">receipt_long</span> 
+            <span class="nav-text">Recent Transactions</span>
+        </a>
+
+        <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">notifications_active</span> 
+            <span class="nav-text">System Alerts</span>
+        </a>
+
+        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">analytics</span> 
+            <span class="nav-text">Reports</span>
+        </a>
+
+        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">monitoring</span> 
+            <span class="nav-text">Sales Reports</span>
+        </a>
+
+        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">assignment</span> 
+            <span class="nav-text">Audit Logs</span>
+        </a>
+
+        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">settings</span> 
+            <span class="nav-text">Settings</span>
+        </a>
+    </div>
+
+    <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-8">
+        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
+            <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
+            <span class="nav-link nav-text">Profile</span>
+        </a>
+        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-4 group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-2xl shrink-0">logout</span>
+            <span class="nav-link nav-text">Sign Out</span>
+        </a>
+    </div>
+</nav>
 
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
-        <?php include '../includes/superadmin_header.php'; ?>
+        <header class="mb-10 flex flex-row justify-between items-end gap-6">
+            <div>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">System <span class="text-primary">Overview</span></h2>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Super Admin Control Center</p>
+            </div>
+            <div class="text-right">
+                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
+                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
+            </div>
+        </header>
 
         <?php if ($success_msg): ?>
         <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold flex items-center gap-3">
@@ -191,11 +254,11 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
                 <h3 class="text-2xl font-black italic uppercase"><?= $active_tenants ?> Gyms</h3>
                 <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Live Subscriptions</p>
             </div>
-            <div class="glass-card p-6 relative overflow-hidden group border border-white/5 bg-white/5">
+            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">groups</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Active Users</p>
-                <h3 class="text-2xl font-black italic uppercase text-emerald-400"><?= number_format($active_users) ?></h3>
-                <p class="text-gray-500 text-[10px] font-black uppercase mt-2"><?= number_format($inactive_users) ?> Inactive</p>
+                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Total Users</p>
+                <h3 class="text-2xl font-black italic uppercase"><?= number_format($total_users) ?></h3>
+                <p class="text-primary text-[10px] font-black uppercase mt-2">Network Growth</p>
             </div>
             <div class="glass-card p-8 relative overflow-hidden group border border-amber-500/20 bg-amber-500/5">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">pending_actions</span>
@@ -209,11 +272,11 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
                 <h3 class="text-2xl font-black italic uppercase">Active</h3>
                 <p class="text-red-500 text-[10px] font-black uppercase mt-2">Urgent Notifications</p>
             </div>
-            <div class="glass-card p-6 relative overflow-hidden group border border-white/5 bg-white/5">
-                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">analytics</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">System Activity</p>
-                <h3 class="text-2xl font-black italic uppercase"><?= number_format($monthly_activity) ?></h3>
-                <p class="text-primary text-[10px] font-black uppercase mt-2"><?= $daily_activity ?> Logins Today</p>
+            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">group</span>
+                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Total Occupancy</p>
+                <h3 class="text-2xl font-black italic uppercase">Live</h3>
+                <p class="text-primary text-[10px] font-black uppercase mt-2">Real-time Monitoring</p>
             </div>
             <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">history_edu</span>
@@ -230,20 +293,24 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-            <div class="glass-card p-6">
+            <div class="glass-card p-8">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-[10px] font-black italic uppercase tracking-widest">Sales Trend (Weekly)</h3>
+                    <h3 class="text-sm font-black italic uppercase tracking-widest">Revenue Analytics</h3>
+                    <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Last 30 Days</span>
                 </div>
-                <div class="h-[250px]">
-                    <canvas id="salesTrendsChart"></canvas>
+                <div class="h-[300px] flex items-center justify-center border border-white/5 rounded-2xl bg-white/[0.02] relative overflow-hidden">
+                    <p class="text-gray-600 text-[10px] font-black uppercase italic tracking-widest z-10">Revenue Chart Visualization</p>
+                    <div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-primary/5 to-transparent"></div>
                 </div>
             </div>
-            <div class="glass-card p-6">
+            <div class="glass-card p-8">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-[10px] font-black italic uppercase tracking-widest">User Growth (Monthly)</h3>
+                    <h3 class="text-sm font-black italic uppercase tracking-widest">Tenant Growth</h3>
+                    <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Monthly Onboarding</span>
                 </div>
-                <div class="h-[250px]">
-                    <canvas id="userGrowthChart"></canvas>
+                <div class="h-[300px] flex items-center justify-center border border-white/5 rounded-2xl bg-white/[0.02] relative overflow-hidden">
+                    <p class="text-gray-600 text-[10px] font-black uppercase italic tracking-widest z-10">Growth Chart Visualization</p>
+                    <div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-primary/5 to-transparent"></div>
                 </div>
             </div>
         </div>
@@ -334,58 +401,5 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
     </main>
 </div>
     <?php include '../includes/image_viewer.php'; ?>
-    
-    <script>
-        // Sales Trends Chart
-        const salesTrendsCtx = document.getElementById('salesTrendsChart').getContext('2d');
-        new Chart(salesTrendsCtx, {
-            type: 'line',
-            data: {
-                labels: [<?php foreach($sales_trend_data as $d) echo "'" . $d['day'] . "',"; ?>],
-                datasets: [{
-                    label: 'Revenue',
-                    data: [<?php foreach($sales_trend_data as $d) echo $d['total'] . ","; ?>],
-                    borderColor: '#8c2bee',
-                    backgroundColor: 'rgba(140, 43, 238, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { ticks: { color: '#666', font: { size: 9 } }, grid: { display: false } },
-                    y: { ticks: { color: '#666', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
-                }
-            }
-        });
-
-        // User Growth Chart
-        const userGrowthCtx = document.getElementById('userGrowthChart').getContext('2d');
-        new Chart(userGrowthCtx, {
-            type: 'bar',
-            data: {
-                labels: [<?php foreach($user_growth_data as $d) echo "'" . $d['month'] . "',"; ?>],
-                datasets: [{
-                    label: 'Signups',
-                    data: [<?php foreach($user_growth_data as $d) echo $d['count'] . ","; ?>],
-                    backgroundColor: '#7f13ec',
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: { ticks: { color: '#666', font: { size: 9 } }, grid: { display: false } },
-                    y: { ticks: { color: '#666', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
-                }
-            }
-        });
-    </script>
 </body>
 </html>

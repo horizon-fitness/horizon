@@ -8,10 +8,8 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
     exit;
 }
 
-$page_title = "Admin (Developer) System Reports";
+$page_title = "System Reports";
 $active_page = "reports"; 
-$header_title = 'System <span class="text-primary">Reports</span>';
-$header_subtitle = 'Enterprise Activity & Growth Analytics';
 
 // Get Filter Inputs
 $date_from = $_GET['date_from'] ?? date('Y-m-01');
@@ -42,19 +40,6 @@ $act_params = ($tenant_filter !== 'all') ? ['tid' => $tenant_filter] : [];
 $stmtAct->execute($act_params);
 $tenant_activity = $stmtAct->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch Real Usage Stats
-$stmtTotalUsers = $pdo->query("SELECT COUNT(*) FROM users");
-$total_system_users = $stmtTotalUsers->fetchColumn();
-
-// Avg Daily Logins (Last 30 days)
-$stmtAvgLogins = $pdo->query("SELECT COUNT(*) / 30 FROM audit_logs WHERE action_type = 'Login' AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)");
-$avg_daily_logins = round($stmtAvgLogins->fetchColumn());
-
-// Peak Usage Hour (Most logins in a specific hour of the day)
-$stmtPeakHour = $pdo->query("SELECT HOUR(created_at) as hr, COUNT(*) as c FROM audit_logs WHERE action_type = 'Login' GROUP BY hr ORDER BY c DESC LIMIT 1");
-$peak_hour_data = $stmtPeakHour->fetch();
-$peak_hour = $peak_hour_data ? date("h:00 A", strtotime($peak_hour_data['hr'] . ":00:00")) : "N/A";
-
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -82,9 +67,79 @@ $peak_hour = $peak_hour_data ? date("h:00 A", strtotime($peak_hour_data['hr'] . 
 </head>
 <body class="antialiased flex min-h-screen">
 
-<?php include '../includes/superadmin_sidebar.php'; ?>
+<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
+    <div class="mb-12">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
+                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+            </div>
+            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+        </div>
+    </div>
     
-<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <div class="flex flex-col gap-8 flex-1 overflow-y-auto no-scrollbar pr-2">
+        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
+            <span class="nav-text">Dashboard</span>
+        </a>
+        <a href="tenant_management.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
+            <span class="nav-text">Tenant Management</span>
+        </a>
+        <a href="tenant_linking.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'tenant_linking') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">link</span> 
+            <span class="nav-text">Tenant Linking</span>
+        </a>
+        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">history_edu</span> 
+            <span class="nav-text">Subscription Logs</span>
+        </a>
+        <a href="rbac_management.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">security</span> 
+            <span class="nav-text">Access Control</span>
+        </a>
+        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">group</span> 
+            <span class="nav-text">Real-Time Occupancy</span>
+        </a>
+        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">receipt_long</span> 
+            <span class="nav-text">Recent Transactions</span>
+        </a>
+        <a href="system_alerts.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">notifications_active</span> 
+            <span class="nav-text">System Alerts</span>
+        </a>
+        <a href="system_reports.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">analytics</span> 
+            <span class="nav-text">Reports</span>
+        </a>
+        <a href="sales_report.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">monitoring</span> 
+            <span class="nav-text">Sales Reports</span>
+        </a>
+        <a href="audit_logs.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">assignment</span> 
+            <span class="nav-text">Audit Logs</span>
+        </a>
+        <a href="settings.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">settings</span> 
+            <span class="nav-text">Settings</span>
+        </a>
+    </div>
+
+    <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-8">
+        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
+            <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
+            <span class="nav-link nav-text">Profile</span>
+        </a>
+        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-4 group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-2xl shrink-0">logout</span>
+            <span class="nav-link nav-text">Sign Out</span>
+        </a>
+    </div>
+</nav>
+    
     <main class="flex-1 p-8">
         <?php include '../includes/superadmin_header.php'; ?>
 
@@ -129,15 +184,15 @@ $peak_hour = $peak_hour_data ? date("h:00 A", strtotime($peak_hour_data['hr'] . 
                 <div class="space-y-6">
                     <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
                         <p class="text-[10px] font-black uppercase text-gray-500 mb-1">Total System Users</p>
-                        <h2 class="text-2xl font-black text-white italic"><?= number_format($total_system_users) ?></h2>
+                        <h2 class="text-2xl font-black text-white italic">1,248</h2>
                     </div>
                     <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
                         <p class="text-[10px] font-black uppercase text-gray-500 mb-1">Avg. Daily Logins</p>
-                        <h2 class="text-2xl font-black text-emerald-500 italic"><?= $avg_daily_logins ?></h2>
+                        <h2 class="text-2xl font-black text-emerald-500 italic">452</h2>
                     </div>
                     <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
                         <p class="text-[10px] font-black uppercase text-gray-500 mb-1">Peak Usage Hour</p>
-                        <h2 class="text-2xl font-black text-primary italic"><?= $peak_hour ?></h2>
+                        <h2 class="text-2xl font-black text-primary italic">06:00 PM</h2>
                     </div>
                 </div>
             </div>

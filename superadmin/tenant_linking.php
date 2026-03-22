@@ -1,15 +1,34 @@
 <?php 
 session_start();
-// Security and Database logic
-$page_title = "System Alerts";
-$active_page = "alerts";
+require_once '../db.php';
 
-$alerts = [
-    ['id' => 1, 'type' => 'Payment Failure', 'source' => 'Iron Works', 'message' => 'Subscription payment failed for TRX-9840.', 'time' => '2 hours ago', 'priority' => 'High'],
-    ['id' => 2, 'type' => 'Pending Approval', 'source' => 'System', 'message' => 'New tenant "Gravity Fitness" is waiting for account activation.', 'time' => '5 hours ago', 'priority' => 'Medium'],
-    ['id' => 3, 'type' => 'Expired Membership', 'source' => 'Power Fitness', 'message' => 'Tenant subscription expired for Power Fitness (Legacy Plan).', 'time' => '1 day ago', 'priority' => 'High'],
-    ['id' => 4, 'type' => 'Warning', 'source' => 'Server', 'message' => 'Database storage reaching 85% capacity.', 'time' => '2 days ago', 'priority' => 'Low'],
-];
+// Security Check: Only Superadmin can access
+if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmin') {
+    header("Location: ../login.php");
+    exit;
+}
+
+$page_title = "Tenant Linking";
+$active_page = "tenant_linking"; 
+
+// Application messages handled via session
+$success_msg = $_SESSION['success_msg'] ?? '';
+$error_msg = $_SESSION['error_msg'] ?? '';
+unset($_SESSION['success_msg'], $_SESSION['error_msg']);
+
+// Fetch tenants for linking
+$stmtTenants = $pdo->query("
+    SELECT g.*, 
+           u.first_name, u.last_name, u.email as owner_email,
+           tp.logo_path
+    FROM gyms g
+    JOIN users u ON g.owner_user_id = u.user_id
+    LEFT JOIN tenant_pages tp ON g.gym_id = tp.gym_id
+    WHERE g.status != 'Deleted'
+    ORDER BY g.created_at DESC
+");
+$tenants = $stmtTenants->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -69,32 +88,10 @@ $alerts = [
         @media (max-width: 1023px) {
             .active-nav::after { display: none; }
         }
-        .alert-pulse { animation: alert-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-        @keyframes alert-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
-        
-        .status-card-green { border: 1px solid #10b981; background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(20,18,26,1) 100%); }
-        .status-card-yellow { border: 1px solid #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(20,18,26,1) 100%); }
-        .status-card-red { border: 1px solid #ef4444; background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(20,18,26,1) 100%); }
-        .dashed-container { border: 2px dashed rgba(255,255,255,0.1); border-radius: 24px; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
-    <script>
-        function updateHeaderClock() {
-            const now = new Date();
-            const clockEl = document.getElementById('headerClock');
-            if (clockEl) {
-                clockEl.textContent = now.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit' 
-                });
-            }
-        }
-        setInterval(updateHeaderClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateHeaderClock);
-    </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
@@ -171,63 +168,124 @@ $alerts = [
     </div>
 
     <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-8">
-        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
-            <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
-            <span class="nav-link nav-text">Profile</span>
-        </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-4 group">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-2xl shrink-0">logout</span>
-            <span class="nav-link nav-text">Sign Out</span>
+        <a href="../logout.php" class="nav-link flex items-center gap-4 py-2 text-red-400/70 hover:text-red-400">
+            <span class="material-symbols-outlined text-2xl shrink-0">logout</span> 
+            <span class="nav-text">Logout</span>
         </a>
     </div>
 </nav>
 
-<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
-    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
-        <header class="mb-10 flex flex-row justify-between items-end gap-6">
-            <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">System <span class="text-primary">Alerts</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Super Admin Control Center</p>
-            </div>
-            <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
-            </div>
-        </header>
+<main class="flex-1 p-8 lg:p-12">
+    <header class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
+        <div>
+            <h1 class="text-4xl font-black tracking-tight text-white mb-2"><?= $page_title ?></h1>
+            <p class="text-gray-400 font-medium">Link tenants together for shared resources or multi-location management.</p>
+        </div>
+    </header>
 
-            <div class="space-y-4">
-                <?php foreach($alerts as $alert): ?>
-                    <div class="glass-card p-6 border-l-4 <?= ($alert['priority'] == 'High') ? 'border-red-500 bg-red-500/5' : 'border-primary bg-primary/5' ?> hover:bg-white/[0.04] transition-all">
-                        <div class="flex items-center justify-between">
+    <?php if ($success_msg): ?>
+        <div class="mb-8 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-4 text-emerald-400 animate-in fade-in slide-in-from-top-4">
+            <span class="material-symbols-outlined">check_circle</span>
+            <p class="text-sm font-bold uppercase tracking-wider"><?= $success_msg ?></p>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($error_msg): ?>
+        <div class="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-4 text-red-400 animate-in fade-in slide-in-from-top-4">
+            <span class="material-symbols-outlined">error</span>
+            <p class="text-sm font-bold uppercase tracking-wider"><?= $error_msg ?></p>
+        </div>
+    <?php endif; ?>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="glass-card p-8">
+            <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">link</span>
+                Link New Tenants
+            </h2>
+            <form action="process_tenant_link.php" method="POST" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-bold text-gray-400 uppercase mb-2">Primary Tenant</label>
+                    <select name="primary_tenant" class="w-full bg-[#0a090d] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary">
+                        <option value="">Select a tenant</option>
+                        <?php foreach ($tenants as $tenant): ?>
+                            <option value="<?= $tenant['gym_id'] ?>"><?= htmlspecialchars($tenant['gym_name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-400 uppercase mb-2">Secondary Tenant</label>
+                    <select name="secondary_tenant" class="w-full bg-[#0a090d] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary">
+                        <option value="">Select a tenant</option>
+                        <?php foreach ($tenants as $tenant): ?>
+                            <option value="<?= $tenant['gym_id'] ?>"><?= htmlspecialchars($tenant['gym_name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-primary/20">
+                    Create Link
+                </button>
+            </form>
+        </div>
+
+        <div class="glass-card p-8">
+            <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">list_alt</span>
+                Existing Links
+            </h2>
+            <div class="space-y-4 overflow-y-auto max-h-[400px] pr-2 no-scrollbar">
+                <?php 
+                $links = [];
+                try {
+                    // Try to fetch links if table exists
+                    $stmtLinks = $pdo->query("
+                        SELECT l.*, 
+                               g1.gym_name as primary_name, 
+                               g2.gym_name as secondary_name 
+                        FROM gym_links l 
+                        JOIN gyms g1 ON l.primary_id = g1.gym_id 
+                        JOIN gyms g2 ON l.secondary_id = g2.gym_id
+                        ORDER BY l.created_at DESC
+                    ");
+                    $links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
+                } catch (PDOException $e) {
+                    // Table doesn't exist, show empty list
+                    $links = [];
+                }
+                
+                if (empty($links)): ?>
+                    <div class="flex flex-col items-center justify-center h-48 border-2 border-dashed border-white/5 rounded-2xl">
+                        <span class="material-symbols-outlined text-gray-600 text-4xl mb-2">link_off</span>
+                        <p class="text-gray-500 font-medium text-sm">No active links found</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($links as $link): ?>
+                        <div class="bg-[#0a090d] border border-white/5 p-4 rounded-xl flex items-center justify-between group hover:border-primary/50 transition-all">
                             <div class="flex items-center gap-4">
-                                <span class="material-symbols-outlined text-2xl text-primary">notifications_active</span>
+                                <div class="size-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-primary text-xl">link</span>
+                                </div>
                                 <div>
-                                    <h4 class="text-sm font-black italic uppercase text-white tracking-tighter"><?= $alert['type'] ?></h4>
-                                    <p class="text-xs text-gray-400"><?= $alert['message'] ?></p>
+                                    <p class="text-white font-bold text-sm"><?= htmlspecialchars($link['primary_name']) ?></p>
+                                    <div class="flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-gray-500 text-xs">sync</span>
+                                        <p class="text-gray-400 text-[10px] font-bold uppercase tracking-wider"><?= htmlspecialchars($link['secondary_name']) ?></p>
+                                    </div>
                                 </div>
                             </div>
-                            <button class="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all">View Details</button>
+                            <form action="process_tenant_link.php" method="POST" onsubmit="return confirm('Are you sure you want to remove this link?');">
+                                <input type="hidden" name="delete_link_id" value="<?= $link['link_id'] ?>">
+                                <button type="submit" class="size-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                                    <span class="material-symbols-outlined text-lg">delete</span>
+                                </button>
+                            </form>
                         </div>
-                    </div>
-                <?php endforeach; ?>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
-        </main>
+        </div>
     </div>
+</main>
 
-    <script>
-        function updateHeaderClock() {
-            const now = new Date();
-            const clockEl = document.getElementById('headerClock');
-            if (clockEl) {
-                clockEl.textContent = now.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit' 
-                });
-            }
-        }
-        setInterval(updateHeaderClock, 1000);
-        updateHeaderClock();
-    </script>
 </body>
 </html>
