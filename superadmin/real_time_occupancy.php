@@ -1,16 +1,46 @@
 <?php 
+require_once '../db.php';
 $page_title = "Real-Time Occupancy";
 $active_page = "occupancy";
 
-// Mock Data for Occupancy
-$gyms = [
-    ['name' => 'Power Fitness', 'count' => 45, 'capacity' => 100, 'status' => 'Moderate'],
-    ['name' => 'Herdoza Gym', 'count' => 12, 'capacity' => 50, 'status' => 'Low'],
-    ['name' => 'Iron Works', 'count' => 78, 'capacity' => 80, 'status' => 'Full'],
-    ['name' => 'Elite Athletics', 'count' => 30, 'capacity' => 150, 'status' => 'Low'],
-    ['name' => 'City Gym', 'count' => 55, 'capacity' => 60, 'status' => 'Full'],
-    ['name' => 'Prime Studio', 'count' => 22, 'capacity' => 100, 'status' => 'Moderate'],
-];
+// Fetch Real Data for Occupancy
+try {
+    $today = date('Y-m-d');
+    $stmt = $pdo->prepare("SELECT 
+        g.gym_id,
+        g.gym_name as name, 
+        COALESCE(gd.max_capacity, 100) as capacity,
+        (SELECT COUNT(*) 
+         FROM attendance a 
+         WHERE a.gym_id = g.gym_id 
+           AND (a.check_out_time IS NULL OR a.check_out_time = '00:00:00' OR a.check_out_time = '')
+           AND (a.attendance_date = ? OR LOWER(a.attendance_status) = 'active' OR LOWER(a.attendance_status) = 'present' OR LOWER(a.attendance_status) = 'checked in')) as count
+    FROM gyms g
+    LEFT JOIN gym_details gd ON g.gym_id = gd.gym_id
+    WHERE LOWER(g.status) = 'active'
+    ORDER BY g.gym_name ASC");
+    $stmt->execute([$today]);
+    
+    $gyms = $stmt->fetchAll();
+    
+    // Process status for each gym
+    foreach ($gyms as &$gym) {
+        $occupancyRate = ($gym['capacity'] > 0) ? ($gym['count'] / $gym['capacity']) * 100 : 0;
+        
+        if ($occupancyRate >= 80) {
+            $gym['status'] = 'Full';
+        } elseif ($occupancyRate >= 40) {
+            $gym['status'] = 'Moderate';
+        } else {
+            $gym['status'] = 'Low';
+        }
+    }
+    unset($gym); // break reference
+
+} catch (PDOException $e) {
+    // Handle error gracefully or use mock data as fallback during development
+    $gyms = [];
+}
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -261,14 +291,14 @@ $gyms = [
                 </div>
                 <div class="text-right">
                     <span class="text-xs font-black italic text-primary">
-                        <?= round(($gym['count'] / $gym['capacity']) * 100) ?>%
+                        <?= ($gym['capacity'] > 0) ? round(($gym['count'] / $gym['capacity']) * 100) : 0 ?>%
                     </span>
                 </div>
             </div>
             <div class="overflow-hidden h-2 mb-4 text-xs flex rounded-full bg-white/5">
                 <?php 
                     $barColor = ($gym['status'] == 'Full') ? 'bg-red-500' : (($gym['status'] == 'Moderate') ? 'bg-amber-500' : 'bg-emerald-500');
-                    $width = min(100, ($gym['count'] / $gym['capacity']) * 100);
+                    $width = ($gym['capacity'] > 0) ? min(100, ($gym['count'] / $gym['capacity']) * 100) : 0;
                 ?>
                 <div style="width:<?= $width ?>%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center <?= $barColor ?> transition-all duration-500"></div>
             </div>
@@ -285,7 +315,7 @@ $gyms = [
 <div class="dashed-container border-2 border-dashed border-white/10 rounded-[24px] p-12 flex flex-col items-center justify-center text-center">
     <span class="material-symbols-outlined text-gray-700 text-5xl mb-4">sensors</span>
     <h4 class="text-gray-500 text-xs font-black uppercase tracking-widest italic">Waiting for more data points...</h4>
-    <p class="text-gray-700 text-[10px] mt-2 font-bold uppercase tracking-tighter italic">Scanning across 42 active tenant gyms</p>
+    <p class="text-gray-700 text-[10px] mt-2 font-bold uppercase tracking-tighter italic">Scanning across <?= count($gyms) ?> active tenant gyms</p>
 </div>
 
     </main>
