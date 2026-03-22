@@ -46,8 +46,11 @@ if ($tenant_filter !== 'all') {
 }
 
 if (!empty($search)) {
-    $query .= " AND (al.table_name LIKE :search OR al.action_type LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search)";
-    $params['search'] = "%$search%";
+    $query .= " AND (al.table_name LIKE :s1 OR al.action_type LIKE :s2 OR u.first_name LIKE :s3 OR u.last_name LIKE :s4)";
+    $params['s1'] = "%$search%";
+    $params['s2'] = "%$search%";
+    $params['s3'] = "%$search%";
+    $params['s4'] = "%$search%";
 }
 
 $query .= " ORDER BY al.created_at DESC LIMIT 100";
@@ -85,6 +88,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         .nav-text {
             opacity: 0;
+            visibility: hidden;
             transform: translateX(-15px);
             transition: all 0.3s ease-in-out;
             white-space: nowrap;
@@ -92,6 +96,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         .sidebar-nav:hover .nav-text {
             opacity: 1;
+            visibility: visible;
             transform: translateX(0);
             pointer-events: auto;
         }
@@ -149,33 +154,34 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 });
             }
         }
+        // Reactive Filtering
+        let filterTimeout;
+        function reactiveFilter() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                const form = document.getElementById('auditFilterForm');
+                const formData = new FormData(form);
+                const params = new URLSearchParams(formData);
+                
+                // Fetch the updated table content
+                fetch(`audit_logs.php?${params.toString()}&ajax=1`)
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const newTable = doc.getElementById('auditTableContainer');
+                        if (newTable) {
+                            document.getElementById('auditTableContainer').innerHTML = newTable.innerHTML;
+                        }
+                    });
+            }, 300); // 300ms debounce
+        }
+
         setInterval(updateHeaderClock, 1000);
         window.addEventListener('DOMContentLoaded', updateHeaderClock);
 
-        function showLogDetails(oldVal, newVal) {
-            const modal = document.getElementById('detailsModal');
-            const oldContent = document.getElementById('oldValuesContent');
-            const newContent = document.getElementById('newValuesContent');
-            
-            try {
-                oldContent.textContent = JSON.stringify(JSON.parse(oldVal), null, 2);
-                newContent.textContent = JSON.stringify(JSON.parse(newVal), null, 2);
-            } catch(e) {
-                oldContent.textContent = oldVal;
-                newContent.textContent = newVal;
-            }
-            
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        }
 
-        function closeDetailsModal() {
-            const modal = document.getElementById('detailsModal');
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-        }
-
-        function exportAuditTrail() {
+        function exportAuditTrail(preview = false) {
             const element = document.getElementById('auditTableContainer');
             const reportTitle = "System Audit Trail Transcript";
             const generatedAt = "<?= date('M d, Y h:i A') ?>";
@@ -187,14 +193,14 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             wrapper.style.fontFamily = "'Roboto Mono', monospace";
 
             const header = `
-                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; border-bottom: 2px solid #000; padding-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 15px;">
                     <div style="text-align: left;">
-                        <h1 style="font-size: 28px; font-weight: 800; color: #000; margin: 0; text-transform: uppercase;">HORIZON SYSTEM</h1>
-                        <p style="margin: 0; font-size: 10px; font-weight: bold; color: #666;">OFFICIAL AUDIT REPORT</p>
+                        <h1 style="font-size: 24px; font-weight: 800; color: #000; margin: 0; text-transform: uppercase;">HORIZON SYSTEM</h1>
+                        <p style="margin: 0; font-size: 9px; font-weight: bold; color: #666;">OFFICIAL AUDIT REPORT</p>
                     </div>
                     <div style="text-align: right;">
-                        <h2 style="font-size: 16px; font-weight: 700; color: #000; margin: 0; text-transform: uppercase;">${reportTitle}</h2>
-                        <p style="margin: 0; font-size: 10px; color: #666;">Date: ${generatedAt}</p>
+                        <h2 style="font-size: 14px; font-weight: 700; color: #000; margin: 0; text-transform: uppercase;">${reportTitle}</h2>
+                        <p style="margin: 0; font-size: 9px; color: #666;">Date: ${generatedAt}</p>
                     </div>
                 </div>
             `;
@@ -214,19 +220,25 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             if (table) {
                 table.style.setProperty('width', '100%', 'important');
                 table.style.setProperty('border-collapse', 'collapse', 'important');
-                table.style.setProperty('font-size', '9px', 'important');
+                table.style.setProperty('font-size', '11px', 'important'); // Larger font for portrait
                 table.style.setProperty('border', '1px solid #000', 'important');
 
                 table.querySelectorAll('th').forEach(th => {
-                    th.style.setProperty('background-color', '#f0f0f0', 'important');
+                    th.style.setProperty('background-color', '#f3f4f6', 'important');
                     th.style.setProperty('border', '1px solid #000', 'important');
-                    th.style.setProperty('padding', '8px', 'important');
+                    th.style.setProperty('padding', '12px 10px', 'important');
                     th.style.setProperty('text-align', 'left', 'important');
+                    th.style.setProperty('text-transform', 'uppercase', 'important');
+                    th.style.setProperty('font-weight', 'bold', 'important');
                 });
 
                 table.querySelectorAll('td').forEach(td => {
                     td.style.setProperty('border', '1px solid #000', 'important');
-                    td.style.setProperty('padding', '8px', 'important');
+                    td.style.setProperty('padding', '10px 10px', 'important');
+                    td.style.setProperty('word-break', 'break-word', 'important');
+                    td.querySelectorAll('*').forEach(child => {
+                        child.style.setProperty('font-size', '11px', 'important');
+                    });
                 });
             }
 
@@ -238,10 +250,16 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 filename: `Audit_Trail_${new Date().toISOString().split('T')[0]}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2, backgroundColor: '#ffffff' },
-                jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
             };
 
-            html2pdf().from(wrapper).set(opt).save();
+            if (preview) {
+                html2pdf().set(opt).from(wrapper).toPdf().get('pdf').then(function (pdf) {
+                    window.open(pdf.output('bloburl'), '_blank');
+                });
+            } else {
+                html2pdf().from(wrapper).set(opt).save();
+            }
         }
     </script>
 </head>
@@ -263,7 +281,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
-            <span class="nav-text">Dashboard</span>
+            <span class="nav-link nav-text">Dashboard</span>
         </a>
         
         <!-- Management Section -->
@@ -272,27 +290,27 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
         <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">business</span> 
-            <span class="nav-text">Tenant Management</span>
+            <span class="nav-link nav-text">Tenant Management</span>
         </a>
 
         <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
-            <span class="nav-text">Subscription Logs</span>
+            <span class="nav-link nav-text">Subscription Logs</span>
         </a>
 
         <a href="rbac_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">security</span> 
-            <span class="nav-text">Access Control</span>
+            <span class="nav-link nav-text">Access Control</span>
         </a>
 
         <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span> 
-            <span class="nav-text">Real-Time Occupancy</span>
+            <span class="nav-link nav-text">Real-Time Occupancy</span>
         </a>
 
         <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
-            <span class="nav-text">Recent Transactions</span>
+            <span class="nav-link nav-text">Recent Transactions</span>
         </a>
 
         <!-- System Section -->
@@ -301,27 +319,27 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
         <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
-            <span class="nav-text">System Alerts</span>
+            <span class="nav-link nav-text">System Alerts</span>
         </a>
 
         <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
-            <span class="nav-text">Reports</span>
+            <span class="nav-link nav-text">Reports</span>
         </a>
 
         <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">monitoring</span> 
-            <span class="nav-text">Sales Reports</span>
+            <span class="nav-link nav-text">Sales Reports</span>
         </a>
 
         <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">assignment</span> 
-            <span class="nav-text">Audit Logs</span>
+            <span class="nav-link nav-text">Audit Logs</span>
         </a>
 
         <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
-            <span class="nav-text">Backup</span>
+            <span class="nav-link nav-text">Backup</span>
         </a>
     </div>
 
@@ -331,7 +349,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
         <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
-            <span class="nav-text">Settings</span>
+            <span class="nav-link nav-text">Settings</span>
         </a>
         <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
             <span class="material-symbols-outlined transition-transform group-hover:text-primary text-xl shrink-0">person</span>
@@ -358,18 +376,19 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </header>
 
         <div class="glass-card mb-8 p-8">
-            <form method="GET" class="flex flex-wrap items-end gap-6">
+            <form method="GET" class="flex flex-wrap items-end gap-6" id="auditFilterForm">
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Search Term</p>
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
                         <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Filter logs..." 
+                               oninput="reactiveFilter()"
                                class="bg-[#0a090d] border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-white focus:border-primary focus:outline-none w-48 transition-all">
                     </div>
                 </div>
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Action Type</p>
-                    <select name="action_type" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all w-40">
+                    <select name="action_type" onchange="reactiveFilter()" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all w-40">
                         <option value="all">All Activities</option>
                         <option value="Login" <?= $action_filter == 'Login' ? 'selected' : '' ?>>Login/Logout</option>
                         <option value="Create" <?= $action_filter == 'Create' ? 'selected' : '' ?>>Create Actions</option>
@@ -380,7 +399,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Tenant</p>
-                    <select name="tenant_id" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all w-40">
+                    <select name="tenant_id" onchange="reactiveFilter()" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all w-40">
                         <option value="all">All Tenants</option>
                         <?php foreach($tenants_list as $t): ?>
                             <option value="<?= $t['gym_id'] ?>" <?= $tenant_filter == $t['gym_id'] ? 'selected' : '' ?>><?= htmlspecialchars($t['gym_name']) ?></option>
@@ -389,52 +408,67 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">From</p>
-                    <input type="date" name="date_from" value="<?= $date_from ?>" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
+                    <input type="date" name="date_from" value="<?= $date_from ?>" onchange="reactiveFilter()" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
                 </div>
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">To</p>
-                    <input type="date" name="date_to" value="<?= $date_to ?>" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
+                    <input type="date" name="date_to" value="<?= $date_to ?>" onchange="reactiveFilter()" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
                 </div>
                 <div class="flex items-center gap-3">
                     <button type="submit" class="h-10 px-6 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-all active:scale-95 shadow-lg shadow-primary/20">Apply</button>
-                    <button type="button" onclick="exportAuditTrail()" class="h-10 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-all flex items-center gap-2">
-                        <span class="material-symbols-outlined text-sm">download</span> Export
-                    </button>
-                    <a href="audit_logs.php" class="text-[9px] font-black uppercase tracking-widest text-gray-600 hover:text-white transition-colors">Reset</a>
+                    <a href="audit_logs.php" class="text-[9px] font-black uppercase tracking-widest text-gray-600 hover:text-white transition-colors">Reset Filters</a>
                 </div>
             </form>
         </div>
 
         <div class="glass-card overflow-hidden">
-            <div class="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
-                <h3 class="text-sm font-black italic uppercase tracking-widest text-white">System Audit Trail</h3>
-                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Tracking all administrative and security events</p>
+            <div class="px-8 py-6 border-b border-white/5 bg-white/[0.01] flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <h3 class="text-sm font-black italic uppercase tracking-widest text-white">System Audit Trail</h3>
+                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Tracking all administrative and security events</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="exportAuditTrail(true)" class="h-10 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-all flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">visibility</span> Preview
+                    </button>
+                    <button type="button" onclick="exportAuditTrail(false)" class="h-10 px-6 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all active:scale-95 shadow-lg shadow-primary/20 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">picture_as_pdf</span> Export PDF
+                    </button>
+                </div>
             </div>
             <div class="overflow-x-auto" id="auditTableContainer">
                 <table class="w-full text-left">
                     <thead>
                         <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
-                            <th class="px-8 py-4">Timestamp</th>
-                            <th class="px-8 py-4">User / Role</th>
-                            <th class="px-8 py-4">Event Action</th>
-                            <th class="px-8 py-4">Target Table</th>
-                            <th class="px-8 py-4">Record ID</th>
-                            <th class="px-8 py-4 text-right">Details</th>
+                            <th class="px-8 py-4 text-left">Timestamp</th>
+                            <th class="px-8 py-4 text-left">User</th>
+                            <th class="px-8 py-4 text-left">Role</th>
+                            <th class="px-8 py-4 text-left">Event Action</th>
+                            <th class="px-8 py-4 text-right">Record ID</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         <?php if (empty($logs)): ?>
-                            <tr><td colspan="6" class="px-8 py-12 text-center text-xs text-gray-600 italic uppercase font-bold tracking-widest">No audit records found</td></tr>
+                            <tr><td colspan="5" class="px-8 py-12 text-center text-xs text-gray-600 italic uppercase font-bold tracking-widest">No audit records found</td></tr>
                         <?php else: ?>
                             <?php foreach ($logs as $log): ?>
                             <tr class="hover:bg-white/[0.01] transition-colors">
                                 <td class="px-8 py-5">
-                                    <p class="text-xs font-bold text-white uppercase leading-none mb-1"><?= date('M d, Y', strtotime($log['created_at'])) ?></p>
-                                    <p class="text-[9px] text-gray-500 font-black italic"><?= date('h:i:s A', strtotime($log['created_at'])) ?></p>
+                                    <p class="text-[11px] text-white font-medium uppercase leading-none mb-1"><?= date('M d, Y', strtotime($log['created_at'])) ?></p>
+                                    <p class="text-[9px] text-gray-500 font-black italic tracking-tighter"><?= date('h:i:s A', strtotime($log['created_at'])) ?></p>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <p class="text-sm font-bold text-white leading-none mb-1"><?= htmlspecialchars($log['first_name'] . ' ' . $log['last_name']) ?></p>
-                                    <p class="text-[9px] text-primary font-black uppercase tracking-tighter italic"><?= htmlspecialchars($log['role'] ?? 'User') ?></p>
+                                    <div class="flex items-center gap-3">
+                                        <div class="size-7 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
+                                            <span class="material-symbols-outlined text-primary text-[14px]">person</span>
+                                        </div>
+                                        <p class="text-xs font-bold text-white"><?= htmlspecialchars($log['first_name'] . ' ' . $log['last_name']) ?></p>
+                                    </div>
+                                </td>
+                                <td class="px-8 py-5">
+                                    <span class="px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20 text-[9px] text-primary font-black uppercase tracking-widest">
+                                        <?= htmlspecialchars($log['role'] ?? 'User') ?>
+                                    </span>
                                 </td>
                                 <td class="px-8 py-5">
                                     <?php 
@@ -447,17 +481,8 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                         <?= htmlspecialchars($log['action_type']) ?>
                                     </span>
                                 </td>
-                                <td class="px-8 py-5">
-                                    <p class="text-xs text-gray-400 font-bold italic uppercase tracking-widest"><?= htmlspecialchars($log['table_name']) ?></p>
-                                </td>
-                                <td class="px-8 py-5">
-                                    <p class="text-[10px] font-black text-gray-600 tracking-widest">#<?= htmlspecialchars($log['record_id']) ?></p>
-                                </td>
                                 <td class="px-8 py-5 text-right">
-                                    <button onclick='showLogDetails(<?= json_encode($log['old_values']) ?>, <?= json_encode($log['new_values']) ?>)' 
-                                            class="p-2 rounded-lg bg-white/5 hover:bg-primary/20 text-gray-500 hover:text-primary transition-all">
-                                        <span class="material-symbols-outlined text-sm">visibility</span>
-                                    </button>
+                                    <p class="text-[10px] font-black text-gray-600 tracking-widest">#<?= htmlspecialchars($log['record_id']) ?></p>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -469,38 +494,5 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     </main>
 </div>
 
-<!-- Details Modal -->
-<div id="detailsModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-    <div class="glass-card w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border-white/10">
-        <div class="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
-            <div>
-                <h3 class="text-lg font-black italic uppercase tracking-widest text-white">Event Details</h3>
-                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Comparing initial and final states</p>
-            </div>
-            <button onclick="closeDetailsModal()" class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 flex items-center justify-center transition-all">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-        </div>
-        <div class="flex-1 overflow-y-auto p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="space-y-4">
-                <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <span class="material-symbols-outlined text-amber-500 text-sm">history</span>
-                    <span class="text-[10px] font-black uppercase text-amber-500 tracking-widest">Previous State</span>
-                </div>
-                <pre id="oldValuesContent" class="bg-black/40 rounded-2xl p-6 text-[11px] font-mono text-gray-400 overflow-x-auto border border-white/5 min-h-[200px]"></pre>
-            </div>
-            <div class="space-y-4">
-                <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                    <span class="material-symbols-outlined text-emerald-500 text-sm">verified</span>
-                    <span class="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Modified State</span>
-                </div>
-                <pre id="newValuesContent" class="bg-black/40 rounded-2xl p-6 text-[11px] font-mono text-emerald-400/80 overflow-x-auto border border-emerald-500/10 min-h-[200px]"></pre>
-            </div>
-        </div>
-        <div class="px-8 py-6 border-t border-white/5 bg-white/[0.02] text-right">
-            <button onclick="closeDetailsModal()" class="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all">Close Review</button>
-        </div>
-    </div>
-</div>
 </body>
 </html>
