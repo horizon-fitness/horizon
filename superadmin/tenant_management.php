@@ -194,12 +194,20 @@ foreach ($tenants as $t) {
         </div>
     </div>
     
-    <div class="flex flex-col gap-6 flex-1 overflow-y-auto no-scrollbar pr-2 pb-10">
+    <div class="flex flex-col gap-4 flex-1 overflow-y-auto no-scrollbar pr-2 pb-10">
+        <!-- Overview Section -->
+        <div class="nav-text px-4 mb-2 mt-4">
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">Overview</p>
+        </div>
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
         </a>
         
+        <!-- Management Section -->
+        <div class="nav-text px-4 mb-2 mt-6">
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">Management</p>
+        </div>
         <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
             <span class="nav-text">Tenant Management</span>
@@ -225,6 +233,10 @@ foreach ($tenants as $t) {
             <span class="nav-text">Recent Transactions</span>
         </a>
 
+        <!-- System Section -->
+        <div class="nav-text px-4 mb-2 mt-6">
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">System</p>
+        </div>
         <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">notifications_active</span> 
             <span class="nav-text">System Alerts</span>
@@ -245,18 +257,25 @@ foreach ($tenants as $t) {
             <span class="nav-text">Audit Logs</span>
         </a>
 
+        <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">backup</span> 
+            <span class="nav-text">Backup</span>
+        </a>
+    </div>
+
+    <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-4">
+        <div class="nav-text px-4 mb-2">
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">Account</p>
+        </div>
         <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">settings</span> 
             <span class="nav-text">Settings</span>
         </a>
-    </div>
-
-    <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-8">
         <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
             <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
             <span class="nav-link nav-text">Profile</span>
         </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-4 group">
+        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-2xl shrink-0">logout</span>
             <span class="nav-link nav-text">Sign Out</span>
         </a>

@@ -91,63 +91,93 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
     
-    <div class="flex flex-col gap-6 flex-1 overflow-y-auto no-scrollbar pr-2 pb-10">
-        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+    <div class="flex flex-col gap-4 flex-1 overflow-y-auto no-scrollbar pr-2 pb-10">
+        <!-- Overview Section -->
+        <div class="nav-text px-4 mb-2 mt-4">
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">Overview</p>
+        </div>
+        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
         </a>
-        <a href="tenant_management.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        
+        <!-- Management Section -->
+        <div class="nav-text px-4 mb-2 mt-6">
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">Management</p>
+        </div>
+        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
             <span class="nav-text">Tenant Management</span>
         </a>
-        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">history_edu</span> 
             <span class="nav-text">Subscription Logs</span>
         </a>
-        <a href="rbac_management.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="rbac_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">security</span> 
             <span class="nav-text">Access Control</span>
         </a>
-        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">group</span> 
             <span class="nav-text">Real-Time Occupancy</span>
         </a>
-        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">receipt_long</span> 
             <span class="nav-text">Recent Transactions</span>
         </a>
-        <a href="system_alerts.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <!-- System Section -->
+        <div class="nav-text px-4 mb-2 mt-6">
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">System</p>
+        </div>
+        <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">notifications_active</span> 
             <span class="nav-text">System Alerts</span>
         </a>
-        <a href="system_reports.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">analytics</span> 
             <span class="nav-text">Reports</span>
         </a>
-        <a href="sales_report.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">monitoring</span> 
             <span class="nav-text">Sales Reports</span>
         </a>
-        <a href="audit_logs.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+
+        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">assignment</span> 
             <span class="nav-text">Audit Logs</span>
         </a>
-        <a href="settings.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">settings</span> 
-            <span class="nav-text">Settings</span>
+
+        <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">backup</span> 
+            <span class="nav-text">Backup</span>
         </a>
     </div>
 
-    <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-8">
+    <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-4">
+        <div class="nav-text px-4 mb-2">
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">Account</p>
+        </div>
+        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">settings</span> 
+            <span class="nav-text">Settings</span>
+        </a>
         <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
             <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
             <span class="nav-link nav-text">Profile</span>
         </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-4 group">
+        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-2xl shrink-0">logout</span>
             <span class="nav-link nav-text">Sign Out</span>
         </a>
     </div>
+</nav>
 </nav>
     
     <main class="flex-1 p-8">
