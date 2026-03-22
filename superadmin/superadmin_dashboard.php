@@ -61,7 +61,39 @@ $stmtMonthly = $pdo->query("
 ");
 $monthly_activity = $stmtMonthly->fetchAll(PDO::FETCH_ASSOC);
 
-// 5. System Alerts Analytics
+// 5. System Alerts Analytics (Automated Checks on Dashboard Load)
+$nowStr = date('Y-m-d H:i:s');
+$sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
+
+// Check for Expiring Client Subscriptions
+$stmtExpiring = $pdo->prepare("SELECT cs.*, g.gym_name FROM client_subscriptions cs JOIN gyms g ON cs.gym_id = g.gym_id WHERE cs.end_date <= ? AND cs.subscription_status = 'Active'");
+$stmtExpiring->execute([$sevenDaysLater]);
+$expiringSubs = $stmtExpiring->fetchAll(PDO::FETCH_ASSOC);
+foreach ($expiringSubs as $sub) {
+    $daysLeft = (strtotime($sub['end_date']) - strtotime(date('Y-m-d'))) / 86400;
+    $msg = "Subscription for " . $sub['gym_name'] . " expires in " . round($daysLeft) . " days (Ends: " . $sub['end_date'] . ")";
+    $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
+    $stmtCheck->execute([$msg]);
+    if ($stmtCheck->fetchColumn() == 0) {
+        $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Subscription Expiry', 'Billing', ?, 'Medium', 'Unread', ?)");
+        $stmtInsert->execute([$msg, $nowStr]);
+    }
+}
+
+// Check for Pending Payments
+$stmtPendingPayments = $pdo->query("SELECT p.*, u.first_name, u.last_name FROM payments p LEFT JOIN members m ON p.member_id = m.member_id LEFT JOIN users u ON m.user_id = u.user_id WHERE p.payment_status = 'Pending'");
+$pendingPayments = $stmtPendingPayments->fetchAll(PDO::FETCH_ASSOC);
+foreach ($pendingPayments as $payment) {
+    $payer = ($payment['first_name']) ? $payment['first_name'] . ' ' . $payment['last_name'] : 'Tenant/Guest';
+    $msg = "New payment of ₱" . number_format($payment['amount'], 2) . " from " . $payer . " requires verification. (Ref: " . $payment['reference_number'] . ")";
+    $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
+    $stmtCheck->execute([$msg]);
+    if ($stmtCheck->fetchColumn() == 0) {
+        $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Payment Verification', 'Finance', ?, 'Medium', 'Unread', ?)");
+        $stmtInsert->execute([$msg, $nowStr]);
+    }
+}
+
 $stmtActiveAlerts = $pdo->query("SELECT COUNT(*) FROM system_alerts WHERE status != 'Resolved'");
 $active_alerts_count = $stmtActiveAlerts->fetchColumn();
 
