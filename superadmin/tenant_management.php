@@ -45,30 +45,7 @@ $tenants = $stmtTenants->fetchAll(PDO::FETCH_ASSOC);
 $stmtTotalMembers = $pdo->query("SELECT COUNT(*) FROM members");
 $total_members_count = $stmtTotalMembers->fetchColumn();
 
-// Fetch Existing Tenant Links for the Linking Tab
-$tenant_links = [];
-try {
-    $stmtLinks = $pdo->query("
-        SELECT gl.link_id, gl.created_at,
-               g1.gym_name as primary_name, g1.tenant_code as primary_code,
-               g2.gym_name as secondary_name, g2.tenant_code as secondary_code
-        FROM gym_links gl
-        JOIN gyms g1 ON gl.primary_id = g1.gym_id
-        JOIN gyms g2 ON gl.secondary_id = g2.gym_id
-        ORDER BY gl.created_at DESC
-    ");
-    if ($stmtLinks) {
-        $tenant_links = $stmtLinks->fetchAll(PDO::FETCH_ASSOC);
-    }
-} catch (PDOException $e) {
-    // Table might not exist yet
-    $tenant_links = [];
-}
-
-// Fetch All Active Gyms for the Linking Dropdowns
-$stmtActiveGyms = $pdo->query("SELECT gym_id, gym_name, tenant_code FROM gyms WHERE status = 'Active' ORDER BY gym_name ASC");
-$active_gyms = $stmtActiveGyms->fetchAll(PDO::FETCH_ASSOC);
-
+// Fetch Pending Applications
 $stmtPending = $pdo->query("
     SELECT a.*, u.first_name, u.last_name, u.email 
     FROM gym_owner_applications a 
@@ -415,10 +392,6 @@ $deactivated_count = count($deactivated_tenants);
                     <span class="absolute -top-1 -right-4 size-4 bg-red-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-red-500/20"><?= $deactivated_count ?></span>
                 <?php endif; ?>
             </button>
-            <button onclick="switchTab('linking')" id="tabBtn-linking" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-gray-500 hover:text-white">
-                Tenant Linking
-                <div id="tabIndicator-linking" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0"></div>
-            </button>
         </div>
 
         <div id="section-pending" class="hidden">
@@ -705,107 +678,12 @@ $deactivated_count = count($deactivated_tenants);
                 </div>
             </div>
         </div>
-
-        <div id="section-linking" class="hidden">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Linking Form -->
-                <div class="lg:col-span-1">
-                    <div class="glass-card p-8 border border-white/5 bg-white/5 h-fit">
-                        <div class="flex items-center gap-3 mb-6">
-                            <span class="material-symbols-outlined text-primary">link</span>
-                            <h4 class="font-black italic uppercase text-sm tracking-tighter">Link New Tenants</h4>
-                        </div>
-                        <form method="POST" action="../action/process_tenant_link.php" class="flex flex-col gap-6">
-                            <div>
-                                <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Primary Tenant</label>
-                                <select name="primary_tenant" required class="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all cursor-pointer">
-                                    <option value="">Select Primary...</option>
-                                    <?php foreach ($active_gyms as $gym): ?>
-                                        <option value="<?= $gym['gym_id'] ?>"><?= htmlspecialchars($gym['gym_name']) ?> (<?= $gym['tenant_code'] ?>)</option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="flex justify-center -my-2 relative z-10">
-                                <div class="size-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary">
-                                    <span class="material-symbols-outlined text-sm">sync_alt</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Secondary Tenant</label>
-                                <select name="secondary_tenant" required class="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all cursor-pointer">
-                                    <option value="">Select Secondary...</option>
-                                    <?php foreach ($active_gyms as $gym): ?>
-                                        <option value="<?= $gym['gym_id'] ?>"><?= htmlspecialchars($gym['gym_name']) ?> (<?= $gym['tenant_code'] ?>)</option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <button type="submit" class="w-full py-4 bg-primary hover:bg-primary/90 text-white text-[10px] font-black uppercase italic tracking-[0.2em] rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
-                                Establish Link
-                            </button>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Existing Links Table -->
-                <div class="lg:col-span-2">
-                    <div class="glass-card overflow-hidden">
-                        <div class="px-8 py-6 border-b border-white/5 bg-white/5">
-                            <h4 class="font-black italic uppercase text-sm tracking-tighter">Established Connections</h4>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left">
-                                <thead>
-                                    <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
-                                        <th class="px-8 py-4">Tied Accounts</th>
-                                        <th class="px-8 py-4">Linked Date</th>
-                                        <th class="px-8 py-4 text-right">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-white/5">
-                                    <?php if (empty($tenant_links)): ?>
-                                        <tr>
-                                            <td colspan="3" class="px-8 py-12 text-center text-xs font-bold text-gray-500 italic uppercase">No linked tenants found.</td>
-                                        </tr>
-                                    <?php else: ?>
-                                        <?php foreach ($tenant_links as $link): ?>
-                                            <tr class="hover:bg-white/5 transition-all group">
-                                                <td class="px-8 py-5">
-                                                    <div class="flex items-center gap-4">
-                                                        <div class="text-xs font-bold italic">
-                                                            <span class="text-white"><?= htmlspecialchars($link['primary_name']) ?></span>
-                                                            <span class="mx-2 text-primary opacity-50 font-black">↔</span>
-                                                            <span class="text-white"><?= htmlspecialchars($link['secondary_name']) ?></span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td class="px-8 py-5 text-xs text-gray-500 font-medium tracking-tight">
-                                                    <?= date('M d, Y', strtotime($link['created_at'])) ?>
-                                                </td>
-                                                <td class="px-8 py-5 text-right">
-                                                    <form method="POST" action="../action/process_tenant_link.php">
-                                                        <input type="hidden" name="delete_link_id" value="<?= $link['link_id'] ?>">
-                                                        <button type="button" onclick="confirmAction(this.form, '', 'Breaking Connection', 'Are you sure you want to disconnect <?= addslashes($link['primary_name']) ?> and <?= addslashes($link['secondary_name']) ?>?')" class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 flex items-center justify-center transition-all opacity-0 group-hover:opacity-100">
-                                                            <span class="material-symbols-outlined text-[18px]">link_off</span>
-                                                        </button>
-                                                    </form>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        </div>
     </main>
 </div>
 
 <script>
     function switchTab(tabId) {
-        const sections = ['pending', 'registered', 'linking', 'deactivated'];
+        const sections = ['pending', 'registered', 'deactivated'];
         
         sections.forEach(s => {
             const section = document.getElementById(`section-${s}`);
@@ -832,7 +710,7 @@ $deactivated_count = count($deactivated_tenants);
     window.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
         const tab = urlParams.get('tab');
-        if (tab && ['pending', 'registered', 'linking', 'deactivated'].includes(tab)) {
+        if (tab && ['pending', 'registered', 'deactivated'].includes(tab)) {
             switchTab(tab);
         }
     });
