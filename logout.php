@@ -1,6 +1,13 @@
 <?php
 // 1. Initialize the session
 session_start();
+require_once 'db.php';
+require_once 'includes/audit_logger.php';
+
+// Log Logout Event if user is logged in
+if (isset($_SESSION['user_id'])) {
+    log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'] ?? null, 'Logout', 'users', $_SESSION['user_id'], [], ['status' => 'Session Ended']);
+}
 
 // 2. Unset all session variables
 $_SESSION = array();

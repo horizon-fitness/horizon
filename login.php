@@ -107,6 +107,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['role'] = $roleData['role_name'];
                     $_SESSION['gym_id'] = $roleData['gym_id'];
 
+                    // Log Login Event
+                    require_once 'includes/audit_logger.php';
+                    log_audit_event($pdo, $user['user_id'], $roleData['gym_id'], 'Login', 'users', $user['user_id'], [], ['status' => 'Success']);
+
                     // Redirect based on user role (Following Monday Activity Rules)
                     switch (strtolower($roleData['role_name'])) {
                         case 'superadmin':

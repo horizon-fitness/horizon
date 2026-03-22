@@ -14,28 +14,43 @@ $active_page = "audit_logs";
 // Get Filter Inputs
 $search = $_GET['search'] ?? '';
 $action_filter = $_GET['action_type'] ?? 'all';
+$date_from = $_GET['date_from'] ?? date('Y-m-01');
+$date_to = $_GET['date_to'] ?? date('Y-m-d');
+$tenant_filter = $_GET['tenant_id'] ?? 'all';
+
+// Fetch Tenants for Filter Dropdown
+$tenants_list = $pdo->query("SELECT gym_id, gym_name FROM gyms WHERE status = 'Active' ORDER BY gym_name ASC")->fetchAll();
 
 // Logic for fetching logs
-$query = "SELECT al.*, u.first_name, u.last_name, r.role_name as role 
+$query = "SELECT al.*, u.first_name, u.last_name, r.role_name as role, g.gym_name
           FROM audit_logs al 
           JOIN users u ON al.user_id = u.user_id 
           LEFT JOIN user_roles ur ON u.user_id = ur.user_id AND ur.role_status = 'Active'
           LEFT JOIN roles r ON ur.role_id = r.role_id
-          WHERE 1=1";
+          LEFT JOIN gyms g ON al.gym_id = g.gym_id
+          WHERE al.created_at BETWEEN :start AND :end";
 
-$params = [];
+$params = [
+    'start' => $date_from . ' 00:00:00',
+    'end' => $date_to . ' 23:59:59'
+];
 
 if ($action_filter !== 'all') {
     $query .= " AND al.action_type = :type";
     $params['type'] = $action_filter;
 }
 
+if ($tenant_filter !== 'all') {
+    $query .= " AND al.gym_id = :tid";
+    $params['tid'] = $tenant_filter;
+}
+
 if (!empty($search)) {
-    $query .= " AND (al.action_details LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search)";
+    $query .= " AND (al.table_name LIKE :search OR al.action_type LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search)";
     $params['search'] = "%$search%";
 }
 
-$query .= " ORDER BY al.created_at DESC LIMIT 50";
+$query .= " ORDER BY al.created_at DESC LIMIT 100";
 $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -48,6 +63,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -135,6 +151,98 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
         setInterval(updateHeaderClock, 1000);
         window.addEventListener('DOMContentLoaded', updateHeaderClock);
+
+        function showLogDetails(oldVal, newVal) {
+            const modal = document.getElementById('detailsModal');
+            const oldContent = document.getElementById('oldValuesContent');
+            const newContent = document.getElementById('newValuesContent');
+            
+            try {
+                oldContent.textContent = JSON.stringify(JSON.parse(oldVal), null, 2);
+                newContent.textContent = JSON.stringify(JSON.parse(newVal), null, 2);
+            } catch(e) {
+                oldContent.textContent = oldVal;
+                newContent.textContent = newVal;
+            }
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeDetailsModal() {
+            const modal = document.getElementById('detailsModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function exportAuditTrail() {
+            const element = document.getElementById('auditTableContainer');
+            const reportTitle = "System Audit Trail Transcript";
+            const generatedAt = "<?= date('M d, Y h:i A') ?>";
+
+            const wrapper = document.createElement('div');
+            wrapper.style.padding = '50px';
+            wrapper.style.color = '#000';
+            wrapper.style.backgroundColor = '#fff';
+            wrapper.style.fontFamily = "'Roboto Mono', monospace";
+
+            const header = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; border-bottom: 2px solid #000; padding-bottom: 20px;">
+                    <div style="text-align: left;">
+                        <h1 style="font-size: 28px; font-weight: 800; color: #000; margin: 0; text-transform: uppercase;">HORIZON SYSTEM</h1>
+                        <p style="margin: 0; font-size: 10px; font-weight: bold; color: #666;">OFFICIAL AUDIT REPORT</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h2 style="font-size: 16px; font-weight: 700; color: #000; margin: 0; text-transform: uppercase;">${reportTitle}</h2>
+                        <p style="margin: 0; font-size: 10px; color: #666;">Date: ${generatedAt}</p>
+                    </div>
+                </div>
+            `;
+
+            const contentClone = element.cloneNode(true);
+            contentClone.querySelectorAll('button, .material-symbols-outlined, .flex-wrap').forEach(el => el.remove());
+
+            [contentClone, ...contentClone.querySelectorAll('*')].forEach(el => {
+                el.removeAttribute('class');
+                el.style.setProperty('color', '#000000', 'important');
+                el.style.setProperty('background-color', 'transparent', 'important');
+                el.style.setProperty('border', 'none', 'important');
+                el.style.setProperty('box-shadow', 'none', 'important');
+            });
+
+            const table = contentClone.querySelector('table');
+            if (table) {
+                table.style.setProperty('width', '100%', 'important');
+                table.style.setProperty('border-collapse', 'collapse', 'important');
+                table.style.setProperty('font-size', '9px', 'important');
+                table.style.setProperty('border', '1px solid #000', 'important');
+
+                table.querySelectorAll('th').forEach(th => {
+                    th.style.setProperty('background-color', '#f0f0f0', 'important');
+                    th.style.setProperty('border', '1px solid #000', 'important');
+                    th.style.setProperty('padding', '8px', 'important');
+                    th.style.setProperty('text-align', 'left', 'important');
+                });
+
+                table.querySelectorAll('td').forEach(td => {
+                    td.style.setProperty('border', '1px solid #000', 'important');
+                    td.style.setProperty('padding', '8px', 'important');
+                });
+            }
+
+            wrapper.innerHTML = header;
+            wrapper.appendChild(contentClone);
+
+            const opt = {
+                margin: [0.5, 0.5],
+                filename: `Audit_Trail_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+            };
+
+            html2pdf().from(wrapper).set(opt).save();
+        }
     </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
@@ -249,28 +357,52 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </header>
 
-        <div class="glass-card mb-8 p-8 flex flex-wrap items-center justify-between gap-6">
-            <form method="GET" class="flex flex-wrap items-center gap-4 w-full md:w-auto">
-                <div class="relative">
-                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
-                    <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search logs or users..." 
-                           class="bg-[#0a090d] border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-white focus:border-primary focus:outline-none w-64 transition-all">
+        <div class="glass-card mb-8 p-8">
+            <form method="GET" class="flex flex-wrap items-end gap-6">
+                <div class="space-y-2">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Search Term</p>
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
+                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Filter logs..." 
+                               class="bg-[#0a090d] border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-white focus:border-primary focus:outline-none w-48 transition-all">
+                    </div>
                 </div>
-                <select name="action_type" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all">
-                    <option value="all">All Activities</option>
-                    <option value="Login" <?= $action_filter == 'Login' ? 'selected' : '' ?>>Login/Logout</option>
-                    <option value="Create" <?= $action_filter == 'Create' ? 'selected' : '' ?>>Create Actions</option>
-                    <option value="Update" <?= $action_filter == 'Update' ? 'selected' : '' ?>>Update Actions</option>
-                    <option value="Delete" <?= $action_filter == 'Delete' ? 'selected' : '' ?>>Delete Actions</option>
-                    <option value="Tenant" <?= $action_filter == 'Tenant' ? 'selected' : '' ?>>Tenant Changes</option>
-                </select>
-                <button type="submit" class="h-9 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-all active:scale-95">Apply Filter</button>
+                <div class="space-y-2">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Action Type</p>
+                    <select name="action_type" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all w-40">
+                        <option value="all">All Activities</option>
+                        <option value="Login" <?= $action_filter == 'Login' ? 'selected' : '' ?>>Login/Logout</option>
+                        <option value="Create" <?= $action_filter == 'Create' ? 'selected' : '' ?>>Create Actions</option>
+                        <option value="Update" <?= $action_filter == 'Update' ? 'selected' : '' ?>>Update Actions</option>
+                        <option value="Delete" <?= $action_filter == 'Delete' ? 'selected' : '' ?>>Delete Actions</option>
+                        <option value="Tenant" <?= $action_filter == 'Tenant' ? 'selected' : '' ?>>Tenant Changes</option>
+                    </select>
+                </div>
+                <div class="space-y-2">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Tenant</p>
+                    <select name="tenant_id" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all w-40">
+                        <option value="all">All Tenants</option>
+                        <?php foreach($tenants_list as $t): ?>
+                            <option value="<?= $t['gym_id'] ?>" <?= $tenant_filter == $t['gym_id'] ? 'selected' : '' ?>><?= htmlspecialchars($t['gym_name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="space-y-2">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">From</p>
+                    <input type="date" name="date_from" value="<?= $date_from ?>" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
+                </div>
+                <div class="space-y-2">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">To</p>
+                    <input type="date" name="date_to" value="<?= $date_to ?>" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
+                </div>
+                <div class="flex items-center gap-3">
+                    <button type="submit" class="h-10 px-6 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-all active:scale-95 shadow-lg shadow-primary/20">Apply</button>
+                    <button type="button" onclick="exportAuditTrail()" class="h-10 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-all flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">download</span> Export
+                    </button>
+                    <a href="audit_logs.php" class="text-[9px] font-black uppercase tracking-widest text-gray-600 hover:text-white transition-colors">Reset</a>
+                </div>
             </form>
-            
-            <button class="h-9 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-all flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">download</span>
-                Export Audit Trail
-            </button>
         </div>
 
         <div class="glass-card overflow-hidden">
@@ -278,7 +410,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 <h3 class="text-sm font-black italic uppercase tracking-widest text-white">System Audit Trail</h3>
                 <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Tracking all administrative and security events</p>
             </div>
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto" id="auditTableContainer">
                 <table class="w-full text-left">
                     <thead>
                         <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
@@ -286,12 +418,13 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             <th class="px-8 py-4">User / Role</th>
                             <th class="px-8 py-4">Event Action</th>
                             <th class="px-8 py-4">Target Table</th>
-                            <th class="px-8 py-4 text-right">Record ID</th>
+                            <th class="px-8 py-4">Record ID</th>
+                            <th class="px-8 py-4 text-right">Details</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         <?php if (empty($logs)): ?>
-                            <tr><td colspan="5" class="px-8 py-12 text-center text-xs text-gray-600 italic uppercase font-bold tracking-widest">No audit records found</td></tr>
+                            <tr><td colspan="6" class="px-8 py-12 text-center text-xs text-gray-600 italic uppercase font-bold tracking-widest">No audit records found</td></tr>
                         <?php else: ?>
                             <?php foreach ($logs as $log): ?>
                             <tr class="hover:bg-white/[0.01] transition-colors">
@@ -317,8 +450,14 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <td class="px-8 py-5">
                                     <p class="text-xs text-gray-400 font-bold italic uppercase tracking-widest"><?= htmlspecialchars($log['table_name']) ?></p>
                                 </td>
-                                <td class="px-8 py-5 text-right">
+                                <td class="px-8 py-5">
                                     <p class="text-[10px] font-black text-gray-600 tracking-widest">#<?= htmlspecialchars($log['record_id']) ?></p>
+                                </td>
+                                <td class="px-8 py-5 text-right">
+                                    <button onclick='showLogDetails(<?= json_encode($log['old_values']) ?>, <?= json_encode($log['new_values']) ?>)' 
+                                            class="p-2 rounded-lg bg-white/5 hover:bg-primary/20 text-gray-500 hover:text-primary transition-all">
+                                        <span class="material-symbols-outlined text-sm">visibility</span>
+                                    </button>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -328,6 +467,40 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </div>
     </main>
+</div>
+
+<!-- Details Modal -->
+<div id="detailsModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div class="glass-card w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border-white/10">
+        <div class="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
+            <div>
+                <h3 class="text-lg font-black italic uppercase tracking-widest text-white">Event Details</h3>
+                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Comparing initial and final states</p>
+            </div>
+            <button onclick="closeDetailsModal()" class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 flex items-center justify-center transition-all">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="space-y-4">
+                <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <span class="material-symbols-outlined text-amber-500 text-sm">history</span>
+                    <span class="text-[10px] font-black uppercase text-amber-500 tracking-widest">Previous State</span>
+                </div>
+                <pre id="oldValuesContent" class="bg-black/40 rounded-2xl p-6 text-[11px] font-mono text-gray-400 overflow-x-auto border border-white/5 min-h-[200px]"></pre>
+            </div>
+            <div class="space-y-4">
+                <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <span class="material-symbols-outlined text-emerald-500 text-sm">verified</span>
+                    <span class="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Modified State</span>
+                </div>
+                <pre id="newValuesContent" class="bg-black/40 rounded-2xl p-6 text-[11px] font-mono text-emerald-400/80 overflow-x-auto border border-emerald-500/10 min-h-[200px]"></pre>
+            </div>
+        </div>
+        <div class="px-8 py-6 border-t border-white/5 bg-white/[0.02] text-right">
+            <button onclick="closeDetailsModal()" class="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all">Close Review</button>
+        </div>
+    </div>
 </div>
 </body>
 </html>
