@@ -10,6 +10,9 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 
 $page_title = "Admin (Developer) System Backup";
 $active_page = "backup"; 
+$header_title = 'System <span class="text-primary">Backup</span>';
+$header_subtitle = 'Data Protection & Restore Points';
+$header_action = '<button class="h-10 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-transform">Run Manual Backup</button>';
 
 // Mock Backup Data
 $backups = [
@@ -44,14 +47,10 @@ $backups = [
 
 <?php include '../includes/superadmin_sidebar.php'; ?>
     
-<main class="flex-1 p-8">
-    <header class="mb-10 flex flex-row justify-between items-end gap-6">
-        <div>
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">System <span class="text-primary">Backup</span></h2>
-            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Data Protection & Restore Points</p>
-        </div>
-        <button class="h-10 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-transform">Run Manual Backup</button>
-    </header>
+<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <main class="flex-1 p-8">
+        <?php include '../includes/superadmin_header.php'; ?>
+        <?php /* Hardcoded header replaced by include */ ?>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div class="glass-card p-6 border border-emerald-500/20 bg-emerald-500/5">
@@ -116,5 +115,7 @@ $backups = [
         </table>
     </div>
 </main>
+    </main>
+</div>
 </body>
 </html>

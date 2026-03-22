@@ -10,6 +10,8 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 
 $page_title = "Admin (Developer) System Settings";
 $active_page = "settings";
+$header_title = 'System <span class="text-primary">Settings</span>';
+$header_subtitle = 'Global Configuration & Control';
 
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
@@ -53,15 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-6 md:p-10 max-w-[1200px] w-full mx-auto">
 
-        <header class="mb-10 flex flex-row justify-between items-end gap-6">
-            <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">System <span class="text-primary">Settings</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Global Configuration & Control</p>
-            </div>
-            <div class="text-right">
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
-            </div>
-        </header>
+        <?php include '../includes/superadmin_header.php'; ?>
 
         <?php if (isset($success_msg)): ?>
             <div class="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3">

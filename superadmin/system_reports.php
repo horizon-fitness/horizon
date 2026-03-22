@@ -10,6 +10,8 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 
 $page_title = "Admin (Developer) System Reports";
 $active_page = "reports"; 
+$header_title = 'System <span class="text-primary">Reports</span>';
+$header_subtitle = 'Enterprise Activity & Growth Analytics';
 
 // Get Filter Inputs
 $date_from = $_GET['date_from'] ?? date('Y-m-01');
@@ -82,6 +84,7 @@ $peak_hour = $peak_hour_data ? date("h:00 A", strtotime($peak_hour_data['hr'] . 
 
 <?php include '../includes/superadmin_sidebar.php'; ?>
     
+<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-8">
         <?php include '../includes/superadmin_header.php'; ?>
 

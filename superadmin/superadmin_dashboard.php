@@ -10,6 +10,8 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 
 $page_title = "Admin (Developer) Dashboard";
 $active_page = "dashboard";
+$header_title = 'Admin <span class="text-primary">(Developer)</span> Dashboard';
+$header_subtitle = 'Enterprise System Control Center';
 
 // Application messages handled via session
 $success_msg = $_SESSION['success_msg'] ?? '';
@@ -160,16 +162,7 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
 
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
-        <header class="mb-10 flex flex-row justify-between items-end gap-6">
-            <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Admin <span class="text-primary">(Developer)</span> Dashboard</h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Enterprise System Control Center</p>
-            </div>
-            <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
-            </div>
-        </header>
+        <?php include '../includes/superadmin_header.php'; ?>
 
         <?php if ($success_msg): ?>
         <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold flex items-center gap-3">

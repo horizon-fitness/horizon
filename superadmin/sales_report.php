@@ -10,6 +10,8 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 
 $page_title = "Admin (Developer) Sales Report";
 $active_page = "sales_report"; 
+$header_title = 'Sales <span class="text-primary">Analytics</span>';
+$header_subtitle = 'Global Revenue & Transaction Performance';
 
 // Get Filter Inputs (Default to current month)
 $date_from = $_GET['date_from'] ?? date('Y-m-01');
@@ -83,6 +85,7 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
 
 <?php include '../includes/superadmin_sidebar.php'; ?>
     
+<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-8">
         <?php include '../includes/superadmin_header.php'; ?>
 

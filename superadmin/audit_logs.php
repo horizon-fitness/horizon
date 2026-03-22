@@ -10,6 +10,8 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 
 $page_title = "Admin (Developer) Audit Logs";
 $active_page = "audit_logs"; 
+$header_title = 'System <span class="text-primary">Audit Logs</span>';
+$header_subtitle = 'Complete Chronological Activity History';
 
 // Get Filter Inputs
 $search = $_GET['search'] ?? '';
@@ -67,6 +69,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 <?php include '../includes/superadmin_sidebar.php'; ?>
     
+<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-8">
         <?php include '../includes/superadmin_header.php'; ?>
 

@@ -1,6 +1,8 @@
 <?php 
 $page_title = "Admin (Developer) Recent Transactions";
 $active_page = "transactions";
+$header_title = 'Global <span class="text-primary">Transactions</span>';
+$header_subtitle = 'Cross-tenant payment history';
 
 // Mock Data for Transactions
 $transactions = [
@@ -103,16 +105,7 @@ $transactions = [
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
 
-<header class="mb-10 flex flex-row justify-between items-end gap-6">
-    <div>
-        <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Global <span class="text-primary">Transactions</span></h2>
-        <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Cross-tenant payment history</p>
-    </div>
-    <div class="text-right">
-        <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-        <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
-    </div>
-</header>
+        <?php include '../includes/superadmin_header.php'; ?>
 
 <div class="glass-card overflow-hidden shadow-2xl">
     <div class="overflow-x-auto">

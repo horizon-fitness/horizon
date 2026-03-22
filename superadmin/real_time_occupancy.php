@@ -1,6 +1,8 @@
 <?php 
 $page_title = "Admin (Developer) Real-Time Occupancy";
 $active_page = "occupancy";
+$header_title = 'Live <span class="text-primary">Occupancy</span>';
+$header_subtitle = 'Real-time facility usage monitoring';
 
 // Mock Data for Occupancy
 $gyms = [
@@ -104,16 +106,7 @@ $gyms = [
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
 
-<header class="mb-10 flex flex-row justify-between items-end gap-6">
-    <div>
-        <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Live <span class="text-primary">Occupancy</span></h2>
-        <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Real-time facility usage monitoring</p>
-    </div>
-    <div class="text-right">
-        <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-        <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
-    </div>
-</header>
+        <?php include '../includes/superadmin_header.php'; ?>
 
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
     <?php foreach($gyms as $gym): ?>

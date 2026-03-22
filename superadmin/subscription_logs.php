@@ -10,6 +10,8 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 
 $page_title = "Admin (Developer) Subscription Logs";
 $active_page = "subscriptions";
+$header_title = 'Subscription <span class="text-primary">Logs</span>';
+$header_subtitle = 'Monitor Tenant Subscription Histories';
 
 // Fetch Subscription Logs with Gym and Plan details
 $stmtLogs = $pdo->query("
@@ -126,16 +128,7 @@ foreach ($logs as $log) {
 
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
-        <header class="mb-10 flex flex-row justify-between items-end gap-6">
-            <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Subscription <span class="text-primary">Logs</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Monitor Tenant Subscription Histories</p>
-            </div>
-            <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
-            </div>
-        </header>
+        <?php include '../includes/superadmin_header.php'; ?>
 
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
             <div class="glass-card p-6 border border-white/5 bg-white/5 flex items-center gap-4">

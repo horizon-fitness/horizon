@@ -1,6 +1,8 @@
 <?php 
 $page_title = "Admin (Developer) Access Control (RBAC)";
 $active_page = "rbac";
+$header_title = 'Access <span class="text-primary">Control</span>';
+$header_subtitle = 'Role-Based Permission Management';
 
 // Mock Data for Roles and Permissions
 $roles = ['Super Admin', 'Admin (Gym Owner)', 'Staff', 'Trainer', 'Member'];
@@ -105,16 +107,7 @@ $modules = [
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
 
-<header class="mb-10 flex flex-row justify-between items-end gap-6">
-    <div>
-        <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Access <span class="text-primary">Control</span></h2>
-        <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Role-Based Permission Management</p>
-    </div>
-    <div class="text-right flex flex-col items-end">
-        <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-        <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
-    </div>
-</header>
+        <?php include '../includes/superadmin_header.php'; ?>
 
 <div class="flex gap-4 mb-8 overflow-x-auto pb-4 no-print pr-2">
     <?php foreach($roles as $index => $role): ?>
