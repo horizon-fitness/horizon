@@ -100,10 +100,6 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
             <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
             <span class="nav-text">Tenant Management</span>
         </a>
-        <a href="tenant_linking.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'tenant_linking') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">link</span> 
-            <span class="nav-text">Tenant Linking</span>
-        </a>
         <a href="subscription_logs.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">history_edu</span> 
             <span class="nav-text">Subscription Logs</span>
