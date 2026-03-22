@@ -86,25 +86,38 @@ if (rand(1, 100) > 95) { // 5% chance to show a health check alert
     $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
     $stmtCheck->execute([$msg]);
     if ($stmtCheck->fetchColumn() == 0) {
-        $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Health Check', 'Server', ?, 'Low', 'Unread', ?)");
+        $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Health Check', 'Server', ?, 'Medium', 'Unread', ?)");
         $stmtInsert->execute([$msg, $now]);
     }
 }
 
 // --- End Automated Alert Logic ---
 
-// Build fetch active alerts query
-$query = "SELECT * FROM system_alerts WHERE status != 'Resolved'";
+// Handle dynamic filtering
+$priority_filter = $_GET['priority'] ?? 'all';
+$search = $_GET['search'] ?? '';
+$view = $_GET['view'] ?? 'active';
+
+$query = "SELECT * FROM system_alerts WHERE 1=1";
 $params = [];
 
-if ($priority_filter !== 'all') {
-    $query .= " AND priority = :priority";
-    $params['priority'] = $priority_filter;
+// Status Filter (Tabs)
+if ($view === 'history') {
+    $query .= " AND status = 'Resolved'";
+} else {
+    $query .= " AND status != 'Resolved'";
 }
 
+// Search Filter
 if (!empty($search)) {
     $query .= " AND (message LIKE :search OR type LIKE :search OR source LIKE :search)";
     $params['search'] = "%$search%";
+}
+
+// Priority Filter
+if ($priority_filter !== 'all') {
+    $query .= " AND priority = :priority";
+    $params['priority'] = $priority_filter;
 }
 
 $query .= " ORDER BY created_at DESC";
@@ -274,9 +287,13 @@ $active_page = "alerts";
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
             <span class="nav-text">Settings</span>
         </a>
+        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
+            <span class="material-symbols-outlined transition-transform group-hover:text-primary text-xl shrink-0">person</span>
+            <span class="nav-link nav-text">Profile</span>
+        </a>
         <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
-            <span class="nav-text">Sign Out</span>
+            <span class="nav-link nav-text">Sign Out</span>
         </a>
     </div>
 </nav>
@@ -302,32 +319,52 @@ $active_page = "alerts";
         <?php endif; ?>
 
         <!-- Filters & Actions -->
-        <div class="flex flex-col md:flex-row gap-6 mb-8">
-            <form method="GET" class="flex-1 flex flex-col md:flex-row gap-6">
-                <div class="flex-1 glass-card p-2 flex items-center gap-3 px-4">
-                    <span class="material-symbols-outlined text-gray-400">search</span>
-                    <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search alerts..." class="bg-transparent border-none outline-none text-xs text-white w-full py-2 placeholder:text-gray-600 font-bold uppercase tracking-widest">
-                </div>
-                <div class="flex gap-4">
-                    <select name="priority" onchange="this.form.submit()" class="px-6 py-3 glass-card text-[9px] font-black uppercase tracking-widest bg-surface-dark border-none outline-none cursor-pointer hover:bg-white/5 transition-all flex items-center gap-2">
-                        <option value="all" <?= $priority_filter == 'all' ? 'selected' : '' ?>>All Priorities</option>
-                        <option value="High" <?= $priority_filter == 'High' ? 'selected' : '' ?>>High Priority</option>
-                        <option value="Medium" <?= $priority_filter == 'Medium' ? 'selected' : '' ?>>Medium Priority</option>
-                        <option value="Low" <?= $priority_filter == 'Low' ? 'selected' : '' ?>>Low Priority</option>
-                    </select>
-                    <button type="submit" class="hidden">Search</button>
-                </div>
-            </form>
-            <form method="POST">
-                <button type="submit" name="clear_all" class="px-6 py-3 bg-primary/20 border border-primary/30 rounded-[20px] text-[9px] font-black uppercase tracking-widest hover:bg-primary/30 transition-all flex items-center gap-2 text-primary">
-                    <span class="material-symbols-outlined text-sm">done_all</span> Clear All
-                </button>
-            </form>
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
+            <!-- Tab Navigation -->
+            <div class="flex p-1 bg-surface-dark/50 rounded-2xl border border-white/5">
+                <a href="?view=active&search=<?= urlencode($search) ?>&priority=<?= urlencode($priority_filter) ?>" 
+                   class="<?= $view === 'active' ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-gray-400 hover:text-white' ?> px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                    Active Alerts
+                </a>
+                <a href="?view=history&search=<?= urlencode($search) ?>&priority=<?= urlencode($priority_filter) ?>" 
+                   class="<?= $view === 'history' ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-gray-400 hover:text-white' ?> px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                    Alert History
+                </a>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-6 flex-1 md:flex-none">
+                <form method="GET" class="flex flex-col md:flex-row gap-4">
+                    <input type="hidden" name="view" value="<?= htmlspecialchars($view) ?>">
+                    <div class="w-full md:w-64 glass-card p-2 flex items-center gap-3 px-4">
+                        <span class="material-symbols-outlined text-gray-400">search</span>
+                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" class="bg-transparent border-none outline-none text-xs text-white w-full py-2 placeholder:text-gray-600 font-bold uppercase tracking-widest">
+                    </div>
+                    <div class="flex gap-4">
+                        <select name="priority" onchange="this.form.submit()" 
+                                class="appearance-none bg-[#0a090d] border border-white/10 rounded-[20px] px-8 pr-12 py-3 text-[10px] font-bold uppercase tracking-widest text-white focus:border-primary focus:outline-none cursor-pointer hover:bg-white/5 transition-all"
+                                style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23666%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1.5rem center; background-size: 1rem;">
+                            <option value="all" class="bg-[#0a090d]" <?= $priority_filter == 'all' ? 'selected' : '' ?>>All Priorities</option>
+                            <option value="High" class="bg-[#0a090d]" <?= $priority_filter == 'High' ? 'selected' : '' ?>>High Priority</option>
+                            <option value="Medium" class="bg-[#0a090d]" <?= $priority_filter == 'Medium' ? 'selected' : '' ?>>Medium Priority</option>
+                        </select>
+                        <button type="submit" class="hidden">Search</button>
+                    </div>
+                </form>
+
+                <?php if ($view === 'active'): ?>
+                <form method="POST">
+                    <button type="submit" name="clear_all" class="px-6 py-3 bg-primary/20 border border-primary/30 rounded-[20px] text-[9px] font-black uppercase tracking-widest hover:bg-primary/30 transition-all flex items-center gap-2 text-primary">
+                        <span class="material-symbols-outlined text-sm transition-transform group-hover:rotate-12">done_all</span>
+                        Clear All
+                    </button>
+                </form>
+                <?php endif; ?>
+            </div>
         </div>
 
         <div class="relative">
             <!-- Timeline Line -->
-            <div class="absolute left-10 top-0 bottom-0 w-px bg-gradient-to-b from-primary/30 via-primary/5 to-transparent hidden md:block"></div>
+            <div class="absolute left-7 top-0 bottom-0 w-px bg-gradient-to-b from-primary/30 via-primary/5 to-transparent hidden md:block"></div>
 
             <div class="space-y-6 relative">
                 <?php foreach($alerts as $alert): 
@@ -337,8 +374,8 @@ $active_page = "alerts";
                 ?>
                     <div class="group relative flex flex-col md:flex-row gap-8 items-start">
                         <!-- Timeline Node -->
-                        <div class="hidden md:flex size-20 rounded-2xl glass-card shrink-0 items-center justify-center relative z-10 group-hover:border-primary/50 transition-colors">
-                            <span class="material-symbols-outlined <?= $isHigh ? 'text-rose-500' : 'text-primary' ?> text-3xl"><?= $icon ?></span>
+                        <div class="hidden md:flex size-14 rounded-xl glass-card shrink-0 items-center justify-center relative z-10 group-hover:border-primary/50 transition-colors">
+                            <span class="material-symbols-outlined <?= $isHigh ? 'text-rose-500' : 'text-primary' ?> text-xl"><?= $icon ?></span>
                         </div>
 
                         <!-- Alert Card -->
@@ -346,7 +383,6 @@ $active_page = "alerts";
                             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                 <div class="flex flex-col gap-1">
                                     <div class="flex items-center gap-3 mb-1">
-                                        <span class="<?= $priorityClass ?> text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest border"><?= $alert['priority'] ?> Priority</span>
                                         <span class="text-gray-600 text-[9px] font-bold uppercase tracking-widest italic"><?= date('h:i A', strtotime($alert['created_at'])) ?></span>
                                     </div>
                                     <h4 class="text-md font-black italic uppercase text-white tracking-tight leading-none"><?= htmlspecialchars($alert['type']) ?></h4>
@@ -357,12 +393,15 @@ $active_page = "alerts";
                                     </div>
                                 </div>
                                 <div class="flex gap-2 shrink-0">
-                                    <form method="POST" onsubmit="return confirm('Are you sure you want to mark this alert as resolved?')">
-                                        <input type="hidden" name="resolve_id" value="<?= $alert['alert_id'] ?>">
-                                        <button type="submit" class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-emerald-500/20 hover:text-emerald-400 border border-white/5 transition-all group/btn" title="Resolve">
-                                            <span class="material-symbols-outlined text-sm">check</span>
-                                        </button>
-                                    </form>
+                                    <?php if ($view === 'active'): ?>
+                                    <button onclick="requestResolve(<?= $alert['alert_id'] ?>)" class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-emerald-500/20 hover:text-emerald-400 border border-white/5 transition-all group/btn" title="Resolve">
+                                        <span class="material-symbols-outlined text-sm">check</span>
+                                    </button>
+                                    <?php else: ?>
+                                    <div class="size-10 flex items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" title="Resolved">
+                                        <span class="material-symbols-outlined text-sm">verified</span>
+                                    </div>
+                                    <?php endif; ?>
                                     <button onclick="openAlertModal('<?= addslashes($alert['type']) ?>', '<?= addslashes($alert['message']) ?>', '<?= addslashes($alert['source']) ?>', '<?= date('M d, Y h:i A', strtotime($alert['created_at'])) ?>', '<?= $alert['priority'] ?>')" class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-primary/20 hover:text-primary border border-white/5 transition-all group/btn" title="More Details">
                                         <span class="material-symbols-outlined text-sm">visibility</span>
                                     </button>
@@ -389,7 +428,6 @@ $active_page = "alerts";
         <div class="p-8">
             <div class="flex justify-between items-start mb-6">
                 <div>
-                    <span id="modalPriority" class="text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest border mb-2 inline-block"></span>
                     <h3 id="modalType" class="text-2xl font-black italic uppercase text-white tracking-tight leading-none"></h3>
                 </div>
                 <button onclick="closeAlertModal()" class="text-gray-400 hover:text-white transition-colors">
@@ -422,7 +460,59 @@ $active_page = "alerts";
     </div>
 </div>
 
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="fixed inset-0 z-[110] hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all duration-300 opacity-0">
+    <div class="glass-card w-full max-w-sm overflow-hidden transform scale-95 transition-all duration-300">
+        <div class="p-8 text-center">
+            <div class="size-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
+                <span class="material-symbols-outlined text-emerald-500 text-3xl">help</span>
+            </div>
+            <h3 class="text-xl font-black italic uppercase text-white mb-2">Resolve Alert?</h3>
+            <p class="text-gray-400 text-xs font-medium mb-8">Are you sure you want to mark this alert as resolved? This action cannot be undone.</p>
+            
+            <div class="flex gap-4">
+                <button onclick="closeConfirmModal()" class="flex-1 py-3 glass-card text-[9px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-gray-400">Cancel</button>
+                <form method="POST" class="flex-1">
+                    <input type="hidden" name="resolve_id" id="confirmResolveId">
+                    <button type="submit" class="w-full py-3 bg-emerald-500 text-black text-[9px] font-black uppercase tracking-widest rounded-xl hover:scale-105 transition-all">Yes, Resolve</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    let currentResolveId = null;
+
+    function requestResolve(id) {
+        currentResolveId = id;
+        document.getElementById('confirmResolveId').value = id;
+        const modal = document.getElementById('confirmModal');
+        const modalContent = modal.querySelector('.glass-card');
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modalContent.classList.remove('scale-95');
+            modalContent.classList.add('scale-100');
+        }, 10);
+    }
+
+    function closeConfirmModal() {
+        const modal = document.getElementById('confirmModal');
+        const modalContent = modal.querySelector('.glass-card');
+        
+        modal.classList.remove('opacity-100');
+        modalContent.classList.remove('scale-100');
+        modalContent.classList.add('scale-95');
+        
+        setTimeout(() => {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }, 300);
+    }
+
     function updateClock() {
         const now = new Date();
         const clock = document.getElementById('headerClock');
@@ -447,15 +537,6 @@ $active_page = "alerts";
         document.getElementById('modalSource').textContent = source;
         document.getElementById('modalDate').textContent = date;
         
-        const priorityEl = document.getElementById('modalPriority');
-        priorityEl.textContent = priority + ' Priority';
-        
-        if (priority === 'High') {
-            priorityEl.className = 'text-rose-500 bg-rose-500/10 border-rose-500/20 text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest border mb-2 inline-block';
-        } else {
-            priorityEl.className = 'text-primary bg-primary/10 border-primary/20 text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest border mb-2 inline-block';
-        }
-
         modal.classList.remove('hidden');
         modal.classList.add('flex');
         setTimeout(() => {
