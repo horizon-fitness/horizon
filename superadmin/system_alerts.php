@@ -357,13 +357,13 @@ $active_page = "alerts";
                                     </div>
                                 </div>
                                 <div class="flex gap-2 shrink-0">
-                                    <form method="POST">
+                                    <form method="POST" onsubmit="return confirm('Are you sure you want to mark this alert as resolved?')">
                                         <input type="hidden" name="resolve_id" value="<?= $alert['alert_id'] ?>">
                                         <button type="submit" class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-emerald-500/20 hover:text-emerald-400 border border-white/5 transition-all group/btn" title="Resolve">
                                             <span class="material-symbols-outlined text-sm">check</span>
                                         </button>
                                     </form>
-                                    <button class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-primary/20 hover:text-primary border border-white/5 transition-all group/btn" title="More Details">
+                                    <button onclick="openAlertModal('<?= addslashes($alert['type']) ?>', '<?= addslashes($alert['message']) ?>', '<?= addslashes($alert['source']) ?>', '<?= date('M d, Y h:i A', strtotime($alert['created_at'])) ?>', '<?= $alert['priority'] ?>')" class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-primary/20 hover:text-primary border border-white/5 transition-all group/btn" title="More Details">
                                         <span class="material-symbols-outlined text-sm">visibility</span>
                                     </button>
                                 </div>
@@ -382,6 +382,111 @@ $active_page = "alerts";
         </div>
     </main>
 </div>
+
+<!-- Alert Details Modal -->
+<div id="alertModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-all duration-300 opacity-0">
+    <div class="glass-card w-full max-w-lg overflow-hidden transform scale-95 transition-all duration-300">
+        <div class="p-8">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <span id="modalPriority" class="text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest border mb-2 inline-block"></span>
+                    <h3 id="modalType" class="text-2xl font-black italic uppercase text-white tracking-tight leading-none"></h3>
+                </div>
+                <button onclick="closeAlertModal()" class="text-gray-400 hover:text-white transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            
+            <div class="space-y-6">
+                <div>
+                    <p class="text-[10px] font-black uppercase text-primary tracking-widest mb-2">Message</p>
+                    <p id="modalMessage" class="text-white/80 text-sm leading-relaxed font-medium"></p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Source</p>
+                        <p id="modalSource" class="text-white font-bold text-xs uppercase"></p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Timestamp</p>
+                        <p id="modalDate" class="text-white font-bold text-xs uppercase"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-10">
+                <button onclick="closeAlertModal()" class="w-full py-4 glass-card text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all">Close Details</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateClock() {
+        const now = new Date();
+        const clock = document.getElementById('headerClock');
+        if (clock) {
+            clock.textContent = now.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit', 
+                hour12: true 
+            });
+        }
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function openAlertModal(type, message, source, date, priority) {
+        const modal = document.getElementById('alertModal');
+        const modalContent = modal.querySelector('.glass-card');
+        
+        document.getElementById('modalType').textContent = type;
+        document.getElementById('modalMessage').textContent = message;
+        document.getElementById('modalSource').textContent = source;
+        document.getElementById('modalDate').textContent = date;
+        
+        const priorityEl = document.getElementById('modalPriority');
+        priorityEl.textContent = priority + ' Priority';
+        
+        if (priority === 'High') {
+            priorityEl.className = 'text-rose-500 bg-rose-500/10 border-rose-500/20 text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest border mb-2 inline-block';
+        } else {
+            priorityEl.className = 'text-primary bg-primary/10 border-primary/20 text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest border mb-2 inline-block';
+        }
+
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modalContent.classList.remove('scale-95');
+            modalContent.classList.add('scale-100');
+        }, 10);
+    }
+
+    function closeAlertModal() {
+        const modal = document.getElementById('alertModal');
+        const modalContent = modal.querySelector('.glass-card');
+        
+        modal.classList.remove('opacity-100');
+        modalContent.classList.remove('scale-100');
+        modalContent.classList.add('scale-95');
+        
+        setTimeout(() => {
+            modal.classList.remove('flex');
+            modal.classList.add('hidden');
+        }, 300);
+    }
+
+    // Close modal on click outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('alertModal');
+        if (event.target == modal) {
+            closeAlertModal();
+        }
+    }
+</script>
 
 </body>
 </html>
