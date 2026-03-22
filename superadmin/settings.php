@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         .sidebar-nav:hover { width: 280px; }
         .nav-text { opacity: 0; transform: translateX(-10px); transition: all 0.2s ease; white-space: nowrap; pointer-events: none; }
         .sidebar-nav:hover .nav-text { opacity: 1; transform: translateX(0); pointer-events: auto; }
-        .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
+        .nav-link { font-size: 10px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 20px; background: #8c2bee; border-radius: 99px; }
         .input-field { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 16px; color: white; font-size: 13px; transition: all 0.2s; }
@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     <div class="flex flex-col gap-4 flex-1 overflow-y-auto no-scrollbar pr-2 pb-10">
         <!-- Overview Section -->
         <div class="nav-text px-4 mb-2 mt-4">
-            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">Overview</p>
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</p>
         </div>
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         
         <!-- Management Section -->
         <div class="nav-text px-4 mb-2 mt-6">
-            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">Management</p>
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Management</p>
         </div>
         <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
@@ -99,48 +99,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 
         <!-- System Section -->
         <div class="nav-text px-4 mb-2 mt-6">
-            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">System</p>
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">System</p>
         </div>
         <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">notifications_active</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
             <span class="nav-text">System Alerts</span>
         </a>
 
         <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">analytics</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
             <span class="nav-text">Reports</span>
         </a>
 
         <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">monitoring</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">monitoring</span> 
             <span class="nav-text">Sales Reports</span>
         </a>
 
         <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">assignment</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">assignment</span> 
             <span class="nav-text">Audit Logs</span>
         </a>
 
         <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">backup</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
             <span class="nav-text">Backup</span>
         </a>
     </div>
 
     <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-4">
         <div class="nav-text px-4 mb-2">
-            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500/50">Account</p>
+            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Account</p>
         </div>
         <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">settings</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
             <span class="nav-text">Settings</span>
         </a>
         <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
-            <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
+            <span class="material-symbols-outlined transition-transform group-hover:text-primary text-xl shrink-0">person</span>
             <span class="nav-link nav-text">Profile</span>
         </a>
         <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-2xl shrink-0">logout</span>
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
             <span class="nav-link nav-text">Sign Out</span>
         </a>
     </div>
