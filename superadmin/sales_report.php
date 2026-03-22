@@ -90,26 +90,20 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
         }
 
         .nav-section-header {
-            max-height: 0;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            margin-top: 0 !important;
-            margin-bottom: 0 !important;
+            opacity: 0;
+            transition: all 0.3s ease-in-out;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            pointer-events: none;
         }
         .sidebar-nav:hover .nav-section-header {
-            max-height: 25px;
+            opacity: 1;
+            margin-top: 1.5rem; /* Ensure space appears on hover */
+            pointer-events: auto;
         }
+        /* Override for Overview which is the first section */
         .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 1rem !important; }
         .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.5rem !important; }
-        .sidebar-nav:hover .nav-section-header.mb-2 { margin-bottom: 0.5rem !important; }
-
-        .sidebar-content {
-            gap: 0.5rem;
-            transition: all 0.3s ease-in-out;
-        }
-        .sidebar-nav:hover .sidebar-content {
-            gap: 1rem;
-        }
 
         .sidebar-content {
             gap: 0.5rem;
@@ -140,7 +134,7 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
     <div class="sidebar-content flex-1 overflow-y-auto no-scrollbar pr-2 pb-10 flex flex-col">
         <!-- Overview Section -->
         <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="nav-text text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
         </div>
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
@@ -149,7 +143,7 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
         
         <!-- Management Section -->
         <div class="nav-section-header px-0 mb-2 mt-6">
-            <span class="nav-text text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
         </div>
         <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">business</span> 
@@ -178,7 +172,7 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
 
         <!-- System Section -->
         <div class="nav-section-header px-0 mb-2 mt-6">
-            <span class="nav-text text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System</span>
         </div>
         <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
@@ -208,7 +202,7 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
 
     <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-4">
         <div class="nav-section-header px-0 mb-2">
-            <span class="nav-text text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
         </div>
         <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
@@ -223,7 +217,6 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
             <span class="nav-link nav-text">Sign Out</span>
         </a>
     </div>
-</nav>
 </nav>
     
     <main class="flex-1 p-8">
