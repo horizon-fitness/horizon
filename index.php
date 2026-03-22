@@ -297,7 +297,7 @@ session_start();
                         <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">6-Month Kickstart</h3>
                         <p class="text-[9px] text-gray-600 font-bold uppercase tracking-widest mb-8">6 Months Billing</p>
                         <div class="mb-10">
-                            <span class="text-4xl font-display font-black text-white">₱4,999</span>
+                            <span class="text-4xl font-display font-black text-white">₱5,999</span>
                             <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ Term</span>
                         </div>
                         <ul class="space-y-4 mb-12 flex-grow">
@@ -305,7 +305,10 @@ session_start();
                                 <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Multi-Tenant Management
                             </li>
                             <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Base64 Document Engine
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Core Analytics
+                            </li>
+                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Gym Page Customizer
                             </li>
                         </ul>
                         <a href="tenant/tenant_application.php" class="w-full py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-white/5 transition-all">Select Plan</a>
@@ -315,15 +318,18 @@ session_start();
                         <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">1-Year Momentum</h3>
                         <p class="text-[9px] text-primary font-bold uppercase tracking-widest mb-8">Most Popular</p>
                         <div class="mb-10">
-                            <span class="text-4xl font-display font-black text-white">₱14,999</span>
+                            <span class="text-4xl font-display font-black text-white">₱10,999</span>
                             <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ Yr</span>
                         </div>
                         <ul class="space-y-4 mb-12 flex-grow">
                             <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Advanced Reports
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Revenue Reports
                             </li>
                             <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
                                 <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Priority Support
+                            </li>
+                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Gym Page Customizer
                             </li>
                         </ul>
                         <a href="tenant/tenant_application.php" class="w-full py-4 bg-primary rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-primary-dark transition-all">Select Plan</a>
@@ -333,15 +339,18 @@ session_start();
                         <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">3-Year Legacy</h3>
                         <p class="text-[9px] text-gray-600 font-bold uppercase tracking-widest mb-8">3 Years Billing</p>
                         <div class="mb-10">
-                            <span class="text-4xl font-display font-black text-white">₱29,999</span>
+                            <span class="text-4xl font-display font-black text-white">₱27,999</span>
                             <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ Term</span>
                         </div>
                         <ul class="space-y-4 mb-12 flex-grow">
                             <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> White-Label Access
+                            </li>
+                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
                                 <span class="material-symbols-outlined text-primary text-sm">check_circle</span> API Integration
                             </li>
                             <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Unlimited Accounts
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Unlimited Team Accounts
                             </li>
                         </ul>
                         <a href="tenant/tenant_application.php" class="w-full py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-white/5 transition-all">Select Plan</a>
