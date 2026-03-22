@@ -514,9 +514,9 @@ endif;
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
             <span class="nav-text">Settings</span>
         </a>
-        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
-            <span class="material-symbols-outlined transition-transform group-hover:text-primary text-xl shrink-0">person</span>
-            <span class="nav-link nav-text">Profile</span>
+        <a href="profile.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">person</span> 
+            <span class="nav-text">Profile</span>
         </a>
         <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
