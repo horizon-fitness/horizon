@@ -19,14 +19,47 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
 // Fetch Real Dynamic Data for Dashboard
 $total_revenue = 0.00; // Place holder for billing later
 
-$stmtTenants = $pdo->query("SELECT COUNT(*) FROM gyms WHERE status = 'Active'");
-$active_tenants = $stmtTenants->fetchColumn();
+// 1. Gym Analytics
+$stmtGyms = $pdo->query("SELECT 
+    COUNT(*) as total,
+    SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,
+    SUM(CASE WHEN status = 'Suspended' THEN 1 ELSE 0 END) as suspended,
+    SUM(CASE WHEN status = 'Deactivated' THEN 1 ELSE 0 END) as deactivated
+FROM gyms");
+$gym_stats = $stmtGyms->fetch(PDO::FETCH_ASSOC);
 
-$stmtUsers = $pdo->query("SELECT COUNT(*) FROM users");
-$total_users = $stmtUsers->fetchColumn();
+// 2. User Analytics
+$stmtUsers = $pdo->query("SELECT 
+    COUNT(*) as total,
+    SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_users,
+    SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive_users
+FROM users");
+$user_stats = $stmtUsers->fetch(PDO::FETCH_ASSOC);
 
+// 3. Application Analytics
 $stmtPending = $pdo->query("SELECT COUNT(*) FROM gym_owner_applications WHERE application_status = 'Pending'");
 $pending_apps_count = $stmtPending->fetchColumn();
+
+// 4. Activity Analytics (System-wide)
+// Daily Activity (Last 7 Days)
+$stmtDaily = $pdo->query("
+    SELECT DATE(created_at) as log_date, COUNT(*) as count 
+    FROM audit_logs 
+    WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) 
+    GROUP BY DATE(created_at) 
+    ORDER BY log_date ASC
+");
+$daily_activity = $stmtDaily->fetchAll(PDO::FETCH_ASSOC);
+
+// Monthly Activity (Last 6 Months)
+$stmtMonthly = $pdo->query("
+    SELECT DATE_FORMAT(created_at, '%Y-%m') as log_month, COUNT(*) as count 
+    FROM audit_logs 
+    WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) 
+    GROUP BY log_month 
+    ORDER BY log_month ASC
+");
+$monthly_activity = $stmtMonthly->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch Recent Applications
 $stmtList = $pdo->query("
@@ -246,15 +279,21 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
             </div>
             <div class="glass-card p-8 status-card-yellow relative overflow-hidden group">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">business</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Active Tenants</p>
-                <h3 class="text-2xl font-black italic uppercase"><?= $active_tenants ?> Gyms</h3>
-                <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Live Subscriptions</p>
+                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Total Tenants</p>
+                <h3 class="text-2xl font-black italic uppercase"><?= $gym_stats['total'] ?> Gyms</h3>
+                <div class="flex gap-3 mt-2">
+                    <p class="text-emerald-500 text-[9px] font-black uppercase tracking-tighter"><?= $gym_stats['active'] ?> Active</p>
+                    <p class="text-amber-500 text-[9px] font-black uppercase tracking-tighter"><?= $gym_stats['suspended'] ?> Suspended</p>
+                </div>
             </div>
             <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">groups</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Total Users</p>
-                <h3 class="text-2xl font-black italic uppercase"><?= number_format($total_users) ?></h3>
-                <p class="text-primary text-[10px] font-black uppercase mt-2">Network Growth</p>
+                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">User Directory</p>
+                <h3 class="text-2xl font-black italic uppercase"><?= number_format($user_stats['total']) ?></h3>
+                <div class="flex gap-3 mt-2">
+                    <p class="text-primary text-[9px] font-black uppercase tracking-tighter"><?= number_format($user_stats['active_users']) ?> Active</p>
+                    <p class="text-gray-500 text-[9px] font-black uppercase tracking-tighter"><?= number_format($user_stats['inactive_users']) ?> Inactive</p>
+                </div>
             </div>
             <div class="glass-card p-8 relative overflow-hidden group border border-amber-500/20 bg-amber-500/5">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">pending_actions</span>
@@ -262,51 +301,73 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
                 <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_apps_count ?></h3>
                 <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Action Required</p>
             </div>
-            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
-                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-red-500">notifications_active</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">System Alerts</p>
-                <h3 class="text-2xl font-black italic uppercase">Active</h3>
-                <p class="text-red-500 text-[10px] font-black uppercase mt-2">Urgent Notifications</p>
-            </div>
-            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
-                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">group</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Total Occupancy</p>
-                <h3 class="text-2xl font-black italic uppercase">Live</h3>
-                <p class="text-primary text-[10px] font-black uppercase mt-2">Real-time Monitoring</p>
-            </div>
-            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
-                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">history_edu</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Subscriptions</p>
-                <h3 class="text-2xl font-black italic uppercase">Active Logs</h3>
-                <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Monitoring Health</p>
-            </div>
-            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
-                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">security</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Access Control</p>
-                <h3 class="text-2xl font-black italic uppercase">RBAC Active</h3>
-                <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Security Managed</p>
-            </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
             <div class="glass-card p-8">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-sm font-black italic uppercase tracking-widest">Revenue Analytics</h3>
-                    <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Last 30 Days</span>
+                    <div>
+                        <h3 class="text-sm font-black italic uppercase tracking-widest">Daily System Activity</h3>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-wider">Events across last 7 days</p>
+                    </div>
                 </div>
-                <div class="h-[300px] flex items-center justify-center border border-white/5 rounded-2xl bg-white/[0.02] relative overflow-hidden">
-                    <p class="text-gray-600 text-[10px] font-black uppercase italic tracking-widest z-10">Revenue Chart Visualization</p>
-                    <div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-primary/5 to-transparent"></div>
+                <div class="h-[200px] flex items-end justify-between gap-2 px-4 pb-4 border border-white/5 rounded-2xl bg-white/[0.01] relative overflow-hidden group">
+                    <?php if (empty($daily_activity)): ?>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <p class="text-gray-600 text-[10px] font-black uppercase italic tracking-widest">No Recent Activity Data</p>
+                        </div>
+                    <?php else: ?>
+                        <?php 
+                        $max_daily = max(array_column($daily_activity, 'count')) ?: 1;
+                        foreach ($daily_activity as $day): 
+                            $height = ($day['count'] / $max_daily) * 100;
+                        ?>
+                        <div class="flex-1 flex flex-col items-center gap-2 group/bar">
+                            <div class="w-full relative bg-primary/10 rounded-t-lg transition-all duration-500 hover:bg-primary/30" style="height: <?= $height ?>%">
+                                <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark border border-white/10 px-2 py-1 rounded text-[9px] font-black pointer-events-none opacity-0 group-hover/bar:opacity-100 transition-opacity">
+                                    <?= $day['count'] ?>
+                                </div>
+                            </div>
+                            <span class="text-[8px] font-black text-gray-600 uppercase tracking-tighter truncate w-full text-center">
+                                <?= date('D', strtotime($day['log_date'])) ?>
+                            </span>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    <div class="absolute inset-0 pointer-events-none bg-gradient-to-t from-primary/5 to-transparent opacity-50"></div>
                 </div>
             </div>
             <div class="glass-card p-8">
                 <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-sm font-black italic uppercase tracking-widest">Tenant Growth</h3>
-                    <span class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Monthly Onboarding</span>
+                    <div>
+                        <h3 class="text-sm font-black italic uppercase tracking-widest">Monthly Growth Trend</h3>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-wider">Event volume over 6 months</p>
+                    </div>
                 </div>
-                <div class="h-[300px] flex items-center justify-center border border-white/5 rounded-2xl bg-white/[0.02] relative overflow-hidden">
-                    <p class="text-gray-600 text-[10px] font-black uppercase italic tracking-widest z-10">Growth Chart Visualization</p>
-                    <div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-primary/5 to-transparent"></div>
+                <div class="h-[200px] flex items-end justify-between gap-4 px-4 pb-4 border border-white/5 rounded-2xl bg-white/[0.01] relative overflow-hidden">
+                    <?php if (empty($monthly_activity)): ?>
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <p class="text-gray-600 text-[10px] font-black uppercase italic tracking-widest">No Monthly Data Available</p>
+                        </div>
+                    <?php else: ?>
+                        <?php 
+                        $max_monthly = max(array_column($monthly_activity, 'count')) ?: 1;
+                        foreach ($monthly_activity as $month): 
+                            $height = ($month['count'] / $max_monthly) * 100;
+                        ?>
+                        <div class="flex-1 flex flex-col items-center gap-2 group/bar">
+                            <div class="w-full relative bg-emerald-500/10 rounded-t-lg transition-all duration-500 hover:bg-emerald-500/30" style="height: <?= $height ?>%">
+                                <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-surface-dark border border-white/10 px-2 py-1 rounded text-[9px] font-black pointer-events-none opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap">
+                                    <?= $month['count'] ?>
+                                </div>
+                            </div>
+                            <span class="text-[8px] font-black text-gray-600 uppercase tracking-tighter truncate w-full text-center">
+                                <?= date('M', strtotime($month['log_month'] . '-01')) ?>
+                            </span>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    <div class="absolute inset-0 pointer-events-none bg-gradient-to-t from-emerald-500/5 to-transparent opacity-50"></div>
                 </div>
             </div>
         </div>
