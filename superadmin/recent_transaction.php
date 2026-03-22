@@ -1,3 +1,4 @@
+<?php 
 session_start();
 require_once '../db.php';
 
@@ -13,11 +14,14 @@ $active_page = "transactions";
 // Fetch Global Transactions (Limit to recent 100 for performance)
 $stmtTrx = $pdo->query("
     SELECT p.*, g.gym_name,
-           u.username as member_name
+           COALESCE(u_member.first_name, u_owner.first_name, 'System') as f_name,
+           COALESCE(u_member.last_name, u_owner.last_name, '') as l_name
     FROM payments p
     LEFT JOIN gyms g ON p.gym_id = g.gym_id
     LEFT JOIN members m ON p.member_id = m.member_id
-    LEFT JOIN users u ON m.user_id = u.user_id
+    LEFT JOIN users u_member ON m.user_id = u_member.user_id
+    LEFT JOIN client_subscriptions cs ON p.client_subscription_id = cs.client_subscription_id
+    LEFT JOIN users u_owner ON cs.owner_user_id = u_owner.user_id
     ORDER BY p.created_at DESC
     LIMIT 100
 ");
@@ -272,7 +276,7 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
                         </td>
                         <td class="px-8 py-5">
                             <div>
-                                <p class="text-sm font-bold italic text-white"><?= $trx['member_name'] ? htmlspecialchars($trx['member_name']) : 'N/A' ?></p>
+                                <p class="text-sm font-bold italic text-white"><?= htmlspecialchars($trx['f_name'] . ' ' . $trx['l_name']) ?></p>
                                 <p class="text-[9px] text-gray-500 font-black uppercase tracking-widest italic"><?= $trx['gym_name'] ? htmlspecialchars($trx['gym_name']) : 'System/Admin' ?></p>
                             </div>
                         </td>
