@@ -158,6 +158,7 @@ switch ($report_type) {
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title><?= $page_title ?> | Horizon System</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -167,6 +168,7 @@ switch ($report_type) {
             theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
         }
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0b0a0f; color: #e2e8f0; } /* Softer background */
         .glass-card { background: #16141d; border: 1px solid rgba(255,255,255,0.03); border-radius: 24px; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5); }
@@ -241,7 +243,7 @@ switch ($report_type) {
 
         .premium-select-container { position: relative; }
         .premium-select { 
-            background: #0d0b14;
+            background: #1a1824;
             border: 2px solid rgba(140, 43, 238, 0.4);
             transition: border-color 0.3s ease;
         }
@@ -415,24 +417,28 @@ switch ($report_type) {
         <div class="glass-card mb-8 p-8">
             <form method="GET" class="flex flex-wrap items-end gap-6 report-form">
                 <input type="hidden" name="active_tab" class="active-tab-input" value="<?= $active_tab ?>">
+                <input type="hidden" name="report_type" value="<?= $report_type ?>">
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Date From</p>
-                    <input type="date" name="date_from" value="<?= $date_from ?>" class="bg-[#0a090d] border border-white/5 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
+                    <input type="date" name="date_from" value="<?= $date_from ?>" class="bg-[#1a1824] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
                 </div>
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Date To</p>
-                    <input type="date" name="date_to" value="<?= $date_to ?>" class="bg-[#0a090d] border border-white/5 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
+                    <input type="date" name="date_to" value="<?= $date_to ?>" class="bg-[#1a1824] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
                 </div>
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Select Tenant</p>
-                    <select name="tenant_id" class="bg-[#0a090d] border border-white/5 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
+                    <select name="tenant_id" class="bg-[#1a1824] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
                         <option value="all">All Tenants</option>
                         <?php foreach($tenants_list as $gt): ?>
                             <option value="<?= $gt['gym_id'] ?>" <?= $tenant_filter == $gt['gym_id'] ? 'selected' : '' ?>><?= htmlspecialchars($gt['gym_name']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <button type="submit" class="h-10 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20">Generate Report</button>
+                <div class="flex items-center gap-4">
+                    <button type="submit" class="h-10 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20">Generate Report</button>
+                    <a href="system_reports.php" class="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Clear Filters</a>
+                </div>
             </form>
         </div>
 
@@ -486,9 +492,13 @@ switch ($report_type) {
                                 <span class="material-symbols-outlined absolute right-5 top-1/2 -translate-y-1/2 text-primary text-lg pointer-events-none group-hover:scale-110 transition-transform">expand_more</span>
                             </div>
                         </form>
-                        <button class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
-                            <span class="material-symbols-outlined text-sm">download</span>
-                            Export CSV
+                        <button onclick="exportReportToPDF(true)" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">visibility</span>
+                            Preview
+                        </button>
+                        <button onclick="exportReportToPDF(false)" class="px-5 py-2.5 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">picture_as_pdf</span>
+                            Export PDF
                         </button>
                     </div>
                 </div>
@@ -758,6 +768,141 @@ switch ($report_type) {
             }
         }
     });
+
+    function exportReportToPDF(preview = false) {
+        const element = document.getElementById('detailedTab');
+        const reportTitle = "<?= $curr_report['title'] ?>";
+        const dateFrom = "<?= date('M d, Y', strtotime($date_from)) ?>";
+        const dateTo = "<?= date('M d, Y', strtotime($date_to)) ?>";
+        const tenantName = "Horizon System";
+        const generatedAt = "<?= date('M d, Y h:i A') ?>";
+
+        // Create a wrapper for formal PDF styling
+        const wrapper = document.createElement('div');
+        wrapper.style.padding = '40px';
+        wrapper.style.color = '#000';
+        wrapper.style.backgroundColor = '#fff';
+        wrapper.style.fontFamily = "'Roboto Mono', monospace";
+
+        // Formal Header (Matching Sample)
+        const header = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                <div style="text-align: left;">
+                    <h1 style="font-family: 'Lexend', sans-serif; font-size: 28px; font-weight: 800; color: #000; margin: 0; text-transform: uppercase; letter-spacing: -0.5px;">${tenantName}</h1>
+                    <div style="font-size: 9px; color: #333; margin-top: 8px; line-height: 1.6;">
+                        <p style="margin: 0;">Baliwag, Bulacan, Philippines, 3006</p>
+                        <p style="margin: 0;">Phone: 0976-241-1986 | Email: horizonfitnesscorp@gmail.com</p>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <h2 style="font-family: 'Lexend', sans-serif; font-size: 18px; font-weight: 700; color: #000; margin: 0; text-transform: uppercase;">${reportTitle}</h2>
+                    <div style="font-size: 9px; color: #333; margin-top: 8px; line-height: 1.6;">
+                        <p style="margin: 0;">Generated on: ${generatedAt}</p>
+                    </div>
+                </div>
+            </div>
+            <div style="border-bottom: 2px solid #000; margin-bottom: 30px;"></div>
+        `;
+
+        // Clone the content and clean it up
+        const contentClone = element.cloneNode(true);
+        
+        // Remove interactive elements from clone
+        const actionBar = contentClone.querySelector('.px-8.py-6.border-b');
+        if (actionBar) actionBar.remove();
+
+        // 1. Clean data: Remove secondary info (clutter) for business report
+        const secondaryTexts = contentClone.querySelectorAll('p.text-\\[9px\\], p.text-\\[8px\\], span.text-\\[9px\\]');
+        secondaryTexts.forEach(el => {
+            if (!el.classList.contains('px-3')) { 
+                el.remove();
+            }
+        });
+        
+        // Adjust table for PDF visibility (Excel Style)
+        const table = contentClone.querySelector('table');
+        let recordCount = 0;
+        if (table) {
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+            table.style.fontSize = '10px';
+            table.style.color = '#000';
+            table.style.border = '1px solid #000';
+            table.style.marginTop = '10px';
+
+            // style headers
+            const ths = table.querySelectorAll('th');
+            ths.forEach(th => {
+                th.style.backgroundColor = '#f3f4f6'; 
+                th.style.color = '#000';
+                th.style.border = '1px solid #000';
+                th.style.padding = '12px 10px';
+                th.style.textTransform = 'uppercase';
+                th.style.fontWeight = '800';
+                th.style.textAlign = 'center';
+            });
+
+            // style cells
+            const rows = table.querySelectorAll('tbody tr');
+            recordCount = rows.length;
+            const tds = table.querySelectorAll('td');
+            tds.forEach(td => {
+                td.style.border = '1px solid #000';
+                td.style.padding = '12px 10px';
+                td.style.color = '#000';
+                td.style.verticalAlign = 'middle';
+                const texts = td.querySelectorAll('p, span');
+                texts.forEach(t => t.style.color = '#000');
+            });
+
+            if (table.querySelector('td[colspan]')) recordCount = 0;
+        }
+
+        // Add Summary Section
+        const summary = `
+            <div style="font-size: 10px; font-weight: 700; color: #000; margin-bottom: 15px; display: flex; justify-content: space-between;">
+                <span>TRANSCRIPT OF RECORDS</span>
+                <span>TOTAL RECORDS FOUND: ${recordCount}</span>
+            </div>
+        `;
+
+        wrapper.innerHTML = header + summary;
+        wrapper.appendChild(contentClone);
+
+        // Add Footer
+        const footer = document.createElement('div');
+        footer.style.marginTop = '40px';
+        footer.style.textAlign = 'center';
+        footer.style.fontSize = '8px';
+        footer.style.color = '#666';
+        footer.style.lineHeight = '1.8';
+        footer.innerHTML = `
+            <p style="margin: 0;">This document is strictly confidential and generated for internal use only by Horizon System.</p>
+            <p style="margin: 0;">&copy; ${new Date().getFullYear()} Horizon System. All Rights Reserved.</p>
+        `;
+        wrapper.appendChild(footer);
+
+        const opt = {
+            margin:       [0.5, 0.5],
+            filename:     `${reportTitle.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { 
+                scale: 2, 
+                backgroundColor: '#ffffff',
+                useCORS: true,
+                letterRendering: true
+            },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+
+        if (preview) {
+            html2pdf().set(opt).from(wrapper).toPdf().get('pdf').then(function (pdf) {
+                window.open(pdf.output('bloburl'), '_blank');
+            });
+        } else {
+            html2pdf().set(opt).from(wrapper).save();
+        }
+    }
 </script>
 </body>
 </html>
