@@ -25,9 +25,9 @@ if ($active_sub) {
 $plansCheck = $pdo->query("SELECT COUNT(*) FROM website_plans")->fetchColumn();
 if ($plansCheck == 0) {
     $plans = [
-        ['6-Month Kickstart', 24999.00, '6 Months', 6, 'Multi-Tenant Management, Base64 Document Engine, Core Analytics'],
-        ['1-Year Momentum', 44999.00, '1 Year', 12, 'Advanced Revenue Reports, Priority Support, Gym Page Customizer'],
-        ['3-Year Legacy', 99999.00, '3 Years', 36, 'Full White-Label Access, API Integration, Unlimited Team Accounts']
+        ['6-Month Kickstart', 5999.00, '6 Months', 6, 'Multi-Tenant Management, Core Analytics, Gym Page Customizer'],
+        ['1-Year Momentum', 10999.00, '1 Year', 12, 'Revenue Reports, Priority Support, Gym Page Customizer'],
+        ['3-Year Legacy', 27999.00, '3 Years', 36, 'White-Label Access, API Integration, Unlimited Team Accounts']
     ];
     $stmtSeed = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, features) VALUES (?, ?, ?, ?, ?)");
     foreach ($plans as $p) {
@@ -38,29 +38,12 @@ if ($plansCheck == 0) {
 // Fetch Plans
 $plans = $pdo->query("SELECT * FROM website_plans WHERE is_active = 1")->fetchAll();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
-    $plan_id = (int)$_POST['plan_id'];
-    $now = date('Y-m-d H:i:s');
-    $start_date = date('Y-m-d');
-    
-    // Default duration (if not found in plan)
-    $duration = 1; 
-    foreach($plans as $p) if($p['website_plan_id'] == $plan_id) $duration = $p['duration_months'];
-    $end_date = date('Y-m-d', strtotime("+$duration months"));
-
-    try {
-        $pdo->beginTransaction();
-        
-        $stmtInsert = $pdo->prepare("INSERT INTO client_subscriptions (gym_id, owner_user_id, website_plan_id, start_date, end_date, subscription_status, payment_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'Active', 'Paid', ?, ?)");
-        $stmtInsert->execute([$gym_id, $user_id, $plan_id, $start_date, $end_date, $now, $now]);
-        
-        $pdo->commit();
-        header("Location: tenant_dashboard.php");
-        exit;
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        $error = "Failed to process subscription: " . $e->getMessage();
-    }
+// Fetch Plan Details if paying
+$pay_sub_id = isset($_GET['pay']) ? (int)$_GET['pay'] : 0;
+$pay_plan_id = isset($_GET['plan']) ? (int)$_GET['plan'] : 0;
+$selected_plan = null;
+if ($pay_plan_id) {
+    foreach($plans as $p) if($p['website_plan_id'] == $pay_plan_id) $selected_plan = $p;
 }
 ?>
 <!DOCTYPE html>
@@ -80,9 +63,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        .payment-modal { background: rgba(10, 9, 13, 0.8); backdrop-filter: blur(12px); }
     </style>
 </head>
 <body class="antialiased min-h-screen flex flex-col items-center justify-center p-6">
+
+    <?php if ($pay_sub_id && $selected_plan): ?>
+    <!-- Payment Modal -->
+    <div id="paymentModal" class="fixed inset-0 z-50 flex items-center justify-center p-6 payment-modal">
+        <div class="glass-card max-w-lg w-full p-8 shadow-2xl border-primary/20 relative overflow-hidden">
+            <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+            
+            <div class="flex justify-between items-center mb-8 relative z-10">
+                <div>
+                    <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white">Complete <span class="text-primary">Payment</span></h3>
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Subscription Activation Required</p>
+                </div>
+                <a href="subscription_plan.php" class="size-10 rounded-full bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all">
+                    <span class="material-symbols-outlined">close</span>
+                </a>
+            </div>
+
+            <div class="space-y-6 relative z-10">
+                <div class="p-6 rounded-2xl bg-white/5 border border-white/5 flex justify-between items-center">
+                    <div>
+                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Plan Selected</p>
+                        <p class="text-sm font-black italic uppercase text-white"><?= htmlspecialchars($selected_plan['plan_name']) ?></p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Amount Due</p>
+                        <p class="text-xl font-black text-primary italic uppercase">₱<?= number_format($selected_plan['price'], 0) ?></p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3 p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 text-blue-400">
+                        <span class="material-symbols-outlined">info</span>
+                        <p class="text-[10px] font-bold uppercase tracking-widest">Pay via GCash to the number below</p>
+                    </div>
+                    
+                    <div class="p-6 rounded-2xl bg-gradient-to-br from-blue-600/20 to-blue-400/5 border border-blue-500/20 text-center">
+                        <p class="text-[10px] text-blue-400 font-black uppercase tracking-[0.2em] mb-2">GCash Account</p>
+                        <h4 class="text-2xl font-black text-white tracking-widest mb-1">0976-241-1986</h4>
+                        <p class="text-xs text-gray-400 font-medium">Horizon Fitness Corp.</p>
+                    </div>
+                </div>
+
+                <form action="action/submit_subscription_payment.php" method="POST" class="space-y-4">
+                    <input type="hidden" name="subscription_id" value="<?= $pay_sub_id ?>">
+                    <input type="hidden" name="amount" value="<?= $selected_plan['price'] ?>">
+                    
+                    <div class="space-y-2">
+                        <label class="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-1">Reference Number</label>
+                        <input type="text" name="reference_number" required placeholder="Enter GCash Reference No." 
+                               class="w-full h-14 rounded-xl bg-white/5 border border-white/5 px-6 text-sm text-white placeholder:text-gray-700 focus:border-primary focus:outline-none transition-all font-mono tracking-widest">
+                    </div>
+
+                    <button type="submit" class="w-full h-14 rounded-xl bg-primary hover:bg-primary-dark text-white font-black italic uppercase tracking-widest text-xs shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                        Submit Payment Verification
+                    </button>
+                    <p class="text-center text-[9px] text-gray-600 font-medium uppercase tracking-widest">Admin will verify your payment within 24 hours</p>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <div class="max-w-5xl w-full text-center mb-12">
         <div class="inline-flex items-center justify-center size-16 rounded-2xl bg-primary/10 text-primary mb-6">
@@ -91,6 +136,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
         <h2 class="text-4xl font-black italic uppercase tracking-tighter text-white mb-4">Choose Your <span class="text-primary">Growth Plan</span></h2>
         <p class="text-gray-500 text-sm font-bold uppercase tracking-widest">Select a plan to activate your gym's digital infrastructure</p>
     </div>
+
+    <?php if (isset($_GET['success'])): ?>
+        <div class="max-w-md w-full mb-8 p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-center relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-2 opacity-20"><span class="material-symbols-outlined text-4xl">check_circle</span></div>
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] mb-1">Success</p>
+            <h4 class="text-sm font-black italic uppercase italic">Payment Submitted Successfully</h4>
+            <p class="text-xs font-medium text-gray-400 mt-2">Your subscription is now pending verification. We will notify you once activated.</p>
+        </div>
+    <?php endif; ?>
 
     <?php if (isset($error)): ?>
         <div class="max-w-md w-full mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center font-bold">
@@ -122,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
                 <?php endforeach; ?>
             </ul>
 
-            <form method="POST">
+            <form action="action/select_subscription_plan.php" method="POST" class="h-full">
                 <input type="hidden" name="plan_id" value="<?= $plan['website_plan_id'] ?>">
                 <button type="submit" class="w-full h-12 rounded-xl border border-white/10 hover:bg-primary hover:text-white hover:border-primary transition-all text-[10px] font-black uppercase tracking-widest">
                     Select Plan

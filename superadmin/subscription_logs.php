@@ -11,14 +11,16 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 $page_title = "Subscription Logs";
 $active_page = "subscriptions";
 
-// Fetch Subscription Logs with Gym and Plan details
+// Fetch Subscription Logs with Gym, Plan, and Payment details
 $stmtLogs = $pdo->query("
     SELECT cs.*, 
            g.gym_name, g.tenant_code,
-           wp.plan_name, wp.price as plan_price, wp.billing_cycle
+           wp.plan_name, wp.price as plan_price, wp.billing_cycle,
+           p.reference_number, p.payment_method, p.payment_id, p.amount as paid_amount
     FROM client_subscriptions cs
     JOIN gyms g ON cs.gym_id = g.gym_id
     JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+    LEFT JOIN payments p ON cs.client_subscription_id = p.client_subscription_id AND p.payment_status = 'Pending'
     ORDER BY cs.created_at DESC
 ");
 $logs = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
@@ -326,9 +328,14 @@ foreach ($logs as $log) {
                                                 <span class="material-symbols-outlined text-sm">verified</span>
                                                 <span class="text-[10px] font-black uppercase italic">Paid</span>
                                             </div>
+                                        <?php elseif ($log['payment_status'] === 'Pending Verification'): ?>
+                                            <button onclick="openVerifyModal(<?= htmlspecialchars(json_encode($log)) ?>)" class="h-9 px-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-black uppercase italic italic hover:bg-amber-500/20 flex items-center gap-2 ml-auto shadow-lg shadow-amber-500/5">
+                                                <span class="material-symbols-outlined text-sm">payments</span>
+                                                Verify Payment
+                                            </button>
                                         <?php else: ?>
-                                            <div class="flex items-center justify-end gap-2 text-amber-400">
-                                                <span class="material-symbols-outlined text-sm">pending</span>
+                                            <div class="flex items-center justify-end gap-2 text-gray-400">
+                                                <span class="material-symbols-outlined text-sm">hourglass_empty</span>
                                                 <span class="text-[10px] font-black uppercase italic"><?= htmlspecialchars($log['payment_status']) ?></span>
                                             </div>
                                         <?php endif; ?>
@@ -342,5 +349,96 @@ foreach ($logs as $log) {
         </div>
     </main>
 </div>
+
+<!-- Verification Modal -->
+<div id="verifyModal" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm hidden">
+    <div class="glass-card max-w-lg w-full p-8 shadow-2xl relative overflow-hidden">
+        <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full"></div>
+        
+        <div class="flex justify-between items-center mb-8 relative z-10">
+            <div>
+                <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white">Payment <span class="text-primary">Verification</span></h3>
+                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Review Subscription Details</p>
+            </div>
+            <button onclick="closeVerifyModal()" class="size-10 rounded-full bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <div id="modalContent" class="space-y-6 relative z-10">
+            <!-- Content will be injected by JS -->
+        </div>
+
+        <div class="flex gap-4 mt-10 relative z-10">
+            <button onclick="submitVerification('Approve')" class="flex-1 h-14 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black italic uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02]">Approve Payment</button>
+            <button onclick="submitVerification('Reject')" class="flex-1 h-14 rounded-xl bg-red-600/10 border border-red-600/20 text-red-500 font-black italic uppercase tracking-widest text-[10px] hover:bg-red-600/20 transition-all">Reject</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentLog = null;
+
+function openVerifyModal(log) {
+    currentLog = log;
+    const content = `
+        <div class="grid grid-cols-2 gap-4">
+            <div class="p-4 rounded-xl bg-white/5 border border-white/5">
+                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-1">Gym / Tenant</p>
+                <p class="text-sm font-black italic uppercase text-white">${log.gym_name}</p>
+                <p class="text-[9px] text-primary font-bold uppercase tracking-widest uppercase">${log.tenant_code}</p>
+            </div>
+            <div class="p-4 rounded-xl bg-white/5 border border-white/5">
+                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mb-1">Website Plan</p>
+                <p class="text-sm font-black italic uppercase text-white">${log.plan_name}</p>
+                <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest uppercase">₱${parseFloat(log.plan_price).toLocaleString()}</p>
+            </div>
+        </div>
+
+        <div class="p-6 rounded-2xl bg-amber-500/5 border border-amber-500/10 space-y-4">
+            <div class="flex justify-between items-center pb-4 border-b border-white/5">
+                <span class="text-[10px] text-amber-500 font-bold uppercase tracking-[0.2em]">GCash Payment Details</span>
+                <span class="px-3 py-1 rounded-full bg-amber-500/10 text-[9px] text-amber-500 font-black uppercase italic">Pending</span>
+            </div>
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1 italic">Reference Number</p>
+                    <p id="ref_no" class="text-lg font-black text-white italic tracking-widest uppercase">${log.reference_number || 'N/A'}</p>
+                </div>
+                <div>
+                    <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest mb-1 italic">Paid Amount</p>
+                    <p class="text-lg font-black text-white italic tracking-widest uppercase italic">₱${parseFloat(log.paid_amount || 0).toLocaleString()}</p>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('modalContent').innerHTML = content;
+    document.getElementById('verifyModal').classList.remove('hidden');
+}
+
+function closeVerifyModal() {
+    document.getElementById('verifyModal').classList.add('hidden');
+}
+
+function submitVerification(action) {
+    if (!currentLog) return;
+    
+    const formData = new FormData();
+    formData.append('subscription_id', currentLog.client_subscription_id);
+    formData.append('payment_id', currentLog.payment_id);
+    formData.append('action', action);
+
+    fetch('action/verify_subscription.php', {
+        method: 'POST',
+        body: formData
+    }).then(res => res.json()).then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    });
+}
+</script>
 </body>
 </html>
