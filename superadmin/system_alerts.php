@@ -125,6 +125,66 @@ $stmtAlerts = $pdo->prepare($query);
 $stmtAlerts->execute($params);
 $alerts = $stmtAlerts->fetchAll(PDO::FETCH_ASSOC);
 
+// Handle AJAX Request for Live Search
+if (isset($_GET['ajax'])) {
+    ?>
+    <div class="space-y-6 relative">
+        <?php foreach($alerts as $alert): 
+            $isHigh = ($alert['priority'] == 'High');
+            $priorityClass = $isHigh ? 'text-rose-500 bg-rose-500/10 border-rose-500/20 alert-glow-high' : 'text-primary bg-primary/10 border-primary/20 alert-glow-medium';
+            $icon = $isHigh ? 'report' : 'info';
+        ?>
+            <div class="group relative flex flex-col md:flex-row gap-8 items-start">
+                <div class="hidden md:flex size-14 rounded-xl glass-card shrink-0 items-center justify-center relative z-10 group-hover:border-primary/50 transition-colors">
+                    <span class="material-symbols-outlined <?= $isHigh ? 'text-rose-500' : 'text-primary' ?> text-xl"><?= $icon ?></span>
+                </div>
+                <div class="flex-1 glass-card p-6 group-hover:bg-white/[0.04] transition-all duration-500">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center gap-3 mb-1">
+                                <span class="text-gray-600 text-[9px] font-bold uppercase tracking-widest italic"><?= date('h:i A', strtotime($alert['created_at'])) ?></span>
+                            </div>
+                            <h4 class="text-md font-black italic uppercase text-white tracking-tight leading-none"><?= htmlspecialchars($alert['type']) ?></h4>
+                            <p class="text-[#8e8d91] text-xs mt-1 font-medium"><?= htmlspecialchars($alert['message']) ?></p>
+                            <div class="flex items-center gap-2 mt-3">
+                                <span class="text-[9px] font-black uppercase text-gray-500 tracking-widest">Source:</span>
+                                <span class="text-[9px] font-black uppercase text-white bg-white/5 px-2 py-0.5 rounded"><?= htmlspecialchars($alert['source']) ?></span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 shrink-0">
+                            <?php if ($view === 'active'): ?>
+                            <button onclick="requestResolve(<?= $alert['alert_id'] ?>)" class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-emerald-500/20 hover:text-emerald-400 border border-white/5 transition-all group/btn" title="Resolve">
+                                <span class="material-symbols-outlined text-sm">check</span>
+                            </button>
+                            <?php else: ?>
+                            <div class="size-10 flex items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" title="Resolved">
+                                <span class="material-symbols-outlined text-sm">verified</span>
+                            </div>
+                            <?php endif; ?>
+                            <button onclick="openAlertModal('<?= addslashes($alert['type']) ?>', '<?= addslashes($alert['message']) ?>', '<?= addslashes($alert['source']) ?>', '<?= date('M d, Y h:i A', strtotime($alert['created_at'])) ?>', '<?= $alert['priority'] ?>')" class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-primary/20 hover:text-primary border border-white/5 transition-all group/btn" title="More Details">
+                                <span class="material-symbols-outlined text-sm">visibility</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        <?php endforeach; ?>
+        <?php if (empty($alerts)): ?>
+            <div class="glass-card p-12 text-center">
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest italic">No alerts found matching your criteria.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+    <!-- Pagination Mock -->
+    <div class="mt-12 flex justify-center gap-2">
+        <button class="size-10 rounded-xl glass-card flex items-center justify-center text-primary border-primary/30">1</button>
+        <button class="size-10 rounded-xl glass-card flex items-center justify-center text-gray-500 hover:text-white transition-all">2</button>
+        <button class="size-10 rounded-xl glass-card flex items-center justify-center text-gray-500 hover:text-white transition-all">3</button>
+    </div>
+    <?php
+    exit;
+}
+
 $page_title = "System Alerts";
 $active_page = "alerts";
 ?>
@@ -211,6 +271,36 @@ $active_page = "alerts";
         }
         setInterval(updateHeaderClock, 1000);
         window.addEventListener('DOMContentLoaded', updateHeaderClock);
+
+        // Reactive Filtering Logic
+        let filterTimeout;
+        function reactiveFilter() {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                const form = document.getElementById('alertFilterForm');
+                if (!form) return;
+                
+                const formData = new FormData(form);
+                const params = new URLSearchParams(formData);
+                
+                // Show loading state (optional)
+                const container = document.getElementById('alertsContainer');
+                if (container) container.style.opacity = '0.5';
+
+                fetch(`system_alerts.php?${params.toString()}&ajax=1`)
+                    .then(response => response.text())
+                    .then(html => {
+                        if (container) {
+                            container.innerHTML = html;
+                            container.style.opacity = '1';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Filter error:', error);
+                        if (container) container.style.opacity = '1';
+                    });
+            }, 300);
+        }
     </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
@@ -333,21 +423,23 @@ $active_page = "alerts";
             </div>
 
             <div class="flex flex-col md:flex-row gap-6 flex-1 md:flex-none">
-                <form method="GET" class="flex flex-col md:flex-row gap-4">
+                <form method="GET" id="alertFilterForm" class="flex flex-col md:flex-row gap-4" onsubmit="event.preventDefault(); reactiveFilter();">
                     <input type="hidden" name="view" value="<?= htmlspecialchars($view) ?>">
                     <div class="w-full md:w-64 glass-card p-2 flex items-center gap-3 px-4">
                         <span class="material-symbols-outlined text-gray-400">search</span>
-                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" class="bg-transparent border-none outline-none text-xs text-white w-full py-2 placeholder:text-gray-600 font-bold uppercase tracking-widest">
+                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" 
+                               oninput="reactiveFilter()"
+                               onkeydown="if(event.key === 'Enter') { event.preventDefault(); reactiveFilter(); }"
+                               class="bg-transparent border-none outline-none text-xs text-white w-full py-2 placeholder:text-gray-600 font-bold uppercase tracking-widest">
                     </div>
                     <div class="flex gap-4">
-                        <select name="priority" onchange="this.form.submit()" 
+                        <select name="priority" onchange="reactiveFilter()" 
                                 class="appearance-none bg-[#0a090d] border border-white/10 rounded-[20px] px-8 pr-12 py-3 text-[10px] font-bold uppercase tracking-widest text-white focus:border-primary focus:outline-none cursor-pointer hover:bg-white/5 transition-all"
                                 style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%23666%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1.5rem center; background-size: 1rem;">
                             <option value="all" class="bg-[#0a090d]" <?= $priority_filter == 'all' ? 'selected' : '' ?>>All Priorities</option>
                             <option value="High" class="bg-[#0a090d]" <?= $priority_filter == 'High' ? 'selected' : '' ?>>High Priority</option>
                             <option value="Medium" class="bg-[#0a090d]" <?= $priority_filter == 'Medium' ? 'selected' : '' ?>>Medium Priority</option>
                         </select>
-                        <button type="submit" class="hidden">Search</button>
                     </div>
                 </form>
 
@@ -366,7 +458,8 @@ $active_page = "alerts";
             <!-- Timeline Line -->
             <div class="absolute left-7 top-0 bottom-0 w-px bg-gradient-to-b from-primary/30 via-primary/5 to-transparent hidden md:block"></div>
 
-            <div class="space-y-6 relative">
+            <div id="alertsContainer">
+                <div class="space-y-6 relative">
                 <?php foreach($alerts as $alert): 
                     $isHigh = ($alert['priority'] == 'High');
                     $priorityClass = $isHigh ? 'text-rose-500 bg-rose-500/10 border-rose-500/20 alert-glow-high' : 'text-primary bg-primary/10 border-primary/20 alert-glow-medium';
@@ -410,14 +503,19 @@ $active_page = "alerts";
                         </div>
                     </div>
                 <?php endforeach; ?>
+                <?php if (empty($alerts)): ?>
+                    <div class="glass-card p-12 text-center">
+                        <p class="text-gray-500 text-xs font-bold uppercase tracking-widest italic">No alerts found matching your criteria.</p>
+                    </div>
+                <?php endif; ?>
             </div>
-        </div>
 
-        <!-- Pagination Mock -->
-        <div class="mt-12 flex justify-center gap-2">
-            <button class="size-10 rounded-xl glass-card flex items-center justify-center text-primary border-primary/30">1</button>
-            <button class="size-10 rounded-xl glass-card flex items-center justify-center text-gray-500 hover:text-white transition-all">2</button>
-            <button class="size-10 rounded-xl glass-card flex items-center justify-center text-gray-500 hover:text-white transition-all">3</button>
+            <!-- Pagination Mock -->
+            <div class="mt-12 flex justify-center gap-2">
+                <button class="size-10 rounded-xl glass-card flex items-center justify-center text-primary border-primary/30">1</button>
+                <button class="size-10 rounded-xl glass-card flex items-center justify-center text-gray-500 hover:text-white transition-all">2</button>
+                <button class="size-10 rounded-xl glass-card flex items-center justify-center text-gray-500 hover:text-white transition-all">3</button>
+            </div>
         </div>
     </main>
 </div>
