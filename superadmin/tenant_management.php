@@ -16,7 +16,8 @@ $stmtTenants = $pdo->query("
            u.first_name, u.last_name, u.email as owner_email,
            tp.logo_path,
            cs.subscription_status as sub_status,
-           wp.plan_name
+           wp.plan_name,
+           IFNULL(m.member_count, 0) as member_count
     FROM gyms g
     JOIN users u ON g.owner_user_id = u.user_id
     LEFT JOIN tenant_pages tp ON g.gym_id = tp.gym_id
@@ -30,10 +31,19 @@ $stmtTenants = $pdo->query("
         ) cs2 ON cs1.gym_id = cs2.gym_id AND cs1.created_at = cs2.max_created
     ) cs ON g.gym_id = cs.gym_id
     LEFT JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+    LEFT JOIN (
+        SELECT gym_id, COUNT(*) as member_count 
+        FROM members 
+        GROUP BY gym_id
+    ) m ON g.gym_id = m.gym_id
     WHERE g.status != 'Deleted'
     ORDER BY g.created_at DESC
 ");
 $tenants = $stmtTenants->fetchAll(PDO::FETCH_ASSOC);
+
+// Fetch Total Members across all tenants
+$stmtTotalMembers = $pdo->query("SELECT COUNT(*) FROM members");
+$total_members_count = $stmtTotalMembers->fetchColumn();
 
 // Fetch Existing Tenant Links for the Linking Tab
 $tenant_links = [];
@@ -97,13 +107,22 @@ foreach ($tenants as $t) {
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         
         /* Sidebar Hover Logic - ADJUSTED WIDTHS */
+        :root { --sidebar-width: 110px; }
         .sidebar-nav {
-            width: 110px; /* Increased slightly from 100px */
+            width: var(--sidebar-width);
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
         }
         .sidebar-nav:hover {
-            width: 300px; /* Increased from 280px for better text fit */
+            --sidebar-width: 300px;
+        }
+        #applicationModal, #modalBackdrop {
+            left: var(--sidebar-width) !important;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #applicationModal {
+            padding-left: 5rem; /* Significant breathing room (80px) from the nav */
+            padding-right: 5rem;
         }
         .nav-text {
             opacity: 0;
@@ -165,7 +184,7 @@ foreach ($tenants as $t) {
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
+<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-[110] shrink-0">
     <div class="mb-12">
         <div class="flex items-center gap-4 mb-6">
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
@@ -175,7 +194,7 @@ foreach ($tenants as $t) {
         </div>
     </div>
     
-    <div class="flex flex-col gap-6 flex-1 overflow-y-auto no-scrollbar pr-2">
+    <div class="flex flex-col gap-6 flex-1 overflow-y-auto no-scrollbar pr-2 pb-10">
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
@@ -232,7 +251,7 @@ foreach ($tenants as $t) {
         </a>
     </div>
 
-    <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-8">
+    <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-8">
         <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
             <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
             <span class="nav-link nav-text">Profile</span>
@@ -275,7 +294,7 @@ foreach ($tenants as $t) {
             <?php unset($_SESSION['error_msg']); ?>
         <?php endif; ?>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-10">
             <div class="glass-card p-6 border border-white/5 bg-white/5 flex items-center gap-4">
                 <div class="size-12 rounded-full bg-white/10 flex items-center justify-center text-white">
                     <span class="material-symbols-outlined text-2xl">domain</span>
@@ -292,6 +311,15 @@ foreach ($tenants as $t) {
                 <div>
                     <p class="text-[10px] font-black uppercase text-emerald-500/70 tracking-widest">Active Gyms</p>
                     <h3 class="text-2xl font-black italic uppercase text-emerald-400"><?= $active_count ?></h3>
+                </div>
+            </div>
+            <div class="glass-card p-6 border border-primary/20 bg-primary/5 flex items-center gap-4">
+                <div class="size-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                    <span class="material-symbols-outlined text-2xl">groups</span>
+                </div>
+                <div>
+                    <p class="text-[10px] font-black uppercase text-primary/70 tracking-widest">Total Members</p>
+                    <h3 class="text-2xl font-black italic uppercase text-primary"><?= number_format($total_members_count) ?></h3>
                 </div>
             </div>
             <div class="glass-card p-6 border border-amber-500/20 bg-amber-500/5 flex items-center gap-4">
@@ -317,7 +345,7 @@ foreach ($tenants as $t) {
         <div class="flex items-center gap-8 mb-8 border-b border-white/5 px-2">
             <button onclick="switchTab('registered')" id="tabBtn-registered" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-primary">
                 Registered Gyms
-                <div id="tabIndicator-registered" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all"></div>
+                <div id="tabIndicator-registered" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-100"></div>
             </button>
             <button onclick="switchTab('pending')" id="tabBtn-pending" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-gray-500 hover:text-white">
                 Pending Applications
@@ -414,7 +442,7 @@ foreach ($tenants as $t) {
                             <th class="px-8 py-4">Gym Identity</th>
                             <th class="px-8 py-4">Owner Contact</th>
                             <th class="px-8 py-4">Plan & Status</th>
-                            <th class="px-8 py-4">Account Status</th>
+                            <th class="px-8 py-4">Members</th>
                             <th class="px-8 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -463,24 +491,30 @@ foreach ($tenants as $t) {
                                         </div>
                                     </td>
                                     <td class="px-8 py-5">
-                                        <?php if ($t['status'] === 'Active'): ?>
-                                            <div class="flex items-center gap-2 text-emerald-400">
-                                                <span class="relative flex size-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full size-2 bg-emerald-500"></span></span>
-                                                <span class="text-xs font-black uppercase italic tracking-wider">Active</span>
+                                        <div class="flex flex-col gap-2">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-symbols-outlined text-sm text-primary">groups</span>
+                                                <p class="text-xs font-black italic"><?= number_format($t['member_count']) ?></p>
                                             </div>
-                                        <?php elseif ($t['status'] === 'Suspended'): ?>
-                                            <div class="flex items-center gap-2 text-amber-400">
-                                                <span class="relative inline-flex rounded-full size-2 bg-amber-500"></span>
-                                                <span class="text-xs font-black uppercase italic tracking-wider">Suspended</span>
-                                            </div>
-                                        <?php elseif ($t['status'] === 'Deactivated'): ?>
-                                            <div class="flex items-center gap-2 text-red-400">
-                                                <span class="relative inline-flex rounded-full size-2 bg-red-500"></span>
-                                                <span class="text-xs font-black uppercase italic tracking-wider">Deactivated</span>
-                                            </div>
-                                        <?php else: ?>
-                                            <span class="text-xs font-black uppercase italic text-gray-500 tracking-wider"><?= htmlspecialchars($t['status']) ?></span>
-                                        <?php endif; ?>
+                                            <?php if ($t['status'] === 'Active'): ?>
+                                                <div class="flex items-center gap-2 text-emerald-400">
+                                                    <span class="relative flex size-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full size-2 bg-emerald-500"></span></span>
+                                                    <span class="text-[9px] font-black uppercase italic tracking-wider">Active</span>
+                                                </div>
+                                            <?php elseif ($t['status'] === 'Suspended'): ?>
+                                                <div class="flex items-center gap-2 text-amber-400">
+                                                    <span class="relative inline-flex rounded-full size-2 bg-amber-500"></span>
+                                                    <span class="text-[9px] font-black uppercase italic tracking-wider">Suspended</span>
+                                                </div>
+                                            <?php elseif ($t['status'] === 'Deactivated'): ?>
+                                                <div class="flex items-center gap-2 text-red-400">
+                                                    <span class="relative inline-flex rounded-full size-2 bg-red-500"></span>
+                                                    <span class="text-[9px] font-black uppercase italic tracking-wider">Deactivated</span>
+                                                </div>
+                                            <?php else: ?>
+                                                <span class="text-[9px] font-black uppercase italic text-gray-500 tracking-wider"><?= htmlspecialchars($t['status']) ?></span>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td class="px-8 py-5 text-right">
                                         <div class="inline-flex gap-2">
@@ -568,7 +602,7 @@ foreach ($tenants as $t) {
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <button type="submit" class="w-full py-4 bg-primary hover:bg-primary/90 text-white font-black uppercase italic tracking-widest rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
+                            <button type="submit" class="w-full py-4 bg-primary hover:bg-primary/90 text-white text-[10px] font-black uppercase italic tracking-[0.2em] rounded-xl shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
                                 Establish Link
                             </button>
                         </form>
@@ -643,14 +677,16 @@ foreach ($tenants as $t) {
             
             if (s === tabId) {
                 section.classList.remove('hidden');
-                btn.classList.replace('text-gray-500', 'text-primary');
                 btn.classList.add('text-primary');
-                indicator.classList.replace('opacity-0', 'opacity-100');
+                btn.classList.remove('text-gray-500');
+                indicator.classList.remove('opacity-0');
+                indicator.classList.add('opacity-100');
             } else {
                 section.classList.add('hidden');
-                btn.classList.replace('text-primary', 'text-gray-500');
+                btn.classList.add('text-gray-500');
                 btn.classList.remove('text-primary');
-                indicator.classList.replace('opacity-100', 'opacity-0');
+                indicator.classList.remove('opacity-100');
+                indicator.classList.add('opacity-0');
             }
         });
     }
@@ -665,9 +701,9 @@ foreach ($tenants as $t) {
     });
 </script>
 
-<div id="applicationModal" class="fixed inset-y-0 left-64 lg:left-72 right-0 z-[100] hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none">
-    <div class="fixed inset-y-0 left-64 lg:left-72 right-0 bg-background-dark/20 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto" id="modalBackdrop"></div>
-    <div class="relative w-full max-w-4xl bg-surface-dark/60 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden flex flex-col max-h-[85vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto" id="modalContainer">
+<div id="applicationModal" class="fixed inset-y-0 right-0 z-[100] hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none">
+    <div class="fixed inset-y-0 right-0 bg-background-dark/40 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto" id="modalBackdrop"></div>
+    <div class="relative w-full max-w-4xl bg-surface-dark/80 backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden flex flex-col max-h-[90vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto" id="modalContainer">
         <div id="modalLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-surface-dark/80 backdrop-blur-md z-10 transition-opacity duration-300">
             <div class="size-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
             <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] italic">Loading Details...</p>

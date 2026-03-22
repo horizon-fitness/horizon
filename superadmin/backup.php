@@ -45,12 +45,106 @@ $backups = [
 </head>
 <body class="antialiased flex min-h-screen">
 
-<?php include '../includes/superadmin_sidebar.php'; ?>
+<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
+    <div class="mb-12">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
+                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+            </div>
+            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+        </div>
+    </div>
+    
+    <div class="flex flex-col gap-6 flex-1 overflow-y-auto no-scrollbar pr-2 pb-10">
+        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
+            <span class="nav-text">Dashboard</span>
+        </a>
+        
+        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
+            <span class="nav-text">Tenant Management</span>
+        </a>
+
+
+        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">history_edu</span> 
+            <span class="nav-text">Subscription Logs</span>
+        </a>
+
+        <a href="rbac_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">security</span> 
+            <span class="nav-text">Access Control</span>
+        </a>
+
+        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">group</span> 
+            <span class="nav-text">Real-Time Occupancy</span>
+        </a>
+
+        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">receipt_long</span> 
+            <span class="nav-text">Recent Transactions</span>
+        </a>
+
+        <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">notifications_active</span> 
+            <span class="nav-text">System Alerts</span>
+        </a>
+
+        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">analytics</span> 
+            <span class="nav-text">Reports</span>
+        </a>
+
+        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">monitoring</span> 
+            <span class="nav-text">Sales Reports</span>
+        </a>
+
+        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">assignment</span> 
+            <span class="nav-text">Audit Logs</span>
+        </a>
+
+        <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">backup</span> 
+            <span class="nav-text">Backup</span>
+        </a>
+
+        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-2xl shrink-0">settings</span> 
+            <span class="nav-text">Settings</span>
+        </a>
+    </div>
+
+    <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-8">
+        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
+            <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
+            <span class="nav-link nav-text">Profile</span>
+        </a>
+        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-4 group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-2xl shrink-0">logout</span>
+            <span class="nav-link nav-text">Sign Out</span>
+        </a>
+    </div>
+</nav>
     
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-8">
-        <?php include '../includes/superadmin_header.php'; ?>
-        <?php /* Hardcoded header replaced by include */ ?>
+        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <div>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none"><?= $header_title ?? 'System <span class="text-primary">Reports</span>' ?></h2>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2"><?= $header_subtitle ?? 'System-wide activity data' ?></p>
+            </div>
+            <div class="flex items-center gap-4">
+                <?= $header_action ?? '' ?>
+                <div class="text-right hidden md:block">
+                    <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-1">00:00:00 AM</p>
+                    <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
+                </div>
+            </div>
+        </header>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div class="glass-card p-6 border border-emerald-500/20 bg-emerald-500/5">

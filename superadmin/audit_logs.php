@@ -75,7 +75,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
     
-    <div class="flex flex-col gap-8 flex-1 overflow-y-auto no-scrollbar pr-2">
+    <div class="flex flex-col gap-6 flex-1 overflow-y-auto no-scrollbar pr-2 pb-10">
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
@@ -122,7 +122,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </a>
     </div>
 
-    <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-8">
+    <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-8">
         <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-4 group">
             <span class="material-symbols-outlined transition-transform group-hover:text-primary text-2xl shrink-0">person</span>
             <span class="nav-link nav-text">Profile</span>
