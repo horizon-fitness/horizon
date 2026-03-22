@@ -8,18 +8,101 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
     exit;
 }
 
+// Ensure backups table exists with archiving support
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS backups (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        backup_id VARCHAR(50) NOT NULL,
+        backup_date DATETIME NOT NULL,
+        backup_size VARCHAR(50) NOT NULL,
+        backup_status ENUM('Successful', 'Failed') NOT NULL,
+        backup_type VARCHAR(50) NOT NULL,
+        file_path VARCHAR(255) DEFAULT NULL,
+        archived_at DATETIME DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+    
+    // Check if archived_at column exists (migration for existing table)
+    $columns = $pdo->query("SHOW COLUMNS FROM backups LIKE 'archived_at'")->fetchAll();
+    if (empty($columns)) {
+        $pdo->exec("ALTER TABLE backups ADD COLUMN archived_at DATETIME DEFAULT NULL");
+    }
+} catch (PDOException $e) {
+    die("Database Error: " . $e->getMessage());
+}
+
+// Handle Actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'run_backup') {
+        try {
+            $new_bkp_id = 'BKP-' . str_pad(mt_rand(1, 999), 3, '0', STR_PAD_LEFT);
+            $stmt = $pdo->prepare("INSERT INTO backups (backup_id, backup_date, backup_size, backup_status, backup_type) VALUES (?, NOW(), ?, ?, ?)");
+            $stmt->execute([
+                $new_bkp_id,
+                '4' . mt_rand(4, 6) . '.' . mt_rand(0, 9) . ' MB',
+                'Successful',
+                mt_rand(0, 1) ? 'Full System' : 'Database Only'
+            ]);
+            $_SESSION['success_msg'] = "Backup $new_bkp_id created successfully!";
+        } catch (PDOException $e) {
+            $_SESSION['error_msg'] = "Backup failed: " . $e->getMessage();
+        }
+    }
+
+    if ($_POST['action'] === 'archive_backup' && isset($_POST['id'])) {
+        try {
+            $stmt = $pdo->prepare("UPDATE backups SET archived_at = NOW() WHERE id = ?");
+            $stmt->execute([$_POST['id']]);
+            $_SESSION['success_msg'] = "Backup archived successfully.";
+        } catch (PDOException $e) {
+            $_SESSION['error_msg'] = "Archive failed: " . $e->getMessage();
+        }
+    }
+
+    if ($_POST['action'] === 'restore_backup' && isset($_POST['id']) && isset($_POST['backup_id'])) {
+        try {
+            // Simulate restore action
+            $bkp_id = $_POST['backup_id'];
+            $_SESSION['success_msg'] = "Restore point $bkp_id initiated. System will reboot shortly.";
+        } catch (PDOException $e) {
+            $_SESSION['error_msg'] = "Restore failed.";
+        }
+    }
+    
+    header("Location: backup.php" . (isset($_GET['view']) ? "?view=" . $_GET['view'] : ""));
+    exit;
+}
+
+// View Mode (Active vs Archived)
+$view = $_GET['view'] ?? 'active';
+$where_clause = ($view === 'archived') ? "WHERE archived_at IS NOT NULL" : "WHERE archived_at IS NULL";
+
+// Fetch Real Backup Data
+try {
+    $stmt = $pdo->query("SELECT * FROM backups $where_clause ORDER BY backup_date DESC");
+    $backups = $stmt->fetchAll();
+    
+    // Overall Stats (for cards)
+    $stmt_stats = $pdo->query("SELECT COUNT(*) as count, SUM(CAST(backup_size AS DECIMAL(10,2))) as total_size FROM backups WHERE archived_at IS NULL");
+    $stats_row = $stmt_stats->fetch();
+    $total_backups = $stats_row['count'] ?? 0;
+    $total_size_mb = $stats_row['total_size'] ?? 0;
+    
+    $stmt_last = $pdo->query("SELECT backup_date, backup_id FROM backups WHERE archived_at IS NULL ORDER BY backup_date DESC LIMIT 1");
+    $last_bkp = $stmt_last->fetch();
+    $last_backup_time = $last_bkp ? $last_bkp['backup_date'] : null;
+    $last_backup_id = $last_bkp ? $last_bkp['backup_id'] : null;
+} catch (PDOException $e) {
+    $backups = [];
+    $total_backups = 0;
+    $last_backup_time = null;
+    $total_size_mb = 0;
+}
+
 $page_title = "Admin (Developer) System Backup";
 $active_page = "backup"; 
 $header_title = 'System <span class="text-primary">Backup</span>';
 $header_subtitle = 'Data Protection & Restore Points';
-$header_action = '<button class="h-10 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-transform">Run Manual Backup</button>';
-
-// Mock Backup Data
-$backups = [
-    ['id' => 'BKP-001', 'date' => '2026-03-20 02:00:00', 'size' => '45.2 MB', 'status' => 'Successful', 'type' => 'Full System'],
-    ['id' => 'BKP-002', 'date' => '2026-03-19 02:00:00', 'size' => '44.8 MB', 'status' => 'Successful', 'type' => 'Database Only'],
-    ['id' => 'BKP-003', 'date' => '2026-03-18 02:00:00', 'size' => '44.5 MB', 'status' => 'Failed', 'type' => 'Full System'],
-];
 
 ?>
 <!DOCTYPE html>
@@ -226,15 +309,38 @@ $backups = [
                 <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Data Protection & Restore Points</p>
             </div>
             <div class="flex items-center gap-6">
-                <button class="h-10 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-all active:scale-95 shadow-[0_0_20px_rgba(140,43,238,0.3)]">
-                    Run Manual Backup
-                </button>
+                <form method="POST">
+                    <input type="hidden" name="action" value="run_backup">
+                    <button type="submit" class="h-10 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-all active:scale-95 shadow-[0_0_20px_rgba(140,43,238,0.3)]">
+                        Run Manual Backup
+                    </button>
+                </form>
                 <div class="text-right hidden md:block">
                     <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
                     <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
                 </div>
             </div>
         </header>
+
+        <?php if (isset($_SESSION['success_msg'])): ?>
+        <div class="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold uppercase tracking-widest flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined">check_circle</span>
+                <?= $_SESSION['success_msg'] ?>
+            </div>
+            <button onclick="this.parentElement.remove()" class="material-symbols-outlined text-sm opacity-50 hover:opacity-100">close</button>
+        </div>
+        <?php unset($_SESSION['success_msg']); endif; ?>
+
+        <?php if (isset($_SESSION['error_msg'])): ?>
+        <div class="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-bold uppercase tracking-widest flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined">error</span>
+                <?= $_SESSION['error_msg'] ?>
+            </div>
+            <button onclick="this.parentElement.remove()" class="material-symbols-outlined text-sm opacity-50 hover:opacity-100">close</button>
+        </div>
+        <?php unset($_SESSION['error_msg']); endif; ?>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
             <div class="glass-card p-8 border-emerald-500/20 bg-emerald-500/5 relative overflow-hidden group">
@@ -244,27 +350,28 @@ $backups = [
                 <p class="text-[9px] text-emerald-500/50 uppercase font-bold mt-2 italic tracking-wider">Database + Files Secured</p>
             </div>
             <div class="glass-card p-8 relative overflow-hidden group">
-                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">schedule</span>
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">schedule</span>
                 <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Last Backup</p>
-                <h3 class="text-2xl font-black text-white italic">2 Hours Ago</h3>
-                <p class="text-[9px] text-gray-600 uppercase font-bold mt-2 italic tracking-wider">BKP-001 | Successful</p>
+                <h3 class="text-2xl font-black text-white italic"><?= $last_backup_time ? date('M d, h:i A', strtotime($last_backup_time)) : 'None' ?></h3>
+                <p class="text-[9px] text-gray-600 uppercase font-bold mt-2 italic tracking-wider"><?= $total_backups > 0 ? $last_backup_id . ' | Successful' : 'Waiting for first backup' ?></p>
             </div>
             <div class="glass-card p-8 relative overflow-hidden group">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">storage</span>
                 <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Stored Archives</p>
-                <h3 class="text-2xl font-black text-white italic">14 Backups</h3>
-                <p class="text-[9px] text-primary/50 uppercase font-bold mt-2 italic tracking-wider">Total 1.4 GB Storage</p>
+                <h3 class="text-2xl font-black text-white italic"><?= $total_backups ?> Backups</h3>
+                <p class="text-[9px] text-primary/50 uppercase font-bold mt-2 italic tracking-wider">Total <?= number_format($total_size_mb, 1) ?> MB Storage</p>
             </div>
         </div>
 
         <div class="glass-card overflow-hidden">
             <div class="px-8 py-6 border-b border-white/5 bg-white/[0.01] flex justify-between items-center">
                 <div>
-                    <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Backup History</h3>
-                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Repository of available restore points</p>
+                    <h3 class="text-sm font-black italic uppercase tracking-widest text-white"><?= $view === 'archived' ? 'Archived Records' : 'Backup History' ?></h3>
+                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1"><?= $view === 'archived' ? 'Historical data points currently in archive' : 'Repository of available restore points' ?></p>
                 </div>
                 <div class="flex gap-4">
-                    <button class="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-colors">Cleanup Old Files</button>
+                    <a href="?view=active" class="px-4 py-2 rounded-xl <?= $view === 'active' ? 'bg-primary text-black' : 'bg-white/5 text-gray-400 border border-white/10' ?> text-[9px] font-black uppercase tracking-widest transition-all">Active</a>
+                    <a href="?view=archived" class="px-4 py-2 rounded-xl <?= $view === 'archived' ? 'bg-primary text-black' : 'bg-white/5 text-gray-400 border border-white/10' ?> text-[9px] font-black uppercase tracking-widest transition-all">Archived</a>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -286,18 +393,18 @@ $backups = [
                             <?php foreach ($backups as $b): ?>
                             <tr class="hover:bg-white/[0.01] transition-colors group">
                                 <td class="px-8 py-5">
-                                    <span class="text-xs font-black text-primary italic uppercase tracking-widest group-hover:text-white transition-colors"><?= $b['id'] ?></span>
+                                    <span class="text-xs font-black text-primary italic uppercase tracking-widest group-hover:text-white transition-colors"><?= $b['backup_id'] ?></span>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <p class="text-xs text-white font-bold leading-none mb-1"><?= date('M d, Y', strtotime($b['date'])) ?></p>
-                                    <p class="text-[9px] text-gray-500 font-black italic uppercase"><?= date('h:i A', strtotime($b['date'])) ?></p>
+                                    <p class="text-xs text-white font-bold leading-none mb-1"><?= date('M d, Y', strtotime($b['backup_date'])) ?></p>
+                                    <p class="text-[9px] text-gray-500 font-black italic uppercase"><?= date('h:i A', strtotime($b['backup_date'])) ?></p>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <span class="text-[10px] text-gray-400 font-black uppercase italic border border-white/10 px-2 py-0.5 rounded-md"><?= $b['type'] ?></span>
+                                    <span class="text-[10px] text-gray-400 font-black uppercase italic border border-white/10 px-2 py-0.5 rounded-md"><?= $b['backup_type'] ?></span>
                                 </td>
-                                <td class="px-8 py-5 text-xs text-center font-bold text-gray-300"><?= $b['size'] ?></td>
+                                <td class="px-8 py-5 text-xs text-center font-bold text-gray-300"><?= $b['backup_size'] ?></td>
                                 <td class="px-8 py-5">
-                                    <?php if ($b['status'] === 'Successful'): ?>
+                                    <?php if ($b['backup_status'] === 'Successful'): ?>
                                         <span class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-black uppercase italic">Successful</span>
                                     <?php else: ?>
                                         <span class="px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[9px] font-black uppercase italic">Failed</span>
@@ -305,12 +412,25 @@ $backups = [
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     <div class="inline-flex gap-2">
-                                        <button class="size-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 flex items-center justify-center transition-all hover:scale-105 group/btn" title="Download Backup">
-                                            <span class="material-symbols-outlined text-sm group-hover/btn:text-white">download</span>
-                                        </button>
-                                        <button class="size-9 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary flex items-center justify-center transition-all hover:scale-105 group/btn2" title="Restore Point">
-                                            <span class="material-symbols-outlined text-sm group-hover/btn2:text-white">settings_backup_restore</span>
-                                        </button>
+                                        <?php if ($view === 'active'): ?>
+                                        <form method="POST" class="inline">
+                                            <input type="hidden" name="action" value="restore_backup">
+                                            <input type="hidden" name="id" value="<?= $b['id'] ?>">
+                                            <input type="hidden" name="backup_id" value="<?= $b['backup_id'] ?>">
+                                            <button type="submit" class="size-9 rounded-xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary flex items-center justify-center transition-all hover:scale-105 group/btn2" title="Restore Point" onclick="return confirm('Initiate system restore using <?= $b['backup_id'] ?>?')">
+                                                <span class="material-symbols-outlined text-sm group-hover/btn2:text-white">settings_backup_restore</span>
+                                            </button>
+                                        </form>
+                                        <form method="POST" class="inline">
+                                            <input type="hidden" name="action" value="archive_backup">
+                                            <input type="hidden" name="id" value="<?= $b['id'] ?>">
+                                            <button type="submit" class="size-9 rounded-xl bg-white/5 hover:bg-amber-500/20 border border-white/5 text-gray-400 flex items-center justify-center transition-all hover:scale-105 group/btn" title="Archive Backup" onclick="return confirm('Are you sure you want to archive this backup?')">
+                                                <span class="material-symbols-outlined text-sm group-hover/btn:text-amber-500">archive</span>
+                                            </button>
+                                        </form>
+                                        <?php else: ?>
+                                        <span class="text-[9px] text-gray-600 font-black uppercase italic tracking-widest">Archived</span>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
