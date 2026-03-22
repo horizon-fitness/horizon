@@ -34,11 +34,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .sidebar-nav { width: 100px; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; }
-        .sidebar-nav:hover { width: 280px; }
-        .nav-text { opacity: 0; transform: translateX(-10px); transition: all 0.2s ease; white-space: nowrap; pointer-events: none; }
-        .sidebar-nav:hover .nav-text { opacity: 1; transform: translateX(0); pointer-events: auto; }
-        .nav-link { font-size: 10px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
+        .sidebar-nav {
+            width: 80px;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+        .sidebar-nav:hover {
+            width: 300px;
+        }
+        .nav-text {
+            opacity: 0;
+            transform: translateX(-15px);
+            transition: all 0.3s ease-in-out;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .sidebar-nav:hover .nav-text {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .nav-section-header {
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+        .sidebar-nav:hover .nav-section-header {
+            max-height: 25px;
+        }
+        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 1rem !important; }
+        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.5rem !important; }
+        .sidebar-nav:hover .nav-section-header.mb-2 { margin-bottom: 0.5rem !important; }
+
+        .sidebar-content {
+            gap: 0.5rem;
+            transition: all 0.3s ease-in-out;
+        }
+        .sidebar-nav:hover .sidebar-content {
+            gap: 1rem;
+        }
+        .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 20px; background: #8c2bee; border-radius: 99px; }
         .input-field { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 16px; color: white; font-size: 13px; transition: all 0.2s; }
@@ -49,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 <body class="antialiased flex flex-row min-h-screen">
 
 <nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
-    <div class="mb-12">
+    <div class="mb-8">
         <div class="flex items-center gap-4 mb-6">
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
@@ -58,10 +96,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         </div>
     </div>
     
-    <div class="flex flex-col gap-4 flex-1 overflow-y-auto no-scrollbar pr-2 pb-10">
+    <div class="sidebar-content flex-1 overflow-y-auto no-scrollbar pr-2 pb-10 flex flex-col">
         <!-- Overview Section -->
-        <div class="nav-text px-4 mb-2 mt-4">
-            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</p>
+        <div class="nav-section-header px-0 mb-2 mt-4">
+            <span class="nav-text text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
         </div>
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
@@ -69,8 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         </a>
         
         <!-- Management Section -->
-        <div class="nav-text px-4 mb-2 mt-6">
-            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Management</p>
+        <div class="nav-section-header px-0 mb-2 mt-6">
+            <span class="nav-text text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
         </div>
         <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
@@ -98,8 +136,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         </a>
 
         <!-- System Section -->
-        <div class="nav-text px-4 mb-2 mt-6">
-            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">System</p>
+        <div class="nav-section-header px-0 mb-2 mt-6">
+            <span class="nav-text text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System</span>
         </div>
         <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
@@ -128,8 +166,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     </div>
 
     <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-4">
-        <div class="nav-text px-4 mb-2">
-            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400">Account</p>
+        <div class="nav-section-header px-0 mb-2">
+            <span class="nav-text text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
         </div>
         <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
