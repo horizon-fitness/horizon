@@ -16,15 +16,21 @@ $date_from = $_GET['date_from'] ?? date('Y-m-01');
 $date_to = $_GET['date_to'] ?? date('Y-m-d');
 
 // 1. TOTAL SALES / REVENUE
-$stmtRev = $pdo->prepare("SELECT SUM(amount) as total FROM client_subscriptions WHERE payment_status = 'Paid' AND created_at BETWEEN :start AND :end");
+$stmtRev = $pdo->prepare("
+    SELECT SUM(wp.price) as total 
+    FROM client_subscriptions cs
+    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+    WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end
+");
 $stmtRev->execute(['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59']);
 $total_revenue = $stmtRev->fetchColumn() ?? 0;
 
 // 2. SALES PER TENANT & TOP PERFORMERS
 $stmtTenantSales = $pdo->prepare("
-    SELECT g.gym_name, g.tenant_code, SUM(cs.amount) as total_revenue, COUNT(cs.subscription_id) as transaction_count
+    SELECT g.gym_name, g.tenant_code, SUM(wp.price) as total_revenue, COUNT(cs.client_subscription_id) as transaction_count
     FROM gyms g
     JOIN client_subscriptions cs ON g.gym_id = cs.gym_id
+    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
     WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end
     GROUP BY g.gym_id
     ORDER BY total_revenue DESC
@@ -34,10 +40,11 @@ $tenant_sales = $stmtTenantSales->fetchAll(PDO::FETCH_ASSOC);
 
 // 3. DAILY SALES (For Charting)
 $stmtDaily = $pdo->prepare("
-    SELECT DATE(created_at) as sale_date, SUM(amount) as daily_amount 
-    FROM client_subscriptions 
-    WHERE payment_status = 'Paid' AND created_at BETWEEN :start AND :end 
-    GROUP BY DATE(created_at) 
+    SELECT DATE(cs.created_at) as sale_date, SUM(wp.price) as daily_amount 
+    FROM client_subscriptions cs
+    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+    WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end 
+    GROUP BY DATE(cs.created_at) 
     ORDER BY sale_date ASC
 ");
 $stmtDaily->execute(['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59']);
@@ -64,12 +71,19 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+        }
+    </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         
         /* Sidebar Hover Logic */
         .sidebar-nav {
-            width: 80px;
+            width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
         }
@@ -108,20 +122,45 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
         .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
 
         .sidebar-content {
-            gap: 2px; /* Much searhc tighter base gap */
+            gap: 2px;
             transition: all 0.3s ease-in-out;
         }
         .sidebar-nav:hover .sidebar-content {
-            gap: 4px; /* Slightly more space on hover for readability */
+            gap: 4px;
         }
         .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 20px; background: #8c2bee; border-radius: 99px; }
+        .active-nav::after { 
+            content: ''; 
+            position: absolute; 
+            right: 0px; 
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px; 
+            height: 20px; 
+            background: #8c2bee; 
+            border-radius: 99px; 
+        }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    <script>
+        function updateHeaderClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('headerClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateHeaderClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);
+    </script>
 </head>
-<body class="antialiased flex min-h-screen">
+<body class="antialiased flex flex-row min-h-screen">
 
 <nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
     <div class="mb-8">
@@ -132,7 +171,6 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
             <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
         </div>
     </div>
-    
     <div class="sidebar-content flex-1 overflow-y-auto no-scrollbar pr-2 pb-10 flex flex-col">
         <!-- Overview Section -->
         <div class="nav-section-header px-0 mb-2 mt-4">
@@ -220,98 +258,124 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
         </a>
     </div>
 </nav>
-    
-    <main class="flex-1 p-8">
-        <?php include '../includes/superadmin_header.php'; ?>
 
-        <div class="mt-8 p-6 bg-card rounded-[24px]">
+<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
+        <header class="mb-10 flex flex-row justify-between items-end gap-6">
+            <div>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Sales <span class="text-primary">Reports</span></h2>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Revenue & Transaction Tracking</p>
+            </div>
+            <div class="text-right">
+                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
+                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
+            </div>
+        </header>
+
+        <div class="glass-card mb-8 p-8">
             <form method="GET" class="flex flex-wrap items-end gap-6">
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Start Date</p>
-                    <input type="date" name="date_from" value="<?= $date_from ?>" class="bg-[#0c0c0c] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
+                    <input type="date" name="date_from" value="<?= $date_from ?>" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
                 </div>
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">End Date</p>
-                    <input type="date" name="date_to" value="<?= $date_to ?>" class="bg-[#0c0c0c] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
+                    <input type="date" name="date_to" value="<?= $date_to ?>" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
                 </div>
                 <button type="submit" class="h-10 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-transform">Update Report</button>
             </form>
         </div>
 
-        <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="p-8 bg-card rounded-[32px] relative overflow-hidden">
-                <div class="absolute top-0 right-0 p-4 opacity-10">
-                    <span class="material-symbols-outlined text-6xl">payments</span>
-                </div>
-                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Total Revenue</p>
-                <h2 class="text-4xl font-black text-white italic mt-2">₱<?= number_format($total_revenue, 2) ?></h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="glass-card p-8 relative overflow-hidden group">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">payments</span>
+                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2">Total Revenue</p>
+                <h2 class="text-3xl font-black text-white italic mt-2">₱<?= number_format($total_revenue, 2) ?></h2>
+                <p class="text-emerald-500 text-[10px] font-black uppercase mt-2 italic">Captured Payments</p>
             </div>
-            <div class="p-8 bg-card rounded-[32px]">
-                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Transactions</p>
-                <h2 class="text-4xl font-black text-primary italic mt-2"><?= count($transactions) ?></h2>
+            <div class="glass-card p-8 relative overflow-hidden group border-primary/20 bg-primary/5">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">receipt_long</span>
+                <p class="text-[10px] font-black uppercase text-primary/70 tracking-widest mb-2">Transactions</p>
+                <h2 class="text-3xl font-black text-white italic mt-2"><?= count($transactions) ?></h2>
+                <p class="text-primary text-[10px] font-black uppercase mt-2 italic">Success Rate 100%</p>
             </div>
-            <div class="p-8 bg-card rounded-[32px]">
-                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Top Tenant</p>
+            <div class="glass-card p-8 relative overflow-hidden group">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">star</span>
+                <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Top Tenant</p>
                 <h2 class="text-2xl font-black text-white italic mt-2"><?= $tenant_sales[0]['gym_name'] ?? 'N/A' ?></h2>
+                <p class="text-amber-500 text-[10px] font-black uppercase mt-2 italic">Highest Performance</p>
             </div>
         </div>
 
-        <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 bg-card rounded-[32px] p-8">
-                <h3 class="text-lg font-black italic uppercase text-white tracking-tighter mb-8">Sales Performance Trend</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+            <div class="lg:col-span-2 glass-card p-8">
+                <h3 class="text-sm font-black italic uppercase tracking-widest text-white mb-8">Sales Performance Trend</h3>
                 <div class="h-[350px]">
                     <canvas id="salesTrendChart"></canvas>
                 </div>
             </div>
 
-            <div class="bg-card rounded-[32px] p-8">
-                <h3 class="text-lg font-black italic uppercase text-white tracking-tighter mb-6">Sales Per Tenant</h3>
-                <div class="space-y-4">
-                    <?php foreach ($tenant_sales as $ts): ?>
-                    <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex justify-between items-center">
-                        <div>
-                            <p class="text-xs font-bold text-white"><?= htmlspecialchars($ts['gym_name']) ?></p>
-                            <p class="text-[9px] text-gray-500 font-black uppercase tracking-widest italic"><?= $ts['transaction_count'] ?> sales</p>
+            <div class="glass-card p-8 flex flex-col">
+                <h3 class="text-sm font-black italic uppercase tracking-widest text-white mb-6">Sales Per Tenant</h3>
+                <div class="space-y-4 overflow-y-auto no-scrollbar max-h-[400px]">
+                    <?php if (empty($tenant_sales)): ?>
+                        <p class="text-xs text-gray-500 italic font-bold text-center mt-10 uppercase">No sales recorded</p>
+                    <?php else: ?>
+                        <?php foreach ($tenant_sales as $ts): ?>
+                        <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5 flex justify-between items-center hover:bg-white/[0.05] transition-colors">
+                            <div>
+                                <p class="text-sm font-bold text-white"><?= htmlspecialchars($ts['gym_name']) ?></p>
+                                <p class="text-[9px] text-gray-500 font-black uppercase tracking-widest italic"><?= $ts['transaction_count'] ?> sales</p>
+                            </div>
+                            <p class="text-sm font-black text-primary italic">₱<?= number_format($ts['total_revenue'], 0) ?></p>
                         </div>
-                        <p class="text-sm font-black text-primary italic">₱<?= number_format($ts['total_revenue'], 0) ?></p>
-                    </div>
-                    <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
 
-        <div class="mt-8 bg-card rounded-[32px] overflow-hidden">
+        <div class="glass-card overflow-hidden">
             <div class="px-8 py-6 border-b border-white/5 bg-white/[0.01] flex justify-between items-center">
-                <h3 class="text-lg font-black italic uppercase text-white tracking-tighter">Transaction History Summary</h3>
+                <div>
+                    <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Transaction History Summary</h3>
+                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Detailed logs of all successful payments</p>
+                </div>
                 <button class="text-[10px] font-black uppercase text-primary border-b border-primary/20 hover:border-primary transition-all">Export Report</button>
             </div>
-            <table class="w-full text-left">
-                <thead>
-                    <tr class="bg-white/[0.02]">
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Tenant / Code</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Plan Type</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Amount</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Date</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Status</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-white/5">
-                    <?php foreach ($transactions as $trx): ?>
-                    <tr class="hover:bg-white/[0.01] transition-colors">
-                        <td class="px-8 py-5">
-                            <p class="text-xs font-bold text-white"><?= htmlspecialchars($trx['gym_name']) ?></p>
-                            <p class="text-[9px] text-gray-500 font-black uppercase italic tracking-widest"><?= htmlspecialchars($trx['subscription_id']) ?></p>
-                        </td>
-                        <td class="px-8 py-5 text-[10px] font-black text-white uppercase italic"><?= htmlspecialchars($trx['plan_name']) ?></td>
-                        <td class="px-8 py-5 text-sm font-black text-primary">₱<?= number_format($trx['amount'], 2) ?></td>
-                        <td class="px-8 py-5 text-[10px] text-gray-500 font-bold uppercase"><?= date('M d, Y', strtotime($trx['created_at'])) ?></td>
-                        <td class="px-8 py-5 text-right">
-                            <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase italic bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Paid</span>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                            <th class="px-8 py-4">Tenant / ID</th>
+                            <th class="px-8 py-4">Plan Type</th>
+                            <th class="px-8 py-4">Amount</th>
+                            <th class="px-8 py-4">Date</th>
+                            <th class="px-8 py-4 text-right">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        <?php if (empty($transactions)): ?>
+                            <tr><td colspan="5" class="px-8 py-8 text-center text-xs font-bold text-gray-500 italic uppercase">No recent transactions found</td></tr>
+                        <?php else: ?>
+                            <?php foreach ($transactions as $trx): ?>
+                            <tr class="hover:bg-white/[0.01] transition-colors">
+                                <td class="px-8 py-5">
+                                    <p class="text-sm font-bold text-white"><?= htmlspecialchars($trx['gym_name']) ?></p>
+                                    <p class="text-[9px] text-gray-500 font-black uppercase italic tracking-widest">ID: <?= htmlspecialchars($trx['client_subscription_id']) ?></p>
+                                </td>
+                                <td class="px-8 py-5 text-[10px] font-black text-white uppercase italic"><?= htmlspecialchars($trx['plan_name']) ?></td>
+                                <td class="px-8 py-5 text-sm font-black text-primary">₱<?= number_format($trx['price'], 2) ?></td>
+                                <td class="px-8 py-5 text-[10px] text-gray-500 font-bold uppercase"><?= date('M d, Y', strtotime($trx['created_at'])) ?></td>
+                                <td class="px-8 py-5 text-right">
+                                    <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase italic bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Paid</span>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </main>
 </div>
@@ -325,8 +389,8 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
             datasets: [{
                 label: 'Daily Revenue',
                 data: [<?php foreach($daily_sales as $ds) echo $ds['daily_amount'] . ","; ?>],
-                borderColor: '#c6ff00',
-                backgroundColor: 'rgba(198, 255, 0, 0.05)',
+                borderColor: '#8c2bee',
+                backgroundColor: 'rgba(140, 43, 238, 0.05)',
                 borderWidth: 4,
                 fill: true,
                 tension: 0.4,
@@ -337,10 +401,21 @@ $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#14121a',
+                    titleColor: '#8c2bee',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    padding: 10,
+                    displayColors: false
+                }
+            },
             scales: {
-                y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#666', font: { size: 10 } } },
-                x: { grid: { display: false }, ticks: { color: '#666', font: { size: 10 } } }
+                y: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#666', font: { size: 10, weight: '800' } } },
+                x: { grid: { display: false }, ticks: { color: '#666', font: { size: 10, weight: '800' } } }
             }
         }
     });

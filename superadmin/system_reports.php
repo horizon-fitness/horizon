@@ -28,11 +28,10 @@ $stmtReg = $pdo->prepare($user_reg_query);
 $stmtReg->execute(['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59']);
 $registration_data = $stmtReg->fetchAll(PDO::FETCH_ASSOC);
 
-// 3. Tenant Activity Reports (Logins/Activity per Gym)
-// Note: Assuming you have a 'logs' or 'activity' table. If not, this acts as a placeholder logic.
-$activity_sql = "SELECT g.gym_name, COUNT(u.user_id) as activity_count, g.tenant_code
+// 3. Tenant Activity Reports (Counts per Gym via user_roles)
+$activity_sql = "SELECT g.gym_name, COUNT(ur.user_id) as activity_count, g.tenant_code
                  FROM gyms g
-                 LEFT JOIN users u ON g.gym_id = u.gym_id
+                 LEFT JOIN user_roles ur ON g.gym_id = ur.gym_id
                  WHERE g.status = 'Active' " . ($tenant_filter !== 'all' ? "AND g.gym_id = :tid" : "") . "
                  GROUP BY g.gym_id";
 $stmtAct = $pdo->prepare($activity_sql);
@@ -50,14 +49,24 @@ $tenant_activity = $stmtAct->fetchAll(PDO::FETCH_ASSOC);
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+        }
+    </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         
         /* Sidebar Hover Logic */
         .sidebar-nav {
-            width: 80px;
+            width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
+        }
+        .sidebar-nav:hover {
+            width: 300px;
         }
         .nav-text {
             opacity: 0;
@@ -91,20 +100,45 @@ $tenant_activity = $stmtAct->fetchAll(PDO::FETCH_ASSOC);
         .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
 
         .sidebar-content {
-            gap: 2px; /* Much searhc tighter base gap */
+            gap: 2px;
             transition: all 0.3s ease-in-out;
         }
         .sidebar-nav:hover .sidebar-content {
-            gap: 4px; /* Slightly more space on hover for readability */
+            gap: 4px;
         }
         .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 20px; background: #8c2bee; border-radius: 99px; }
+        .active-nav::after { 
+            content: ''; 
+            position: absolute; 
+            right: 0px; 
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px; 
+            height: 20px; 
+            background: #8c2bee; 
+            border-radius: 99px; 
+        }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    <script>
+        function updateHeaderClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('headerClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateHeaderClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);
+    </script>
 </head>
-<body class="antialiased flex min-h-screen">
+<body class="antialiased flex flex-row min-h-screen">
 
 <nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
     <div class="mb-8">
@@ -115,14 +149,13 @@ $tenant_activity = $stmtAct->fetchAll(PDO::FETCH_ASSOC);
             <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
         </div>
     </div>
-    
     <div class="sidebar-content flex-1 overflow-y-auto no-scrollbar pr-2 pb-10 flex flex-col">
         <!-- Overview Section -->
         <div class="nav-section-header px-0 mb-2 mt-4">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
         </div>
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
         </a>
         
@@ -131,7 +164,7 @@ $tenant_activity = $stmtAct->fetchAll(PDO::FETCH_ASSOC);
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
         </div>
         <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">business</span> 
             <span class="nav-text">Tenant Management</span>
         </a>
 
@@ -203,39 +236,49 @@ $tenant_activity = $stmtAct->fetchAll(PDO::FETCH_ASSOC);
         </a>
     </div>
 </nav>
-    
-    <main class="flex-1 p-8">
-        <?php include '../includes/superadmin_header.php'; ?>
 
-        <div class="mt-8 p-6 bg-white/5 border border-white/5 rounded-[24px]">
+<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
+        <header class="mb-10 flex flex-row justify-between items-end gap-6">
+            <div>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">System <span class="text-primary">Reports</span></h2>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Analytical Insights & Performance</p>
+            </div>
+            <div class="text-right">
+                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
+                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
+            </div>
+        </header>
+
+        <div class="glass-card mb-8 p-8">
             <form method="GET" class="flex flex-wrap items-end gap-6">
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Date From</p>
-                    <input type="date" name="date_from" value="<?= $date_from ?>" class="bg-[#0c0c0c] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
+                    <input type="date" name="date_from" value="<?= $date_from ?>" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
                 </div>
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Date To</p>
-                    <input type="date" name="date_to" value="<?= $date_to ?>" class="bg-[#0c0c0c] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
+                    <input type="date" name="date_to" value="<?= $date_to ?>" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
                 </div>
                 <div class="space-y-2">
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Select Tenant</p>
-                    <select name="tenant_id" class="bg-[#0c0c0c] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
+                    <select name="tenant_id" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-primary">
                         <option value="all">All Tenants</option>
                         <?php foreach($tenants_list as $gt): ?>
                             <option value="<?= $gt['gym_id'] ?>" <?= $tenant_filter == $gt['gym_id'] ? 'selected' : '' ?>><?= htmlspecialchars($gt['gym_name']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <button type="submit" class="h-10 px-6 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-transform active:scale-95">Generate Report</button>
+                <button type="submit" class="h-10 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-transform active:scale-95">Generate Report</button>
             </form>
         </div>
 
-        <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 bg-white/5 border border-white/5 rounded-3xl p-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+            <div class="lg:col-span-2 glass-card p-8">
                 <div class="flex justify-between items-center mb-8">
                     <div>
-                        <h3 class="text-lg font-black italic uppercase text-white tracking-tighter">User Registration Growth</h3>
-                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Growth Trends over time</p>
+                        <h3 class="text-sm font-black italic uppercase tracking-widest text-white">User Registration Growth</h3>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-wider">Growth Trends Over Time</p>
                     </div>
                 </div>
                 <div class="h-[300px] w-full">
@@ -243,57 +286,66 @@ $tenant_activity = $stmtAct->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
 
-            <div class="bg-white/5 border border-white/5 rounded-3xl p-8">
-                <h3 class="text-lg font-black italic uppercase text-white tracking-tighter mb-6">Usage Statistics</h3>
+            <div class="glass-card p-8 flex flex-col justify-between">
+                <h3 class="text-sm font-black italic uppercase tracking-widest text-white mb-6">Usage Statistics</h3>
                 <div class="space-y-6">
-                    <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                        <p class="text-[10px] font-black uppercase text-gray-500 mb-1">Total System Users</p>
+                    <div class="p-5 rounded-2xl bg-white/[0.02] border border-white/5 relative overflow-hidden group">
+                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-5 group-hover:scale-110 transition-transform">groups</span>
+                        <p class="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Total System Users</p>
                         <h2 class="text-2xl font-black text-white italic">1,248</h2>
                     </div>
-                    <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                        <p class="text-[10px] font-black uppercase text-gray-500 mb-1">Avg. Daily Logins</p>
+                    <div class="p-5 rounded-2xl bg-white/[0.02] border border-white/5 relative overflow-hidden group">
+                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-5 group-hover:scale-110 transition-transform text-emerald-500">login</span>
+                        <p class="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Avg. Daily Logins</p>
                         <h2 class="text-2xl font-black text-emerald-500 italic">452</h2>
                     </div>
-                    <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                        <p class="text-[10px] font-black uppercase text-gray-500 mb-1">Peak Usage Hour</p>
+                    <div class="p-5 rounded-2xl bg-white/[0.02] border border-white/5 relative overflow-hidden group">
+                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-5 group-hover:scale-110 transition-transform text-primary">schedule</span>
+                        <p class="text-[10px] font-black uppercase text-gray-500 mb-1 tracking-widest">Peak Usage Hour</p>
                         <h2 class="text-2xl font-black text-primary italic">06:00 PM</h2>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="mt-8 bg-white/5 border border-white/5 rounded-3xl overflow-hidden">
-            <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+        <div class="glass-card overflow-hidden">
+            <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
                 <div>
-                    <h3 class="text-lg font-black italic uppercase text-white tracking-tighter">Tenant Activity Report</h3>
-                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Member Interaction per Gym</p>
+                    <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Tenant Activity Report</h3>
+                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Member Interaction Per Gym</p>
                 </div>
                 <button class="px-4 py-2 rounded-xl border border-white/10 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-colors">Export CSV</button>
             </div>
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-white/[0.02]">
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Tenant Name</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Tenant Code</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Total Activities</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Health Score</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-white/5">
-                    <?php foreach ($tenant_activity as $act): ?>
-                    <tr class="hover:bg-white/[0.02] transition-colors">
-                        <td class="px-8 py-5 text-sm font-bold text-white"><?= htmlspecialchars($act['gym_name']) ?></td>
-                        <td class="px-8 py-5 text-xs font-black text-primary italic uppercase tracking-widest"><?= htmlspecialchars($act['tenant_code']) ?></td>
-                        <td class="px-8 py-5 text-sm font-bold text-gray-300"><?= number_format($act['activity_count']) ?> logs</td>
-                        <td class="px-8 py-5">
-                            <div class="w-full max-w-[100px] h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                <div class="h-full bg-emerald-500" style="width: 75%"></div>
-                            </div>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                            <th class="px-8 py-4">Tenant Name</th>
+                            <th class="px-8 py-4">Tenant Code</th>
+                            <th class="px-8 py-4">Total Activities</th>
+                            <th class="px-8 py-4">Health Score</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        <?php if (empty($tenant_activity)): ?>
+                            <tr><td colspan="4" class="px-8 py-8 text-center text-xs font-bold text-gray-500 italic uppercase">No data available</td></tr>
+                        <?php else: ?>
+                            <?php foreach ($tenant_activity as $act): ?>
+                            <tr class="hover:bg-white/[0.02] transition-colors">
+                                <td class="px-8 py-5 text-sm font-bold text-white"><?= htmlspecialchars($act['gym_name']) ?></td>
+                                <td class="px-8 py-5 text-xs font-black text-primary italic uppercase tracking-widest"><?= htmlspecialchars($act['tenant_code']) ?></td>
+                                <td class="px-8 py-5 text-sm font-bold text-gray-300"><?= number_format($act['activity_count']) ?> logs</td>
+                                <td class="px-8 py-5">
+                                    <div class="w-full max-w-[100px] h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                        <div class="h-full bg-emerald-500" style="width: 75%"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </main>
 </div>
@@ -307,22 +359,35 @@ $tenant_activity = $stmtAct->fetchAll(PDO::FETCH_ASSOC);
             datasets: [{
                 label: 'New Registrations',
                 data: [<?php foreach($registration_data as $d) echo $d['count'] . ","; ?>],
-                borderColor: '#c6ff00',
-                backgroundColor: 'rgba(198, 255, 0, 0.05)',
+                borderColor: '#8c2bee',
+                backgroundColor: 'rgba(140, 43, 238, 0.05)',
                 borderWidth: 3,
                 fill: true,
                 tension: 0.4,
                 pointRadius: 4,
-                pointBackgroundColor: '#c6ff00'
+                pointBackgroundColor: '#8c2bee',
+                pointBorderColor: 'rgba(255,255,255,0.1)',
+                pointHoverRadius: 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#14121a',
+                    titleColor: '#8c2bee',
+                    bodyColor: '#fff',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    padding: 10,
+                    displayColors: false
+                }
+            },
             scales: {
-                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666', font: { size: 10 } } },
-                x: { grid: { display: false }, ticks: { color: '#666', font: { size: 10 } } }
+                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666', font: { size: 10, weight: '800' } } },
+                x: { grid: { display: false }, ticks: { color: '#666', font: { size: 10, weight: '800' } } }
             }
         }
     });

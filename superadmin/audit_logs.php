@@ -15,11 +15,12 @@ $active_page = "audit_logs";
 $search = $_GET['search'] ?? '';
 $action_filter = $_GET['action_type'] ?? 'all';
 
-// Logic for fetching logs (Assuming an 'audit_logs' table exists)
-// Required Columns: log_id, user_id, action_details, action_type, ip_address, created_at
-$query = "SELECT al.*, u.first_name, u.last_name, u.role 
+// Logic for fetching logs
+$query = "SELECT al.*, u.first_name, u.last_name, r.role_name as role 
           FROM audit_logs al 
           JOIN users u ON al.user_id = u.user_id 
+          LEFT JOIN user_roles ur ON u.user_id = ur.user_id AND ur.role_status = 'Active'
+          LEFT JOIN roles r ON ur.role_id = r.role_id
           WHERE 1=1";
 
 $params = [];
@@ -47,12 +48,19 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+        }
+    </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         
         /* Sidebar Hover Logic */
         .sidebar-nav {
-            width: 80px;
+            width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
         }
@@ -91,21 +99,45 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
 
         .sidebar-content {
-            gap: 2px; /* Much searhc tighter base gap */
+            gap: 2px;
             transition: all 0.3s ease-in-out;
         }
         .sidebar-nav:hover .sidebar-content {
-            gap: 4px; /* Slightly more space on hover for readability */
+            gap: 4px;
         }
         .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 20px; background: #8c2bee; border-radius: 99px; }
+        .active-nav::after { 
+            content: ''; 
+            position: absolute; 
+            right: 0px; 
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px; 
+            height: 20px; 
+            background: #8c2bee; 
+            border-radius: 99px; 
+        }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .bg-card { background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); }
     </style>
+    <script>
+        function updateHeaderClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('headerClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateHeaderClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);
+    </script>
 </head>
-<body class="antialiased flex min-h-screen">
+<body class="antialiased flex flex-row min-h-screen">
 
 <nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
     <div class="mb-8">
@@ -116,14 +148,13 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
         </div>
     </div>
-    
     <div class="sidebar-content flex-1 overflow-y-auto no-scrollbar pr-2 pb-10 flex flex-col">
         <!-- Overview Section -->
         <div class="nav-section-header px-0 mb-2 mt-4">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
         </div>
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
         </a>
         
@@ -132,12 +163,12 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
         </div>
         <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">business</span> 
             <span class="nav-text">Tenant Management</span>
         </a>
 
         <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">history_edu</span> 
+            <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
             <span class="nav-text">Subscription Logs</span>
         </a>
 
@@ -204,18 +235,28 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         </a>
     </div>
 </nav>
-    
-    <main class="flex-1 p-8">
-        <?php include '../includes/superadmin_header.php'; ?>
 
-        <div class="mt-8 p-6 bg-card rounded-[24px] flex flex-wrap items-center justify-between gap-6">
+<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
+        <header class="mb-10 flex flex-row justify-between items-end gap-6">
+            <div>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Audit <span class="text-primary">Logs</span></h2>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Administrative & Security Monitoring</p>
+            </div>
+            <div class="text-right">
+                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
+                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
+            </div>
+        </header>
+
+        <div class="glass-card mb-8 p-8 flex flex-wrap items-center justify-between gap-6">
             <form method="GET" class="flex flex-wrap items-center gap-4 w-full md:w-auto">
                 <div class="relative">
                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
                     <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search logs or users..." 
-                           class="bg-[#0c0c0c] border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-white focus:border-primary focus:outline-none w-64">
+                           class="bg-[#0a090d] border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-white focus:border-primary focus:outline-none w-64 transition-all">
                 </div>
-                <select name="action_type" class="bg-[#0c0c0c] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
+                <select name="action_type" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all">
                     <option value="all">All Activities</option>
                     <option value="Login" <?= $action_filter == 'Login' ? 'selected' : '' ?>>Login/Logout</option>
                     <option value="Create" <?= $action_filter == 'Create' ? 'selected' : '' ?>>Create Actions</option>
@@ -223,65 +264,68 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <option value="Delete" <?= $action_filter == 'Delete' ? 'selected' : '' ?>>Delete Actions</option>
                     <option value="Tenant" <?= $action_filter == 'Tenant' ? 'selected' : '' ?>>Tenant Changes</option>
                 </select>
-                <button type="submit" class="h-9 px-6 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-widest transition-all">Apply Filter</button>
+                <button type="submit" class="h-9 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-all active:scale-95">Apply Filter</button>
             </form>
             
-            <button class="px-6 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase italic tracking-widest hover:bg-primary hover:text-black transition-all">
+            <button class="h-9 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-all flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">download</span>
                 Export Audit Trail
             </button>
         </div>
 
-        <div class="mt-8 bg-card rounded-[32px] overflow-hidden">
+        <div class="glass-card overflow-hidden">
             <div class="px-8 py-6 border-b border-white/5 bg-white/[0.01]">
-                <h3 class="text-lg font-black italic uppercase text-white tracking-tighter">System Audit Trail</h3>
-                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Tracking all administrative and security events</p>
+                <h3 class="text-sm font-black italic uppercase tracking-widest text-white">System Audit Trail</h3>
+                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Tracking all administrative and security events</p>
             </div>
-            <table class="w-full text-left">
-                <thead>
-                    <tr class="bg-white/[0.02]">
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Timestamp</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">User / Role</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Event Action</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Details</th>
-                        <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">IP Address</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-white/5">
-                    <?php if (empty($logs)): ?>
-                        <tr><td colspan="5" class="px-8 py-12 text-center text-xs text-gray-600 italic uppercase font-bold tracking-widest">No audit records found for the selected criteria</td></tr>
-                    <?php else: ?>
-                        <?php foreach ($logs as $log): ?>
-                        <tr class="hover:bg-white/[0.01] transition-colors">
-                            <td class="px-8 py-5">
-                                <p class="text-[11px] font-bold text-white uppercase"><?= date('M d, Y', strtotime($log['created_at'])) ?></p>
-                                <p class="text-[9px] text-gray-500 font-black italic"><?= date('h:i:s A', strtotime($log['created_at'])) ?></p>
-                            </td>
-                            <td class="px-8 py-5">
-                                <p class="text-xs font-bold text-white"><?= htmlspecialchars($log['first_name'] . ' ' . $log['last_name']) ?></p>
-                                <p class="text-[9px] text-primary font-black uppercase tracking-tighter italic"><?= htmlspecialchars($log['role']) ?></p>
-                            </td>
-                            <td class="px-8 py-5">
-                                <?php 
-                                    $color = 'gray-500';
-                                    if(in_array($log['action_type'], ['Create', 'Login'])) $color = 'emerald-500';
-                                    if($log['action_type'] === 'Delete') $color = 'red-500';
-                                    if($log['action_type'] === 'Update') $color = 'amber-500';
-                                ?>
-                                <span class="px-2.5 py-1 rounded-md bg-<?= $color ?>/10 border border-<?= $color ?>/20 text-[9px] text-<?= $color ?> font-black uppercase italic">
-                                    <?= htmlspecialchars($log['action_type']) ?>
-                                </span>
-                            </td>
-                            <td class="px-8 py-5">
-                                <p class="text-xs text-gray-400 max-w-md"><?= htmlspecialchars($log['action_details']) ?></p>
-                            </td>
-                            <td class="px-8 py-5 text-right">
-                                <p class="text-[10px] font-black text-gray-600 tracking-widest"><?= htmlspecialchars($log['ip_address']) ?></p>
-                            </td>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                            <th class="px-8 py-4">Timestamp</th>
+                            <th class="px-8 py-4">User / Role</th>
+                            <th class="px-8 py-4">Event Action</th>
+                            <th class="px-8 py-4">Target Table</th>
+                            <th class="px-8 py-4 text-right">Record ID</th>
                         </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        <?php if (empty($logs)): ?>
+                            <tr><td colspan="5" class="px-8 py-12 text-center text-xs text-gray-600 italic uppercase font-bold tracking-widest">No audit records found</td></tr>
+                        <?php else: ?>
+                            <?php foreach ($logs as $log): ?>
+                            <tr class="hover:bg-white/[0.01] transition-colors">
+                                <td class="px-8 py-5">
+                                    <p class="text-xs font-bold text-white uppercase leading-none mb-1"><?= date('M d, Y', strtotime($log['created_at'])) ?></p>
+                                    <p class="text-[9px] text-gray-500 font-black italic"><?= date('h:i:s A', strtotime($log['created_at'])) ?></p>
+                                </td>
+                                <td class="px-8 py-5">
+                                    <p class="text-sm font-bold text-white leading-none mb-1"><?= htmlspecialchars($log['first_name'] . ' ' . $log['last_name']) ?></p>
+                                    <p class="text-[9px] text-primary font-black uppercase tracking-tighter italic"><?= htmlspecialchars($log['role'] ?? 'User') ?></p>
+                                </td>
+                                <td class="px-8 py-5">
+                                    <?php 
+                                        $color = 'gray-500';
+                                        if(in_array($log['action_type'], ['Create', 'Login'])) $color = 'emerald-500';
+                                        if($log['action_type'] === 'Delete') $color = 'rose-500';
+                                        if($log['action_type'] === 'Update') $color = 'amber-500';
+                                    ?>
+                                    <span class="px-3 py-1 rounded-md bg-<?= $color ?>/10 border border-<?= $color ?>/20 text-[9px] text-<?= $color ?> font-black uppercase italic">
+                                        <?= htmlspecialchars($log['action_type']) ?>
+                                    </span>
+                                </td>
+                                <td class="px-8 py-5">
+                                    <p class="text-xs text-gray-400 font-bold italic uppercase tracking-widest"><?= htmlspecialchars($log['table_name']) ?></p>
+                                </td>
+                                <td class="px-8 py-5 text-right">
+                                    <p class="text-[10px] font-black text-gray-600 tracking-widest">#<?= htmlspecialchars($log['record_id']) ?></p>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </main>
 </div>
