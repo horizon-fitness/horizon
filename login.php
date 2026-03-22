@@ -126,6 +126,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     break;
                                 }
                             }
+                            // Check for pending subscription/payment verification
+                            $stmtSubCheck = $pdo->prepare("SELECT payment_status FROM client_subscriptions WHERE gym_id = ? AND subscription_status != 'Expired' ORDER BY created_at DESC LIMIT 1");
+                            $stmtSubCheck->execute([$roleData['gym_id']]);
+                            $subCheck = $stmtSubCheck->fetch();
+
+                            if ($subCheck && $subCheck['payment_status'] === 'Pending Verification') {
+                                header("Location: login.php?payment_success=1");
+                                exit;
+                            }
+
                             // Directed to the tenant's primary entry-point
                             header("Location: tenant/tenant_gateway.php");
                             exit;
@@ -279,6 +289,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </h1>
                     <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Authorized Personnel Only</p>
                 </div>
+
+                <?php if (isset($_GET['payment_success'])): ?>
+                <div class="mb-8 p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-center relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-2 opacity-20"><span class="material-symbols-outlined text-4xl">check_circle</span></div>
+                    <p class="text-[9px] font-black uppercase tracking-[0.2em] mb-1">Transaction Received</p>
+                    <h4 class="text-sm font-black italic uppercase italic">Payment Submitted Successfully</h4>
+                    <p class="text-[10px] font-medium text-gray-400 mt-2 leading-relaxed">Your subscription is now pending verification. We will notify you once your account is fully activated. You can log in after the verification is complete.</p>
+                </div>
+                <?php endif; ?>
 
                 <?php if (!empty($error)): ?>
                 <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] flex items-center gap-3 font-bold uppercase tracking-wider">

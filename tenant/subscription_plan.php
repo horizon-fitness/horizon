@@ -11,14 +11,20 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role'] ?? '') !== 'ten
 $user_id = $_SESSION['user_id'];
 $gym_id = $_SESSION['gym_id'] ?? 0;
 
-// Check if already subscribed
-$stmtSub = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? AND subscription_status = 'Active' LIMIT 1");
+// Check if already subscribed or pending verification
+$stmtSub = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? AND subscription_status != 'Expired' ORDER BY created_at DESC LIMIT 1");
 $stmtSub->execute([$gym_id]);
-$active_sub = $stmtSub->fetch();
+$sub = $stmtSub->fetch();
 
-if ($active_sub) {
-    header("Location: tenant_dashboard.php");
-    exit;
+if ($sub) {
+    if ($sub['subscription_status'] === 'Active') {
+        header("Location: tenant_dashboard.php");
+        exit;
+    } elseif ($sub['payment_status'] === 'Pending Verification') {
+        // Payment is pending, redirect back to login (as per owner request)
+        header("Location: ../login.php?payment_success=1");
+        exit;
+    }
 }
 
 // --- SEED PLANS IF EMPTY ---
@@ -75,21 +81,6 @@ if ($pay_plan_id) {
         <h2 class="text-4xl font-black italic uppercase tracking-tighter text-white mb-4">Choose Your <span class="text-primary">Growth Plan</span></h2>
         <p class="text-gray-500 text-sm font-bold uppercase tracking-widest">Select a plan to activate your gym's digital infrastructure</p>
     </div>
-
-    <?php if (isset($_GET['success'])): ?>
-        <div class="max-w-md w-full mb-8 p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-center relative overflow-hidden">
-            <div class="absolute top-0 right-0 p-2 opacity-20"><span class="material-symbols-outlined text-4xl">check_circle</span></div>
-            <p class="text-[10px] font-black uppercase tracking-[0.2em] mb-1">Success</p>
-            <h4 class="text-sm font-black italic uppercase italic">Payment Submitted Successfully</h4>
-            <p class="text-xs font-medium text-gray-400 mt-2">Your subscription is now pending verification. We will notify you once activated.</p>
-        </div>
-    <?php endif; ?>
-
-    <?php if (isset($error)): ?>
-        <div class="max-w-md w-full mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center font-bold">
-            <?= $error ?>
-        </div>
-    <?php endif; ?>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl w-full">
         <?php foreach($plans as $plan): ?>
