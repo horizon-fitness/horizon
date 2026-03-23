@@ -2,7 +2,6 @@
 session_start();
 // Include the database connection (action folder is one level deep, so ../ is correct)
 require_once '../db.php';
-require_once '../includes/audit_logger.php';
 
 // Include PHPMailer classes
 require '../PHPMailer/Exception.php';
@@ -106,10 +105,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['gym
         }
 
         $pdo->commit();
-
-        // Log Audit Event: Tenant Status Change
-        $admin_id = $_SESSION['user_id'];
-        log_audit_event($pdo, $admin_id, $gym_id, 'Tenant', 'gyms', $gym_id, ['status' => 'Previous'], ['status' => ucfirst($action)]);
 
         // 7. Send Notification Email via PHPMailer
         if (!empty($gym['email']) && !empty($subject)) {

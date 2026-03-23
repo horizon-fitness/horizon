@@ -1,31 +1,3 @@
-<?php
-session_start();
-require_once '../db.php';
-
-// Security Check: Only Members
-if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role'] ?? '') !== 'member') {
-    header("Location: ../login.php");
-    exit;
-}
-
-$user_id = $_SESSION['user_id'];
-$gym_id = $_SESSION['gym_id'] ?? 0;
-
-// Fetch member_id for this user
-$stmtMember = $pdo->prepare("SELECT member_id FROM members WHERE user_id = ? AND gym_id = ? LIMIT 1");
-$stmtMember->execute([$user_id, $gym_id]);
-$member = $stmtMember->fetch();
-$member_id = $member['member_id'] ?? 0;
-
-// Fetch Transaction History for the current member
-// We'll mock history for now or join with payments if available
-$history_result = $pdo->prepare("SELECT payment_date, reference_number, amount, payment_status as status FROM payments WHERE member_id = ? ORDER BY created_at DESC");
-$history_result->execute([$member_id]);
-$history = $history_result->fetchAll(PDO::FETCH_ASSOC);
-
-// Dummy fallback if $history_result is used with mysqli_fetch_assoc in the original code
-// We'll update the loop to use foreach instead for consistency with PDO
-?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
@@ -106,7 +78,8 @@ $history = $history_result->fetchAll(PDO::FETCH_ASSOC);
                 <a href="dashboard.php" class="nav-link text-gray-400 hover:text-white">Dashboard</a>
                 <a href="schedule_user.php" class="nav-link text-gray-400 hover:text-white">Book Session</a>
                 <a href="dashboard_payment.php" class="nav-link text-gray-400 hover:text-white">Payment</a>
-                <a href="member_membership.php" class="nav-link active-nav">Membership</a>
+                <a href="client_membership.php" class="nav-link active-nav">Membership</a>
+                <a href="appointment.php" class="nav-link text-gray-400 hover:text-white">Appointment</a>
             </div>
 
             <div class="flex items-center gap-6">
@@ -114,10 +87,10 @@ $history = $history_result->fetchAll(PDO::FETCH_ASSOC);
                     <p id="headerClock" class="text-white font-black italic text-sm leading-none">00:00:00 AM</p>
                     <p class="text-primary text-[8px] font-black uppercase mt-1 tracking-widest"><?= date('l, M d') ?></p>
                 </div>
-                <a href="member_profile.php" class="size-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:border-primary transition-all">
+                <a href="edit_profile.php" class="size-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:border-primary transition-all">
                     <span class="material-symbols-outlined text-gray-400 text-xl">person</span>
                 </a>
-                <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors"><span class="material-symbols-outlined">logout</span></a>
+                <a href="logout.php" class="text-gray-400 hover:text-red-500 transition-colors"><span class="material-symbols-outlined">logout</span></a>
             </div>
         </div>
     </nav>
@@ -125,16 +98,16 @@ $history = $history_result->fetchAll(PDO::FETCH_ASSOC);
     <div class="flex max-w-[1500px] mx-auto">
         <aside class="hidden lg:block w-64 sticky top-20 h-[calc(100vh-80px)] border-r border-white/5 p-6 space-y-2">
             <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-4 px-4">Menu</p>
-            <a href="member_dashboard.php" class="sidebar-link">
+            <a href="dashboard.php" class="sidebar-link">
                 <span class="material-symbols-outlined text-xl">dashboard</span> Dashboard
             </a>
-            <a href="member_booking.php" class="sidebar-link">
+            <a href="schedule_user.php" class="sidebar-link">
                 <span class="material-symbols-outlined text-xl">calendar_month</span> Book Session
             </a>
-            <a href="member_payment.php" class="sidebar-link">
+            <a href="dashboard_payment.php" class="sidebar-link">
                 <span class="material-symbols-outlined text-xl">payments</span> Payment
             </a>
-            <a href="member_membership.php" class="sidebar-link sidebar-active">
+            <a href="client_membership.php" class="sidebar-link sidebar-active">
                 <span class="material-symbols-outlined text-xl">card_membership</span> Membership
             </a>
             <a href="appointment.php" class="sidebar-link">
@@ -167,45 +140,45 @@ $history = $history_result->fetchAll(PDO::FETCH_ASSOC);
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-8 mb-16">
                 <div class="plan-card bg-surface-dark border border-border-subtle p-8 rounded-[32px] flex flex-col">
                     <div class="mb-6"><span class="bg-primary/20 text-primary text-[10px] font-black px-3 py-1 rounded-full uppercase">Basic Access</span></div>
-                    <h3 class="text-2xl font-black mb-2 uppercase italic">Daily Pass</h3>
+                    <h3 class="text-2xl font-black mb-2 uppercase italic">Unlimited Gym</h3>
                     <div class="flex items-baseline gap-1 mb-6">
-                        <span class="text-4xl font-black text-white">₱150</span>
-                        <span class="text-gray-500 text-sm italic">/day</span>
+                        <span class="text-4xl font-black text-white">₱500</span>
+                        <span class="text-gray-500 text-sm italic">/month</span>
                     </div>
                     <ul class="space-y-4 mb-8 flex-1 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> Single day access</li>
-                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> All equipment use</li>
+                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> Unlimited equipment use</li>
+                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> Locker room access</li>
                     </ul>
-                    <button onclick="openPaymentModal('Daily Pass', '150')" class="w-full py-4 bg-white text-black font-black rounded-2xl uppercase text-[10px] tracking-widest hover:bg-primary hover:text-white transition-all shadow-xl">Avail Plan</button>
+                    <button onclick="openPaymentModal('Unlimited Gym Use', '500')" class="w-full py-4 bg-white text-black font-black rounded-2xl uppercase text-[10px] tracking-widest hover:bg-primary hover:text-white transition-all shadow-xl">Avail Plan</button>
                 </div>
 
                 <div class="plan-card bg-surface-dark border-2 border-primary p-8 rounded-[32px] flex flex-col relative overflow-hidden shadow-2xl shadow-primary/10">
                     <div class="absolute top-0 right-0 bg-primary text-white text-[8px] font-black px-4 py-1 uppercase rotate-45 translate-x-4 translate-y-2">Best Value</div>
-                    <div class="mb-6"><span class="bg-primary/20 text-primary text-[10px] font-black px-3 py-1 rounded-full uppercase">Full Access</span></div>
-                    <h3 class="text-2xl font-black mb-2 uppercase italic">Monthly Basic</h3>
+                    <div class="mb-6"><span class="bg-primary/20 text-primary text-[10px] font-black px-3 py-1 rounded-full uppercase">Pro Coaching</span></div>
+                    <h3 class="text-2xl font-black mb-2 uppercase italic">Personal Training</h3>
                     <div class="flex items-baseline gap-1 mb-6">
-                        <span class="text-4xl font-black text-white">₱1200</span>
+                        <span class="text-4xl font-black text-white">₱2000</span>
                         <span class="text-gray-500 text-sm italic">/month</span>
                     </div>
                     <ul class="space-y-4 mb-8 flex-1 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> Unlimited Gym Use</li>
-                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> Locker Access Included</li>
+                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> 25 Guided Sessions</li>
+                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> Gym Use Included</li>
                     </ul>
-                    <button onclick="openPaymentModal('Monthly Basic', '1200')" class="w-full py-4 bg-primary text-white font-black rounded-2xl uppercase text-[10px] tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20">Avail Plan</button>
+                    <button onclick="openPaymentModal('Personal Training', '2000')" class="w-full py-4 bg-primary text-white font-black rounded-2xl uppercase text-[10px] tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20">Avail Plan</button>
                 </div>
 
                 <div class="plan-card bg-surface-dark border border-border-subtle p-8 rounded-[32px] flex flex-col">
-                    <div class="mb-6"><span class="bg-red-500/20 text-red-500 text-[10px] font-black px-3 py-1 rounded-full uppercase">Pro Training</span></div>
-                    <h3 class="text-2xl font-black mb-2 uppercase italic">Personal Training</h3>
+                    <div class="mb-6"><span class="bg-red-500/20 text-red-500 text-[10px] font-black px-3 py-1 rounded-full uppercase">Combat Sports</span></div>
+                    <h3 class="text-2xl font-black mb-2 uppercase italic">MMA Program</h3>
                     <div class="flex items-baseline gap-1 mb-6">
-                        <span class="text-4xl font-black text-white">₱3500</span>
+                        <span class="text-4xl font-black text-white">₱2500</span>
                         <span class="text-gray-500 text-sm italic">/month</span>
                     </div>
                     <ul class="space-y-4 mb-8 flex-1 text-sm text-gray-400">
-                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> 10 Individual Sessions</li>
-                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> Gym Use Included</li>
+                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> MMA / Boxing / Muay Thai</li>
+                        <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-sm">check_circle</span> Striking & Grappling</li>
                     </ul>
-                    <button onclick="openPaymentModal('Personal Training', '3500')" class="w-full py-4 bg-white text-black font-black rounded-2xl uppercase text-[10px] tracking-widest hover:bg-primary hover:text-white transition-all shadow-xl">Avail Plan</button>
+                    <button onclick="openPaymentModal('MMA Training', '2500')" class="w-full py-4 bg-white text-black font-black rounded-2xl uppercase text-[10px] tracking-widest hover:bg-primary hover:text-white transition-all shadow-xl">Avail Plan</button>
                 </div>
             </div>
 
@@ -222,23 +195,19 @@ $history = $history_result->fetchAll(PDO::FETCH_ASSOC);
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <?php if (empty($history)): ?>
-                                <tr><td colspan="4" class="py-8 text-center text-xs font-bold text-gray-500 italic uppercase">No payment history found.</td></tr>
-                            <?php else: ?>
-                                <?php foreach($history as $row): ?>
-                                <tr class="text-sm hover:bg-white/[0.02] transition-colors">
-                                    <td class="py-5 text-gray-400"><?= date('M d, Y', strtotime($row['payment_date'])) ?></td>
-                                    <td class="py-5 font-mono text-[10px] text-gray-300"><?= htmlspecialchars($row['reference_number']) ?></td>
-                                    <td class="py-5 font-bold text-white">₱<?= number_format($row['amount'], 2) ?></td>
-                                    <td class="py-5 text-right">
-                                        <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter 
-                                            <?= $row['status'] == 'Approved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20' ?>">
-                                            <?= htmlspecialchars($row['status']) ?>
-                                        </span>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
+                            <?php while($row = mysqli_fetch_assoc($history_result)): ?>
+                            <tr class="text-sm hover:bg-white/[0.02] transition-colors">
+                                <td class="py-5 text-gray-400"><?= date('M d, Y', strtotime($row['payment_date'])) ?></td>
+                                <td class="py-5 font-mono text-[10px] text-gray-300"><?= $row['reference_number'] ?></td>
+                                <td class="py-5 font-bold text-white">₱<?= number_format($row['amount'], 2) ?></td>
+                                <td class="py-5 text-right">
+                                    <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter 
+                                        <?= $row['status'] == 'Approved' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border border-amber-500/20' ?>">
+                                        <?= $row['status'] ?>
+                                    </span>
+                                </td>
+                            </tr>
+                            <?php endwhile; ?>
                         </tbody>
                     </table>
                 </div>
@@ -247,89 +216,27 @@ $history = $history_result->fetchAll(PDO::FETCH_ASSOC);
     </div>
 
     <div class="fixed bottom-0 left-0 right-0 h-20 mobile-taskbar z-[100] lg:hidden flex items-center justify-around px-4">
-        <a href="member_dashboard.php" class="flex flex-col items-center gap-1 text-gray-500">
+        <a href="dashboard.php" class="flex flex-col items-center gap-1 text-gray-500">
             <span class="material-symbols-outlined">dashboard</span>
             <span class="text-[8px] font-black uppercase">Home</span>
         </a>
-        <a href="member_booking.php" class="flex flex-col items-center gap-1 text-gray-500">
+        <a href="schedule_user.php" class="flex flex-col items-center gap-1 text-gray-500">
             <span class="material-symbols-outlined">calendar_month</span>
             <span class="text-[8px] font-black uppercase">Book</span>
         </a>
-        <a href="member_payment.php" class="flex flex-col items-center gap-1 text-gray-500">
+        <a href="dashboard_payment.php" class="flex flex-col items-center gap-1 text-gray-500">
             <span class="material-symbols-outlined">payments</span>
             <span class="text-[8px] font-black uppercase">Pay</span>
         </a>
-        <a href="member_membership.php" class="flex flex-col items-center gap-1 text-primary">
+        <a href="client_membership.php" class="flex flex-col items-center gap-1 text-primary">
             <span class="material-symbols-outlined">card_membership</span>
             <span class="text-[8px] font-black uppercase">Plans</span>
         </a>
-        <a href="member_appointment.php" class="flex flex-col items-center gap-1 text-gray-500">
+        <a href="appointment.php" class="flex flex-col items-center gap-1 text-gray-500">
             <span class="material-symbols-outlined">event_available</span>
             <span class="text-[8px] font-black uppercase">Appt</span>
         </a>
     </div>
 
-    <!-- Payment Modal -->
-<div id="paymentModal" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm hidden">
-    <div class="glass-card max-w-lg w-full p-8 shadow-2xl relative overflow-hidden">
-        <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full"></div>
-        
-        <div class="flex justify-between items-center mb-8 relative z-10">
-            <div>
-                <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white">Enroll in <span class="text-primary">Plan</span></h3>
-                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Select Payment Method</p>
-            </div>
-            <button onclick="closePaymentModal()" class="size-10 rounded-full bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all">
-                <span class="material-symbols-outlined">close</span>
-            </button>
-        </div>
-
-        <form action="action/submit_membership_payment.php" method="POST" enctype="multipart/form-data" class="space-y-6 relative z-10">
-            <input type="hidden" name="plan_name" id="modal_plan_name">
-            <input type="hidden" name="amount" id="modal_amount">
-
-            <div class="p-4 rounded-xl bg-white/5 border border-white/5 flex justify-between items-center">
-                <div>
-                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Plan</p>
-                    <p id="display_plan_name" class="text-sm font-black italic uppercase text-white">-</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Amount</p>
-                    <p id="display_amount" class="text-lg font-black text-primary italic uppercase">-</p>
-                </div>
-            </div>
-
-            <div class="space-y-2">
-                <label class="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-1 text-[10px] text-gray-500">Payment Method</label>
-                <select name="payment_method" id="payment_method" onchange="toggleReferenceInput()" required class="w-full h-14 rounded-xl bg-white/5 border border-white/5 px-6 text-sm text-white focus:border-primary focus:outline-none transition-all">
-                    <option value="" disabled selected>Select method...</option>
-                    <option value="GCash">GCash</option>
-                    <option value="Cash">Over-the-Counter (Cash)</option>
-                </select>
-            </div>
-
-            <div id="gcash_details_div" class="hidden space-y-4">
-                <div class="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-                    <p class="text-[9px] text-blue-400 font-black uppercase tracking-widest mb-1 italic">GCash Account</p>
-                    <p class="text-lg font-black text-white italic tracking-widest uppercase">0912-345-6789</p>
-                    <p class="text-[9px] text-gray-500 uppercase">Herdoza Fitness Center</p>
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-1">Reference Number</label>
-                    <input type="text" name="reference_number" id="reference_input" placeholder="Enter Reference No." class="w-full h-14 rounded-xl bg-white/5 border border-white/5 px-6 text-sm text-white font-mono tracking-widest focus:border-primary focus:outline-none transition-all">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-1">Proof of Payment</label>
-                    <input type="file" name="proof_of_payment" id="proof_input" class="w-full text-xs text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-primary/20 file:text-primary hover:file:bg-primary/30 file:transition-all cursor-pointer">
-                </div>
-            </div>
-
-            <button type="submit" class="w-full h-14 rounded-xl bg-primary hover:bg-primary-dark text-white font-black italic uppercase tracking-widest text-xs shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                Confirm Enrollment
-            </button>
-        </form>
-    </div>
-</div>
-
-</body>
+    </body>
 </html>

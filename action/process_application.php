@@ -1,7 +1,6 @@
 <?php
 session_start();
 require_once '../db.php';
-require_once '../includes/audit_logger.php';
 // Include PHPMailer classes
 require '../PHPMailer/Exception.php';
 require '../PHPMailer/PHPMailer.php';
@@ -86,9 +85,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
 
             $pdo->commit();
 
-            // Log Audit Event: Gym Approved
-            log_audit_event($pdo, $admin_id, $gym_id, 'Create', 'gyms', $gym_id, [], ['gym_name' => $app['gym_name'], 'tenant_code' => $tenant_code, 'status' => 'Approved']);
-
             // 6. Send Approval Email via PHPMailer
             $mail = new PHPMailer(true);
             try {
@@ -171,9 +167,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
             $stmtAlert->execute([$alertMsg, $now]);
 
             $_SESSION['success_msg'] = "Application rejected successfully.";
-            
-            // Log Audit Event: Application Rejected
-            log_audit_event($pdo, $admin_id, null, 'Update', 'gym_owner_applications', $app_id, ['status' => 'Pending'], ['status' => 'Rejected']);
         } catch (Exception $e) {
             $_SESSION['error_msg'] = "Failed to reject: " . $e->getMessage();
         }
