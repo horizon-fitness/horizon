@@ -106,7 +106,7 @@ if (isset($_SESSION['reset_error'])) {
                     <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">
                         Reset <span class="text-primary">Key</span>
                     </h1>
-                    <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Enter your email to receive a verification code</p>
+                    <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Enter your business email to receive a verification code</p>
                 </div>
 
                 <?php if (!empty($error)): ?>
@@ -129,7 +129,7 @@ if (isset($_SESSION['reset_error'])) {
                     <?php endif; ?>
                     
                     <div class="space-y-2">
-                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Account Email / Username</label>
+                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Business Email</label>
                         <div class="relative group input-gradient-focus rounded-xl transition-all">
                             <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">mail</span>
                             <input
@@ -137,7 +137,7 @@ if (isset($_SESSION['reset_error'])) {
                                 name="identifier"
                                 placeholder="name@example.com"
                                 required
-                                type="text"
+                                type="email"
                             />
                         </div>
                     </div>
