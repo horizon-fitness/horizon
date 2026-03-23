@@ -123,7 +123,7 @@ if (isset($_SESSION['reset_error'])) {
                 </div>
                 <?php endif; ?>
 
-                <form action="action/send_reset_link.php" method="POST" class="space-y-6">
+                <form action="action/send_reset_otp.php" method="POST" class="space-y-6">
                     <?php if (isset($_GET['gym'])): ?>
                         <input type="hidden" name="gym" value="<?= htmlspecialchars($_GET['gym']) ?>">
                     <?php endif; ?>
