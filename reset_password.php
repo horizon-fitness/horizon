@@ -5,9 +5,9 @@ require_once 'db.php';
 $error = '';
 $success = '';
 $branding = null;
-$user_id = $_SESSION['reset_authorized_user_id'] ?? null;
+$token = $_GET['token'] ?? '';
 
-if (!$user_id) {
+if (empty($token)) {
     header("Location: forgot_password.php");
     exit;
 }
@@ -18,6 +18,15 @@ if (isset($_GET['gym'])) {
     $stmtBranding = $pdo->prepare("SELECT tp.*, g.gym_name FROM tenant_pages tp JOIN gyms g ON tp.gym_id = g.gym_id WHERE tp.page_slug = ? LIMIT 1");
     $stmtBranding->execute([$slug]);
     $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
+}
+
+// Check if token is valid
+$stmt = $pdo->prepare("SELECT * FROM user_verifications WHERE code = ? AND verification_type = 'password_reset' AND status = 'pending' AND expires_at > NOW() LIMIT 1");
+$stmt->execute([$token]);
+$verification = $stmt->fetch();
+
+if (!$verification) {
+    $error = "This reset link is invalid or has expired. Please request a new one.";
 }
 
 if (isset($_SESSION['reset_error'])) {
@@ -115,10 +124,15 @@ if (isset($_SESSION['reset_error'])) {
                 <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] flex items-center gap-3 font-bold uppercase tracking-wider">
                     <span class="material-symbols-outlined text-lg">error</span>
                     <?= $error ?>
+                    <?php if (strpos($error, 'invalid or has expired') !== false): ?>
+                        <a href="forgot_password.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" class="ml-auto underline">Request New</a>
+                    <?php endif; ?>
                 </div>
                 <?php endif; ?>
 
+                <?php if (empty($error) || !strpos($error, 'link is invalid')): ?>
                 <form action="action/process_password_reset.php" method="POST" class="space-y-6">
+                    <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
                     <?php if (isset($_GET['gym'])): ?>
                         <input type="hidden" name="gym" value="<?= htmlspecialchars($_GET['gym']) ?>">
                     <?php endif; ?>
@@ -166,6 +180,7 @@ if (isset($_SESSION['reset_error'])) {
                         <span class="material-symbols-outlined text-lg">security</span>
                     </button>
                 </form>
+                <?php endif; ?>
             </div>
         </div>
     </main>
