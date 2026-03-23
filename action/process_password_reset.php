@@ -3,57 +3,57 @@ session_start();
 require_once '../db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $token = $_POST['token'] ?? '';
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
     $gym_slug = $_POST['gym'] ?? '';
     $gym_param = !empty($gym_slug) ? "?gym=" . urlencode($gym_slug) : "";
+    $user_id = $_SESSION['reset_authorized_user_id'] ?? null;
 
-    if (empty($token) || empty($password) || empty($confirm_password)) {
+    if (!$user_id) {
+        $_SESSION['reset_error'] = "Unauthorized access. Please restart the process.";
+        header("Location: ../forgot_password.php" . $gym_param);
+        exit;
+    }
+
+    if (empty($password) || empty($confirm_password)) {
         $_SESSION['reset_error'] = "All fields are required.";
-        header("Location: ../reset_password.php?token=$token" . ($gym_slug ? "&gym=$gym_slug" : ""));
+        header("Location: ../reset_password.php" . $gym_param);
         exit;
     }
 
     if ($password !== $confirm_password) {
         $_SESSION['reset_error'] = "Passwords do not match.";
-        header("Location: ../reset_password.php?token=$token" . ($gym_slug ? "&gym=$gym_slug" : ""));
+        header("Location: ../reset_password.php" . $gym_param);
         exit;
     }
 
-    // Validate token again
-    $stmt = $pdo->prepare("SELECT * FROM user_verifications WHERE code = ? AND verification_type = 'password_reset' AND status = 'pending' AND expires_at > NOW() LIMIT 1");
-    $stmt->execute([$token]);
-    $verification = $stmt->fetch();
+    try {
+        $pdo->beginTransaction();
 
-    if ($verification) {
-        try {
-            $pdo->beginTransaction();
+        // Update password
+        $password_hash = password_hash($password, PASSWORD_BCRYPT);
+        $updateUser = $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE user_id = ?");
+        $updateUser->execute([$password_hash, $user_id]);
 
-            // Update password
-            $password_hash = password_hash($password, PASSWORD_BCRYPT);
-            $updateUser = $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE user_id = ?");
-            $updateUser->execute([$password_hash, $verification['user_id']]);
+        // Deactivate all password reset tokens for this user
+        $updateToken = $pdo->prepare("UPDATE user_verifications SET status = 'verified', verified_at = NOW() WHERE user_id = ? AND verification_type = 'password_reset_otp' AND status = 'pending'");
+        $updateToken->execute([$user_id]);
 
-            // Mark token as verified
-            $updateToken = $pdo->prepare("UPDATE user_verifications SET status = 'verified', verified_at = NOW() WHERE verification_id = ?");
-            $updateToken->execute([$verification['verification_id']]);
+        $pdo->commit();
 
-            $pdo->commit();
+        // Clear reset session
+        unset($_SESSION['reset_authorized_user_id']);
+        unset($_SESSION['reset_user_id']);
+        unset($_SESSION['reset_email']);
 
-            $_SESSION['reset_success'] = "Password updated successfully! You can now login with your new credentials.";
-            header("Location: ../login.php" . $gym_param);
-            exit;
+        $_SESSION['reset_success'] = "Password updated successfully! You can now login with your new credentials.";
+        header("Location: ../login.php" . $gym_param);
+        exit;
 
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $_SESSION['reset_error'] = "A database error occurred. Please try again.";
-            header("Location: ../reset_password.php?token=$token" . ($gym_slug ? "&gym=$gym_slug" : ""));
-            exit;
-        }
-    } else {
-        $_SESSION['reset_error'] = "Invalid or expired token.";
-        header("Location: ../forgot_password.php" . $gym_param);
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $_SESSION['reset_error'] = "A database error occurred. Please try again.";
+        header("Location: ../reset_password.php" . $gym_param);
         exit;
     }
 } else {

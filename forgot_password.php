@@ -106,7 +106,7 @@ if (isset($_SESSION['reset_error'])) {
                     <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">
                         Reset <span class="text-primary">Key</span>
                     </h1>
-                    <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Enter your email to receive a reset link</p>
+                    <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Enter your email to receive a verification code</p>
                 </div>
 
                 <?php if (!empty($error)): ?>
@@ -123,7 +123,7 @@ if (isset($_SESSION['reset_error'])) {
                 </div>
                 <?php endif; ?>
 
-                <form action="action/send_reset_link.php" method="POST" class="space-y-6">
+                <form action="action/send_reset_otp.php" method="POST" class="space-y-6">
                     <?php if (isset($_GET['gym'])): ?>
                         <input type="hidden" name="gym" value="<?= htmlspecialchars($_GET['gym']) ?>">
                     <?php endif; ?>
@@ -145,8 +145,8 @@ if (isset($_SESSION['reset_error'])) {
                     <button
                         class="w-full h-14 mt-6 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98]"
                         type="submit">
-                        Send Recovery Link
-                        <span class="material-symbols-outlined text-lg">send</span>
+                        Send Verification Code
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
                 </form>
 

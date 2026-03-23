@@ -6,14 +6,13 @@ $error = '';
 $success = '';
 $branding = null;
 
-// Use session-based authorization from OTP verification
-$user_id = $_SESSION['reset_authorized_user_id'] ?? null;
-
-if (!$user_id) {
-    $_SESSION['reset_error'] = "Unauthorized access. Please start the recovery process again.";
-    header("Location: forgot_password.php" . (isset($_GET['gym']) ? "?gym=" . urlencode($_GET['gym']) : ""));
+// Ensure we have a user to reset for
+if (!isset($_SESSION['reset_user_id'])) {
+    header("Location: forgot_password.php");
     exit;
 }
+
+$display_email = $_SESSION['reset_email'] ?? 'your email';
 
 // Fetch branding if gym slug is provided
 if (isset($_GET['gym'])) {
@@ -27,13 +26,18 @@ if (isset($_SESSION['reset_error'])) {
     $error = $_SESSION['reset_error'];
     unset($_SESSION['reset_error']);
 }
+
+if (isset($_SESSION['reset_success'])) {
+    $success = $_SESSION['reset_success'];
+    unset($_SESSION['reset_success']);
+}
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Reset Password | Horizon Systems</title>
+    <title>Verify Code | Horizon Systems</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
@@ -81,6 +85,12 @@ if (isset($_SESSION['reset_error'])) {
             border-color: #7f13ec;
             box-shadow: 0 0 0 1px rgba(127, 19, 236, 0.3);
         }
+        .otp-input {
+            letter-spacing: 0.8em;
+            text-align: center;
+            padding-left: 1em !important;
+            font-weight: 900;
+        }
     </style>
 </head>
 
@@ -106,12 +116,15 @@ if (isset($_SESSION['reset_error'])) {
             <div class="relative z-10">
                 <div class="text-center mb-10">
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
-                        Update Security
+                        Verification Required
                     </div>
                     <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">
-                        Reset <span class="text-primary">Password</span>
+                        Check your <span class="text-primary">Email</span>
                     </h1>
-                    <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Create a new, strong password for your account</p>
+                    <p class="text-[10px] text-gray-500 font-medium uppercase tracking-widest leading-relaxed">
+                        We've sent a 6-digit code to <span class="text-white"><?= htmlspecialchars($display_email) ?></span>.<br>
+                        It expires in 15 minutes.
+                    </p>
                 </div>
 
                 <?php if (!empty($error)): ?>
@@ -121,54 +134,51 @@ if (isset($_SESSION['reset_error'])) {
                 </div>
                 <?php endif; ?>
 
-                <form action="action/process_password_reset.php" method="POST" class="space-y-6">
-                    <?php if (isset($_GET['gym'])): ?>
-                        <input type="hidden" name="gym" value="<?= htmlspecialchars($_GET['gym']) ?>">
-                    <?php endif; ?>
-                    
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">New Password</label>
-                        <div class="relative group input-gradient-focus rounded-xl transition-all">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">lock</span>
-                            <input
-                                id="new-password"
-                                class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-12 pr-14 text-sm text-white placeholder:text-gray-700 focus:outline-none transition-all"
-                                name="password"
-                                placeholder="••••••••"
-                                required
-                                type="password"
-                            />
-                            <button type="button" onclick="togglePassword('new-password', 'eye-1')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-primary transition-colors">
-                                <span id="eye-1" class="material-symbols-outlined text-[20px]">visibility</span>
-                            </button>
-                        </div>
-                    </div>
+                <?php if (!empty($success)): ?>
+                <div class="mb-8 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-[11px] flex items-center gap-3 font-bold uppercase tracking-wider">
+                    <span class="material-symbols-outlined text-lg">check_circle</span>
+                    <?= $success ?>
+                </div>
+                <?php endif; ?>
 
+                <form action="action/verify_reset_otp.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" method="POST" class="space-y-6">
                     <div class="space-y-2">
-                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Confirm Password</label>
+                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Verification Code</label>
                         <div class="relative group input-gradient-focus rounded-xl transition-all">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">lock_reset</span>
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">pin</span>
                             <input
-                                id="confirm-password"
-                                class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-12 pr-14 text-sm text-white placeholder:text-gray-700 focus:outline-none transition-all"
-                                name="confirm_password"
-                                placeholder="••••••••"
+                                class="otp-input flex h-16 w-full rounded-xl border border-white/5 bg-white/[0.02] pr-4 text-2xl text-white placeholder:text-gray-800 focus:outline-none transition-all"
+                                name="otp_code"
+                                placeholder="000 000"
                                 required
-                                type="password"
+                                maxlength="6"
+                                type="text"
+                                autocomplete="one-time-code"
                             />
-                            <button type="button" onclick="togglePassword('confirm-password', 'eye-2')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-primary transition-colors">
-                                <span id="eye-2" class="material-symbols-outlined text-[20px]">visibility</span>
-                            </button>
                         </div>
                     </div>
 
                     <button
                         class="w-full h-14 mt-6 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98]"
                         type="submit">
-                        Update Password
-                        <span class="material-symbols-outlined text-lg">security</span>
+                        Verify Code
+                        <span class="material-symbols-outlined text-lg">verified_user</span>
                     </button>
                 </form>
+
+                <div class="text-center mt-10 pt-8 border-t border-white/5">
+                    <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                        Didn't receive the code? 
+                        <a class="text-primary hover:text-white transition-colors ml-1" href="action/resend_reset_otp.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>">Resend Code</a>
+                    </p>
+                </div>
+
+                <div class="text-center mt-4">
+                    <a href="forgot_password.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" class="text-[9px] text-gray-500 hover:text-white transition-colors font-bold uppercase tracking-widest flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">arrow_back</span>
+                        Back to Email Entry
+                    </a>
+                </div>
             </div>
         </div>
     </main>
@@ -178,20 +188,6 @@ if (isset($_SESSION['reset_error'])) {
             © 2026 HORIZON SYSTEM. SECURE ENVIRONMENT.
         </p>
     </footer>
-
-    <script>
-    function togglePassword(inputId, eyeId) {
-        const input = document.getElementById(inputId);
-        const eye = document.getElementById(eyeId);
-        if (input.type === 'password') {
-            input.type = 'text';
-            eye.textContent = 'visibility_off';
-        } else {
-            input.type = 'password';
-            eye.textContent = 'visibility';
-        }
-    }
-    </script>
 
 </body>
 </html>
