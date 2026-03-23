@@ -79,11 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
                 $displayEmail = ($app && !empty($app['email'])) ? $app['email'] : $user['email'];
 
-                // Not verified, redirect them to the verification page
+                // Not verified, send them an OTP and redirect to verification page
                 $_SESSION['verify_user_id'] = $user['user_id'];
                 $_SESSION['verify_email'] = $displayEmail;
                 $gym_param = $branding ? "?gym=" . urlencode($slug) : "";
-                header("Location: tenant/verify_email.php" . $gym_param);
+                header("Location: action/resend_otp.php" . $gym_param);
                 exit;
             } 
             else {
@@ -306,7 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-2">
                         <div class="flex justify-between items-center px-1">
                             <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500">Security Key</label>
-                            <a href="#" class="text-[9px] font-display font-bold text-primary hover:text-white transition-colors uppercase tracking-widest">Forgot?</a>
+                            <a href="forgot_password.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" class="text-[9px] font-display font-bold text-primary hover:text-white transition-colors uppercase tracking-widest">Forgot?</a>
                         </div>
                         <div class="relative group input-gradient-focus rounded-xl transition-all">
                             <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">lock</span>

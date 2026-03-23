@@ -20,6 +20,16 @@ if (isset($_GET['gym'])) {
     $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
 }
 
+if (isset($_SESSION['verify_success'])) {
+    $success = $_SESSION['verify_success'];
+    unset($_SESSION['verify_success']);
+}
+
+if (isset($_SESSION['verify_error'])) {
+    $error = $_SESSION['verify_error'];
+    unset($_SESSION['verify_error']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $entered_code = $_POST['otp_code'] ?? '';
     $current_date = date('Y-m-d H:i:s');
@@ -162,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="mt-8">
             <p class="text-[11px] text-gray-500 font-medium">
                 Didn't receive the code? 
-                <a class="text-primary font-black uppercase tracking-wider hover:underline ml-1 cursor-pointer">Resend OTP</a>
+                <a href="../action/resend_otp.php<?= isset($_GET['gym']) ? '?gym='.urlencode($_GET['gym']) : '' ?>" class="text-primary font-black uppercase tracking-wider hover:underline ml-1 cursor-pointer">Resend OTP</a>
             </p>
         </div>
 
