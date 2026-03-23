@@ -2,6 +2,13 @@
 session_start();
 require_once 'db.php';
 
+if (!isset($_SESSION['recovery_user_id'])) {
+    header("Location: forgot_password.php");
+    exit;
+}
+
+$user_id = $_SESSION['recovery_user_id'];
+$email = $_SESSION['recovery_email'];
 $error = '';
 $success = '';
 $branding = null;
@@ -28,7 +35,7 @@ if (isset($_SESSION['reset_error'])) {
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Forgot Password | Horizon Systems</title>
+    <title>Verify Recovery | Horizon Systems</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
@@ -72,10 +79,6 @@ if (isset($_SESSION['reset_error'])) {
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
         }
-        .input-gradient-focus:focus-within {
-            border-color: #7f13ec;
-            box-shadow: 0 0 0 1px rgba(127, 19, 236, 0.3);
-        }
     </style>
 </head>
 
@@ -101,12 +104,12 @@ if (isset($_SESSION['reset_error'])) {
             <div class="relative z-10">
                 <div class="text-center mb-10">
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
-                        Account Recovery
+                        OTP Verification
                     </div>
                     <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">
-                        Reset <span class="text-primary">Key</span>
+                        Verify <span class="text-primary">Identity</span>
                     </h1>
-                    <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Enter your email to receive a reset link</p>
+                    <p class="text-xs text-gray-400 font-medium uppercase tracking-widest">Code sent to <?= htmlspecialchars($email) ?></p>
                 </div>
 
                 <?php if (!empty($error)): ?>
@@ -123,21 +126,22 @@ if (isset($_SESSION['reset_error'])) {
                 </div>
                 <?php endif; ?>
 
-                <form action="action/send_recovery_otp.php" method="POST" class="space-y-6">
+                <form action="action/verify_recovery.php" method="POST" class="space-y-6">
                     <?php if (isset($_GET['gym'])): ?>
                         <input type="hidden" name="gym" value="<?= htmlspecialchars($_GET['gym']) ?>">
                     <?php endif; ?>
                     
                     <div class="space-y-2">
-                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Account Email / Username</label>
-                        <div class="relative group input-gradient-focus rounded-xl transition-all">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">mail</span>
+                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">6-Digit Code</label>
+                        <div class="relative group">
                             <input
-                                class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-12 pr-4 text-sm text-white placeholder:text-gray-700 focus:outline-none transition-all"
-                                name="identifier"
-                                placeholder="name@example.com"
+                                class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] text-center text-2xl tracking-[0.5em] text-white placeholder:text-gray-700 focus:outline-none focus:border-primary/50 transition-all font-bold"
+                                name="otp_code"
+                                placeholder="••••••"
+                                maxlength="6"
                                 required
                                 type="text"
+                                autofocus
                             />
                         </div>
                     </div>
@@ -145,26 +149,20 @@ if (isset($_SESSION['reset_error'])) {
                     <button
                         class="w-full h-14 mt-6 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98]"
                         type="submit">
-                        Send Recovery Link
-                        <span class="material-symbols-outlined text-lg">send</span>
+                        Verify Code
+                        <span class="material-symbols-outlined text-lg">verified_user</span>
                     </button>
                 </form>
 
                 <div class="text-center mt-10 pt-8 border-t border-white/5">
-                    <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
-                        Remembered your key? 
-                        <a class="text-primary hover:text-white transition-colors ml-1" href="login.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>">Login</a>
+                    <p class="text-[11px] text-gray-500 font-medium">
+                        Didn't receive the code? 
+                        <a href="action/send_recovery_otp.php?resend=1<?= isset($_GET['gym']) ? '&gym='.urlencode($_GET['gym']) : '' ?>" class="text-primary font-black uppercase tracking-wider hover:underline ml-1">Resend</a>
                     </p>
                 </div>
             </div>
         </div>
     </main>
-
-    <footer class="relative z-20 w-full py-6 text-center -mt-10">
-        <p class="text-[9px] font-display font-bold text-gray-700 uppercase tracking-[0.4em]">
-            © 2026 HORIZON SYSTEM. SECURE ENVIRONMENT.
-        </p>
-    </footer>
 
 </body>
 </html>
