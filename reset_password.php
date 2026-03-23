@@ -5,9 +5,9 @@ require_once 'db.php';
 $error = '';
 $success = '';
 $branding = null;
-$user_id = $_SESSION['reset_user_id'] ?? '';
+$token = $_GET['token'] ?? '';
 
-if (empty($user_id)) {
+if (empty($token)) {
     header("Location: forgot_password.php");
     exit;
 }
@@ -20,13 +20,13 @@ if (isset($_GET['gym'])) {
     $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
 }
 
-// Check if user is valid
-$stmt = $pdo->prepare("SELECT * FROM users WHERE user_id = ? LIMIT 1");
-$stmt->execute([$user_id]);
-$user = $stmt->fetch();
+// Check if token is valid
+$stmt = $pdo->prepare("SELECT * FROM user_verifications WHERE code = ? AND verification_type = 'password_reset' AND status = 'pending' AND expires_at > NOW() LIMIT 1");
+$stmt->execute([$token]);
+$verification = $stmt->fetch();
 
-if (!$user) {
-    $error = "Session expired or invalid user. Please start recovery again.";
+if (!$verification) {
+    $error = "This reset link is invalid or has expired. Please request a new one.";
 }
 
 if (isset($_SESSION['reset_error'])) {
@@ -132,6 +132,7 @@ if (isset($_SESSION['reset_error'])) {
 
                 <?php if (empty($error) || !strpos($error, 'link is invalid')): ?>
                 <form action="action/process_password_reset.php" method="POST" class="space-y-6">
+                    <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
                     <?php if (isset($_GET['gym'])): ?>
                         <input type="hidden" name="gym" value="<?= htmlspecialchars($_GET['gym']) ?>">
                     <?php endif; ?>
