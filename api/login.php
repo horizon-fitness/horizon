@@ -38,6 +38,14 @@ try {
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password_hash'])) {
+        // Strict Role Restriction for Mobile: Only Member/Customer allowed
+        $roleName = (string)($user['role_name'] ?? 'Member');
+        if (!in_array(strtolower($roleName), ['member', 'customer'])) {
+            ob_end_clean();
+            echo json_encode(['success' => false, 'message' => 'Only members are allowed on Mobile. Staff/Admin must use the Web portal.']);
+            exit;
+        }
+
         if (!$user['is_verified']) {
             ob_end_clean();
             echo json_encode(['success' => false, 'message' => 'Unverified', 'unverified' => true, 'user_id' => (int)$user['user_id']]);

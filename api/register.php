@@ -47,39 +47,12 @@ try {
             $tenant_code = $gym_data['tenant_code'];
             $role_name = 'Member';
         } else {
-            $stmtInv = $pdo->prepare("SELECT invitation_id, gym_id, staff_role FROM staff_invitations WHERE token = ? AND invitation_status = 'Pending' LIMIT 1");
-            $stmtInv->execute([$raw_gym_input]);
-            $inv = $stmtInv->fetch();
-
-            if ($inv) {
-                $gym_id = $inv['gym_id'];
-                $role_name = $inv['staff_role']; 
-                $invitation_id = $inv['invitation_id'];
-                
-                $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = ? LIMIT 1");
-                $stmtT->execute([$gym_id]);
-                $tenant_code = $stmtT->fetchColumn();
-            } else {
-                if (is_numeric($raw_gym_input)) {
-                    $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = ? LIMIT 1");
-                    $stmtT->execute([$raw_gym_input]);
-                    $found_code = $stmtT->fetchColumn();
-                    if ($found_code) {
-                        $gym_id = (int)$raw_gym_input;
-                        $tenant_code = $found_code;
-                        $role_name = 'Member'; 
-                    } else {
-                        $gym_id = 1;
-                        $tenant_code = '000';
-                    }
-                } else {
-                    $gym_id = 1; 
-                    $role_name = 'Member';
-                    $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = 1 LIMIT 1");
-                    $stmtT->execute();
-                    $tenant_code = $stmtT->fetchColumn() ?: '000';
-                }
-            }
+            // Disabled invitation-based staff registration for Mobile
+            $gym_id = 1; 
+            $role_name = 'Member';
+            $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = 1 LIMIT 1");
+            $stmtT->execute();
+            $tenant_code = $stmtT->fetchColumn() ?: '000';
         }
 
         $pdo->beginTransaction();

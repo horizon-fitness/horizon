@@ -29,26 +29,6 @@ try {
         exit;
     }
 
-    // 2. Check if it's an invitation token
-    $stmtInv = $pdo->prepare("SELECT invitation_id, gym_id FROM staff_invitations WHERE token = ? AND invitation_status = 'Pending' LIMIT 1");
-    $stmtInv->execute([$gym_id]);
-    $inv = $stmtInv->fetch();
-
-    if ($inv) {
-        $stmtT = $pdo->prepare("SELECT gym_name FROM gyms WHERE gym_id = ? LIMIT 1");
-        $stmtT->execute([$inv['gym_id']]);
-        $gym_name = $stmtT->fetchColumn();
-
-        ob_end_clean();
-        echo json_encode([
-            'success' => true,
-            'message' => 'Valid Invitation for: ' . $gym_name,
-            'gym_id' => $inv['gym_id'],
-            'gym_name' => $gym_name
-        ]);
-        exit;
-    }
-
     // 3. Check if it's a numeric gym_id (backward compatibility if needed)
     if (is_numeric($gym_id)) {
         $stmtT = $pdo->prepare("SELECT gym_name FROM gyms WHERE gym_id = ? LIMIT 1");
