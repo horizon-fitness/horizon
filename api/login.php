@@ -69,7 +69,8 @@ try {
                 'updated_at' => (string)($user['updated_at'] ?? date('Y-m-d H:i:s')),
                 'tenant_id' => (string)($user['ur_tenant_code'] ?? ($user['g_tenant_code'] ?? '000')),
                 'gym_name' => (string)($user['gym_name'] ?? 'Horizon'),
-                'gym_id' => (int)($user['gym_id'] ?? 0)
+                'gym_id' => (int)($user['gym_id'] ?? 0),
+                'role' => (string)($user['role_name'] ?? 'Member')
             ],
             'branding' => $branding ? [
                 'page_id' => (int)$branding['page_id'],
