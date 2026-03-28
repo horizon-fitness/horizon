@@ -12,6 +12,14 @@
     $user_id = $_SESSION['user_id'];
     $gym_id = $_SESSION['gym_id'];
 
+    // Fetch Gym Details
+    $gym = null;
+    if (!empty($gym_id)) {
+        $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ? LIMIT 1");
+        $stmtGym->execute([$gym_id]);
+        $gym = $stmtGym->fetch();
+    }
+
     // Fetch User Details
     $stmtUser = $pdo->prepare("SELECT *, CONCAT(first_name, ' ', last_name) as fullname FROM users WHERE user_id = ? LIMIT 1");
     $stmtUser->execute([$user_id]);
@@ -147,7 +155,7 @@
     <div class="mb-10 shrink-0"> 
         <div class="flex items-center gap-4 mb-4 min-w-[240px]"> 
             <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($gym['logo_path'])): ?>
+                <?php if ($gym && !empty($gym['logo_path'])): ?>
                     <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
                 <?php else: ?>
                     <span class="material-symbols-outlined text-white text-2xl">bolt</span>

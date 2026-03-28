@@ -5,13 +5,21 @@ require_once '../db.php';
 // Security Check
 $role = strtolower($_SESSION['role'] ?? '');
 if (!isset($_SESSION['user_id']) || $role !== 'coach') {
-    // If we're in a local environment or for demo purposes, we can mock session if needed
-    // header("Location: ../login.php");
-    // exit;
+    header("Location: ../login.php");
+    exit;
 }
 
 $user_id = $_GET['user_id'] ?? 0;
-$coach_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
+$gym_id = $_SESSION['gym_id'] ?? 0;
+$coach_name = ($_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? '');
+
+// Fetch Gym Details
+$gym = null;
+if (!empty($gym_id)) {
+    $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ? LIMIT 1");
+    $stmtGym->execute([$gym_id]);
+    $gym = $stmtGym->fetch();
+}
 
 // Mock data if db is missing or for sample
 $member_name = "Sample Member";
@@ -125,7 +133,7 @@ $workouts = [
     <div class="mb-10 shrink-0"> 
         <div class="flex items-center gap-4 mb-4 min-w-[240px]"> 
             <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($gym['logo_path'])): ?>
+                <?php if ($gym && !empty($gym['logo_path'])): ?>
                     <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
                 <?php else: ?>
                     <span class="material-symbols-outlined text-white text-2xl">bolt</span>

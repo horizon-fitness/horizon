@@ -13,7 +13,15 @@ $user_id = $_SESSION['user_id'];
 $gym_id = $_SESSION['gym_id'];
 // Added variable for First Name only
 $coach_first_name = $_SESSION['first_name'] ?? 'Coach';
-$coach_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
+$coach_name = ($$_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? '');
+
+// Fetch Gym Details
+$gym = null;
+if (!empty($gym_id)) {
+    $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ? LIMIT 1");
+    $stmtGym->execute([$gym_id]);
+    $gym = $stmtGym->fetch();
+}
 
 // Fetch Coach ID
 $stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
@@ -169,7 +177,7 @@ if (empty($schedule_result)) {
     <div class="mb-10 shrink-0"> 
         <div class="flex items-center gap-4 mb-4 min-w-[240px]"> 
             <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($gym['logo_path'])): ?>
+                <?php if ($gym && !empty($gym['logo_path'])): ?>
                     <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
                 <?php else: ?>
                     <span class="material-symbols-outlined text-white text-2xl">bolt</span>
