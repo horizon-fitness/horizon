@@ -34,7 +34,7 @@ $workouts = [
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Member Workouts | Horizon Coach</title>
+    <title>Coach Portal | Horizon Systems</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -59,15 +59,8 @@ $workouts = [
     </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; padding-bottom: 100px; }
-        .glass-card { 
-            background: rgba(20, 18, 26, 0.8); 
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255,255,255,0.05); 
-            border-radius: 24px; 
-            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-        }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         
-        /* Sidebar Hover Logic - ADJUSTED WIDTHS */
         .sidebar-nav {
             width: 110px; 
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -75,14 +68,11 @@ $workouts = [
             overflow-x: hidden !important;
             display: flex;
             flex-direction: column;
-            padding-right: 0 !important;
+            padding-right: 0 !important; /* Ensure indicator can be flush */
         }
         .sidebar-nav:hover {
-            width: 280px; 
+            width: 280px; /* Increased to fit CORSANO FITNESS */
         }
-
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: hidden !important; }
 
         .nav-text {
             opacity: 0;
@@ -112,7 +102,6 @@ $workouts = [
             pointer-events: auto;
         }
         .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 0px !important; } 
-Pre-existing navigation link base styles already configured.
 
         .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
@@ -136,8 +125,11 @@ Pre-existing navigation link base styles already configured.
         }
         .mobile-taskbar { background: rgba(20, 18, 26, 0.9); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.05); }
         .alert-dot { animation: pulse 2s infinite; }
-        
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: hidden !important; }
+
         @keyframes slideUp { 
             from { transform: translateY(20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -163,7 +155,7 @@ Pre-existing navigation link base styles already configured.
                 <?php endif; ?>
             </div>
             <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white leading-tight whitespace-nowrap">
-                <?= htmlspecialchars($gym['gym_name'] ?? 'HORIZON COACH') ?>
+                <?= htmlspecialchars($gym['gym_name'] ?? 'HORIZON SYSTEMS') ?>
             </h1>
         </div>
     </div>
@@ -173,10 +165,10 @@ Pre-existing navigation link base styles already configured.
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Main Menu</span>
         </div>
         
-        <a href="coach_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_dashboard.php') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="coach_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_dashboard.php' && !isset($_GET['user_id'])) ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
-            <?php if($pending_count > 0): ?><span class="size-1.5 rounded-full bg-primary alert-dot ml-auto"></span><?php endif; ?>
+            <?php if(isset($pending_count) && $pending_count > 0): ?><span class="size-1.5 rounded-full bg-primary alert-dot ml-auto"></span><?php endif; ?>
         </a>
         
         <a href="coach_schedule.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_schedule.php') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
@@ -193,7 +185,7 @@ Pre-existing navigation link base styles already configured.
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Training</span>
         </div>
 
-        <a href="coach_workouts.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_workouts.php') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="coach_workouts.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_workouts.php' || isset($_GET['user_id'])) ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">fitness_center</span> 
             <span class="nav-text">Workouts</span>
         </a>
