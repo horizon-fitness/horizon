@@ -248,9 +248,9 @@ if (empty($schedule_result)) {
             <span class="nav-text">Profile</span>
         </a>
 
-        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
-            <span class="nav-link nav-text text-sm">Sign Out</span>
+        <a href="../logout.php" class="nav-link flex items-center gap-4 py-2 text-gray-400 hover:text-rose-500 transition-colors group">
+            <span class="material-symbols-outlined text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
+            <span class="nav-text">Sign Out</span>
         </a>
     </div>
 </nav>
