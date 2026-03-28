@@ -3,15 +3,13 @@ session_start();
 // Database connection commented out for UI preview
 // require_once '../db.php';
 
-// Mocked session data for UI preview
+// Mocked session data
 $_SESSION['user_id'] = 1;
 $_SESSION['gym_id'] = 1;
 $_SESSION['role'] = 'tenant';
 
 $gym_id = $_SESSION['gym_id'];
-$active_page = 'staff';
-$success = '';
-$error = '';
+$active_page = 'transactions';
 
 // Mock Gym Details
 $gym = [
@@ -28,31 +26,28 @@ $page = [
     'logo_path' => ''
 ];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $first_name = trim($_POST['first_name'] ?? '');
-    $middle_name = trim($_POST['middle_name'] ?? '');
-    $last_name = trim($_POST['last_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $username = trim($_POST['username'] ?? '');
-    $contact_number = trim($_POST['contact_number'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $staff_role = $_POST['staff_role'] ?? 'Staff';
-    $employment_type = $_POST['employment_type'] ?? 'Full-time';
-    $now = date('Y-m-d H:i:s');
+// Mock Financial Calculations
+$total_revenue = 125450.00;
+$monthly_sales = 45200.00;
+$daily_sales = 2850.00;
 
-    if (empty($first_name) || empty($last_name) || empty($email) || empty($username)) {
-        $error = "All fields are required.";
-    } else {
-        $success = "Staff member $first_name added successfully! (UI PREVIEW)";
-    }
-}
+// Mock Transactions
+$transactions = [
+    ['payment_id' => 1001, 'first_name' => 'John', 'last_name' => 'Doe', 'amount' => 1500.00, 'payment_method' => 'GCash', 'created_at' => date('Y-m-d H:i:s', strtotime('-1 hour'))],
+    ['payment_id' => 1002, 'first_name' => 'Jane', 'last_name' => 'Smith', 'amount' => 2000.00, 'payment_method' => 'Bank Transfer', 'created_at' => date('Y-m-d H:i:s', strtotime('-3 hours'))],
+    ['payment_id' => 1003, 'first_name' => 'Michael', 'last_name' => 'Brown', 'amount' => 1500.00, 'payment_method' => 'Cash', 'created_at' => date('Y-m-d H:i:s', strtotime('-5 hours'))],
+    ['payment_id' => 1004, 'first_name' => 'Emily', 'last_name' => 'Davis', 'amount' => 3000.00, 'payment_method' => 'GCash', 'created_at' => date('Y-m-d H:i:s', strtotime('-1 day'))],
+    ['payment_id' => 1005, 'first_name' => 'Chris', 'last_name' => 'Wilson', 'amount' => 1500.00, 'payment_method' => 'Cash', 'created_at' => date('Y-m-d H:i:s', strtotime('-1 day'))],
+    ['payment_id' => 1006, 'first_name' => 'Sarah', 'last_name' => 'Connor', 'amount' => 2500.00, 'payment_method' => 'Bank Transfer', 'created_at' => date('Y-m-d H:i:s', strtotime('-2 days'))]
+];
+
 ?>
 
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
-    <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Add New Staff | Horizon Tenant</title>
+    <meta charset="utf-8">
+    <title>Sales Intelligence | Horizon</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -132,8 +127,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; transition: all 0.2s; }
-        .input-field:focus { border-color: #8c2bee; outline: none; box-shadow: 0 0 0 2px rgba(140, 43, 238, 0.2); }
+
+        /* Filter Specific Styling */
+        .filter-input {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: white;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .filter-input:focus {
+            border-color: #8c2bee;
+            background: rgba(140, 43, 238, 0.05);
+        }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
@@ -222,9 +232,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </nav>
 
-    <script>
-
-        function updateTopClock() {
+<script>
+    function updateTopClock() {
 
             const now = new Date();
 
@@ -247,15 +256,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setInterval(updateTopClock, 1000);
 
         window.addEventListener('DOMContentLoaded', updateTopClock);
-
-    </script>
+</script>
 
 <main class="flex-1 overflow-y-auto no-scrollbar p-10">
     <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div class="flex flex-col md:flex-row md:items-end justify-between w-full">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-primary">Onboard <span class="text-white">Staff</span></h2>
-                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Create new system access credentials</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter">Transaction <span class="text-primary">History</span></h2>
+                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Monitor financial activities</p>
             </div>
             <div class="flex flex-col items-end mt-4 md:mt-0">
                 <p id="topClock" class="text-white font-black italic text-2xl leading-none">00:00:00 AM</p>
@@ -269,79 +277,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </header>
 
-    <header class="mb-10 flex justify-between items-center">
-        <a href="staff.php" class="text-gray-500 hover:text-white flex items-center gap-2 font-black italic uppercase text-[10px] tracking-widest transition-all ml-auto">
-            <span class="material-symbols-outlined text-sm text-primary">arrow_back</span> Back to Roster
-        </a>
-    </header>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+        <div class="glass-card p-8">
+            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Total Revenue</p>
+            <h3 class="text-3xl font-black italic tracking-tighter text-white">₱<?= number_format($total_revenue, 2) ?></h3>
+        </div>
+        <div class="glass-card p-8 border-l-4 border-primary">
+            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Monthly Sales</p>
+            <h3 class="text-3xl font-black italic tracking-tighter text-primary">₱<?= number_format($monthly_sales, 2) ?></h3>
+        </div>
+        <div class="glass-card p-8">
+            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Weekly Forecast</p>
+            <h3 class="text-3xl font-black italic tracking-tighter text-white">₱<?= number_format($monthly_sales / 4, 2) ?></h3>
+        </div>
+        <div class="glass-card p-8 border-l-4 border-emerald-500">
+            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Daily Revenue</p>
+            <h3 class="text-3xl font-black italic tracking-tighter text-emerald-500">₱<?= number_format($daily_sales, 2) ?></h3>
+        </div>
+    </div>
 
-    <div class="glass-card p-10 max-w-5xl">
-        <?php if($success): ?>
-            <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-3">
-                <span class="material-symbols-outlined">check_circle</span> <?= $success ?>
+    <div class="glass-card p-6 mb-8">
+        <form class="flex flex-wrap items-center gap-4">
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Date</label>
+                <input type="date" class="filter-input w-44">
             </div>
-        <?php endif; ?>
-        <?php if($error): ?>
-            <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center gap-3">
-                <span class="material-symbols-outlined">error</span> <?= $error ?>
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Month</label>
+                <select class="filter-input w-40">
+                    <option value="">All Months</option>
+                    <option value="01">January</option>
+                    <option value="02">February</option>
+                    <option value="03">March</option>
+                    <option value="04">April</option>
+                    <option value="05">May</option>
+                    <option value="06">June</option>
+                    <option value="07">July</option>
+                    <option value="08">August</option>
+                    <option value="09">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
             </div>
-        <?php endif; ?>
-
-        <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2">Identity Info</h4>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">First Name</label>
-                        <input type="text" name="first_name" required class="input-field">
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Last Name</label>
-                        <input type="text" name="last_name" required class="input-field">
-                    </div>
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Email Address</label>
-                    <input type="email" name="email" required class="input-field">
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Contact Number</label>
-                    <input type="text" name="contact_number" class="input-field">
-                </div>
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Year</label>
+                <select class="filter-input w-28">
+                    <option value="2026">2026</option>
+                    <option value="2025">2025</option>
+                    <option value="2024">2024</option>
+                </select>
             </div>
-
-            <div class="space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2">Account Authority</h4>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">System Username</label>
-                    <input type="text" name="username" required class="input-field">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Assigned Role</label>
-                        <select name="staff_role" class="input-field">
-                            <option value="Staff">Staff</option>
-                            <option value="Coach">Coach</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Employment</label>
-                        <select name="employment_type" class="input-field">
-                            <option value="Full-time">Full-time</option>
-                            <option value="Part-time">Part-time</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Password (Optional - will auto-gen if empty)</label>
-                    <input type="password" name="password" class="input-field" placeholder="Leave empty for auto-gen">
-                </div>
-            </div>
-
-            <div class="md:col-span-2 pt-6">
-                <button type="submit" class="w-full bg-primary text-white py-4 rounded-xl font-black italic uppercase tracking-widest text-xs shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Onboard Staff Member</button>
-            </div>
+            <button type="submit" class="mt-5 bg-primary/10 text-primary border border-primary/20 px-6 py-2 rounded-xl font-black italic uppercase tracking-tighter text-[10px] hover:bg-primary hover:text-white transition-all">
+                Filter Results
+            </button>
         </form>
+    </div>
+
+    <div class="glass-card overflow-hidden shadow-2xl">
+        <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+            <h4 class="font-black italic uppercase text-xs tracking-widest flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">receipt_long</span> Transaction History
+            </h4>
+            <div class="text-[10px] font-bold text-gray-500 italic uppercase">Showing last 50 entries</div>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-[10px] font-black uppercase tracking-widest text-gray-500 border-b border-white/5">
+                        <th class="px-8 py-5">Transaction ID</th>
+                        <th class="px-8 py-5">Customer / Member</th>
+                        <th class="px-8 py-5">Amount</th>
+                        <th class="px-8 py-5">Method</th>
+                        <th class="px-8 py-5">Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    <?php if(empty($transactions)): ?>
+                        <tr><td colspan="5" class="px-8 py-20 text-center text-gray-600 font-black italic uppercase">No financial data recorded yet.</td></tr>
+                    <?php else: ?>
+                        <?php foreach($transactions as $t): ?>
+                        <tr class="hover:bg-white/[0.02] transition-all group">
+                            <td class="px-8 py-6 text-xs font-mono text-gray-400">#TRX-<?= str_pad($t['payment_id'], 5, '0', STR_PAD_LEFT) ?></td>
+                            <td class="px-8 py-6">
+                                <p class="font-black italic uppercase tracking-tighter text-sm">
+                                    <?= isset($t['first_name']) ? htmlspecialchars($t['first_name'].' '.$t['last_name']) : 'Guest Transaction' ?>
+                                </p>
+                            </td>
+                            <td class="px-8 py-6">
+                                <span class="text-sm font-black italic text-emerald-400">₱<?= number_format($t['amount'], 2) ?></span>
+                            </td>
+                            <td class="px-8 py-6">
+                                <span class="text-[9px] font-black uppercase px-3 py-1 rounded bg-white/5 border border-white/10 text-gray-400">
+                                    <?= $t['payment_method'] ?>
+                                </span>
+                            </td>
+                            <td class="px-8 py-6 text-[10px] font-bold text-gray-500 uppercase">
+                                <?= date('M d, Y | h:i A', strtotime($t['created_at'])) ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 </main>
 

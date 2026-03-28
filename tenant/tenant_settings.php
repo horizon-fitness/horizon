@@ -11,19 +11,19 @@ if (!isset($_SESSION['user_id']) || ($role !== 'tenant' && $role !== 'admin' && 
 
 $gym_id = $_SESSION['gym_id'];
 $user_id = $_SESSION['user_id'];
+$active_page = "settings";
 
-// Check Subscription
-$stmtSub = $pdo->prepare("SELECT ws.plan_name FROM client_subscriptions cs JOIN website_plans ws ON cs.website_plan_id = ws.website_plan_id WHERE cs.gym_id = ? AND cs.subscription_status = 'Active' LIMIT 1");
-$stmtSub->execute([$gym_id]);
-$sub = $stmtSub->fetch();
-if (!$sub) { header("Location: subscription_plan.php"); exit; }
-
-// Fetch Gym Details
+// Fetch Gym Details for sidebar
 $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]);
 $gym = $stmtGym->fetch();
 
-// Fetch CMS Page
+// Fetch Subscription for sidebar
+$stmtSub = $pdo->prepare("SELECT ws.plan_name FROM client_subscriptions cs JOIN website_plans ws ON cs.website_plan_id = ws.website_plan_id WHERE cs.gym_id = ? AND cs.subscription_status = 'Active' LIMIT 1");
+$stmtSub->execute([$gym_id]);
+$sub = $stmtSub->fetch();
+
+// Fetch CMS Page for sidebar
 $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $page_title = $_POST['page_title'];
     $theme_color = $_POST['theme_color'];
     $bg_color = $_POST['bg_color'];
-    $font_family = $_POST['font_family'];
+    $font_family = $_POST['font_family'] ?? 'Lexend';
     $app_download_link = $_POST['app_download_link'] ?? '';
     $about_text = $_POST['about_text'] ?? '';
     $contact_text = $_POST['contact_text'] ?? '';
@@ -64,14 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtInsert = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, banner_image, theme_color, bg_color, font_family, app_download_link, about_text, contact_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmtInsert->execute([$gym_id, $page_slug, $page_title, $logo_path, $banner_image, $theme_color, $bg_color, $font_family, $app_download_link, $about_text, $contact_text, $now]);
         }
-        $_SESSION['success_msg'] = "Portal settings saved!";
-        header("Location: tenant_settings.php");
-        exit;
+        $success = "Portal customization saved!";
+        // Refresh page data
+        $stmtPage->execute([$gym_id]);
+        $page = $stmtPage->fetch();
     } catch (Exception $e) { $error = $e->getMessage(); }
 }
 
-$page_title_meta = "Page Customize";
-$active_page = "settings";
+$page_title_meta = "Portal Customization";
+$active_page = "profile";
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -91,17 +92,69 @@ $active_page = "settings";
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
+
         .active-nav { color: #8c2bee !important; position: relative; }
+
         .active-nav::after { 
+
             content: ''; 
+
             position: absolute; 
+
             right: -32px; 
+
             top: 50%;
+
             transform: translateY(-50%);
+
             width: 4px; 
+
             height: 20px; 
+
             background: #8c2bee; 
+
             border-radius: 99px; 
+
+        }
+
+        /* Sidebar Hover Logic */
+        .sidebar-nav {
+            width: 85px; 
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-nav:hover {
+            width: 300px; 
+        }
+
+        .nav-text {
+            opacity: 0;
+            transform: translateX(-15px);
+            transition: all 0.3s ease-in-out;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .sidebar-nav:hover .nav-text {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .nav-section-header {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 0 !important;
+            pointer-events: none;
+        }
+        .sidebar-nav:hover .nav-section-header {
+            max-height: 20px;
+            opacity: 1;
+            margin-bottom: 8px !important; 
+            pointer-events: auto;
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -141,92 +194,135 @@ $active_page = "settings";
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
 
-<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
-    <div class="mb-12">
-        <div class="flex items-center gap-3 mb-6">
-            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($page['logo_path'])): ?>
-                    <img id="sidebar-logo" src="<?= $page['logo_path'] ?>" class="size-full object-contain">
+<nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
+    <div class="mb-10 shrink-0"> 
+        <div class="flex items-center gap-4 mb-4"> 
+            <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($gym['logo_path'])): ?>
+                    <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
                 <?php else: ?>
-                    <span id="sidebar-icon" class="material-symbols-outlined text-white text-2xl">bolt</span>
+                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
                 <?php endif; ?>
             </div>
-            <h1 class="text-lg font-black italic uppercase tracking-tighter text-white leading-none break-words line-clamp-2 gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?></h1>
-        </div>
-        <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
-            <div class="mb-2">
-                <p id="sidebarClock" class="text-white font-black italic text-base leading-none">00:00:00 AM</p>
-            </div>
-            <p class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mb-1"><?= date('l, M d') ?></p>
-            <div class="pt-2 border-t border-white/5 mt-2">
-                <p class="text-[8px] font-black uppercase text-gray-600 tracking-widest mb-1">Current Plan</p>
-                <div class="flex items-center justify-between">
-                    <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
-                    <span class="px-2 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest">Active</span>
-                </div>
-            </div>
+            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white leading-tight break-words line-clamp-2">
+                <?= htmlspecialchars($gym['gym_name'] ?? 'CORSANO FITNESS') ?>
+            </h1>
         </div>
     </div>
     
-    <div class="flex flex-col gap-5 flex-1 overflow-y-auto no-scrollbar pr-2">
-        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
+    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
+        <div class="nav-section-header px-0 mb-2">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Main Menu</span>
+        </div>
+        
+        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
+            <span class="nav-text">Dashboard</span>
         </a>
-        <a href="tenant_settings.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">palette</span> Page Customize
+        
+        <a href="my_users.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'users') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">group</span> 
+            <span class="nav-text">My Users</span>
         </a>
-        <a href="staff_management.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'staff') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">group</span> Staff Management
+
+        <a href="transactions.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
+            <span class="nav-text">Transactions</span>
+            <span class="size-1.5 rounded-full bg-red-500 ml-auto"></span>
         </a>
-        <a href="my_users.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'users') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">person_search</span> My Users
+
+        <a href="attendance.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'attendance') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">history</span> 
+            <span class="nav-text">Attendance</span>
         </a>
-        <a href="reports.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">monitoring</span> Reports
+
+        <div class="nav-section-header px-0 mb-2 mt-6">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
+        </div>
+
+        <a href="staff.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'staff') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">badge</span> 
+            <span class="nav-text">Staff Management</span>
         </a>
-        <a href="sales_reports.php" class="nav-link flex items-center gap-3 <?= ($active_page == 'sales') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl">payments</span> Sales Reports
+
+        <a href="reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
+            <span class="nav-text">System Reports</span>
+        </a>
+
+        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">payments</span> 
+            <span class="nav-text">Sales Reports</span>
         </a>
     </div>
 
-    <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-5">
-        <a href="#" class="text-gray-400 hover:text-white transition-colors flex items-center gap-3 group">
-            <span class="material-symbols-outlined transition-transform group-hover:text-primary">person</span>
-            <span class="nav-link">Profile</span>
+    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0">
+        <div class="nav-section-header px-0 mb-2">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
+        </div>
+        
+        <a href="facility_setup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'facility') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
+            <span class="nav-text">Settings</span>
         </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-            <span class="nav-link">Sign Out</span>
+
+        <a href="tenant_settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">person</span> 
+            <span class="nav-text">Profile</span>
+        </a>
+
+        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
+            <span class="nav-link nav-text text-sm">Sign Out</span>
         </a>
     </div>
 </nav>
 
-<main class="flex-1 p-10 max-w-[1400px] w-full mx-auto overflow-y-auto no-scrollbar">
-    <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <div>
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Page <span class="text-primary">Customize</span></h2>
-            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Operational Brand Management</p>
+<script>
+    function updateTopClock() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', {
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+        const clockEl = document.getElementById('topClock');
+        if (clockEl) clockEl.textContent = timeString;
+    }
+    setInterval(updateTopClock, 1000);
+</script>
+
+<main class="flex-1 overflow-y-auto no-scrollbar p-10 master-content">
+    <div class="max-w-7xl mx-auto w-full">
+        <header class="mb-10 flex justify-between items-end">
+            <div>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-primary">Portal <span class="text-white">Customization</span></h2>
+                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Manage your brand presence & mockup</p>
+            </div>
+            <div class="flex flex-col items-end">
+                <p id="topClock" class="text-white font-black italic text-2xl leading-none">00:00:00 AM</p>
+                <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
+                <div class="flex items-center gap-2 mt-2 px-3 py-1 rounded-lg bg-white/5 border border-white/5">
+                    <p class="text-[9px] font-black uppercase text-gray-400 tracking-widest">Plan:</p>
+                    <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
+                    <span class="px-1.5 py-0.5 rounded-md bg-primary/20 text-primary text-[7px] font-black uppercase tracking-widest">Active</span>
+                </div>
+            </div>
+        </header>
+
+        <?php if ($error): ?>
+        <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-3">
+            <span class="material-symbols-outlined">report</span> <?= $error ?>
         </div>
-        <div class="flex gap-2">
-            <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="px-5 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
-                <span class="material-symbols-outlined text-sm">open_in_new</span> Full Web Portal
-            </a>
+        <?php endif; ?>
+
+        <?php if ($success): ?>
+        <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-3">
+            <span class="material-symbols-outlined">check_circle</span> <?= $success ?>
         </div>
-    </header>
+        <?php endif; ?>
 
-    <?php if ($error): ?>
-    <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-3">
-        <span class="material-symbols-outlined">report</span> <?= $error ?>
-    </div>
-    <?php endif; ?>
-
-    <?php if (isset($_SESSION['success_msg'])): ?>
-    <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-3">
-        <span class="material-symbols-outlined">check_circle</span> <?= $_SESSION['success_msg']; unset($_SESSION['success_msg']); ?>
-    </div>
-    <?php endif; ?>
-
-    <form id="customizeForm" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 lg:grid-cols-2 gap-10">
+        <form id="customizeForm" method="POST" enctype="multipart/form-data" class="grid grid-cols-1 lg:grid-cols-2 gap-10">
         <div class="space-y-8">
             <div class="glass-card p-8">
                 <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
@@ -291,18 +387,10 @@ $active_page = "settings";
             </div>
         </div>
     </form>
+</div>
 </main>
 
 <script>
-    function updateSidebarClock() {
-        const now = new Date();
-        const clockEl = document.getElementById('sidebarClock');
-        if (clockEl) {
-            clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }
-    }
-    setInterval(updateSidebarClock, 1000);
-
     function previewLogo(input) {
         if (input.files && input.files[0]) {
             var reader = new FileReader();
@@ -311,11 +399,20 @@ $active_page = "settings";
                 logoPreview.src = e.target.result;
                 logoPreview.classList.remove('hidden');
                 document.getElementById('logo-placeholder').classList.add('hidden');
-                
-                const sidebarLogo = document.getElementById('sidebar-logo');
-                if (sidebarLogo) sidebarLogo.src = e.target.result;
-
                 updatePreview(e.target.result);
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function previewBanner(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                const bannerPreview = document.getElementById('banner-preview-small');
+                bannerPreview.src = e.target.result;
+                bannerPreview.classList.remove('hidden');
+                updatePreview();
             }
             reader.readAsDataURL(input.files[0]);
         }
@@ -323,14 +420,17 @@ $active_page = "settings";
 
     function updatePreview(logoData = null) {
         const form = document.getElementById('customizeForm');
+        if (!form) return;
         const formData = new FormData(form);
         const data = {};
         formData.forEach((value, key) => { if (key !== 'logo' && key !== 'banner') data[key] = value; });
         
         if (logoData) data.logo_preview = logoData;
         
-        document.getElementById('primary-hex').innerText = (data.theme_color || '#8c2bee').toUpperCase();
-        document.getElementById('bg-hex').innerText = (data.bg_color || '#0a090d').toUpperCase();
+        const primaryHex = document.getElementById('primary-hex');
+        const bgHex = document.getElementById('bg-hex');
+        if (primaryHex) primaryHex.innerText = (data.theme_color || '#8c2bee').toUpperCase();
+        if (bgHex) bgHex.innerText = (data.bg_color || '#0a090d').toUpperCase();
         
         const iframe = document.getElementById('previewIframe');
         if (iframe && iframe.contentWindow) {
@@ -339,7 +439,7 @@ $active_page = "settings";
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-        updateSidebarClock();
+        updateTopClock();
         setTimeout(updatePreview, 1000);
     });
 </script>

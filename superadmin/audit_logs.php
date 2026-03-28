@@ -21,7 +21,17 @@ $tenant_filter = $_GET['tenant_id'] ?? 'all';
 // Fetch Tenants for Filter Dropdown
 $tenants_list = $pdo->query("SELECT gym_id, gym_name FROM gyms WHERE status = 'Active' ORDER BY gym_name ASC")->fetchAll();
 
+// Pagination Settings
+$limit = 10;
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$offset = ($page - 1) * $limit;
+
 // Logic for fetching logs
+$count_query = "SELECT COUNT(*) 
+                FROM audit_logs al 
+                JOIN users u ON al.user_id = u.user_id 
+                WHERE al.created_at BETWEEN :start AND :end";
+
 $query = "SELECT al.*, u.first_name, u.last_name, r.role_name as role, g.gym_name
           FROM audit_logs al 
           JOIN users u ON al.user_id = u.user_id 
@@ -36,26 +46,48 @@ $params = [
 ];
 
 if ($action_filter !== 'all') {
+    $count_query .= " AND al.action_type = :type";
     $query .= " AND al.action_type = :type";
     $params['type'] = $action_filter;
 }
 
 if ($tenant_filter !== 'all') {
+    $count_query .= " AND al.gym_id = :tid";
     $query .= " AND al.gym_id = :tid";
     $params['tid'] = $tenant_filter;
 }
 
 if (!empty($search)) {
-    $query .= " AND (al.table_name LIKE :s1 OR al.action_type LIKE :s2 OR u.first_name LIKE :s3 OR u.last_name LIKE :s4)";
+    $search_condition = " AND (al.table_name LIKE :s1 OR al.action_type LIKE :s2 OR u.first_name LIKE :s3 OR u.last_name LIKE :s4)";
+    $count_query .= $search_condition;
+    $query .= $search_condition;
     $params['s1'] = "%$search%";
     $params['s2'] = "%$search%";
     $params['s3'] = "%$search%";
     $params['s4'] = "%$search%";
 }
 
-$query .= " ORDER BY al.created_at DESC LIMIT 100";
+// Get total records for pagination
+$count_stmt = $pdo->prepare($count_query);
+$count_stmt->execute($params);
+$total_records = $count_stmt->fetchColumn();
+$total_pages = ceil($total_records / $limit);
+
+$query .= " ORDER BY al.created_at DESC LIMIT :limit OFFSET :offset";
 $stmt = $pdo->prepare($query);
-$stmt->execute($params);
+$stmt->bindParam(':start', $params['start']);
+$stmt->bindParam(':end', $params['end']);
+if ($action_filter !== 'all') $stmt->bindParam(':type', $params['type']);
+if ($tenant_filter !== 'all') $stmt->bindParam(':tid', $params['tid']);
+if (!empty($search)) {
+    $stmt->bindParam(':s1', $params['s1']);
+    $stmt->bindParam(':s2', $params['s2']);
+    $stmt->bindParam(':s3', $params['s3']);
+    $stmt->bindParam(':s4', $params['s4']);
+}
+$stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
+$stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
+$stmt->execute();
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
@@ -159,22 +191,31 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         function reactiveFilter() {
             clearTimeout(filterTimeout);
             filterTimeout = setTimeout(() => {
-                const form = document.getElementById('auditFilterForm');
-                const formData = new FormData(form);
-                const params = new URLSearchParams(formData);
-                
-                // Fetch the updated table content
-                fetch(`audit_logs.php?${params.toString()}&ajax=1`)
-                    .then(response => response.text())
-                    .then(html => {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(html, 'text/html');
-                        const newTable = doc.getElementById('auditTableContainer');
-                        if (newTable) {
-                            document.getElementById('auditTableContainer').innerHTML = newTable.innerHTML;
-                        }
-                    });
+                changePage(1); // Reset to page 1 on filter change
             }, 300); // 300ms debounce
+        }
+
+        function changePage(page) {
+            const form = document.getElementById('auditFilterForm');
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            params.set('page', page);
+            
+            // Update the URL without reloading
+            const newUrl = `${window.location.pathname}?${params.toString()}`;
+            window.history.pushState({path: newUrl}, '', newUrl);
+
+            // Fetch the updated table content
+            fetch(`${window.location.pathname}?${params.toString()}&ajax=1`)
+                .then(response => response.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newTable = doc.getElementById('auditTableContainer');
+                    if (newTable) {
+                        document.getElementById('auditTableContainer').innerHTML = newTable.innerHTML;
+                    }
+                });
         }
 
         setInterval(updateHeaderClock, 1000);
@@ -206,7 +247,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             `;
 
             const contentClone = element.cloneNode(true);
-            contentClone.querySelectorAll('button, .material-symbols-outlined, .flex-wrap').forEach(el => el.remove());
+            contentClone.querySelectorAll('button, .material-symbols-outlined, .flex-wrap, .pagination-controls').forEach(el => el.remove());
 
             [contentClone, ...contentClone.querySelectorAll('*')].forEach(el => {
                 el.removeAttribute('class');
@@ -265,97 +306,90 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
-    <div class="mb-8">
-        <div class="flex items-center gap-4 mb-6">
+<nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
+    <div class="mb-4 shrink-0"> 
+        <div class="flex items-center gap-4 mb-4"> 
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
             </div>
             <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
         </div>
     </div>
-    <div class="sidebar-content flex-1 overflow-y-auto no-scrollbar pr-2 pb-10 flex flex-col">
-        <!-- Overview Section -->
-        <div class="nav-section-header px-0 mb-2 mt-4">
+    
+    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
+        <div class="nav-section-header px-0 mb-2">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
         </div>
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
-            <span class="nav-link nav-text">Dashboard</span>
+            <span class="nav-text">Dashboard</span>
         </a>
         
-        <!-- Management Section -->
-        <div class="nav-section-header px-0 mb-2 mt-6">
+        <div class="nav-section-header px-0 mb-2 mt-4">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
         </div>
         <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">business</span> 
-            <span class="nav-link nav-text">Tenant Management</span>
+            <span class="nav-text">Tenant Management</span>
         </a>
 
         <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
-            <span class="nav-link nav-text">Subscription Logs</span>
-        </a>
-
-        <a href="rbac_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">security</span> 
-            <span class="nav-link nav-text">Access Control</span>
+            <span class="nav-text">Subscription Logs</span>
         </a>
 
         <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span> 
-            <span class="nav-link nav-text">Real-Time Occupancy</span>
+            <span class="nav-text">Real-Time Occupancy</span>
         </a>
 
         <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
-            <span class="nav-link nav-text">Recent Transactions</span>
+            <span class="nav-text">Recent Transactions</span>
         </a>
 
-        <!-- System Section -->
-        <div class="nav-section-header px-0 mb-2 mt-6">
+        <div class="nav-section-header px-0 mb-2 mt-4">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System</span>
         </div>
         <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
-            <span class="nav-link nav-text">System Alerts</span>
+            <span class="nav-text">System Alerts</span>
         </a>
 
         <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
-            <span class="nav-link nav-text">Reports</span>
+            <span class="nav-text">Reports</span>
         </a>
 
         <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">monitoring</span> 
-            <span class="nav-link nav-text">Sales Reports</span>
+            <span class="nav-text">Sales Reports</span>
         </a>
 
         <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">assignment</span> 
-            <span class="nav-link nav-text">Audit Logs</span>
+            <span class="nav-text">Audit Logs</span>
         </a>
 
         <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
-            <span class="nav-link nav-text">Backup</span>
+            <span class="nav-text">Backup</span>
         </a>
     </div>
 
-    <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-4">
-        <div class="nav-section-header px-0 mb-2">
+    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-2 shrink-0">
+        <div class="nav-section-header px-0 mb-0">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
         </div>
         <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
-            <span class="nav-link nav-text">Settings</span>
+            <span class="nav-text">Settings</span>
         </a>
         <a href="profile.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">person</span> 
             <span class="nav-text">Profile</span>
         </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group">
+        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
             <span class="nav-link nav-text">Sign Out</span>
         </a>
@@ -421,7 +455,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </form>
         </div>
 
-        <div class="glass-card overflow-hidden">
+        <div class="glass-card overflow-hidden" id="auditTableContainer">
             <div class="px-8 py-6 border-b border-white/5 bg-white/[0.01] flex flex-wrap justify-between items-center gap-4">
                 <div>
                     <h3 class="text-sm font-black italic uppercase tracking-widest text-white">System Audit Trail</h3>
@@ -436,7 +470,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </button>
                 </div>
             </div>
-            <div class="overflow-x-auto" id="auditTableContainer">
+            <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
                         <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
@@ -490,6 +524,50 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     </tbody>
                 </table>
             </div>
+
+            <!-- Pagination Controls -->
+            <?php if ($total_pages > 1): ?>
+            <div class="px-8 py-6 border-t border-white/5 bg-white/[0.01] flex items-center justify-between pagination-controls">
+                <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                    Showing <span class="text-white"><?= $offset + 1 ?></span> to <span class="text-white"><?= min($offset + $limit, $total_records) ?></span> of <span class="text-white"><?= $total_records ?></span> results
+                </p>
+                <div class="flex items-center gap-2">
+                    <?php if ($page > 1): ?>
+                        <button onclick="changePage(<?= $page - 1 ?>)" class="size-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-primary/20 hover:border-primary/50 transition-all group">
+                            <span class="material-symbols-outlined text-sm group-hover:-translate-x-0.5 transition-transform">chevron_left</span>
+                        </button>
+                    <?php endif; ?>
+
+                    <div class="flex items-center gap-1">
+                        <?php
+                        $start_page = max(1, $page - 2);
+                        $end_page = min($total_pages, $page + 2);
+
+                        if ($start_page > 1) {
+                            echo '<button onclick="changePage(1)" class="size-8 rounded-lg bg-white/5 border border-white/10 text-[10px] font-black text-gray-400 hover:text-white hover:bg-primary/20 transition-all">1</button>';
+                            if ($start_page > 2) echo '<span class="text-gray-600 text-[10px]">...</span>';
+                        }
+
+                        for ($i = $start_page; $i <= $end_page; $i++) {
+                            $active = ($i == $page) ? 'bg-primary text-black border-primary' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-primary/20';
+                            echo '<button onclick="changePage('.$i.')" class="size-8 rounded-lg border '.$active.' text-[10px] font-black transition-all">'.$i.'</button>';
+                        }
+
+                        if ($end_page < $total_pages) {
+                            if ($end_page < $total_pages - 1) echo '<span class="text-gray-600 text-[10px]">...</span>';
+                            echo '<button onclick="changePage('.$total_pages.')" class="size-8 rounded-lg bg-white/5 border border-white/10 text-[10px] font-black text-gray-400 hover:text-white hover:bg-primary/20 transition-all">'.$total_pages.'</button>';
+                        }
+                        ?>
+                    </div>
+
+                    <?php if ($page < $total_pages): ?>
+                        <button onclick="changePage(<?= $page + 1 ?>)" class="size-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-primary/20 hover:border-primary/50 transition-all group">
+                            <span class="material-symbols-outlined text-sm group-hover:translate-x-0.5 transition-transform">chevron_right</span>
+                        </button>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
     </main>
 </div>

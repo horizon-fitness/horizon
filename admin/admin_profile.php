@@ -4,7 +4,7 @@ require_once '../db.php';
 
 // Security Check
 $role = strtolower($_SESSION['role'] ?? '');
-if (!isset($_SESSION['user_id']) || $role !== 'staff') {
+if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
     header("Location: ../login.php");
     exit;
 }
@@ -37,21 +37,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
+        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; display: flex; flex-direction: row; min-h-screen: 100vh; overflow-x: hidden; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
-        .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { 
-            content: ''; 
-            position: absolute; 
-            right: -32px; 
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px; 
-            height: 20px; 
-            background: #8c2bee; 
-            border-radius: 99px; 
+        
+        /* Sidebar Hover Logic - MATCHING SUPER ADMIN */
+        .side-nav {
+            width: 110px; 
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            z-index: 50;
+            background: #0a090d;
         }
+        .side-nav:hover {
+            width: 300px; 
+        }
+
+        .nav-label {
+            opacity: 0;
+            transform: translateX(-15px);
+            transition: all 0.3s ease-in-out;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .side-nav:hover .nav-label {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .nav-section-label {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 0 !important;
+            pointer-events: none;
+        }
+        .side-nav:hover .nav-section-label {
+            max-height: 20px;
+            opacity: 1;
+            margin-bottom: 0px !important; 
+            pointer-events: auto;
+        }
+        .side-nav:hover .mt-0 { margin-top: 0px !important; } 
+
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; transition: all 0.2s ease; text-decoration: none; white-space: nowrap; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); }
+        .nav-item.active { color: #8c2bee !important; background: rgba(140,43,238,0.1); border: 1px solid rgba(140,43,238,0.15); }
+        
         .form-input { background: #0a090d; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 16px; color: white; font-size: 14px; width: 100%; outline: none; transition: border-color 0.2s; }
         .form-input:focus { border-color: #8c2bee; }
         .strength-bar { height: 4px; border-radius: 2px; transition: all 0.3s ease; width: 0; }
@@ -60,17 +99,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         .strength-strong { background-color: #10b981; width: 100%; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Content Adjustment */
+        .main-content {
+            margin-left: 110px; /* Base margin */
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .side-nav:hover ~ .main-content {
+            margin-left: 300px; /* Expand margin when sidebar is hovered */
+        }
     </style>
     <script>
-        function updateSidebarClock() {
+        function updateHeaderClock() {
             const now = new Date();
-            const clockEl = document.getElementById('sidebarClock');
+            const clockEl = document.getElementById('headerClock');
             if (clockEl) {
                 clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             }
         }
-        setInterval(updateSidebarClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateSidebarClock);
+        setInterval(updateHeaderClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);
 
         function togglePassword(id, btn) {
             const input = document.getElementById(id);
@@ -137,45 +190,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="flex flex-col w-64 lg:w-72 bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen p-8 z-50 shrink-0">
-    <div class="mb-12">
-        <div class="flex items-center gap-4 mb-6">
-            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+<nav class="side-nav bg-[#0a090d] border-r border-white/5">
+    <div class="px-4 py-6">
+        <div class="flex items-center gap-3">
+            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
             </div>
-            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white leading-none">Staff Dashboard</h1>
-        </div>
-        <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
-            <p id="sidebarClock" class="text-white font-black italic text-xl leading-none mb-1">00:00:00 AM</p>
-            <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em]"><?= date('l, M d') ?></p>
+            <span class="nav-label text-white font-black italic uppercase tracking-tighter text-base leading-none">Herdoza</span>
         </div>
     </div>
-    
-    <div class="flex flex-col gap-7 flex-1 overflow-y-auto no-scrollbar pr-2">
-        <a href="admin_dashboard.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
-            <span class="material-symbols-outlined text-xl">grid_view</span> Dashboard
+    <div class="flex flex-col flex-1 overflow-y-auto no-scrollbar px-3 gap-0.5">
+        <span class="nav-section-label text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 mt-0">Main Menu</span>
+        <a href="admin_dashboard.php" class="nav-item text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span>
+            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Dashboard</span>
         </a>
-        <a href="register_member.php" class="nav-link text-gray-400 hover:text-white flex items-center gap-3">
-            <span class="material-symbols-outlined text-xl">person_add</span> Walk-in Member
+        <a href="register_member.php" class="nav-item text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl shrink-0">person_add</span>
+            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Walk-in Member</span>
         </a>
-    </div>
+        <a href="admin_users.php" class="nav-item text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl shrink-0">group</span>
+            <span class="nav-label font-black text-[10px] uppercase tracking-wider">My Users</span>
+        </a>
 
-    <div class="mt-auto pt-8 border-t border-white/10">
-        <a href="admin_profile.php" class="nav-link active-nav text-primary flex items-center gap-3 mb-6">
-            <span class="material-symbols-outlined text-xl">person</span> Profile
+        <span class="nav-section-label text-[9px] font-black text-gray-500 uppercase tracking-widest px-3">Management</span>
+        <a href="admin_transaction.php" class="nav-item text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
+            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Transactions</span>
         </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-3 group">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">logout</span>
-            <span class="nav-link">Sign Out</span>
+        <a href="admin_appointment.php" class="nav-item text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl shrink-0">event_note</span>
+            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Bookings</span>
+        </a>
+        <a href="admin_attendance.php" class="nav-item text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl shrink-0">history</span>
+            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Attendance</span>
+        </a>
+        <a href="admin_report.php" class="nav-item text-gray-400 hover:text-white">
+            <span class="material-symbols-outlined text-xl shrink-0">description</span>
+            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Reports</span>
+        </a>
+    </div>
+    <div class="px-3 pt-4 pb-4 border-t border-white/10 flex flex-col gap-0.5">
+        <span class="nav-section-label text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 mt-0 mb-2">Account</span>
+        <a href="admin_profile.php" class="nav-item active text-primary">
+            <span class="material-symbols-outlined text-xl shrink-0">person</span>
+            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Profile</span>
+        </a>
+        <a href="../logout.php" class="nav-item text-gray-400 hover:text-red-500 group">
+            <span class="material-symbols-outlined text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
+            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Sign Out</span>
         </a>
     </div>
 </nav>
 
-<div class="flex-1 flex flex-col min-w-0">
-    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto flex flex-col items-center">
-        <header class="mb-10 w-full max-w-5xl">
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Staff <span class="text-primary">Profile</span></h2>
-            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Manage your staff account identity</p>
+<div class="main-content flex flex-col min-w-0">
+    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
+        <header class="mb-10 w-full max-w-5xl flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+            <div>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Staff <span class="text-primary">Profile</span></h2>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Manage your staff account identity</p>
+            </div>
+            <div class="flex flex-row items-center gap-4">
+                <div class="px-6 py-3.5 rounded-2xl bg-white/5 border border-white/5 text-right flex flex-col items-end group shadow-sm hover:shadow-primary/10 transition-shadow">
+                    <p id="headerClock" class="text-white font-black italic text-xl leading-none mb-1 group-hover:text-primary transition-colors">00:00:00 AM</p>
+                    <p class="text-gray-500 text-[9px] font-black uppercase tracking-[0.2em] group-hover:text-white transition-colors"><?= date('l, M d') ?></p>
+                </div>
+            </div>
         </header>
 
         <div class="w-full max-w-5xl">

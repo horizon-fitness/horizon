@@ -90,7 +90,15 @@ if (isset($_SESSION['reset_error'])) {
                     <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
                 <?php endif; ?>
             </div>
-            <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>
+            <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">
+                <?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span>
+            </h2>
+        </a>
+
+        <a href="login.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" 
+           class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black text-gray-400 hover:text-white hover:bg-primary/20 hover:border-primary/50 transition-all uppercase tracking-[0.2em] group">
+            <span class="material-symbols-outlined text-sm group-hover:-translate-x-0.5 transition-transform">arrow_back</span>
+            Back to Login
         </a>
     </nav>
 

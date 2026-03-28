@@ -8,18 +8,15 @@ try {
     $adminCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = 'superadmin' LIMIT 1");
     $adminCheck->execute();
     
-    // If the superadmin account does not exist, create it automatically
     if ($adminCheck->rowCount() == 0) {
         $defaultPassword = 'superadmin123';
         $hash = password_hash($defaultPassword, PASSWORD_DEFAULT);
         $date = date('Y-m-d H:i:s');
         
-        // 1. Insert default Super Admin user
         $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) VALUES ('superadmin', 'admin@horizon.com', ?, 'Super', 'Admin', '00000000000', 1, 1, ?, ?)");
         $stmtUser->execute([$hash, $date, $date]);
         $superAdminId = $pdo->lastInsertId();
 
-        // 2. Ensure 'Superadmin' role exists
         $roleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = 'Superadmin' LIMIT 1");
         $roleCheck->execute();
         $role = $roleCheck->fetch(PDO::FETCH_ASSOC);
@@ -31,12 +28,10 @@ try {
             $roleId = $role['role_id'];
         }
 
-        // 3. Assign Superadmin role to the user
         $stmtUserRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, role_status, assigned_at) VALUES (?, ?, 'Active', ?)");
         $stmtUserRole->execute([$superAdminId, $roleId, $date]);
     }
 } catch (PDOException $e) {
-    // Silently log errors so it doesn't break the login page if tables are missing
     error_log("Superadmin seed error: " . $e->getMessage());
 }
 // --- END AUTO-SEED DEFAULT SUPERADMIN ---
@@ -44,7 +39,6 @@ try {
 $error = '';
 $branding = null;
 
-// Fetch branding if gym slug is provided
 if (isset($_GET['gym'])) {
     $slug = $_GET['gym'];
     $stmtBranding = $pdo->prepare("SELECT tp.*, g.gym_name, g.tenant_code FROM tenant_pages tp JOIN gyms g ON tp.gym_id = g.gym_id WHERE tp.page_slug = ? LIMIT 1");
@@ -59,27 +53,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($username) || empty($password)) {
         $error = "Please enter both username and password.";
     } else {
-        // Fetch user from the database (Allow Username or Email)
         $stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? OR email = ? LIMIT 1");
         $stmt->execute([$username, $username]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Verify user exists and password is correct
         if ($user && password_verify($password, $user['password_hash'])) {
-            
-            // 1. Check if the account is active
             if ($user['is_active'] == 0) {
                 $error = "Your account has been deactivated. Please contact support.";
             } 
-            // 2. Check if the email is verified via OTP
             elseif ($user['is_verified'] == 0) {
-                // Fetch gym email from application if it exists, otherwise use personal email
                 $stmtApp = $pdo->prepare("SELECT email FROM gym_owner_applications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1");
                 $stmtApp->execute([$user['user_id']]);
                 $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
                 $displayEmail = ($app && !empty($app['email'])) ? $app['email'] : $user['email'];
 
-                // Not verified, send them an OTP and redirect to verification page
                 $_SESSION['verify_user_id'] = $user['user_id'];
                 $_SESSION['verify_email'] = $displayEmail;
                 $gym_param = $branding ? "?gym=" . urlencode($slug) : "";
@@ -87,7 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             } 
             else {
-                // 3. Fetch the user's role from the database
                 $stmtRole = $pdo->prepare("
                     SELECT r.role_name, ur.gym_id, ur.role_status 
                     FROM user_roles ur 
@@ -99,7 +85,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $roleData = $stmtRole->fetch(PDO::FETCH_ASSOC);
 
                 if ($roleData) {
-                    // Set session variables for successful login
                     $_SESSION['user_id'] = $user['user_id'];
                     $_SESSION['username'] = $user['username'];
                     $_SESSION['first_name'] = $user['first_name'];
@@ -107,31 +92,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['role'] = $roleData['role_name'];
                     $_SESSION['gym_id'] = $roleData['gym_id'];
 
-                    // Log Login Event
                     require_once 'includes/audit_logger.php';
                     log_audit_event($pdo, $user['user_id'], $roleData['gym_id'], 'Login', 'users', $user['user_id'], [], ['status' => 'Success']);
 
-                    // Redirect based on user role (Following Monday Activity Rules)
                     switch (strtolower($roleData['role_name'])) {
                         case 'superadmin':
                             header("Location: superadmin/superadmin_dashboard.php");
                             exit;
                         case 'admin':
                         case 'tenant': 
-                            // Tenant Isolation Check: If logging in via a specific gym portal, ensure they belong to it
                             if ($branding && strtolower($roleData['role_name']) !== 'superadmin') {
                                 if ($roleData['gym_id'] != $branding['gym_id']) {
                                     $error = "This account is not authorized to access " . $branding['gym_name'] . "'s portal.";
-                                    unset($_SESSION['user_id']); // Clear session
+                                    unset($_SESSION['user_id']);
                                     break;
                                 }
                             }
-                            // Directed to the tenant's primary entry-point
                             header("Location: tenant/tenant_gateway.php");
                             exit;
                         case 'coach':
                         case 'staff':
-                            // Tenant Isolation Check for Staff/Coach
                             if ($branding) {
                                 if ($roleData['gym_id'] != $branding['gym_id']) {
                                     $error = "This account is not authorized to access " . $branding['gym_name'] . "'s portal.";
@@ -149,21 +129,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             break;
                     }
                 } else {
-                    // No active role found. Check if they are a Pending Gym Owner
                     $stmtApp = $pdo->prepare("SELECT application_status FROM gym_owner_applications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1");
                     $stmtApp->execute([$user['user_id']]);
                     $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
 
                     if ($app) {
                         if ($app['application_status'] === 'Pending') {
-                            $error = "Your gym application is currently under review. We will notify you once approved.";
+                            $error = "Your gym application is currently under review.";
                         } elseif ($app['application_status'] === 'Rejected') {
-                            $error = "Your gym application was rejected. Please contact our support team.";
+                            $error = "Your gym application was rejected.";
                         } else {
-                            $error = "Your account is approved but setup is incomplete. Wait for the Admin to assign your page.";
+                            $error = "Account approved but setup is incomplete.";
                         }
                     } else {
-                        $error = "You do not have an active role in the system. Contact support.";
+                        $error = "No active role found.";
                     }
                 }
             }
@@ -220,8 +199,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-image: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.18), transparent 70%);
         }
 
+        /* Gym Photo Integration */
+        .login-bg-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(5,5,5,0.8), #050505), url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.4;
+            z-index: -1;
+        }
+
         .dashboard-window {
-            background: #08080a;
+            background: rgba(8, 8, 10, 0.8);
+            backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
         }
@@ -234,6 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 
 <body class="font-sans antialiased min-h-screen flex flex-col hero-glow">
+    <div class="login-bg-overlay"></div>
 
     <nav class="w-full px-8 py-6 flex justify-between items-center relative z-20">
         <a href="index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
@@ -254,10 +246,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Back to Website
                 </a>
             <?php endif; ?>
-            <a href="https://drive.google.com/drive/folders/1Mg7gltjfTP5dsb4CG_PVdgSdPYUjaFz6?usp=sharing" class="font-display bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-4 py-2.5 rounded-custom text-[10px] font-bold uppercase tracking-widest transition-all flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">smartphone</span>
-                App
-            </a>
             <a href="tenant/tenant_application.php" class="font-display bg-white/5 hover:bg-white/10 text-white border border-white/10 px-5 py-2.5 rounded-custom text-[10px] font-bold uppercase tracking-widest transition-all">
                 Register Gym
             </a>
@@ -266,7 +254,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <main class="flex-1 flex items-center justify-center p-6 relative z-10">
         <div class="dashboard-window w-full max-w-[440px] rounded-2xl p-10 md:p-12 relative overflow-hidden">
-            <!-- Subtle accent glow inside the card -->
             <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
             
             <div class="relative z-10">
@@ -289,7 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <form method="POST" class="space-y-6">
                     <div class="space-y-2">
-                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Identity</label>
+                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Username</label>
                         <div class="relative group input-gradient-focus rounded-xl transition-all">
                             <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">person</span>
                             <input
@@ -305,8 +292,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="space-y-2">
                         <div class="flex justify-between items-center px-1">
-                            <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500">Security Key</label>
-                            <a href="forgot_password.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" class="text-[9px] font-display font-bold text-primary hover:text-white transition-colors uppercase tracking-widest">Forgot?</a>
+                            <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500">Password</label>
+                            <a href="forgot_password.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" class="text-[9px] font-display font-bold text-primary hover:text-white transition-colors uppercase tracking-widest">Forgot Password?</a>
                         </div>
                         <div class="relative group input-gradient-focus rounded-xl transition-all">
                             <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">lock</span>
@@ -362,9 +349,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     </script>
-
 </body>
 </html>
-<?php
-// Note: The PHP logic remains at the top of the file.
-?>

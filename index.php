@@ -135,10 +135,6 @@ session_start();
                 </div>
 
                 <div class="flex items-center gap-4">
-                    <a href="https://drive.google.com/drive/folders/1Mg7gltjfTP5dsb4CG_PVdgSdPYUjaFz6?usp=sharing" class="font-display bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 px-4 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all flex items-center gap-2 mr-2">
-                        <span class="material-symbols-outlined text-[16px]">smartphone</span>
-                        App
-                    </a>
                     <a href="login.php" class="font-display bg-white/5 hover:bg-white/10 text-white border border-white/10 px-5 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all">
                         Staff Login
                     </a>
@@ -171,10 +167,6 @@ session_start();
                     <div class="flex flex-wrap gap-4 mb-16">
                         <a href="tenant/tenant_application.php" class="font-display h-16 px-10 bg-primary text-white font-bold rounded-custom text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20 flex items-center justify-center">
                             Apply Now
-                        </a>
-                        <a href="https://drive.google.com/drive/folders/1Mg7gltjfTP5dsb4CG_PVdgSdPYUjaFz6?usp=sharing" class="font-display h-16 px-10 bg-white/5 border border-white/10 text-white font-bold rounded-custom text-xs uppercase tracking-widest hover:bg-white/10 hover:scale-105 transition-all flex items-center justify-center gap-3">
-                            <span class="material-symbols-outlined text-lg">smartphone</span>
-                            Download App
                         </a>
                     </div>
 
@@ -360,7 +352,6 @@ session_start();
         </section>
     </main>
 
-    <!-- CTA Section -->
     <section class="w-full bg-[#0a0a0c] border-y border-white/5 py-20 px-6 relative overflow-hidden">
         <div class="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-primary/10 opacity-30"></div>
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8 relative z-10">
@@ -372,11 +363,9 @@ session_start();
         </div>
     </section>
 
-    <!-- Main Footer -->
     <footer id="contact" class="bg-[#08080a] border-t border-white/5 pt-24 pb-12 px-6">
         <div class="max-w-7xl mx-auto">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-16 mb-24">
-                <!-- Brand Column -->
                 <div class="space-y-8">
                     <div>
                         <div class="flex items-center gap-3 mb-6">
@@ -399,7 +388,6 @@ session_start();
                     </div>
                 </div>
 
-                <!-- Quick Links Column -->
                 <div class="flex flex-col gap-8">
                     <h4 class="text-sm font-display font-black text-white uppercase italic tracking-[0.2em] relative inline-block">
                         Quick Links
@@ -413,7 +401,6 @@ session_start();
                     </div>
                 </div>
 
-                <!-- Contact Column -->
                 <div class="flex flex-col gap-8">
                     <h4 class="text-sm font-display font-black text-white uppercase italic tracking-[0.2em] relative inline-block">
                         Contact Us

@@ -137,13 +137,14 @@ $deactivated_count = count($deactivated_tenants);
             margin-bottom: 0.5rem !important;
             pointer-events: auto;
         }
-        /* Override for Overview which is the first section */
-        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0.75rem !important; }
-        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
+        /* Adjusted for zero-gap between sections on hover */
+        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0.25rem !important; }
+        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 0.5rem !important; }
 
         .sidebar-content {
-            gap: 2px; /* Much searhc tighter base gap */
+            gap: 2px; /* Much search tighter base gap */
             transition: all 0.3s ease-in-out;
+            padding-bottom: 8rem; /* Increased to allow easier scrolling */
         }
         .sidebar-nav:hover .sidebar-content {
             gap: 4px; /* Slightly more space on hover for readability */
@@ -196,9 +197,9 @@ $deactivated_count = count($deactivated_tenants);
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-[110] shrink-0">
-    <div class="mb-8">
-        <div class="flex items-center gap-4 mb-6">
+<nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
+    <div class="mb-4 shrink-0"> 
+        <div class="flex items-center gap-4 mb-4"> 
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
             </div>
@@ -206,9 +207,8 @@ $deactivated_count = count($deactivated_tenants);
         </div>
     </div>
     
-    <div class="sidebar-content flex-1 overflow-y-auto no-scrollbar pr-2 pb-10 flex flex-col">
-        <!-- Overview Section -->
-        <div class="nav-section-header px-0 mb-2 mt-4">
+    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
+        <div class="nav-section-header px-0 mb-2">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
         </div>
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
@@ -216,8 +216,7 @@ $deactivated_count = count($deactivated_tenants);
             <span class="nav-text">Dashboard</span>
         </a>
         
-        <!-- Management Section -->
-        <div class="nav-section-header px-0 mb-2 mt-6">
+        <div class="nav-section-header px-0 mb-2 mt-4">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
         </div>
         <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
@@ -230,11 +229,6 @@ $deactivated_count = count($deactivated_tenants);
             <span class="nav-text">Subscription Logs</span>
         </a>
 
-        <a href="rbac_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">security</span> 
-            <span class="nav-text">Access Control</span>
-        </a>
-
         <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span> 
             <span class="nav-text">Real-Time Occupancy</span>
@@ -245,8 +239,7 @@ $deactivated_count = count($deactivated_tenants);
             <span class="nav-text">Recent Transactions</span>
         </a>
 
-        <!-- System Section -->
-        <div class="nav-section-header px-0 mb-2 mt-6">
+        <div class="nav-section-header px-0 mb-2 mt-4">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System</span>
         </div>
         <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
@@ -275,8 +268,8 @@ $deactivated_count = count($deactivated_tenants);
         </a>
     </div>
 
-    <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-4">
-        <div class="nav-section-header px-0 mb-2">
+    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-2 shrink-0">
+        <div class="nav-section-header px-0 mb-0">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
         </div>
         <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
@@ -287,7 +280,7 @@ $deactivated_count = count($deactivated_tenants);
             <span class="material-symbols-outlined text-xl shrink-0">person</span> 
             <span class="nav-text">Profile</span>
         </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group">
+        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
             <span class="nav-link nav-text">Sign Out</span>
         </a>
@@ -716,7 +709,6 @@ $deactivated_count = count($deactivated_tenants);
     });
 </script>
 
-<!-- Custom Confirmation Modal -->
 <div id="confirmModal" class="fixed inset-0 z-[150] hidden items-center justify-center p-4 overflow-hidden">
     <div id="confirmBackdrop" onclick="closeConfirmModal()" class="fixed inset-0 bg-background-dark/60 backdrop-blur-sm transition-opacity duration-300 opacity-0"></div>
     <div id="confirmContainer" class="relative w-full max-w-md bg-surface-dark border border-white/10 shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0">

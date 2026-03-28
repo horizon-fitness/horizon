@@ -3,15 +3,18 @@ session_start();
 // Database connection commented out for UI preview
 // require_once '../db.php';
 
-// Mocked session data for UI preview
+// Mocked session data
 $_SESSION['user_id'] = 1;
 $_SESSION['gym_id'] = 1;
 $_SESSION['role'] = 'tenant';
 
 $gym_id = $_SESSION['gym_id'];
-$active_page = 'staff';
-$success = '';
-$error = '';
+$active_page = 'attendance';
+
+// Get filter values from URL or default to empty
+$filter_month = $_GET['month'] ?? '';
+$filter_date = $_GET['date'] ?? '';
+$filter_year = $_GET['year'] ?? date('Y');
 
 // Mock Gym Details
 $gym = [
@@ -28,31 +31,22 @@ $page = [
     'logo_path' => ''
 ];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $first_name = trim($_POST['first_name'] ?? '');
-    $middle_name = trim($_POST['middle_name'] ?? '');
-    $last_name = trim($_POST['last_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $username = trim($_POST['username'] ?? '');
-    $contact_number = trim($_POST['contact_number'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $staff_role = $_POST['staff_role'] ?? 'Staff';
-    $employment_type = $_POST['employment_type'] ?? 'Full-time';
-    $now = date('Y-m-d H:i:s');
+// Mock Attendance Data
+$attendance = [
+    ['first_name' => 'John', 'last_name' => 'Doe', 'check_in' => date('Y-m-d H:i:s', strtotime('-45 minutes')), 'check_out' => null],
+    ['first_name' => 'Jane', 'last_name' => 'Smith', 'check_in' => date('Y-m-d H:i:s', strtotime('-2 hours')), 'check_out' => date('Y-m-d H:i:s', strtotime('-1 hour'))],
+    ['first_name' => 'Michael', 'last_name' => 'Brown', 'check_in' => date('Y-m-d H:i:s', strtotime('-3 hours')), 'check_out' => date('Y-m-d H:i:s', strtotime('-1.5 hours'))],
+    ['first_name' => 'Emily', 'last_name' => 'Davis', 'check_in' => date('Y-m-d H:i:s', strtotime('-5 hours')), 'check_out' => date('Y-m-d H:i:s', strtotime('-3 hours'))],
+    ['first_name' => 'Chris', 'last_name' => 'Wilson', 'check_in' => date('Y-m-d H:i:s', strtotime('-6 hours')), 'check_out' => date('Y-m-d H:i:s', strtotime('-4 hours'))]
+];
 
-    if (empty($first_name) || empty($last_name) || empty($email) || empty($username)) {
-        $error = "All fields are required.";
-    } else {
-        $success = "Staff member $first_name added successfully! (UI PREVIEW)";
-    }
-}
 ?>
 
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
-    <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Add New Staff | Horizon Tenant</title>
+    <meta charset="utf-8">
+    <title>Attendance Tracking | Horizon</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -70,25 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .active-nav { color: #8c2bee !important; position: relative; }
 
         .active-nav::after { 
-
             content: ''; 
-
             position: absolute; 
-
             right: -32px; 
-
             top: 50%;
-
             transform: translateY(-50%);
-
             width: 4px; 
-
             height: 20px; 
-
             background: #8c2bee; 
-
             border-radius: 99px; 
-
         }
 
         /* Sidebar Hover Logic */
@@ -132,8 +116,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; transition: all 0.2s; }
-        .input-field:focus { border-color: #8c2bee; outline: none; box-shadow: 0 0 0 2px rgba(140, 43, 238, 0.2); }
+
+        /* Custom Date Picker Styles */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
@@ -222,40 +210,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </nav>
 
-    <script>
-
+<script>
         function updateTopClock() {
-
             const now = new Date();
-
             const timeString = now.toLocaleTimeString('en-US', { 
-
                 hour: '2-digit', 
-
                 minute: '2-digit', 
-
                 second: '2-digit' 
-
             });
-
             const clockEl = document.getElementById('topClock');
-
             if (clockEl) clockEl.textContent = timeString;
-
         }
-
         setInterval(updateTopClock, 1000);
-
         window.addEventListener('DOMContentLoaded', updateTopClock);
-
     </script>
 
-<main class="flex-1 overflow-y-auto no-scrollbar p-10">
+<main class="flex-1 overflow-y-auto no-scrollbar p-10 master-content">
     <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div class="flex flex-col md:flex-row md:items-end justify-between w-full">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-primary">Onboard <span class="text-white">Staff</span></h2>
-                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Create new system access credentials</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter">Attendance <span class="text-primary">Log</span></h2>
+                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Track member presence</p>
             </div>
             <div class="flex flex-col items-end mt-4 md:mt-0">
                 <p id="topClock" class="text-white font-black italic text-2xl leading-none">00:00:00 AM</p>
@@ -269,79 +244,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </header>
 
-    <header class="mb-10 flex justify-between items-center">
-        <a href="staff.php" class="text-gray-500 hover:text-white flex items-center gap-2 font-black italic uppercase text-[10px] tracking-widest transition-all ml-auto">
-            <span class="material-symbols-outlined text-sm text-primary">arrow_back</span> Back to Roster
-        </a>
-    </header>
-
-    <div class="glass-card p-10 max-w-5xl">
-        <?php if($success): ?>
-            <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-3">
-                <span class="material-symbols-outlined">check_circle</span> <?= $success ?>
-            </div>
-        <?php endif; ?>
-        <?php if($error): ?>
-            <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center gap-3">
-                <span class="material-symbols-outlined">error</span> <?= $error ?>
-            </div>
-        <?php endif; ?>
-
-        <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2">Identity Info</h4>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">First Name</label>
-                        <input type="text" name="first_name" required class="input-field">
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Last Name</label>
-                        <input type="text" name="last_name" required class="input-field">
-                    </div>
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Email Address</label>
-                    <input type="email" name="email" required class="input-field">
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Contact Number</label>
-                    <input type="text" name="contact_number" class="input-field">
-                </div>
+    <div class="glass-card p-6 mb-8">
+        <form method="GET" class="flex flex-wrap items-center gap-4">
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Specific Day</label>
+                <input type="date" name="date" value="<?= htmlspecialchars($filter_date) ?>" 
+                       class="bg-surface-dark border border-white/5 rounded-xl px-4 py-2 text-xs font-bold uppercase italic tracking-tighter focus:border-primary transition-all outline-none">
             </div>
 
-            <div class="space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2">Account Authority</h4>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">System Username</label>
-                    <input type="text" name="username" required class="input-field">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Assigned Role</label>
-                        <select name="staff_role" class="input-field">
-                            <option value="Staff">Staff</option>
-                            <option value="Coach">Coach</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Employment</label>
-                        <select name="employment_type" class="input-field">
-                            <option value="Full-time">Full-time</option>
-                            <option value="Part-time">Part-time</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Password (Optional - will auto-gen if empty)</label>
-                    <input type="password" name="password" class="input-field" placeholder="Leave empty for auto-gen">
-                </div>
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Month</label>
+                <select name="month" class="bg-surface-dark border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold uppercase italic tracking-tighter focus:border-primary transition-all outline-none min-w-[160px]">
+                    <option value="">All Months</option>
+                    <?php
+                    for ($m=1; $m<=12; $m++) {
+                        $monthValue = str_pad($m, 2, '0', STR_PAD_LEFT);
+                        $monthName = date('F', mktime(0, 0, 0, $m, 1));
+                        $selected = ($filter_month == $monthValue) ? 'selected' : '';
+                        echo "<option value='$monthValue' $selected>$monthName</option>";
+                    }
+                    ?>
+                </select>
             </div>
 
-            <div class="md:col-span-2 pt-6">
-                <button type="submit" class="w-full bg-primary text-white py-4 rounded-xl font-black italic uppercase tracking-widest text-xs shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Onboard Staff Member</button>
+            <div class="flex flex-col gap-1.5">
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Year</label>
+                <select name="year" class="bg-surface-dark border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold uppercase italic tracking-tighter focus:border-primary transition-all outline-none min-w-[100px]">
+                    <?php
+                    $currentYear = date('Y');
+                    for ($y = $currentYear; $y >= $currentYear - 2; $y--) {
+                        $selected = ($filter_year == $y) ? 'selected' : '';
+                        echo "<option value='$y' $selected>$y</option>";
+                    }
+                    ?>
+                </select>
+            </div>
+
+            <div class="flex items-end gap-2 mt-5">
+                <button type="submit" class="bg-primary hover:bg-primary/80 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase italic tracking-widest transition-all flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">filter_list</span> Apply
+                </button>
+                <a href="attendance.php" class="bg-white/5 hover:bg-white/10 text-gray-400 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase italic tracking-widest transition-all border border-white/5">
+                    Clear
+                </a>
             </div>
         </form>
+    </div>
+
+    <div class="glass-card overflow-hidden shadow-2xl">
+        <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+            <h4 class="font-black italic uppercase text-xs tracking-widest flex items-center gap-2">
+                <span class="material-symbols-outlined text-emerald-500">history</span> Attendance Log
+            </h4>
+            <div class="text-[10px] font-bold text-gray-500 italic uppercase">Showing entries for selected period</div>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-[10px] font-black uppercase tracking-widest text-gray-500 border-b border-white/5">
+                        <th class="px-8 py-5">Member</th>
+                        <th class="px-8 py-5">Check In</th>
+                        <th class="px-8 py-5">Check Out</th>
+                        <th class="px-8 py-5">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    <?php if(empty($attendance)): ?>
+                        <tr><td colspan="4" class="px-8 py-20 text-center text-gray-600 font-black italic uppercase">No attendance records found.</td></tr>
+                    <?php else: ?>
+                        <?php foreach($attendance as $a): ?>
+                        <tr class="hover:bg-white/[0.02] transition-all group">
+                            <td class="px-8 py-6">
+                                <p class="font-black italic uppercase tracking-tighter text-sm"><?= htmlspecialchars(($a['first_name'] ?? '') . ' ' . ($a['last_name'] ?? '')) ?></p>
+                            </td>
+                            <td class="px-8 py-6">
+                                <span class="text-sm font-black italic text-emerald-400"><?= date('h:i A', strtotime($a['check_in'])) ?></span>
+                            </td>
+                            <td class="px-8 py-6 text-gray-500 font-bold">
+                                <?= $a['check_out'] ? date('h:i A', strtotime($a['check_out'])) : '---' ?>
+                            </td>
+                            <td class="px-8 py-6">
+                                <span class="px-3 py-1 rounded bg-emerald-500/10 text-emerald-500 text-[9px] font-black uppercase tracking-widest border border-emerald-500/20">
+                                    <?= $a['check_out'] ? 'Completed' : 'Present' ?>
+                                </span>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 </main>
 

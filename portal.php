@@ -105,8 +105,12 @@ $font_family = $page['font_family'] ?? 'Lexend';
             margin-bottom: 24px; 
             overflow: hidden; 
             box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+            background: linear-gradient(135deg, var(--pg-primary), transparent);
+            display: flex;
+            items-center: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.05);
         }
-        .banner-card img { width: 100%; height: 100%; object-fit: cover; }
         
         /* Android UI Elements */
         .android-status-bar {
@@ -146,13 +150,9 @@ $font_family = $page['font_family'] ?? 'Lexend';
 
     <header class="w-full px-6 md:px-12 py-5 flex justify-between items-center bg-background-dark/80 backdrop-blur-xl fixed top-0 z-50 border-b border-white/5 transition-all">
         <div class="flex items-center gap-4">
-            <?php if($page['logo_path']): ?>
-                <img src="<?= htmlspecialchars($page['logo_path']) ?>" alt="Logo" class="h-9 w-auto">
-            <?php else: ?>
-                <div class="size-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                    <span class="material-symbols-outlined text-white text-xl">bolt</span>
-                </div>
-            <?php endif; ?>
+            <div class="size-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+                <span class="material-symbols-outlined text-white text-xl font-bold">bolt</span>
+            </div>
             <h1 class="text-xl font-bold tracking-tight text-white font-display uppercase tracking-widest gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h1>
         </div>
         <div class="hidden md:flex items-center gap-8">
@@ -188,15 +188,17 @@ $font_family = $page['font_family'] ?? 'Lexend';
             <!-- Header Row (Logo + Title) -->
             <div class="flex items-center gap-3 mb-6 w-full px-4 pt-2">
                 <div id="preview-logo-container" class="size-9 rounded-xl bg-primary flex items-center justify-center">
-                    <img id="logo-image-display" src="<?= !empty($page['logo_path']) ? $page['logo_path'] : '' ?>" alt="Logo" class="size-6 object-contain <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
-                    <span id="logo-placeholder-icon" class="material-symbols-outlined text-white text-lg <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">bolt</span>
+                    <span id="logo-placeholder-icon" class="material-symbols-outlined text-white text-lg font-bold">bolt</span>
                 </div>
                 <h1 class="text-[15px] font-black tracking-widest text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h1>
             </div>
 
             <!-- Banner Card -->
             <div class="banner-card mx-4">
-                <img id="banner-image-display" src="<?= !empty($page['banner_image']) ? $page['banner_image'] : 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop' ?>" alt="Banner">
+                <div class="flex flex-col items-center gap-2">
+                    <span class="material-symbols-outlined text-5xl text-white/20">fitness_center</span>
+                    <span class="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Horizon Systems</span>
+                </div>
             </div>
 
             <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/[0.03] border border-white/[0.02] mb-8 text-primary shadow-inner">
@@ -263,7 +265,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
                     <span class="material-symbols-outlined text-[140px]">fitness_center</span>
                 </div>
                 <div class="size-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-8 mx-auto">
-                    <span class="material-symbols-outlined text-3xl">bolt</span>
+                    <span class="material-symbols-outlined text-3xl font-bold">bolt</span>
                 </div>
                 <h3 class="text-2xl font-bold text-white mb-4 font-display text-center">Experience the Difference</h3>
                 <p class="text-gray-400 text-sm mb-10 leading-relaxed font-body font-light max-w-2xl mx-auto">
@@ -293,7 +295,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
             <div class="flex-1 space-y-8">
                  <div class="flex items-center gap-3">
                     <div class="size-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                        <span class="material-symbols-outlined text-white text-lg">bolt</span>
+                        <span class="material-symbols-outlined text-white text-lg font-bold">bolt</span>
                     </div>
                     <h1 class="text-xl font-bold tracking-tight text-white font-display uppercase tracking-wider gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h1>
                 </div>
@@ -347,38 +349,6 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 document.documentElement.style.setProperty('--pg-primary', primary);
                 document.documentElement.style.setProperty('--pg-font', `'${font}', 'Plus Jakarta Sans', sans-serif`);
                 
-                // Update Logo
-                if (data.logo_preview) {
-                    // Update Header Logo
-                    let logoContainer = document.querySelector('header .flex.items-center.gap-4');
-                    if (logoContainer) {
-                        let logoImg = logoContainer.querySelector('img');
-                        if (logoImg) {
-                            logoImg.src = data.logo_preview;
-                        } else {
-                            let placeholder = logoContainer.querySelector('div.size-9');
-                            if (placeholder) {
-                                const newImg = document.createElement('img');
-                                newImg.src = data.logo_preview;
-                                newImg.alt = "Logo";
-                                newImg.className = "h-9 w-auto";
-                                placeholder.replaceWith(newImg);
-                            }
-                        }
-                    }
-                    
-                    // Update Mobile Preview Logo
-                    const mobileLogoImg = document.getElementById('logo-image-display');
-                    const mobileLogoPlaceholder = document.getElementById('logo-placeholder-icon');
-                    if (mobileLogoImg) {
-                        mobileLogoImg.src = data.logo_preview;
-                        mobileLogoImg.classList.remove('hidden');
-                    }
-                    if (mobileLogoPlaceholder) {
-                        mobileLogoPlaceholder.classList.add('hidden');
-                    }
-                }
-                
                 // Update Gym Name/Title
                 if (data.page_title) {
                     document.title = data.page_title + " | Horizon Systems";
@@ -404,12 +374,6 @@ $font_family = $page['font_family'] ?? 'Lexend';
                     if (contactDisp) contactDisp.innerText = data.contact_text;
                     const contactMobile = document.getElementById('contact-text-mobile');
                     if (contactMobile) contactMobile.innerText = data.contact_text;
-                }
-
-                // Update Banner Preview
-                if (data.banner_preview) {
-                    const bannerImg = document.getElementById('banner-image-display');
-                    if (bannerImg) bannerImg.src = data.banner_preview;
                 }
 
                 // Update About/Hero Description

@@ -3,15 +3,14 @@ session_start();
 // Database connection commented out for UI preview
 // require_once '../db.php';
 
-// Mocked session data for UI preview
+// Mocked session data
 $_SESSION['user_id'] = 1;
 $_SESSION['gym_id'] = 1;
 $_SESSION['role'] = 'tenant';
 
 $gym_id = $_SESSION['gym_id'];
-$active_page = 'staff';
-$success = '';
-$error = '';
+$user_id = $_SESSION['user_id'];
+$active_page = "staff";
 
 // Mock Gym Details
 $gym = [
@@ -28,23 +27,19 @@ $page = [
     'logo_path' => ''
 ];
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $first_name = trim($_POST['first_name'] ?? '');
-    $middle_name = trim($_POST['middle_name'] ?? '');
-    $last_name = trim($_POST['last_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $username = trim($_POST['username'] ?? '');
-    $contact_number = trim($_POST['contact_number'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $staff_role = $_POST['staff_role'] ?? 'Staff';
-    $employment_type = $_POST['employment_type'] ?? 'Full-time';
-    $now = date('Y-m-d H:i:s');
+// Mock Staff Members
+$staff_members = [
+    ['staff_id' => 1, 'first_name' => 'Alex', 'last_name' => 'Rivera', 'staff_role' => 'Head Coach', 'employment_type' => 'FULL-TIME', 'status' => 'Active', 'created_at' => '2023-01-15'],
+    ['staff_id' => 2, 'first_name' => 'Samantha', 'last_name' => 'Lee', 'staff_role' => 'Yoga Instructor', 'employment_type' => 'PART-TIME', 'status' => 'Active', 'created_at' => '2023-02-20'],
+    ['staff_id' => 3, 'first_name' => 'Marcus', 'last_name' => 'Chen', 'staff_role' => 'Strength Coach', 'employment_type' => 'FULL-TIME', 'status' => 'Active', 'created_at' => '2023-03-10'],
+    ['staff_id' => 4, 'first_name' => 'Jessica', 'last_name' => 'Taylor', 'staff_role' => 'Front Desk', 'employment_type' => 'FULL-TIME', 'status' => 'Active', 'created_at' => '2023-05-05'],
+    ['staff_id' => 5, 'first_name' => 'David', 'last_name' => 'Miller', 'staff_role' => 'Personal Trainer', 'employment_type' => 'PART-TIME', 'status' => 'Inactive', 'created_at' => '2023-06-12']
+];
 
-    if (empty($first_name) || empty($last_name) || empty($email) || empty($username)) {
-        $error = "All fields are required.";
-    } else {
-        $success = "Staff member $first_name added successfully! (UI PREVIEW)";
-    }
+$total_staff = count($staff_members);
+$active_staff = 0;
+foreach($staff_members as $s) {
+    if($s['status'] === 'Active') $active_staff++;
 }
 ?>
 
@@ -52,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Add New Staff | Horizon Tenant</title>
+    <title>Staff Management | Horizon Tenant</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -132,8 +127,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; transition: all 0.2s; }
-        .input-field:focus { border-color: #8c2bee; outline: none; box-shadow: 0 0 0 2px rgba(140, 43, 238, 0.2); }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
@@ -222,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </nav>
 
-    <script>
+<script>
 
         function updateTopClock() {
 
@@ -250,12 +243,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     </script>
 
-<main class="flex-1 overflow-y-auto no-scrollbar p-10">
+<main class="flex-1 overflow-y-auto no-scrollbar p-10 master-content">
     <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div class="flex flex-col md:flex-row md:items-end justify-between w-full">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-primary">Onboard <span class="text-white">Staff</span></h2>
-                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Create new system access credentials</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-primary">Staff <span class="text-white">Management</span></h2>
+                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Manage gym personnel & accounts</p>
             </div>
             <div class="flex flex-col items-end mt-4 md:mt-0">
                 <p id="topClock" class="text-white font-black italic text-2xl leading-none">00:00:00 AM</p>
@@ -269,79 +262,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </header>
 
-    <header class="mb-10 flex justify-between items-center">
-        <a href="staff.php" class="text-gray-500 hover:text-white flex items-center gap-2 font-black italic uppercase text-[10px] tracking-widest transition-all ml-auto">
-            <span class="material-symbols-outlined text-sm text-primary">arrow_back</span> Back to Roster
-        </a>
+    <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div class="flex items-center gap-4 ml-auto">
+            <div class="relative group">
+                <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-500 text-sm group-focus-within:text-primary transition-colors">search</span>
+                <input type="text" placeholder="Search staff..." class="bg-surface-dark border border-white/5 rounded-xl py-3 pl-12 pr-6 text-xs font-bold w-64 focus:border-primary/50 outline-none transition-all">
+            </div>
+            <a href="add_staff.php" class="bg-primary hover:bg-opacity-90 text-white px-6 py-3 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 transition-all">
+                <span class="material-symbols-outlined text-sm">person_add</span> Add Staff
+            </a>
+        </div>
     </header>
 
-    <div class="glass-card p-10 max-w-5xl">
-        <?php if($success): ?>
-            <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-3">
-                <span class="material-symbols-outlined">check_circle</span> <?= $success ?>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+        <div class="glass-card p-8 flex items-center gap-6 group hover:border-primary/30 transition-all">
+            <div class="size-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-3xl">shield_person</span>
             </div>
-        <?php endif; ?>
-        <?php if($error): ?>
-            <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center gap-3">
-                <span class="material-symbols-outlined">error</span> <?= $error ?>
+            <div>
+                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Total Staff</p>
+                <h3 class="text-4xl font-black italic tracking-tighter"><?= $total_staff ?></h3>
             </div>
-        <?php endif; ?>
+        </div>
+        <div class="glass-card p-8 flex items-center gap-6 group hover:border-emerald-500/30 transition-all">
+            <div class="size-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-3xl">person_check</span>
+            </div>
+            <div>
+                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Active Personnel</p>
+                <h3 class="text-4xl font-black italic tracking-tighter text-emerald-500"><?= $active_staff ?></h3>
+            </div>
+        </div>
+    </div>
 
-        <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2">Identity Info</h4>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">First Name</label>
-                        <input type="text" name="first_name" required class="input-field">
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Last Name</label>
-                        <input type="text" name="last_name" required class="input-field">
-                    </div>
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Email Address</label>
-                    <input type="email" name="email" required class="input-field">
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Contact Number</label>
-                    <input type="text" name="contact_number" class="input-field">
-                </div>
-            </div>
-
-            <div class="space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2">Account Authority</h4>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">System Username</label>
-                    <input type="text" name="username" required class="input-field">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Assigned Role</label>
-                        <select name="staff_role" class="input-field">
-                            <option value="Staff">Staff</option>
-                            <option value="Coach">Coach</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Employment</label>
-                        <select name="employment_type" class="input-field">
-                            <option value="Full-time">Full-time</option>
-                            <option value="Part-time">Part-time</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Password (Optional - will auto-gen if empty)</label>
-                    <input type="password" name="password" class="input-field" placeholder="Leave empty for auto-gen">
-                </div>
-            </div>
-
-            <div class="md:col-span-2 pt-6">
-                <button type="submit" class="w-full bg-primary text-white py-4 rounded-xl font-black italic uppercase tracking-widest text-xs shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Onboard Staff Member</button>
-            </div>
-        </form>
+    <div class="glass-card overflow-hidden shadow-2xl">
+        <div class="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex items-center gap-3">
+            <span class="material-symbols-outlined text-primary">groups</span>
+            <h4 class="font-black italic uppercase text-xs tracking-widest">Personnel Roster</h4>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-[10px] font-black uppercase tracking-widest text-gray-500 border-b border-white/5">
+                        <th class="px-8 py-5">Staff Member</th>
+                        <th class="px-8 py-5">Assigned Role</th>
+                        <th class="px-8 py-5">Employment Type</th>
+                        <th class="px-8 py-5 text-center">Status</th>
+                        <th class="px-8 py-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    <?php foreach($staff_members as $s): ?>
+                    <tr class="hover:bg-white/[0.02] transition-all group">
+                        <td class="px-8 py-6 flex items-center gap-4">
+                            <div class="size-12 rounded-xl bg-surface-dark border border-white/5 flex items-center justify-center text-primary font-black italic text-sm group-hover:border-primary/30 transition-all">
+                                <?= strtoupper(substr($s['first_name'], 0, 1)) . strtoupper(substr($s['last_name'], 0, 1)) ?>
+                            </div>
+                            <div>
+                                <p class="font-black italic uppercase tracking-tighter text-sm"><?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?></p>
+                                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">ID: <?= str_pad($s['staff_id'], 4, '0', STR_PAD_LEFT) ?></p>
+                            </div>
+                        </td>
+                        <td class="px-8 py-6">
+                            <span class="px-3 py-1 rounded bg-surface-dark border border-white/5 text-[9px] font-black uppercase tracking-widest text-gray-400 group-hover:text-primary transition-all"><?= $s['staff_role'] ?></span>
+                        </td>
+                        <td class="px-8 py-6">
+                            <p class="text-[10px] font-black uppercase text-white tracking-tighter italic"><?= $s['employment_type'] ?? 'FULL-TIME' ?></p>
+                            <p class="text-[9px] text-gray-600 font-bold uppercase">Hired: <?= date('M d, Y', strtotime($s['created_at'])) ?></p>
+                        </td>
+                        <td class="px-8 py-6 text-center">
+                            <span class="px-3 py-1 rounded text-[9px] font-black uppercase tracking-widest <?= $s['status'] === 'Active' ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20' : 'text-red-500 bg-red-500/10 border border-red-500/20' ?>">
+                                <?= $s['status'] ?>
+                            </span>
+                        </td>
+                        <td class="px-8 py-6 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button class="size-9 rounded-lg bg-surface-dark border border-white/5 text-gray-500 hover:text-white hover:border-primary/50 transition-all flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-sm">edit</span>
+                                </button>
+                                <button class="size-9 rounded-lg bg-surface-dark border border-white/5 text-gray-500 hover:text-amber-500 hover:border-amber-500/50 transition-all flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-sm">settings</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
 </main>
 

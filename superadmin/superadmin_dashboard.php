@@ -132,13 +132,39 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         
         /* Sidebar Hover Logic - ADJUSTED WIDTHS */
         .sidebar-nav {
-            width: 110px; /* Increased slightly from 100px */
+            width: 110px; 
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
         .sidebar-nav:hover {
-            width: 300px; /* Increased from 280px for better text fit */
+            width: 300px; 
         }
+
+        /* Added: Scrollable container for links */
+        .sidebar-scroll-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 4px;
+        }
+
+        /* Custom Scrollbar for the sidebar */
+        .sidebar-scroll-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sidebar-scroll-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(140, 43, 238, 0.1);
+            border-radius: 10px;
+        }
+        .sidebar-nav:hover .sidebar-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(140, 43, 238, 0.4);
+        }
+
         .nav-text {
             opacity: 0;
             transform: translateX(-15px);
@@ -163,21 +189,19 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         .sidebar-nav:hover .nav-section-header {
             max-height: 20px;
             opacity: 1;
-            margin-bottom: 0.5rem !important;
+            margin-bottom: 0px !important; 
             pointer-events: auto;
         }
-        /* Override for Overview which is the first section */
-        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0.75rem !important; }
-        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
+        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0px !important; } 
+        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 0px !important; } 
 
         .sidebar-content {
-            gap: 2px; /* Much search tighter base gap */
+            gap: 2px; 
             transition: all 0.3s ease-in-out;
         }
         .sidebar-nav:hover .sidebar-content {
-            gap: 4px; /* Slightly more space on hover for readability */
+            gap: 4px; 
         }
-        /* End Sidebar Hover Logic */
 
         .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
@@ -225,18 +249,18 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
-    <div class="mb-8">
-        <div class="flex items-center gap-4 mb-6">
+<nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
+    <div class="mb-4 shrink-0"> 
+        <div class="flex items-center gap-4 mb-4"> 
             <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
             </div>
             <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
         </div>
     </div>
-    <div class="sidebar-content flex-1 overflow-y-auto no-scrollbar pr-2 pb-10 flex flex-col">
-        <!-- Overview Section -->
-        <div class="nav-section-header px-0 mb-2 mt-4">
+    
+    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
+        <div class="nav-section-header px-0 mb-2">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
         </div>
         <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
@@ -244,8 +268,7 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
             <span class="nav-text">Dashboard</span>
         </a>
         
-        <!-- Management Section -->
-        <div class="nav-section-header px-0 mb-2 mt-6">
+        <div class="nav-section-header px-0 mb-2 mt-4">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
         </div>
         <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
@@ -258,11 +281,6 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
             <span class="nav-text">Subscription Logs</span>
         </a>
 
-        <a href="rbac_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'rbac') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">security</span> 
-            <span class="nav-text">Access Control</span>
-        </a>
-
         <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span> 
             <span class="nav-text">Real-Time Occupancy</span>
@@ -273,8 +291,7 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
             <span class="nav-text">Recent Transactions</span>
         </a>
 
-        <!-- System Section -->
-        <div class="nav-section-header px-0 mb-2 mt-6">
+        <div class="nav-section-header px-0 mb-2 mt-4">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System</span>
         </div>
         <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
@@ -303,8 +320,8 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         </a>
     </div>
 
-    <div class="mt-auto pt-10 border-t border-white/10 flex flex-col gap-4">
-        <div class="nav-section-header px-0 mb-2">
+    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-2 shrink-0">
+        <div class="nav-section-header px-0 mb-0">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
         </div>
         <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
@@ -315,7 +332,7 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
             <span class="material-symbols-outlined text-xl shrink-0">person</span> 
             <span class="nav-text">Profile</span>
         </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group">
+        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
             <span class="nav-link nav-text">Sign Out</span>
         </a>
@@ -350,7 +367,6 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
         <?php endif; ?>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-            <!-- 1. Global Revenue -->
             <div class="glass-card p-8 status-card-green relative overflow-hidden group">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">payments</span>
                 <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Global Revenue</p>
@@ -358,7 +374,6 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
                 <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Across All Tenants</p>
             </div>
 
-            <!-- 2. Total Tenants -->
             <div class="glass-card p-8 status-card-yellow relative overflow-hidden group">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">business</span>
                 <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Total Tenants</p>
@@ -369,7 +384,6 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
 
-            <!-- 3. User Directory -->
             <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">groups</span>
                 <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">User Directory</p>
@@ -380,44 +394,11 @@ $recent_applications = $stmtList->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </div>
 
-            <!-- 4. Pending Applications -->
             <div class="glass-card p-8 relative overflow-hidden group border border-amber-500/20 bg-amber-500/5">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">pending_actions</span>
                 <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending Apps</p>
                 <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_apps_count ?></h3>
                 <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Action Required</p>
-            </div>
-
-            <!-- 5. System Alerts -->
-            <a href="system_alerts.php" class="block glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5 hover:bg-white/10 transition-all">
-                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-red-500">notifications_active</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">System Alerts</p>
-                <h3 class="text-2xl font-black italic uppercase"><?= $active_alerts_count ?> Active</h3>
-                <p class="text-red-500 text-[10px] font-black uppercase mt-2">Urgent Notifications</p>
-            </a>
-
-            <!-- 6. Total Occupancy -->
-            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
-                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">group</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Total Occupancy</p>
-                <h3 class="text-2xl font-black italic uppercase">Live</h3>
-                <p class="text-primary text-[10px] font-black uppercase mt-2">Real-time Monitoring</p>
-            </div>
-
-            <!-- 7. Subscriptions -->
-            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
-                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">history_edu</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Subscriptions</p>
-                <h3 class="text-2xl font-black italic uppercase">Active Logs</h3>
-                <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Monitoring Health</p>
-            </div>
-
-            <!-- 8. Access Control -->
-            <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
-                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">security</span>
-                <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Access Control</p>
-                <h3 class="text-2xl font-black italic uppercase">RBAC Active</h3>
-                <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Security Managed</p>
             </div>
         </div>
 

@@ -108,7 +108,7 @@ unset($_SESSION['application_data']);
                 Partner Registration
             </div>
             <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">Apply for <span class="text-primary">Partnership</span></h1>
-            <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Step <span id="step-number">1</span> of 4: Provider Details</p>
+            <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Step <span id="step-number">1</span> of 3: Provider Details</p>
             
             <?php if (isset($_SESSION['application_error'])): ?>
                 <div class="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-bold flex items-center gap-3">
@@ -118,7 +118,7 @@ unset($_SESSION['application_data']);
             <?php endif; ?>
 
             <div class="w-full bg-white/5 h-1.5 mt-8 rounded-full overflow-hidden">
-                <div id="progress-bar" class="bg-primary h-full transition-all duration-500" style="width: 25%"></div>
+                <div id="progress-bar" class="bg-primary h-full transition-all duration-500" style="width: 33.33%"></div>
             </div>
         </div>
 
@@ -175,7 +175,6 @@ unset($_SESSION['application_data']);
                                     <span id="eye-icon-pass" class="material-symbols-outlined text-[20px]">visibility</span>
                                 </button>
                             </div>
-                            <!-- Password Strength Bar -->
                             <div class="mt-2 flex gap-1 h-1.5 px-1">
                                 <div id="strength-bar-1" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
                                 <div id="strength-bar-2" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
@@ -351,63 +350,6 @@ unset($_SESSION['application_data']);
                 </div>
             </div>
 
-            <div class="step-container step-hidden" data-step="4">
-                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
-                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-4 mb-8">
-                            <span class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">4</span>
-                            <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Facility Setup</h3>
-                        </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Opening Time</label>
-                            <input type="time" name="opening_time" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Closing Time</label>
-                            <input type="time" name="closing_time" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Max Capacity</label>
-                            <input type="number" name="max_capacity" min="1" oninput="if(this.value < 0) this.value = Math.abs(this.value);" placeholder="e.g. 50" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                        <label class="flex items-center gap-3 p-3.5 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md cursor-pointer hover:bg-white/10 hover:border-primary/50 transition-all">
-                            <input type="checkbox" name="has_lockers" value="1" class="rounded text-primary bg-transparent border-white/20 focus:ring-primary focus:ring-offset-0">
-                            <span class="text-xs font-bold uppercase tracking-wide">Lockers</span>
-                        </label>
-                        <label class="flex items-center gap-3 p-3.5 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md cursor-pointer hover:bg-white/10 hover:border-primary/50 transition-all">
-                            <input type="checkbox" name="has_shower" value="1" class="rounded text-primary bg-transparent border-white/20 focus:ring-primary focus:ring-offset-0">
-                            <span class="text-xs font-bold uppercase tracking-wide">Showers</span>
-                        </label>
-                        <label class="flex items-center gap-3 p-3.5 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md cursor-pointer hover:bg-white/10 hover:border-primary/50 transition-all">
-                            <input type="checkbox" name="has_parking" value="1" class="rounded text-primary bg-transparent border-white/20 focus:ring-primary focus:ring-offset-0">
-                            <span class="text-xs font-bold uppercase tracking-wide">Parking</span>
-                        </label>
-                        <label class="flex items-center gap-3 p-3.5 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md cursor-pointer hover:bg-white/10 hover:border-primary/50 transition-all">
-                            <input type="checkbox" name="has_wifi" value="1" class="rounded text-primary bg-transparent border-white/20 focus:ring-primary focus:ring-offset-0">
-                            <span class="text-xs font-bold uppercase tracking-wide">Wi-Fi</span>
-                        </label>
-                    </div>
-
-                    <div class="space-y-5">
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">About the Gym</label>
-                            <textarea name="about_text" rows="3" placeholder="Describe your gym's philosophy..." class="w-full rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none"></textarea>
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">House Rules</label>
-                            <textarea name="rules_text" rows="3" placeholder="e.g. Proper gym attire required..." class="w-full rounded-xl border border-white/10 bg-white/5 backdrop-blur-md p-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none"></textarea>
-                        </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div class="flex gap-4 pt-2">
                 <button type="button" id="prev-btn" class="hidden flex-1 h-12 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md text-white font-display font-bold uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">
                     Previous
@@ -423,9 +365,6 @@ unset($_SESSION['application_data']);
             </div>
 
         </form>
-    </div>
-</main>
-
     </div>
 </main>
 
@@ -590,16 +529,6 @@ unset($_SESSION['application_data']);
             }
         }
 
-        // Additional validation for Step 3
-        if (currentStep === 3) {
-            const bir = document.getElementById('bir_number').value;
-            if (bir.length < 9 || bir.length > 12) {
-                alert('BIR TIN should be between 9 and 12 digits.');
-                document.getElementById('bir_number').focus();
-                return;
-            }
-        }
-
         if (currentStep < totalSteps) {
             currentStep++;
             updateUI();
@@ -611,8 +540,6 @@ unset($_SESSION['application_data']);
     const formData = <?= json_encode($form_data) ?>;
     if (formData && Object.keys(formData).length > 0) {
         Object.keys(formData).forEach(key => {
-            // Do not restore passwords, username, or gym_email (if there's an error)
-            // Note: owner_email can now be safely restored based on new requirements.
             if (['password', 'confirm_password', 'username', 'gym_email'].includes(key)) return;
             
             if (key === 'platform_fee_preference') {
@@ -623,7 +550,6 @@ unset($_SESSION['application_data']);
 
             const checkbox = document.querySelector(`input[type="checkbox"][name="${key}"]`);
             if (checkbox) {
-                // Checkboxes from form submission hold the 'value' submitted, e.g., '1'
                 if (formData[key] === checkbox.value) checkbox.checked = true;
                 return;
             }
@@ -642,9 +568,7 @@ unset($_SESSION['application_data']);
         }
     });
 
-    // Prevent Enter key from submitting the form prematurely
     form.addEventListener('keydown', function(e) {
-        // Only target input fields to allow textareas to have line breaks
         if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
             e.preventDefault();
             if (currentStep < totalSteps) {
@@ -655,7 +579,6 @@ unset($_SESSION['application_data']);
         }
     });
 
-    // Add loading feedback when finally submitting to prevent double-clicks
     form.addEventListener('submit', () => {
         submitBtn.disabled = true;
         submitBtn.innerHTML = `Processing... <span class="material-symbols-outlined text-lg animate-spin">refresh</span>`;

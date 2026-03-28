@@ -1,59 +1,67 @@
 <?php
 session_start();
-// Database connection commented out for UI preview
-// require_once '../db.php';
+require_once '../db.php';
 
-// Mocked session data for UI preview
-$_SESSION['user_id'] = 1;
-$_SESSION['gym_id'] = 1;
-$_SESSION['role'] = 'tenant';
+// Security Check: Only Tenants/Admins/Staff
+$role = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || ($role !== 'tenant' && $role !== 'admin' && $role !== 'staff' && $role !== 'coach')) {
+    header("Location: ../login.php");
+    exit;
+}
 
 $gym_id = $_SESSION['gym_id'];
-$active_page = 'staff';
-$success = '';
-$error = '';
+$user_id = $_SESSION['user_id'];
+$active_page = "facility";
 
-// Mock Gym Details
-$gym = [
-    'gym_name' => 'HERDOZA FITNESS'
-];
+// Fetch Gym Details
+$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
+$stmtGym->execute([$gym_id]);
+$gym = $stmtGym->fetch();
 
-// Mock Subscription
-$sub = [
-    'plan_name' => 'Legacy Plan'
-];
+// Fetch Subscription for header
+$stmtSub = $pdo->prepare("SELECT ws.plan_name FROM client_subscriptions cs JOIN website_plans ws ON cs.website_plan_id = ws.website_plan_id WHERE cs.gym_id = ? AND cs.subscription_status = 'Active' LIMIT 1");
+$stmtSub->execute([$gym_id]);
+$sub = $stmtSub->fetch();
 
-// Mock CMS Page
-$page = [
-    'logo_path' => ''
-];
+// Fetch CMS Page for sidebar logo
+$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
+$stmtPage->execute([$gym_id]);
+$page = $stmtPage->fetch();
+
+$error = null;
+$success = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $first_name = trim($_POST['first_name'] ?? '');
-    $middle_name = trim($_POST['middle_name'] ?? '');
-    $last_name = trim($_POST['last_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $username = trim($_POST['username'] ?? '');
-    $contact_number = trim($_POST['contact_number'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $staff_role = $_POST['staff_role'] ?? 'Staff';
-    $employment_type = $_POST['employment_type'] ?? 'Full-time';
-    $now = date('Y-m-d H:i:s');
+    $opening_time = $_POST['opening_time'];
+    $closing_time = $_POST['closing_time'];
+    $max_capacity = (int)$_POST['max_capacity'];
+    $has_lockers = isset($_POST['has_lockers']) ? 1 : 0;
+    $has_shower = isset($_POST['has_shower']) ? 1 : 0;
+    $has_parking = isset($_POST['has_parking']) ? 1 : 0;
+    $has_wifi = isset($_POST['has_wifi']) ? 1 : 0;
+    $rules_text = $_POST['rules_text'] ?? '';
 
-    if (empty($first_name) || empty($last_name) || empty($email) || empty($username)) {
-        $error = "All fields are required.";
-    } else {
-        $success = "Staff member $first_name added successfully! (UI PREVIEW)";
+    try {
+        $stmtUpdate = $pdo->prepare("UPDATE gyms SET opening_time = ?, closing_time = ?, max_capacity = ?, has_lockers = ?, has_shower = ?, has_parking = ?, has_wifi = ?, rules_text = ? WHERE gym_id = ?");
+        $stmtUpdate->execute([$opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $gym_id]);
+        
+        $success = "Facility configuration updated successfully!";
+        // Refresh gym data
+        $stmtGym->execute([$gym_id]);
+        $gym = $stmtGym->fetch();
+    } catch (Exception $e) {
+        $error = $e->getMessage();
     }
 }
-?>
 
+$page_title_meta = "Facility Setup";
+?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Add New Staff | Horizon Tenant</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <title><?= $page_title_meta ?> | Horizon Partners</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&family=Inter:wght@400;700&family=Outfit:wght@400;700&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -132,11 +140,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; transition: all 0.2s; }
-        .input-field:focus { border-color: #8c2bee; outline: none; box-shadow: 0 0 0 2px rgba(140, 43, 238, 0.2); }
+        
+        .input-dark { background: #0a090d; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; color: white; padding: 0.75rem 1rem; font-size: 0.75rem; width: 100%; outline: none; transition: border-color 0.2s; }
+        .input-dark:focus { border-color: #8c2bee; }
     </style>
 </head>
-<body class="flex h-screen overflow-hidden">
+<body class="antialiased flex h-screen overflow-hidden">
 
 <nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
     <div class="mb-10 shrink-0"> 
@@ -222,42 +231,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </nav>
 
-    <script>
+<script>
+    function updateTopClock() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit' 
+        });
+        const clockEl = document.getElementById('topClock');
+        if (clockEl) clockEl.textContent = timeString;
+    }
+    setInterval(updateTopClock, 1000);
+    window.addEventListener('DOMContentLoaded', updateTopClock);
+</script>
 
-        function updateTopClock() {
-
-            const now = new Date();
-
-            const timeString = now.toLocaleTimeString('en-US', { 
-
-                hour: '2-digit', 
-
-                minute: '2-digit', 
-
-                second: '2-digit' 
-
-            });
-
-            const clockEl = document.getElementById('topClock');
-
-            if (clockEl) clockEl.textContent = timeString;
-
-        }
-
-        setInterval(updateTopClock, 1000);
-
-        window.addEventListener('DOMContentLoaded', updateTopClock);
-
-    </script>
-
-<main class="flex-1 overflow-y-auto no-scrollbar p-10">
-    <header class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div class="flex flex-col md:flex-row md:items-end justify-between w-full">
+<main class="flex-1 overflow-y-auto no-scrollbar p-10 master-content">
+    <div class="max-w-4xl mx-auto w-full">
+        <header class="mb-10 flex justify-between items-end">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-primary">Onboard <span class="text-white">Staff</span></h2>
-                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Create new system access credentials</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-primary">Facility <span class="text-white">Setup</span></h2>
+                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Configure gym operations & amenities</p>
             </div>
-            <div class="flex flex-col items-end mt-4 md:mt-0">
+            <div class="flex flex-col items-end">
                 <p id="topClock" class="text-white font-black italic text-2xl leading-none">00:00:00 AM</p>
                 <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
                 <div class="flex items-center gap-2 mt-2 px-3 py-1 rounded-lg bg-white/5 border border-white/5">
@@ -266,83 +262,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <span class="px-1.5 py-0.5 rounded-md bg-primary/20 text-primary text-[7px] font-black uppercase tracking-widest">Active</span>
                 </div>
             </div>
+        </header>
+
+        <?php if ($error): ?>
+        <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-3">
+            <span class="material-symbols-outlined">report</span> <?= $error ?>
         </div>
-    </header>
-
-    <header class="mb-10 flex justify-between items-center">
-        <a href="staff.php" class="text-gray-500 hover:text-white flex items-center gap-2 font-black italic uppercase text-[10px] tracking-widest transition-all ml-auto">
-            <span class="material-symbols-outlined text-sm text-primary">arrow_back</span> Back to Roster
-        </a>
-    </header>
-
-    <div class="glass-card p-10 max-w-5xl">
-        <?php if($success): ?>
-            <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-3">
-                <span class="material-symbols-outlined">check_circle</span> <?= $success ?>
-            </div>
-        <?php endif; ?>
-        <?php if($error): ?>
-            <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold flex items-center gap-3">
-                <span class="material-symbols-outlined">error</span> <?= $error ?>
-            </div>
         <?php endif; ?>
 
-        <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2">Identity Info</h4>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">First Name</label>
-                        <input type="text" name="first_name" required class="input-field">
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Last Name</label>
-                        <input type="text" name="last_name" required class="input-field">
-                    </div>
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Email Address</label>
-                    <input type="email" name="email" required class="input-field">
-                </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Contact Number</label>
-                    <input type="text" name="contact_number" class="input-field">
-                </div>
-            </div>
+        <?php if ($success): ?>
+        <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-3">
+            <span class="material-symbols-outlined">check_circle</span> <?= $success ?>
+        </div>
+        <?php endif; ?>
 
-            <div class="space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2">Account Authority</h4>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">System Username</label>
-                    <input type="text" name="username" required class="input-field">
+        <form method="POST" class="space-y-8">
+        <div class="glass-card p-8">
+            <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">schedule</span> Operational Hours
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="space-y-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">OPENING TIME</label>
+                    <input type="time" name="opening_time" value="<?= htmlspecialchars($gym['opening_time'] ?? '') ?>" class="input-dark">
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Assigned Role</label>
-                        <select name="staff_role" class="input-field">
-                            <option value="Staff">Staff</option>
-                            <option value="Coach">Coach</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Employment</label>
-                        <select name="employment_type" class="input-field">
-                            <option value="Full-time">Full-time</option>
-                            <option value="Part-time">Part-time</option>
-                        </select>
-                    </div>
+                <div class="space-y-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">CLOSING TIME</label>
+                    <input type="time" name="closing_time" value="<?= htmlspecialchars($gym['closing_time'] ?? '') ?>" class="input-dark">
                 </div>
-                <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Password (Optional - will auto-gen if empty)</label>
-                    <input type="password" name="password" class="input-field" placeholder="Leave empty for auto-gen">
+                <div class="space-y-1.5">
+                    <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">MAX CAPACITY</label>
+                    <input type="number" name="max_capacity" value="<?= htmlspecialchars($gym['max_capacity'] ?? '') ?>" class="input-dark">
                 </div>
             </div>
+        </div>
 
-            <div class="md:col-span-2 pt-6">
-                <button type="submit" class="w-full bg-primary text-white py-4 rounded-xl font-black italic uppercase tracking-widest text-xs shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">Onboard Staff Member</button>
+        <div class="glass-card p-8">
+            <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">featured_play_list</span> Amenities & Features
+            </h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <label class="flex items-center gap-3 p-4 rounded-xl bg-background-dark border border-white/5 cursor-pointer hover:border-primary/50 transition-all">
+                    <input type="checkbox" name="has_lockers" <?= ($gym['has_lockers'] ?? 0) ? 'checked' : '' ?> class="size-4 rounded border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0">
+                    <span class="text-[10px] font-black uppercase tracking-widest">Lockers</span>
+                </label>
+                <label class="flex items-center gap-3 p-4 rounded-xl bg-background-dark border border-white/5 cursor-pointer hover:border-primary/50 transition-all">
+                    <input type="checkbox" name="has_shower" <?= ($gym['has_shower'] ?? 0) ? 'checked' : '' ?> class="size-4 rounded border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0">
+                    <span class="text-[10px] font-black uppercase tracking-widest">Showers</span>
+                </label>
+                <label class="flex items-center gap-3 p-4 rounded-xl bg-background-dark border border-white/5 cursor-pointer hover:border-primary/50 transition-all">
+                    <input type="checkbox" name="has_parking" <?= ($gym['has_parking'] ?? 0) ? 'checked' : '' ?> class="size-4 rounded border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0">
+                    <span class="text-[10px] font-black uppercase tracking-widest">Parking</span>
+                </label>
+                <label class="flex items-center gap-3 p-4 rounded-xl bg-background-dark border border-white/5 cursor-pointer hover:border-primary/50 transition-all">
+                    <input type="checkbox" name="has_wifi" <?= ($gym['has_wifi'] ?? 0) ? 'checked' : '' ?> class="size-4 rounded border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0">
+                    <span class="text-[10px] font-black uppercase tracking-widest">Wi-Fi</span>
+                </label>
             </div>
-        </form>
-    </div>
+        </div>
+
+        <div class="glass-card p-8">
+            <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">gavel</span> House Rules
+            </h4>
+            <div class="space-y-1.5">
+                <label class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1">GYM POLICIES</label>
+                <textarea name="rules_text" rows="6" class="input-dark" placeholder="Enter gym rules and policies..."><?= htmlspecialchars($gym['rules_text'] ?? '') ?></textarea>
+            </div>
+        </div>
+
+        <button type="submit" class="w-full h-16 rounded-2xl bg-primary hover:bg-opacity-90 shadow-lg shadow-primary/20 transition-all text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3">
+            <span class="material-symbols-outlined">save</span> Save Configuration
+        </button>
+    </form>
+</div>
 </main>
 
 </body>
