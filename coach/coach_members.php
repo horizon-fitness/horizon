@@ -1,3 +1,44 @@
+<?php
+session_start();
+require_once '../db.php';
+
+// Security Check
+$role = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || $role !== 'coach') {
+    header("Location: ../login.php");
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+$gym_id = $_SESSION['gym_id'];
+
+// Fetch Coach ID
+$stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
+$stmtCoach->execute([$user_id, $gym_id]);
+$coach = $stmtCoach->fetch();
+$coach_id = $coach ? $coach['coach_id'] : 0;
+
+$pending_count = 0;
+if ($coach_id > 0) {
+    $stmtPending = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_status = 'Pending'");
+    $stmtPending->execute([$coach_id]);
+    $pending_count = $stmtPending->fetchColumn();
+}
+
+// Fetch Assigned Members (those who have booked with this coach)
+$members = [];
+if ($coach_id > 0) {
+    $stmtMembers = $pdo->prepare("
+        SELECT DISTINCT m.member_id as id, u.username, CONCAT(u.first_name, ' ', u.last_name) as fullname, m.member_code
+        FROM bookings b
+        JOIN members m ON b.member_id = m.member_id
+        JOIN users u ON m.user_id = u.user_id
+        WHERE b.coach_id = ?
+    ");
+    $stmtMembers->execute([$coach_id]);
+    $members = $stmtMembers->fetchAll();
+}
+?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
@@ -9,7 +50,7 @@
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
+            theme: { extend: { colors: { "primary": "<?= $_SESSION['theme_color'] ?? '#8c2bee' ?>", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
         }
         function updateHeaderClock() {
             const now = new Date();
@@ -36,7 +77,7 @@
             <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
             </div>
-            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Herdoza <span class="text-primary">Coach</span></h1>
+            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Horizon <span class="text-primary">Coach</span></h1>
         </div>
         
         <div class="flex flex-col gap-8 flex-1">
@@ -86,10 +127,11 @@
         </header>
 
         <div class="grid grid-cols-1 gap-4" id="memberContainer">
-            <?php if (mysqli_num_rows($result) > 0): ?>
-                <?php while($row = mysqli_fetch_assoc($result)): 
-                    $att_q = mysqli_query($conn, "SELECT MAX(check_in) as last_v FROM attendance WHERE username = '{$row['username']}'");
-                    $att_data = mysqli_fetch_assoc($att_q);
+            <?php if (count($members) > 0): ?>
+                <?php foreach($members as $row): 
+                    $stmtAtt = $pdo->prepare("SELECT MAX(attendance_date) as last_v FROM attendance WHERE member_id = ?");
+                    $stmtAtt->execute([$row['id']]);
+                    $att_data = $stmtAtt->fetch();
                     $last_visit = ($att_data && $att_data['last_v']) ? date("M d, Y", strtotime($att_data['last_v'])) : "No record";
                 ?>
                 <div class="member-card glass-card p-6 flex flex-col md:flex-row items-center justify-between hover:border-primary/40 transition-all gap-6">
@@ -111,7 +153,7 @@
                         <a href="coach_workouts.php?user_id=<?= $row['id'] ?>" class="bg-primary/10 border border-primary/20 px-6 py-2 rounded-xl text-[10px] font-black uppercase text-primary hover:bg-primary hover:text-white transition-all">View Profile</a>
                     </div>
                 </div>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             <?php else: ?>
                 <div class="py-20 text-center glass-card opacity-50 border-dashed">
                     <span class="material-symbols-outlined text-5xl mb-4">person_off</span>

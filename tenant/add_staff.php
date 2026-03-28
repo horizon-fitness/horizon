@@ -1,36 +1,31 @@
 <?php
 session_start();
-// Database connection commented out for UI preview
-// require_once '../db.php';
+require_once '../db.php';
 
-// Mocked session data for UI preview
-$_SESSION['user_id'] = 1;
-$_SESSION['gym_id'] = 1;
-$_SESSION['role'] = 'tenant';
+// Security Check
+$role = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || ($role !== 'tenant' && $role !== 'admin')) {
+    header("Location: ../login.php");
+    exit;
+}
 
 $gym_id = $_SESSION['gym_id'];
 $active_page = 'staff';
 $success = '';
 $error = '';
 
-// Mock Gym Details
-$gym = [
-    'gym_name' => 'HERDOZA FITNESS'
-];
+// Fetch Gym Details
+$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
+$stmtGym->execute([$gym_id]);
+$gym = $stmtGym->fetch();
 
-// Mock Subscription
-$sub = [
-    'plan_name' => 'Legacy Plan'
-];
-
-// Mock CMS Page
-$page = [
-    'logo_path' => ''
-];
+// Fetch CMS Page
+$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
+$stmtPage->execute([$gym_id]);
+$page = $stmtPage->fetch();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $first_name = trim($_POST['first_name'] ?? '');
-    $middle_name = trim($_POST['middle_name'] ?? '');
     $last_name = trim($_POST['last_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $username = trim($_POST['username'] ?? '');
@@ -41,9 +36,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $now = date('Y-m-d H:i:s');
 
     if (empty($first_name) || empty($last_name) || empty($email) || empty($username)) {
-        $error = "All fields are required.";
+        $error = "Essential fields are required.";
     } else {
-        $success = "Staff member $first_name added successfully! (UI PREVIEW)";
+        try {
+            // Check if username or email exists
+            $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? OR email = ?");
+            $stmtCheck->execute([$username, $email]);
+            if ($stmtCheck->rowCount() > 0) {
+                $error = "Username or Email already exists.";
+            } else {
+                $pdo->beginTransaction();
+
+                // Hash password (auto-gen if empty)
+                if (empty($password)) {
+                    $password = strtolower($first_name) . "123";
+                }
+                $password_hash = password_hash($password, PASSWORD_DEFAULT);
+
+                // 1. Insert into users
+                $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?, ?)");
+                $stmtUser->execute([$username, $email, $password_hash, $first_name, $last_name, $contact_number, $now, $now]);
+                $new_user_id = $pdo->lastInsertId();
+
+                // 2. Fetch or Create Role (ensure it matches login.php expectations)
+                $role_name = (strtolower($staff_role) === 'coach') ? 'Coach' : 'Staff';
+                $stmtRole = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
+                $stmtRole->execute([$role_name]);
+                $role_row = $stmtRole->fetch();
+                
+                if (!$role_row) {
+                    $stmtAddRole = $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)");
+                    $stmtAddRole->execute([$role_name]);
+                    $role_id = $pdo->lastInsertId();
+                } else {
+                    $role_id = $role_row['role_id'];
+                }
+
+                // 3. Insert into user_roles
+                $stmtUserRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', ?)");
+                $stmtUserRole->execute([$new_user_id, $role_id, $gym_id, $now]);
+
+                // 4. Conditional insertion into staff or coaches table
+                if (strtolower($staff_role) === 'coach') {
+                    $stmtCoach = $pdo->prepare("INSERT INTO coaches (user_id, gym_id, coach_type, specialization, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, 'General Trainer', CURDATE(), 'Active', ?, ?)");
+                    $stmtCoach->execute([$new_user_id, $gym_id, $employment_type, $now, $now]);
+                } else {
+                    $stmtStaff = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, CURDATE(), 'Active', ?, ?)");
+                    $stmtStaff->execute([$new_user_id, $gym_id, $staff_role, $employment_type, $now, $now]);
+                }
+
+                $pdo->commit();
+                $success = "Staff member $first_name ($role_name) added successfully! Default password: $password";
+            }
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error = "Transaction failed: " . $e->getMessage();
+        }
     }
 }
 ?>

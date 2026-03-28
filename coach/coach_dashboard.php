@@ -1,3 +1,64 @@
+<?php
+session_start();
+require_once '../db.php';
+
+// Security Check
+$role = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || $role !== 'coach') {
+    header("Location: ../login.php");
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+$gym_id = $_SESSION['gym_id'];
+$coach_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
+
+// Fetch Coach ID
+$stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
+$stmtCoach->execute([$user_id, $gym_id]);
+$coach = $stmtCoach->fetch();
+
+if (!$coach) {
+    // If not in coaches table, they might just have the role but no profile yet
+    // For now, let's just use 0 or handle it gracefully
+    $coach_id = 0;
+} else {
+    $coach_id = $coach['coach_id'];
+}
+
+// Stats
+$today = date('Y-m-d');
+$today_count = 0;
+$pending_count = 0;
+
+if ($coach_id > 0) {
+    // Today's sessions
+    $stmtToday = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date = ? AND booking_status = 'Confirmed'");
+    $stmtToday->execute([$coach_id, $today]);
+    $today_count = $stmtToday->fetchColumn();
+
+    // Pending notifications/bookings (optional)
+    $stmtPending = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_status = 'Pending'");
+    $stmtPending->execute([$coach_id]);
+    $pending_count = $stmtPending->fetchColumn();
+}
+
+// Fetch Today's Schedule
+$schedule_result = [];
+if ($coach_id > 0) {
+    $stmtSched = $pdo->prepare("
+        SELECT b.*, u.first_name, u.last_name, u.username, gs.custom_service_name as session_name 
+        FROM bookings b
+        JOIN members m ON b.member_id = m.member_id
+        JOIN users u ON m.user_id = u.user_id
+        LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
+        WHERE b.coach_id = ? AND b.booking_date = ?
+        ORDER BY b.start_time ASC
+    ");
+    $stmtSched->execute([$coach_id, $today]);
+    $schedule_result = $stmtSched->fetchAll();
+}
+?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
@@ -68,7 +129,7 @@
                 <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
                     <span class="material-symbols-outlined text-white text-2xl">bolt</span>
                 </div>
-                <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Herdoza <span class="text-primary">Coach</span></h1>
+                <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Horizon <span class="text-primary">Coach</span></h1>
             </div>
             <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
                 <p id="sidebarClock" class="text-white font-black italic text-xl leading-none mb-1">00:00:00 AM</p>
@@ -77,7 +138,7 @@
         </div>
         
         <div class="flex flex-col gap-8 flex-1 overflow-y-auto no-scrollbar pr-2">
-            <a href="dashboard_coach.php" class="nav-link active-nav flex items-center gap-3">
+            <a href="coach_dashboard.php" class="nav-link active-nav flex items-center gap-3">
                 <span class="material-symbols-outlined text-xl">grid_view</span>
                 Dashboard
                 <?php if($pending_count > 0): ?><span class="size-1.5 rounded-full bg-primary alert-dot"></span><?php endif; ?>
@@ -131,7 +192,7 @@
             <div class="glass-card p-8 border-l-4 border-primary shadow-xl">
                 <p class="text-[10px] font-black uppercase text-gray-500 mb-2 tracking-widest">Today's Training Schedule</p>
                 <div class="flex items-end gap-3">
-                    <h3 class="text-4xl lg:text-5xl font-black italic"><?= mysqli_num_rows($schedule_result) ?></h3>
+                    <h3 class="text-4xl lg:text-5xl font-black italic"><?= count($schedule_result) ?></h3>
                     <p class="text-[10px] font-black mb-1 text-primary uppercase tracking-widest">Total Sessions</p>
                 </div>
             </div>
@@ -153,13 +214,13 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
-                        <?php if(mysqli_num_rows($schedule_result) > 0): while($row = mysqli_fetch_assoc($schedule_result)): ?>
+                        <?php if(count($schedule_result) > 0): foreach($schedule_result as $row): ?>
                         <tr class="hover:bg-white/[0.02] transition-colors group">
                             <td class="px-8 py-6">
                                 <div class="flex items-center gap-3">
-                                    <div class="size-10 rounded-full bg-white/5 flex items-center justify-center font-black text-primary border border-white/5 group-hover:border-primary/50 text-sm"><?= substr($row['member_name'], 0, 1) ?></div>
+                                    <div class="size-10 rounded-full bg-white/5 flex items-center justify-center font-black text-primary border border-white/5 group-hover:border-primary/50 text-sm"><?= substr($row['first_name'], 0, 1) ?></div>
                                     <div>
-                                        <p class="text-white font-black uppercase italic leading-tight"><?= htmlspecialchars($row['member_name']) ?></p>
+                                        <p class="text-white font-black uppercase italic leading-tight"><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
                                         <p class="text-[9px] text-gray-500 font-bold uppercase">@<?= htmlspecialchars($row['username']) ?></p>
                                     </div>
                                 </div>
@@ -168,14 +229,14 @@
                                 <p class="text-gray-300 text-sm font-bold uppercase italic"><?= htmlspecialchars($row['session_name'] ?? 'Personal Training') ?></p>
                             </td>
                             <td class="px-8 py-6">
-                                <p class="text-white font-black text-sm"><?= date('h:i A', strtotime($row['booking_time'])) ?></p>
+                                <p class="text-white font-black text-sm"><?= date('h:i A', strtotime($row['start_time'])) ?></p>
                                 <p class="text-[9px] text-gray-500 font-bold uppercase tracking-tighter"><?= date('l, M d', strtotime($row['booking_date'])) ?></p>
                             </td>
                             <td class="px-8 py-6 text-right">
                                 <a href="coach_workouts.php?user_id=<?= $row['user_id'] ?>" class="bg-white/5 border border-white/10 px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-primary hover:border-primary transition-all shadow-xl inline-block">Assign Workouts</a>
                             </td>
                         </tr>
-                        <?php endwhile; else: ?>
+                        <?php endforeach; else: ?>
                             <tr><td colspan="4" class="p-20 text-center text-gray-600 uppercase font-black italic text-xs tracking-widest">No members scheduled for training today</td></tr>
                         <?php endif; ?>
                     </tbody>
@@ -185,7 +246,7 @@
     </main>
 
     <div class="fixed bottom-0 left-0 right-0 h-20 mobile-taskbar z-[100] lg:hidden flex items-center justify-around px-4">
-        <a href="dashboard_coach.php" class="flex flex-col items-center gap-1 text-primary relative">
+        <a href="coach_dashboard.php" class="flex flex-col items-center gap-1 text-primary relative">
             <span class="material-symbols-outlined">grid_view</span>
             <span class="text-[8px] font-black uppercase">Dashboard</span>
             <?php if($pending_count > 0): ?><span class="absolute top-0 right-0 size-2 bg-primary rounded-full alert-dot"></span><?php endif; ?>

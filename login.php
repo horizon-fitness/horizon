@@ -111,6 +111,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             header("Location: tenant/tenant_gateway.php");
                             exit;
                         case 'coach':
+                            header("Location: coach/coach_dashboard.php");
+                            exit;
                         case 'staff':
                             if ($branding) {
                                 if ($roleData['gym_id'] != $branding['gym_id']) {

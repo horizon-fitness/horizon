@@ -1,3 +1,55 @@
+<?php
+session_start();
+require_once '../db.php';
+
+// Security Check
+$role = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || $role !== 'coach') {
+    header("Location: ../login.php");
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+$gym_id = $_SESSION['gym_id'];
+
+// Fetch User Details
+$stmtUser = $pdo->prepare("SELECT *, CONCAT(first_name, ' ', last_name) as fullname FROM users WHERE user_id = ? LIMIT 1");
+$stmtUser->execute([$user_id]);
+$user = $stmtUser->fetch();
+
+// Fetch Coach Specific Info
+$stmtCoach = $pdo->prepare("SELECT * FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
+$stmtCoach->execute([$user_id, $gym_id]);
+$coach = $stmtCoach->fetch();
+$coach_id = $coach ? $coach['coach_id'] : 0;
+
+$pending_count = 0;
+if ($coach_id > 0) {
+    $stmtPending = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_status = 'Pending'");
+    $stmtPending->execute([$coach_id]);
+    $pending_count = $stmtPending->fetchColumn();
+}
+
+// Handle Password Update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_password'])) {
+    $new_pass = $_POST['new_password'];
+    $conf_pass = $_POST['confirm_password'];
+
+    if ($new_pass !== $conf_pass) {
+        $error_msg = "Passwords do not match.";
+    } elseif (strlen($new_pass) < 6) {
+        $error_msg = "Password must be at least 6 characters.";
+    } else {
+        $hash = password_hash($new_pass, PASSWORD_DEFAULT);
+        $stmtUpdate = $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = NOW() WHERE user_id = ?");
+        if ($stmtUpdate->execute([$hash, $user_id])) {
+            $success_msg = "Password updated successfully.";
+        } else {
+            $error_msg = "Failed to update password.";
+        }
+    }
+}
+?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
@@ -9,7 +61,7 @@
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
+            theme: { extend: { colors: { "primary": "<?= $_SESSION['theme_color'] ?? '#8c2bee' ?>", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
         }
     </script>
     <style>
@@ -45,7 +97,7 @@
             <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
             </div>
-            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Herdoza <span class="text-primary">Coach</span></h1>
+            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Horizon <span class="text-primary">Coach</span></h1>
         </div>
         
         <div class="flex flex-col gap-8 flex-1">
@@ -110,7 +162,7 @@
                 </div>
                 <div class="pr-4">
                     <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Role</p>
-                    <p class="text-xs font-bold uppercase text-primary"><?= htmlspecialchars($role) ?></p>
+                    <p class="text-xs font-bold uppercase text-primary"><?= htmlspecialchars($_SESSION['role'] ?? 'Coach') ?></p>
                 </div>
             </div>
         </header>
@@ -139,7 +191,7 @@
                         </div>
                         <div>
                             <label class="text-[9px] font-black uppercase text-gray-500">Phone Number</label>
-                            <p class="text-sm font-medium text-gray-300"><?= htmlspecialchars($user['phone_number']) ?></p>
+                            <p class="text-sm font-medium text-gray-300"><?= htmlspecialchars($user['contact_number'] ?? 'Not set') ?></p>
                         </div>
                     </div>
                 </div>

@@ -1,3 +1,97 @@
+<?php
+session_start();
+require_once '../db.php';
+
+// Security Check
+$role = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || $role !== 'coach') {
+    header("Location: ../login.php");
+    exit;
+}
+
+$user_id = $_SESSION['user_id'];
+$gym_id = $_SESSION['gym_id'];
+
+// Fetch Coach ID
+$stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
+$stmtCoach->execute([$user_id, $gym_id]);
+$coach = $stmtCoach->fetch();
+$coach_id = $coach ? $coach['coach_id'] : 0;
+
+$msg = '';
+$week_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// Handle Save Availability
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_availability'])) {
+    try {
+        $pdo->beginTransaction();
+        
+        // Clear existing schedule for this coach
+        $stmtDelete = $pdo->prepare("DELETE FROM coach_schedules WHERE coach_id = ?");
+        $stmtDelete->execute([$coach_id]);
+
+        foreach ($week_days as $day) {
+            $is_off = isset($_POST["off_$day"]) ? 1 : 0;
+            $start = $_POST["start_$day"] ?? '08:00';
+            $end = $_POST["end_$day"] ?? '17:00';
+            
+            // Basic single shift storage for now as per schema
+            $stmtInsert = $pdo->prepare("INSERT INTO coach_schedules (coach_id, day_of_week, start_time, end_time, availability_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
+            $status = $is_off ? 'Off' : 'Available';
+            $stmtInsert->execute([$coach_id, $day, $start, $end, $status]);
+        }
+        
+        $pdo->commit();
+        $msg = "Schedule updated successfully.";
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $msg = "Error updating schedule: " . $e->getMessage();
+    }
+}
+
+// Fetch current availability
+$avail_map = [];
+$stmtAvail = $pdo->prepare("SELECT * FROM coach_schedules WHERE coach_id = ?");
+$stmtAvail->execute([$coach_id]);
+$rows = $stmtAvail->fetchAll();
+foreach ($rows as $r) {
+    $avail_map[$r['day_of_week']] = [
+        'start_time' => $r['start_time'],
+        'end_time' => $r['end_time'],
+        'is_off_day' => ($r['availability_status'] === 'Off') ? 1 : 0
+    ];
+}
+
+$pending_count = 0;
+if ($coach_id > 0) {
+    $stmtPending = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_status = 'Pending'");
+    $stmtPending->execute([$coach_id]);
+    $pending_count = $stmtPending->fetchColumn();
+}
+
+// Fetch Bookings for Daily View
+$all_bookings = [];
+if ($coach_id > 0) {
+    $stmtBookings = $pdo->prepare("
+        SELECT b.*, u.username, CONCAT(u.first_name, ' ', u.last_name) as fullname
+        FROM bookings b
+        JOIN members m ON b.member_id = m.member_id
+        JOIN users u ON m.user_id = u.user_id
+        WHERE b.coach_id = ? AND b.booking_status = 'Confirmed'
+    ");
+    $stmtBookings->execute([$coach_id]);
+    $fetched_bookings = $stmtBookings->fetchAll();
+    
+    foreach ($fetched_bookings as $fb) {
+        $all_bookings[] = [
+            'ts_start' => strtotime($fb['booking_date'] . ' ' . $fb['start_time']),
+            'ts_end' => strtotime($fb['booking_date'] . ' ' . $fb['end_time']),
+            'fullname' => $fb['fullname'],
+            'username' => $fb['username']
+        ];
+    }
+}
+?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
@@ -7,7 +101,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = { darkMode: "class", theme: { extend: { colors: { "primary": "#8c2bee", "surface-dark": "#14121a", "background-dark": "#0a090d" } } } }
+        tailwind.config = { darkMode: "class", theme: { extend: { colors: { "primary": "<?= $_SESSION['theme_color'] ?? '#8c2bee' ?>", "surface-dark": "#14121a", "background-dark": "#0a090d" } } } }
         function updateHeaderClock() {
             const now = new Date();
             if(document.getElementById('headerClock')) document.getElementById('headerClock').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -58,7 +152,7 @@
             <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0">
                 <span class="material-symbols-outlined text-white text-2xl">bolt</span>
             </div>
-            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Herdoza <span class="text-primary">Coach</span></h1>
+            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Horizon <span class="text-primary">Coach</span></h1>
         </div>
         
         <div class="flex flex-col gap-8 flex-1">
@@ -132,17 +226,10 @@
                             </div>
                             <div class="grid grid-cols-2 gap-2 mb-2">
                                 <div>
-                                    <p class="text-[8px] text-gray-500 uppercase font-bold mb-1">Shift 1</p>
+                                    <p class="text-[8px] text-gray-500 uppercase font-bold mb-1">Working Hours</p>
                                     <div class="flex gap-1">
-                                        <input type="time" name="start_<?= $day ?>" value="<?= $s1 ?>" min="07:00" max="21:00" class="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-primary">
-                                        <input type="time" name="end_<?= $day ?>" value="<?= $e1 ?>" min="07:00" max="21:00" class="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-primary">
-                                    </div>
-                                </div>
-                                <div>
-                                    <p class="text-[8px] text-gray-500 uppercase font-bold mb-1">Shift 2</p>
-                                    <div class="flex gap-1">
-                                        <input type="time" name="start2_<?= $day ?>" value="<?= $s2 ?>" min="07:00" max="21:00" class="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-primary">
-                                        <input type="time" name="end2_<?= $day ?>" value="<?= $e2 ?>" min="07:00" max="21:00" class="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-primary">
+                                        <input type="time" name="start_<?= $day ?>" value="<?= substr($s1, 0, 5) ?>" min="07:00" max="21:00" class="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-primary">
+                                        <input type="time" name="end_<?= $day ?>" value="<?= substr($e1, 0, 5) ?>" min="07:00" max="21:00" class="w-full bg-black/30 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-primary">
                                     </div>
                                 </div>
                             </div>
