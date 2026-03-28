@@ -97,11 +97,13 @@ if (empty($schedule_result)) {
             width: 110px; 
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
+            overflow-x: hidden !important;
             display: flex;
             flex-direction: column;
+            padding-right: 0 !important; /* Ensure indicator can be flush */
         }
         .sidebar-nav:hover {
-            width: 300px; 
+            width: 280px; /* Increased to fit CORSANO FITNESS */
         }
 
         .nav-text {
@@ -110,13 +112,28 @@ if (empty($schedule_result)) {
             transition: all 0.3s ease-in-out;
             white-space: nowrap;
             pointer-events: none;
-            display: inline-block;
         }
         .sidebar-nav:hover .nav-text {
             opacity: 1;
             transform: translateX(0);
             pointer-events: auto;
         }
+
+        .nav-section-header {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 0 !important;
+            pointer-events: none;
+        }
+        .sidebar-nav:hover .nav-section-header {
+            max-height: 20px;
+            opacity: 1;
+            margin-bottom: 0px !important; 
+            pointer-events: auto;
+        }
+        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 0px !important; } 
 
         .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
@@ -127,22 +144,23 @@ if (empty($schedule_result)) {
             top: 50%;
             transform: translateY(-50%);
             width: 4px; 
-            height: 20px; 
+            height: 32px; 
             background: #8c2bee; 
-            border-radius: 99px; 
+            border-radius: 4px 0 0 4px; 
         }
         @media (max-width: 1024px) { 
             .sidebar-nav { width: 100%; height: auto; position: relative; }
             .sidebar-nav:hover { width: 100%; }
             .nav-text { opacity: 1; transform: translateX(0); pointer-events: auto; }
-            .active-nav::after { width: 100%; height: 3px; bottom: -8px; left: 0; top: auto; right: auto; transform: none; } 
+            .active-nav::after { display: none; } 
+            .nav-section-header { max-height: 20px; opacity: 1; margin-bottom: 8px !important; }
         }
         .mobile-taskbar { background: rgba(20, 18, 26, 0.9); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.05); }
         .alert-dot { animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: hidden !important; }
 
         @keyframes slideUp { 
             from { transform: translateY(20px); opacity: 0; }
@@ -173,9 +191,9 @@ if (empty($schedule_result)) {
 </head>
 <body class="antialiased flex flex-col lg:flex-row min-h-screen">
 
-<nav class="sidebar-nav hidden lg:flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
+<nav class="sidebar-nav hidden lg:flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen pl-7 pr-0 py-8 z-50 shrink-0">
     <div class="mb-10 shrink-0"> 
-        <div class="flex items-center gap-4 mb-4 min-w-[240px]"> 
+        <div class="flex items-center gap-4 mb-4"> 
             <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
                 <?php if ($gym && !empty($gym['logo_path'])): ?>
                     <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
@@ -189,7 +207,7 @@ if (empty($schedule_result)) {
         </div>
     </div>
     
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
+    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
         <div class="nav-section-header px-0 mb-2">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Main Menu</span>
         </div>
