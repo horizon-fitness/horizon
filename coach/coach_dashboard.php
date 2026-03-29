@@ -11,15 +11,18 @@ if (!isset($_SESSION['user_id']) || $role !== 'coach') {
 
 $user_id = $_SESSION['user_id'];
 $gym_id = $_SESSION['gym_id'];
-$coach_first_name = $_SESSION['first_name'] ?? 'Coach';
+$username = $_SESSION['username'];
+$coach_name = ($_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? '');
 
 // Fetch Gym Details
-$gym = null;
-if (!empty($gym_id)) {
-    $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ? LIMIT 1");
-    $stmtGym->execute([$gym_id]);
-    $gym = $stmtGym->fetch();
-}
+$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
+$stmtGym->execute([$gym_id]);
+$gym = $stmtGym->fetch();
+
+// Active CMS Page (for logo & theme)
+$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
+$stmtPage->execute([$gym_id]);
+$page = $stmtPage->fetch();
 
 // Fetch Coach ID
 $stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
@@ -71,22 +74,39 @@ if ($coach_id > 0) {
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
+            theme: { extend: { colors: { "primary": "<?= $page['theme_color'] ?? '#8c2bee' ?>", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" }}}
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; padding-bottom: 100px; }
+        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; display: flex; flex-direction: row; min-h-screen: 100vh; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         
+        /* Sidebar Hover Logic - MATCHING STAFF DASHBOARD */
         .sidebar-nav {
             width: 110px; 
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            z-index: 50;
         }
         .sidebar-nav:hover {
-            width: 280px; 
+            width: 300px; 
+        }
+
+        /* Main Content Adjustment */
+        .main-content {
+            margin-left: 110px; 
+            flex: 1;
+            min-width: 0;
+            transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .sidebar-nav:hover ~ .main-content {
+            margin-left: 300px; 
         }
 
         .nav-text {
@@ -116,9 +136,23 @@ if ($coach_id > 0) {
             margin-bottom: 0px !important; 
             pointer-events: auto;
         }
+        .sidebar-nav:hover .mt-0 { margin-top: 0px !important; }
 
-        .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
-        .active-nav { color: #8c2bee !important; position: relative; }
+        .nav-link { 
+            display: flex; 
+            align-items: center; 
+            gap: 16px; 
+            padding: 10px 38px; 
+            transition: all 0.2s ease; 
+            text-decoration: none; 
+            white-space: nowrap; 
+            font-size: 13px; 
+            font-weight: 700; 
+            letter-spacing: 0.02em; 
+            color: #94a3b8;
+        }
+        .nav-link:hover { background: rgba(255,255,255,0.05); color: white; }
+        .active-nav { color: <?= $page['theme_color'] ?? '#8c2bee' ?> !important; position: relative; }
         .active-nav::after { 
             content: ''; 
             position: absolute; 
@@ -126,10 +160,11 @@ if ($coach_id > 0) {
             top: 50%;
             transform: translateY(-50%);
             width: 4px; 
-            height: 32px; 
-            background: #8c2bee; 
+            height: 24px; 
+            background: <?= $page['theme_color'] ?? '#8c2bee' ?>; 
             border-radius: 4px 0 0 4px; 
         }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -148,83 +183,78 @@ if ($coach_id > 0) {
         window.addEventListener('DOMContentLoaded', updateHeaderClock);
     </script>
 </head>
-<body class="antialiased flex flex-col lg:flex-row min-h-screen">
-
-<nav class="sidebar-nav hidden lg:flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen pl-7 pr-0 py-8 z-50 shrink-0">
-    <div class="mb-10 shrink-0"> 
-        <div class="flex items-center gap-4"> 
-            <div class="size-11 rounded-xl bg-white/5 flex items-center justify-center shadow-lg shrink-0 overflow-hidden border border-white/10">
-                <?php if ($gym && !empty($gym['logo_path'])): ?>
-                    <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
+<nav class="sidebar-nav flex flex-col fixed left-0 top-0 h-screen bg-[#0a090d] border-r border-white/5 z-50">
+    <div class="px-7 py-8">
+        <div class="flex items-center gap-[6px]">
+            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($page['logo_path'])): 
+                    $logo_src = (strpos($page['logo_path'], 'data:image') === 0) ? $page['logo_path'] : '../' . $page['logo_path'];
+                ?>
+                    <img src="<?= $logo_src ?>" class="size-full object-contain">
                 <?php else: ?>
-                    <span class="material-symbols-outlined text-primary text-2xl">bolt</span>
+                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
                 <?php endif; ?>
             </div>
-            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white leading-tight whitespace-nowrap">
-                Coach Dashboard
-            </h1>
+            <span class="nav-text text-white font-black italic uppercase tracking-tighter text-base leading-none">Coach Dashboard</span>
         </div>
     </div>
     
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-        <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Main Menu</span>
-        </div>
+    <div class="flex flex-col flex-1 overflow-y-auto no-scrollbar gap-0.5">
+        <span class="nav-section-header text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-0">Main Menu</span>
         
-        <a href="coach_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_dashboard.php') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="coach_dashboard.php" class="nav-link <?= (basename($_SERVER['PHP_SELF']) == 'coach_dashboard.php') ? 'active-nav' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
             <?php if($pending_count > 0): ?><span class="size-1.5 rounded-full bg-primary alert-dot ml-auto"></span><?php endif; ?>
         </a>
         
-        <a href="coach_schedule.php" class="nav-link flex items-center gap-4 py-2 text-gray-400 hover:text-white">
+        <a href="coach_schedule.php" class="nav-link text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl shrink-0">edit_calendar</span> 
             <span class="nav-text">My Availability</span>
         </a>
 
-        <a href="coach_members.php" class="nav-link flex items-center gap-4 py-2 text-gray-400 hover:text-white">
+        <a href="coach_members.php" class="nav-link text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl shrink-0">groups</span> 
             <span class="nav-text">My Members</span>
         </a>
 
-        <div class="nav-section-header px-0 mb-2 mt-6">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Training</span>
-        </div>
+        <div class="nav-section-header text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Training</div>
 
-        <a href="coach_workouts.php" class="nav-link flex items-center gap-4 py-2 text-gray-400 hover:text-white">
+        <a href="coach_workouts.php" class="nav-link text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl shrink-0">fitness_center</span> 
             <span class="nav-text">Workouts</span>
         </a>
     </div>
 
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0">
-        <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
-        </div>
+    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
+        <span class="nav-section-header text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-0 mb-2">Account</span>
 
-        <a href="coach_profile.php" class="nav-link flex items-center gap-4 py-2 text-gray-400 hover:text-white">
+        <a href="coach_profile.php" class="nav-link text-gray-400 hover:text-white">
             <span class="material-symbols-outlined text-xl shrink-0">account_circle</span> 
             <span class="nav-text">Profile</span>
         </a>
 
-        <a href="../logout.php" class="nav-link flex items-center gap-4 py-2 text-gray-400 hover:text-rose-500 transition-colors group">
+        <a href="../logout.php" class="nav-link text-gray-400 hover:text-rose-500 transition-colors group">
             <span class="material-symbols-outlined text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
             <span class="nav-text">Sign Out</span>
         </a>
     </div>
 </nav>
 
-<main class="flex-1 max-w-[1600px] p-6 lg:p-12 overflow-x-hidden">
-    <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-        <div>
-            <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">Coach Dashboard</h2>
-            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Manage your training sessions and member progress</p>
-        </div>
-        <div class="text-left md:text-right">
-            <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-            <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4"><?= date('l, M d') ?></p>
-        </div>
-    </header>
+<div class="main-content flex flex-col min-w-0">
+    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
+        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <div>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Welcome Back, <span class="text-primary"><?= htmlspecialchars($coach_name ?? '') ?></span></h2>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Coach Operational Overview</p>
+            </div>
+            <div class="flex flex-row items-center gap-4">
+                <div class="px-6 py-3.5 rounded-2xl bg-white/5 border border-white/5 text-right flex flex-col items-end group shadow-sm hover:shadow-primary/10 transition-shadow">
+                    <p id="headerClock" class="text-white font-black italic text-xl leading-none mb-1 group-hover:text-primary transition-colors">00:00:00 AM</p>
+                    <p class="text-gray-500 text-[9px] font-black uppercase tracking-[0.2em] group-hover:text-white transition-colors"><?= date('l, M d') ?></p>
+                </div>
+            </div>
+        </header>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
         <div class="glass-card p-8 border-l-4 border-emerald-500 shadow-xl animate-slide-up">
@@ -286,6 +316,7 @@ if ($coach_id > 0) {
             </table>
         </div>
     </div>
-</main>
+    </main>
+</div>
 </body>
-</html>
+</html>
