@@ -53,8 +53,8 @@ $search = $_GET['search'] ?? '';
 // --- 3. CALCULATE GRAND TOTAL REVENUE ---
 $grand_total = 0;
 try {
-    $stmtRevenue = $pdo->prepare("SELECT SUM(amount) as grand_total FROM payments WHERE status = 'Approved' AND payment_date BETWEEN ? AND ?");
-    $stmtRevenue->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59']);
+    $stmtRevenue = $pdo->prepare("SELECT SUM(amount) as grand_total FROM payments WHERE gym_id = ? AND status = 'Approved' AND payment_date BETWEEN ? AND ?");
+    $stmtRevenue->execute([$gym_id, $start_date . ' 00:00:00', $end_date . ' 23:59:59']);
     $grand_total = $stmtRevenue->fetch()['grand_total'] ?? 0;
 } catch (Exception $e) { }
 
@@ -65,19 +65,19 @@ $col_1 = "Column 1"; $col_2 = "Column 2"; $col_3 = "Column 3";
 try {
     switch ($tab) {
         case 'financials':
-            $sql = "SELECT u.fullname, u.username, 
+            $sql = "SELECT CONCAT(u.first_name, ' ', u.last_name) as fullname, u.username, 
                            SUM(p.amount) as total_amount, 
                            COUNT(p.payment_id) as transaction_count,
                            MAX(p.payment_date) as last_payment
                     FROM payments p 
-                    JOIN users u ON p.user_id = u.id 
-                    WHERE p.status = 'Approved' 
+                    JOIN users u ON p.user_id = u.user_id 
+                    WHERE p.gym_id = ? AND p.status = 'Approved' 
                     AND p.payment_date BETWEEN ? AND ?
-                    AND (u.fullname LIKE ? OR u.username LIKE ?)
-                    GROUP BY u.id
+                    AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.username LIKE ?)
+                    GROUP BY u.user_id
                     ORDER BY total_amount DESC";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59', "%$search%", "%$search%"]);
+            $stmt->execute([$gym_id, $start_date . ' 00:00:00', $end_date . ' 23:59:59', "%$search%", "%$search%", "%$search%"]);
             $query_data = $stmt->fetchAll();
             $col_1 = "Payment Summary";
             $col_2 = "Member";
@@ -85,14 +85,14 @@ try {
             break;
 
         case 'attendance':
-            $sql = "SELECT a.*, u.fullname 
+            $sql = "SELECT a.*, CONCAT(u.first_name, ' ', u.last_name) as fullname 
                     FROM attendance a 
                     JOIN users u ON a.username = u.username 
-                    WHERE a.check_in BETWEEN ? AND ?
-                    AND (u.fullname LIKE ? OR u.username LIKE ?)
+                    WHERE a.gym_id = ? AND a.check_in BETWEEN ? AND ?
+                    AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.username LIKE ?)
                     ORDER BY a.check_in DESC";
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59', "%$search%", "%$search%"]);
+            $stmt->execute([$gym_id, $start_date . ' 00:00:00', $end_date . ' 23:59:59', "%$search%", "%$search%", "%$search%"]);
             $query_data = $stmt->fetchAll();
             $col_1 = "Date & Time";
             $col_2 = "Member";
@@ -100,32 +100,33 @@ try {
             break;
 
         case 'membership':
-            // Using confirmed table names from register_member.php: client_subscriptions and website_plans
-            $sql = "SELECT u.fullname, u.username, u.email,
+            $sql = "SELECT CONCAT(u.first_name, ' ', u.last_name) as fullname, u.username, u.email,
                            (SELECT ws.plan_name FROM client_subscriptions cs 
                             JOIN website_plans ws ON cs.website_plan_id = ws.website_plan_id 
-                            WHERE cs.user_id = u.id 
+                            WHERE cs.user_id = u.user_id AND cs.gym_id = ? 
                             AND cs.subscription_status = 'Active' 
                             AND cs.created_at BETWEEN ? AND ?
                             ORDER BY cs.created_at DESC LIMIT 1) as plan_name,
                            (SELECT cs.created_at FROM client_subscriptions cs 
-                            WHERE cs.user_id = u.id 
+                            WHERE cs.user_id = u.user_id AND cs.gym_id = ? 
                             AND cs.subscription_status = 'Active'
                             AND cs.created_at BETWEEN ? AND ?
                             ORDER BY cs.created_at DESC LIMIT 1) as plan_date
                     FROM users u
-                    WHERE u.role = 'member'
-                    AND (u.fullname LIKE ? OR u.username LIKE ?)";
+                    JOIN user_roles ur ON u.user_id = ur.user_id
+                    JOIN roles r ON ur.role_id = r.role_id
+                    WHERE ur.gym_id = ? AND r.role_name = 'Member'
+                    AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.username LIKE ?)";
             
             if ($plan_filter === 'active') {
                 $sql .= " HAVING plan_name IS NOT NULL AND plan_name != ''";
             } elseif ($plan_filter === 'standard') {
                 $sql .= " HAVING plan_name IS NULL OR plan_name = ''";
             }
-            $sql .= " ORDER BY (plan_name IS NOT NULL) DESC, u.fullname ASC";
+            $sql .= " ORDER BY (plan_name IS NOT NULL) DESC, fullname ASC";
             
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([$start_date . ' 00:00:00', $end_date . ' 23:59:59', $start_date . ' 00:00:00', $end_date . ' 23:59:59', "%$search%", "%$search%"]);
+            $stmt->execute([$gym_id, $start_date . ' 00:00:00', $end_date . ' 23:59:59', $gym_id, $start_date . ' 00:00:00', $end_date . ' 23:59:59', $gym_id, "%$search%", "%$search%", "%$search%"]);
             $query_data = $stmt->fetchAll();
 
             $col_1 = "Membership Type";
@@ -134,7 +135,6 @@ try {
             break;
     }
 } catch (Exception $e) {
-    // If query fails, we'll just have empty $query_data
     $error_msg = $e->getMessage();
 }
 ?>
