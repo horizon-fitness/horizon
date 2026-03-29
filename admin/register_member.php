@@ -67,7 +67,7 @@ $active_page = "register_member";
     <style> 
         body { font-family: 'Lexend', sans-serif; background-color: <?= $page['bg_color'] ?? '#0a090d' ?>; color: white; overflow: hidden; } 
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; } 
-        .input-field { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; padding: 12px 16px; width: 100%; outline: none; transition: all 0.2s; font-size: 11px; font-weight: 500; color-scheme: dark; } 
+        .input-field { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; padding: 14px 18px; width: 100%; outline: none; transition: all 0.2s; font-size: 13px; font-weight: 500; color-scheme: dark; } 
         .input-field:focus { border-color: <?= $page['theme_color'] ?? '#8c2bee' ?>; background: rgba(255,255,255,0.08); } 
         .input-field option { background-color: #1a1821; color: white; }
         ::-webkit-calendar-picker-indicator { filter: invert(1) brightness(0.8); opacity: 0.6; cursor: pointer; }
@@ -226,28 +226,28 @@ $active_page = "register_member";
 
             <form method="POST" onsubmit="return validateForm(event)" class="space-y-8 pb-20"> 
                 <div class="glass-card p-8 border border-white/5">
-                    <h4 class="text-sm font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
-                        <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-lg">person</span> Personal Information
+                    <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
+                        <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-xl">person</span> Personal Information
                     </h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
                         <div class="space-y-2 lg:col-span-1">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Username <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Username <span class="text-red-500">*</span></label>
                             <input type="text" name="username" required value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" class="input-field" placeholder="Username">
                         </div>
                         <div class="space-y-2 lg:col-span-1">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">First Name <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">First Name <span class="text-red-500">*</span></label>
                             <input type="text" name="first_name" required value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>" class="input-field" placeholder="First Name">
                         </div>
                         <div class="space-y-2 lg:col-span-1">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Middle Name</label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Middle Name</label>
                             <input type="text" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? '') ?>" class="input-field" placeholder="Middle Name">
                         </div>
                         <div class="space-y-2 lg:col-span-1">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Last Name <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Last Name <span class="text-red-500">*</span></label>
                             <input type="text" name="last_name" required value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" class="input-field" placeholder="Last Name">
                         </div>
                         <div class="space-y-2 md:col-span-1">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Sex <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Sex <span class="text-red-500">*</span></label>
                             <select name="sex" required class="input-field appearance-none cursor-pointer">
                                 <option value="" disabled <?= !isset($_POST['sex']) ? 'selected' : '' ?>>Select Sex</option>
                                 <option value="Male" <?= ($_POST['sex'] ?? '') === 'Male' ? 'selected' : '' ?>>Male</option>
@@ -255,11 +255,11 @@ $active_page = "register_member";
                             </select>
                         </div>
                         <div class="space-y-2 md:col-span-1">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Birth Date <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Birth Date <span class="text-red-500">*</span></label>
                             <input type="date" name="birth_date" required value="<?= htmlspecialchars($_POST['birth_date'] ?? '') ?>" class="input-field">
                         </div>
                         <div class="space-y-2 md:col-span-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Password <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Password <span class="text-red-500">*</span></label>
                             <div class="relative">
                                 <input type="password" name="password" id="password" required onkeyup="checkPasswordStrength(this.value)" class="input-field" placeholder="Security Password">
                                 <button type="button" onclick="togglePassword('password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-all"><span class="material-symbols-outlined text-sm">visibility</span></button>
@@ -268,7 +268,7 @@ $active_page = "register_member";
                             <p id="strength-text" class="text-[9px] font-black ml-1"></p>
                         </div>
                         <div class="space-y-2 md:col-span-2 md:col-start-3">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Confirm Password <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Confirm Password <span class="text-red-500">*</span></label>
                             <div class="relative">
                                 <input type="password" name="confirm_password" id="confirm_password" required class="input-field" placeholder="Re-type Password">
                                 <button type="button" onclick="togglePassword('confirm_password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-all"><span class="material-symbols-outlined text-sm">visibility</span></button>
@@ -278,51 +278,51 @@ $active_page = "register_member";
                 </div>
 
                 <div class="glass-card p-8 border border-white/5">
-                    <h4 class="text-sm font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
-                        <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-lg">alternate_email</span> Contact Information
+                    <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
+                        <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-xl">alternate_email</span> Contact Information
                     </h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div class="space-y-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Email Address <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Email Address <span class="text-red-500">*</span></label>
                             <input type="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" class="input-field" placeholder="email@address.com">
                         </div>
                         <div class="space-y-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Contact Number <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Contact Number <span class="text-red-500">*</span></label>
                             <input type="tel" name="phone" required oninput="formatPhoneNumber(this)" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>" class="input-field" placeholder="09XX-XXX-XXXX">
                         </div>
                         <div class="space-y-2 md:col-span-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Home Address <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Home Address <span class="text-red-500">*</span></label>
                             <input type="text" name="address" required value="<?= htmlspecialchars($_POST['address'] ?? '') ?>" class="input-field" placeholder="Street, Barangay, City">
                         </div>
                     </div>
                 </div>
 
                 <div class="glass-card p-8 border border-white/5">
-                    <h4 class="text-sm font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
-                        <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-lg">medical_information</span> Health & Profile
+                    <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
+                        <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-xl">medical_information</span> Health & Profile
                     </h4>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div class="space-y-2 md:col-span-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Occupation</label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Occupation</label>
                             <input type="text" name="occupation" value="<?= htmlspecialchars($_POST['occupation'] ?? '') ?>" class="input-field" placeholder="e.g. Software Engineer">
                         </div>
                         <div class="space-y-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Emergency Name <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Emergency Name <span class="text-red-500">*</span></label>
                             <input type="text" name="emergency_name" required value="<?= htmlspecialchars($_POST['emergency_name'] ?? '') ?>" class="input-field" placeholder="Full Name">
                         </div>
                         <div class="space-y-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Emergency Contact <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Emergency Contact <span class="text-red-500">*</span></label>
                             <input type="tel" name="emergency_phone" required oninput="formatPhoneNumber(this)" value="<?= htmlspecialchars($_POST['emergency_phone'] ?? '') ?>" class="input-field" placeholder="09XX-XXX-XXXX">
                         </div>
                         <div class="space-y-2 md:col-span-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Medical History</label>
+                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Medical History</label>
                             <textarea name="medical_history" class="input-field min-h-[100px] py-4" placeholder="List any existing conditions or allergies..."><?= htmlspecialchars($_POST['medical_history'] ?? '') ?></textarea>
                         </div>
                     </div>
                 </div>
 
                 <div class="flex justify-end pt-4">
-                    <button type="submit" class="group px-10 h-16 rounded-2xl bg-primary text-white text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-4">Register Member <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span></button>
+                    <button type="submit" class="group px-10 h-16 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-4">Register Member <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl">arrow_forward</span></button>
                 </div>
             </form>
         </div>
