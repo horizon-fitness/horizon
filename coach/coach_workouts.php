@@ -60,9 +60,31 @@ if (isset($_GET['action']) && $_GET['action'] == 'update_status' && isset($_GET[
     $new_status = $_GET['status'];
     $stmtUpdate = $pdo->prepare("UPDATE member_workouts SET workout_status = ?, updated_at = NOW() WHERE workout_id = ? AND coach_id = ?");
     $stmtUpdate->execute([$new_status, $w_id, $coach_id]);
-    header("Location: coach_workouts.php?member_id=" . $member_id);
     exit;
 }
+
+// Seed Sample Data for Testing
+if (isset($_GET['seed_demo']) && $member_id > 0) {
+    try {
+        $sample_workouts = [
+            ['Push Day (Hypertrophy)', 'Bench Press: 3x10, DB Incline: 3x12, Lateral Raises: 4x15, Tricep Pushdowns: 3x15. Focus on mind-muscle connection.', 'Assigned', date('Y-m-d', strtotime('+1 day'))],
+            ['Pull Day (Strength)', 'Deadlifts: 5x5, Pull-ups: 3xMax, Barbell Rows: 4x8, Face Pulls: 3x20. Maintain neutral spine throughout.', 'Assigned', date('Y-m-d', strtotime('+3 days'))],
+            ['Leg Day (Power)', 'Back Squats: 5x5, Romanian Deadlifts: 3x10, Bulgarian Split Squats: 3x12 each, Goblet Squats: 3x15.', 'Assigned', date('Y-m-d', strtotime('+5 days'))],
+            ['Metabolic Conditioning', 'Circuit: Kettlebell Swings (20), Burpees (10), Box Jumps (15), Battle Ropes (30s). 5 rounds, 60s rest.', 'Completed', date('Y-m-d', strtotime('-2 days'))],
+            ['Active Recovery & Mobility', '20min walking, Cat-Cow (10), Bird-Dog (10 each), Hip Openers, Foam Rolling (Full body).', 'Completed', date('Y-m-d', strtotime('-4 days'))]
+        ];
+
+        
+        $stmtSeed = $pdo->prepare("INSERT INTO member_workouts (member_id, coach_id, gym_id, workout_name, workout_description, workout_status, scheduled_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        foreach($sample_workouts as $sw) {
+            $stmtSeed->execute([$member_id, $coach_id, $gym_id, $sw[0], $sw[1], $sw[2], $sw[3]]);
+        }
+        $_SESSION['success_msg'] = "Sample data seeded successfully!";
+        header("Location: coach_workouts.php?member_id=" . $member_id);
+        exit;
+    } catch (Exception $e) { $_SESSION['error_msg'] = "Seed Error: " . $e->getMessage(); }
+}
+
 
 // Fetch Member Details if member_id is set
 $selected_member = null;
@@ -175,8 +197,12 @@ $active_page = "workouts";
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         .filter-container { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 20px; padding: 20px; margin-bottom: 2rem; position: sticky; top: 0; z-index: 20; }
-        .input-box { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; color: white; padding: 10px 16px; font-size: 12px; font-weight: 500; outline: none; transition: all 0.3s; width: 100%; color-scheme: dark; }
+        .input-box { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; color: white; padding: 10px 16px; font-size: 11px; font-weight: 600; outline: none; transition: all 0.3s; width: 100%; color-scheme: dark; }
         .input-box:focus { border-color: <?= $page['theme_color'] ?? '#8c2bee' ?>; background: rgba(140,43,238,0.05); }
+        .input-box option { background: #1a1821 !important; color: white !important; font-size: 12px; padding: 10px; }
+
+
+
 
         .modal-input { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 16px; color: white; font-size: 12px; font-weight: 500; transition: all 0.2s; color-scheme: dark; }
         .modal-input:focus { border-color: <?= $page['theme_color'] ?? '#8c2bee' ?>; outline: none; background: rgba(140,43,238,0.05); }
@@ -195,8 +221,26 @@ $active_page = "workouts";
         .view-btn.active { background: <?= $page['theme_color'] ?? '#8c2bee' ?>; color: white; box-shadow: 0 4px 20px <?= $page['theme_color'] ?? '#8c2bee' ?>44; border-color: transparent; }
 
         ::-webkit-calendar-picker-indicator { filter: invert(1) brightness(0.8); opacity: 0.6; cursor: pointer; }
+
+        /* Tabs Styling - Segmented Pill */
+        .tabs-container { display: inline-flex; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 6px; gap: 4px; }
+        .tab-btn { padding: 10px 24px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: #4b5563; border-radius: 12px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border: none; background: transparent; }
+        .tab-btn:hover:not(.active) { color: white; background: rgba(255,255,255,0.03); }
+        .tab-btn.active { color: white; background: <?= $page['theme_color'] ?? '#8c2bee' ?>; box-shadow: 0 4px 20px <?= $page['theme_color'] ?? '#8c2bee' ?>44; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-out; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     </style>
+
     <script>
+        function toggleTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
         function updateHeaderClock() {
             const now = new Date();
             const clockEl = document.getElementById('headerClock');
@@ -208,16 +252,8 @@ $active_page = "workouts";
         let dbt;
         function debounce(f, d) { clearTimeout(dbt); dbt = setTimeout(f, d); }
         function triggerFilter() { document.getElementById('filterForm').submit(); }
-
-        function toggleView(view) {
-            const grid = document.getElementById('workoutGridContainer');
-            const table = document.getElementById('workoutTableContainer');
-            const gridBtn = document.getElementById('gridViewBtn');
-            const tableBtn = document.getElementById('tableViewBtn');
-            if (view === 'grid') { grid.classList.remove('hidden'); table.classList.add('hidden'); gridBtn.classList.add('active'); tableBtn.classList.remove('active'); }
-            else { grid.classList.add('hidden'); table.classList.remove('hidden'); gridBtn.classList.remove('active'); tableBtn.classList.add('active'); }
-        }
     </script>
+
 </head>
 <body class="antialiased flex min-h-screen">
 
@@ -252,59 +288,142 @@ $active_page = "workouts";
 
 <div class="main-content flex flex-col no-scrollbar">
     <main class="flex-1 p-6 md:p-12 max-w-[1400px] w-full mx-auto pb-40">
-        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <header class="mb-10 flex flex-col md:flex-row justify-between items-end gap-6 animate-fade-in">
             <div>
-                <h1 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">
+                <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">
                     <?= $selected_member ? 'Member <span class="text-primary">Programs</span>' : 'Training <span class="text-primary">Registry</span>' ?>
-                </h1>
-                <p class="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] mt-2 ml-0.5">
+                </h2>
+                <p class="text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-0.5">
                     <?= $selected_member ? 'Managing routines for ' . htmlspecialchars($selected_member['first_name'] . ' ' . $selected_member['last_name']) : 'Tracking all active routines for your members' ?>
                 </p>
             </div>
-            <div class="flex flex-row items-center gap-8 text-right shrink-0">
-                <div>
-                    <p id="headerClock" class="text-white font-black italic text-2xl leading-none transition-colors hover:text-primary">00:00:00 AM</p>
-                    <p class="text-gray-500 text-[9px] font-black uppercase tracking-[0.2em] mt-2"><?= date('l, M d') ?></p>
-                </div>
-                <?php if($selected_member): ?>
-                    <button onclick="document.getElementById('assignModal').style.display = 'flex'" class="group h-12 px-6 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-2 active:scale-95">
-                        <span class="material-symbols-outlined text-lg">add_circle</span> Assign New
-                    </button>
-                <?php endif; ?>
+            <div class="text-right shrink-0">
+                <p id="headerClock" class="text-white font-black italic text-2xl leading-none transition-colors hover:text-primary">00:00:00 AM</p>
+                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] mt-2"><?= date('l, M d') ?></p>
             </div>
         </header>
 
-        <!-- Recently Assigned Section -->
-        <?php if(!empty($recent_workouts)): ?>
-        <section class="mb-12">
-            <h4 class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-4 ml-1">Recently Assigned</h4>
-            <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4">
-                <?php foreach($recent_workouts as $rw): ?>
-                <div class="glass-card p-5 border-white/5 hover:border-primary/30 transition-all group">
-                    <p class="text-[8px] font-black uppercase text-primary tracking-widest mb-1"><?= htmlspecialchars($rw['first_name'] . ' ' . $rw['last_name']) ?></p>
-                    <h5 class="text-white font-black uppercase italic text-xs mb-3 truncate"><?= htmlspecialchars($rw['workout_name']) ?></h5>
-                    <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-[10px] text-gray-600">event</span>
-                        <p class="text-[9px] font-bold text-gray-500"><?= date('M d', strtotime($rw['created_at'])) ?></p>
-                    </div>
+        <!-- Member Identity Card -->
+        <?php if($selected_member): ?>
+        <section class="mb-10 animate-slide-up">
+            <div class="glass-card p-8 border-l-4 border-primary shadow-2xl relative overflow-hidden group">
+                <div class="absolute top-0 right-0 p-12 opacity-5 group-hover:opacity-10 transition-opacity">
+                    <span class="material-symbols-outlined text-9xl">fitness_center</span>
                 </div>
-                <?php endforeach; ?>
+                <div class="flex items-center justify-between relative z-10">
+                    <div class="flex items-center gap-8">
+                        <div class="size-24 rounded-3xl bg-white/5 flex items-center justify-center text-primary font-black text-5xl italic border border-white/5 shadow-inner">
+                            <?= strtoupper(substr($selected_member['first_name'], 0, 1)) ?>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-3 mb-1">
+                                <h3 class="text-3xl font-black italic uppercase text-white tracking-tighter shrink-0"><?= htmlspecialchars($selected_member['first_name'] . ' ' . $selected_member['last_name']) ?></h3>
+                                <span class="px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-widest border border-emerald-500/10">Active Member</span>
+                            </div>
+                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em] mb-4">Member ID: #<?= str_pad($selected_member['member_id'], 5, '0', STR_PAD_LEFT) ?></p>
+                            <div class="flex items-center gap-6">
+                                <div class="flex flex-col"><span class="text-[8px] font-black uppercase text-gray-600 tracking-widest">Email Address</span><span class="text-xs text-gray-300 font-bold"><?= htmlspecialchars($selected_member['email']) ?></span></div>
+                                <div class="w-px h-6 bg-white/5"></div>
+                                <div class="flex flex-col"><span class="text-[8px] font-black uppercase text-gray-600 tracking-widest">Enrolled Since</span><span class="text-xs text-gray-300 font-bold"><?= date('M Y', strtotime($selected_member['created_at'])) ?></span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('assignModal').style.display = 'flex'" class="group h-16 px-8 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-3 active:scale-95">
+                        <span class="material-symbols-outlined text-xl">add_circle</span> Assign New Program
+                    </button>
+                </div>
+
             </div>
         </section>
         <?php endif; ?>
 
-        <!-- Filters Section -->
-        <section class="filter-container animate-slide-up">
+        <!-- Message Alerts -->
+
+        <?php if($success_msg): ?><div class="mb-6 px-6 py-4 rounded-xl bg-emerald-500/10 border border-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest animate-pulse"><?= $success_msg ?></div><?php endif; ?>
+        <?php if($error_msg): ?><div class="mb-6 px-6 py-4 rounded-xl bg-rose-500/10 border border-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest animate-pulse"><?= $error_msg ?></div><?php endif; ?>
+
+        <!-- Tabs Navigation -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+            <div class="tabs-container">
+                <button onclick="toggleTab('recentTab')" data-tab="recentTab" class="tab-btn active">Recently Assigned</button>
+                <button onclick="toggleTab('historyTab')" data-tab="historyTab" class="tab-btn">Program History</button>
+            </div>
+            
+            <?php if($member_id > 0 && count($workouts) == 0): ?>
+                <button onclick="window.location.href='?member_id=<?= $member_id ?>&seed_demo=1'" class="h-11 px-6 rounded-2xl bg-white/5 border border-white/5 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary/10 transition-all flex items-center gap-3 active:scale-95 shadow-lg">
+                    <span class="material-symbols-outlined text-lg">database</span> Add Sample Testing Data
+                </button>
+            <?php endif; ?>
+        </div>
+
+
+        <div id="recentTab" class="tab-content active">
+            <!-- Recently Assigned Section -->
+            <?php if(!empty($recent_workouts)): ?>
+            <section class="mb-12">
+
+            <h4 class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-4 ml-1">Recently Assigned</h4>
+            <div class="glass-card overflow-hidden">
+                <div class="overflow-x-auto no-scrollbar">
+                    <table class="glass-table">
+                        <thead>
+                            <tr>
+                                <th>Assignment</th>
+                                <th>Member</th>
+                                <th>Assigned Date</th>
+                                <th class="text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5">
+                            <?php foreach($recent_workouts as $rw): ?>
+                            <tr>
+                                <td>
+                                    <p class="text-white font-black italic uppercase text-xs truncate max-w-[200px]"><?= htmlspecialchars($rw['workout_name']) ?></p>
+                                </td>
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <div class="size-6 rounded-lg bg-primary/10 flex items-center justify-center">
+                                            <span class="material-symbols-outlined text-[10px] text-primary">person</span>
+                                        </div>
+                                        <p class="text-[10px] font-bold text-gray-300"><?= htmlspecialchars($rw['first_name'] . ' ' . $rw['last_name']) ?></p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <span class="material-symbols-outlined text-[12px] text-gray-600">event</span>
+                                        <p class="text-[10px] font-bold text-gray-500 italic"><?= date('M d, Y', strtotime($rw['created_at'])) ?></p>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="flex justify-end">
+                                        <a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed" class="size-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-95" title="Mark as Completed">
+                                            <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            <?php else: ?><div class="py-20 text-center opacity-40 italic text-[10px] uppercase tracking-widest">No recent assignments found.</div><?php endif; ?>
+        </div>
+
+        <div id="historyTab" class="tab-content">
+            <!-- Filters Section -->
+            <section class="filter-container animate-slide-up">
+
             <form id="filterForm" method="GET" class="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
                 <input type="hidden" name="member_id" value="<?= $member_id ?>">
-                <div class="md:col-span-5 space-y-2">
+                <div class="md:col-span-6 space-y-2">
                     <label class="text-[9px] font-black uppercase tracking-[0.1em] text-gray-500 ml-1">Search Program</label>
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-lg">search</span>
                         <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search by member or plan name..." class="input-box pl-12" oninput="debounce(triggerFilter, 500)">
                     </div>
                 </div>
-                <div class="md:col-span-2 space-y-2">
+                <div class="md:col-span-3 space-y-2">
                     <label class="text-[9px] font-black uppercase tracking-[0.1em] text-gray-500 ml-1">Filter Status</label>
                     <select name="status" class="input-box pr-10" onchange="triggerFilter()">
                         <option value="">All Status</option>
@@ -323,91 +442,59 @@ $active_page = "workouts";
                         <a href="coach_workouts.php?member_id=<?= $member_id ?>" class="size-[42px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-rose-500 transition-colors hover:bg-rose-500/10" title="Reset Filters"><span class="material-symbols-outlined text-xl">restart_alt</span></a>
                     </div>
                 </div>
-                <div class="md:col-span-2 space-y-2">
-                    <label class="text-[9px] font-black uppercase tracking-[0.1em] text-gray-500 ml-1">View Layout</label>
-                    <div class="flex gap-2">
-                        <button type="button" id="gridViewBtn" onclick="toggleView('grid')" class="view-btn flex-1 active"><span class="material-symbols-outlined text-lg">grid_view</span></button>
-                        <button type="button" id="tableViewBtn" onclick="toggleView('list')" class="view-btn flex-1"><span class="material-symbols-outlined text-lg">list</span></button>
-                    </div>
-                </div>
             </form>
         </section>
 
-        <!-- Workout Grid Container -->
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" id="workoutGridContainer">
-            <?php if(count($workouts) > 0): foreach($workouts as $w): ?>
-            <div class="glass-card p-7 border-white/5 hover:border-primary/30 transition-all animate-slide-up group">
-                <div class="flex items-start justify-between mb-6">
-                    <div>
-                        <p class="text-[9px] font-black uppercase text-primary tracking-widest mb-1"><?= htmlspecialchars($w['first_name'] . ' ' . $w['last_name']) ?></p>
-                        <h4 class="text-white font-black italic uppercase text-base leading-tight"><?= htmlspecialchars($w['workout_name']) ?></h4>
-                    </div>
-                    <?php 
-                        $ws = $w['workout_status'];
-                        $sc = "text-primary bg-primary/10 border-primary/10";
-                        if($ws == 'Completed') $sc = "text-emerald-500 bg-emerald-500/10 border-emerald-500/10";
-                    ?>
-                    <span class="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest border border-white/5 <?= $sc ?>"><?= $ws ?></span>
-                </div>
-                <div class="space-y-4 py-5 border-y border-white/5 mb-6">
-                    <div>
-                        <p class="text-[9px] font-black uppercase text-gray-600 tracking-widest mb-1">Program Details</p>
-                        <p class="text-[10px] text-gray-400 font-medium italic leading-relaxed h-10 line-clamp-2"><?= htmlspecialchars($w['workout_description'] ?: 'No instructions.') ?></p>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <p class="text-[9px] font-black uppercase text-gray-600 tracking-widest">Target Date</p>
-                        <p class="text-xs font-bold text-gray-300 italic"><?= $w['scheduled_date'] ? date('M d, Y', strtotime($w['scheduled_date'])) : 'Anytime' ?></p>
-                    </div>
-                </div>
-                <div class="flex items-center justify-end gap-2">
-                    <?php if($w['workout_status'] != 'Completed'): ?>
-                        <a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Completed" class="flex-1 h-12 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 flex items-center justify-center gap-2 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"><span class="material-symbols-outlined text-sm">check_circle</span> Complete</a>
-                    <?php endif; ?>
-                    <?php if($w['workout_status'] != 'Assigned'): ?>
-                        <a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Assigned" class="flex-1 h-12 rounded-xl bg-primary/10 text-primary border border-primary/10 flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"><span class="material-symbols-outlined text-sm">refresh</span> Re-assign</a>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <?php endforeach; else: ?><div class="col-span-full py-20 text-center opacity-40 italic text-sm">No programs logged.</div><?php endif; ?>
-        </div>
 
-        <!-- History Table Container -->
-        <div class="hidden glass-card overflow-hidden animate-slide-up" id="workoutTableContainer">
-            <div class="overflow-x-auto">
-                <table class="glass-table">
-                    <thead>
-                        <tr>
-                            <th>Program Details</th>
-                            <th>Target Date</th>
-                            <th>Current Status</th>
-                            <th class="text-right">Manage</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-white/5">
-                        <?php if(count($workouts) > 0): foreach($workouts as $w): ?>
-                        <tr>
-                            <td>
-                                <p class="text-primary text-[9px] font-black uppercase tracking-widest mb-1 opacity-80"><?= htmlspecialchars($w['first_name'] . ' ' . $w['last_name']) ?></p>
-                                <p class="text-white font-black italic uppercase text-sm leading-tight mb-1"><?= htmlspecialchars($w['workout_name']) ?></p>
-                                <p class="text-[10px] text-gray-500 font-medium italic truncate max-w-sm"><?= htmlspecialchars($w['workout_description'] ?: 'No instructions.') ?></p>
-                            </td>
-                            <td><p class="text-gray-300 font-bold uppercase italic text-xs"><?= $w['scheduled_date'] ? date('M d, Y', strtotime($w['scheduled_date'])) : 'Anytime' ?></p></td>
-                            <td>
-                                <?php $ws = $w['workout_status']; $sc = "text-primary bg-primary/10 border-primary/10"; if($ws == 'Completed') $sc = "text-emerald-500 bg-emerald-500/10 border-emerald-500/10"; ?>
-                                <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-white/5 <?= $sc ?>"><?= $ws ?></span>
-                            </td>
-                            <td>
-                                <div class="flex items-center justify-end gap-2">
-                                    <?php if($w['workout_status'] != 'Completed'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Completed" class="size-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-90" title="Complete Program"><span class="material-symbols-outlined text-lg">check_circle</span></a><?php endif; ?>
-                                    <?php if($w['workout_status'] != 'Assigned'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Assigned" class="size-10 rounded-xl bg-primary/10 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-90" title="Re-assign Program"><span class="material-symbols-outlined text-lg">refresh</span></a><?php endif; ?>
-                                </div>
-                            </td>
-                        </tr>
-                        <?php endforeach; else: ?><tr><td colspan="4" class="p-24 text-center opacity-30 italic text-xs tracking-widest">No programs logged</td></tr><?php endif; ?>
-                    </tbody>
-                </table>
+        <!-- History Table Section -->
+        <div>
+            <h4 class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-4 ml-1">Training History</h4>
+            <div class="glass-card overflow-hidden animate-slide-up">
+                <div class="overflow-x-auto no-scrollbar">
+                    <table class="glass-table">
+                        <thead>
+                            <tr>
+                                <th>Program Details</th>
+                                <th>Target Date</th>
+                                <th>Status</th>
+                                <th class="text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5">
+                            <?php if(count($workouts) > 0) { 
+                                foreach($workouts as $w) { ?>
+                            <tr>
+                                <td>
+                                    <p class="text-primary text-[9px] font-black uppercase tracking-widest mb-1 opacity-80"><?= htmlspecialchars($w['first_name'] . ' ' . $w['last_name']) ?></p>
+                                    <p class="text-white font-black italic uppercase text-sm leading-tight mb-1 truncate max-w-[250px]"><?= htmlspecialchars($w['workout_name']) ?></p>
+                                    <p class="text-[10px] text-gray-500 font-medium italic truncate max-w-sm"><?= htmlspecialchars($w['workout_description'] ?: 'No instructions.') ?></p>
+                                </td>
+                                <td><p class="text-gray-300 font-bold uppercase italic text-xs"><?= $w['scheduled_date'] ? date('M d, Y', strtotime($w['scheduled_date'])) : 'Anytime' ?></p></td>
+                                <td>
+                                    <?php $ws = $w['workout_status']; $sc = "text-primary bg-primary/10 border-primary/10"; if($ws == 'Completed') $sc = "text-emerald-500 bg-emerald-500/10 border-emerald-500/10"; ?>
+                                    <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-white/5 <?= $sc ?>"><?= $ws ?></span>
+                                </td>
+                                <td>
+                                    <div class="flex items-center justify-end gap-2">
+                                        <?php if($w['workout_status'] != 'Completed'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Completed" class="size-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-90" title="Complete Program"><span class="material-symbols-outlined text-lg">check_circle</span></a><?php endif; ?>
+                                        <?php if($w['workout_status'] != 'Assigned'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Assigned" class="size-10 rounded-xl bg-primary/10 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-90" title="Re-assign Program"><span class="material-symbols-outlined text-lg">refresh</span></a><?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                                <?php } 
+                            } else { ?>
+                            <tr><td colspan="4" class="p-24 text-center opacity-30 italic text-xs tracking-widest">No programs logged</td></tr>
+                            <?php } ?>
+                        </tbody>
+
+                    </table>
+                </div>
             </div>
         </div>
+    </div>
+
+
+
     </main>
 </div>
 
