@@ -80,14 +80,116 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .sidebar-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; }
-        .sidebar-nav:hover { width: 300px; }
-        .nav-text { opacity: 0; transform: translateX(-15px); transition: all 0.3s; white-space: nowrap; }
-        .sidebar-nav:hover .nav-text { opacity: 1; transform: translateX(0); }
-        .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; }
+        
+        /* Sidebar Hover Logic - ADJUSTED WIDTHS */
+        .sidebar-nav {
+            width: 110px; 
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-nav:hover {
+            width: 300px; 
+        }
+
+        /* Added: Scrollable container for links */
+        .sidebar-scroll-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 4px;
+        }
+
+        /* Custom Scrollbar for the sidebar */
+        .sidebar-scroll-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sidebar-scroll-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(140, 43, 238, 0.1);
+            border-radius: 10px;
+        }
+        .sidebar-nav:hover .sidebar-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(140, 43, 238, 0.4);
+        }
+
+        .nav-text {
+            opacity: 0;
+            transform: translateX(-15px);
+            transition: all 0.3s ease-in-out;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .sidebar-nav:hover .nav-text {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .nav-section-header {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 0 !important;
+            pointer-events: none;
+        }
+        .sidebar-nav:hover .nav-section-header {
+            max-height: 20px;
+            opacity: 1;
+            margin-bottom: 0px !important; 
+            pointer-events: auto;
+        }
+        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0px !important; } 
+        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 0px !important; } 
+
+        .sidebar-content {
+            gap: 2px; 
+            transition: all 0.3s ease-in-out;
+        }
+        .sidebar-nav:hover .sidebar-content {
+            gap: 4px; 
+        }
+
+        .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 4px; height: 20px; background: #8c2bee; border-radius: 99px; }
+        .active-nav::after { 
+            content: ''; 
+            position: absolute; 
+            right: 0px; 
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px; 
+            height: 20px; 
+            background: #8c2bee; 
+            border-radius: 99px; 
+        }
+        
+        @media (max-width: 1023px) {
+            .active-nav::after { display: none; }
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
+    <script>
+        function updateHeaderClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('headerClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit', 
+                    second: '2-digit' 
+                });
+            }
+        }
+        setInterval(updateHeaderClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);
+    </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
@@ -190,7 +292,7 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
                 <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Cross-tenant payment history</p>
             </div>
             <div class="text-right">
-                <p class="text-white font-black italic text-xl tracking-tight leading-none mb-2"><?= date('h:i:s A') ?></p>
+                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
                 <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
             </div>
         </header>

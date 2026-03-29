@@ -82,21 +82,6 @@ switch ($report_type) {
         $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         break;
 
-    case 'active_gyms':
-        $sql = "SELECT g.*, u.first_name, u.last_name, ad.address_line, ad.city 
-                FROM gyms g 
-                JOIN users u ON g.owner_user_id = u.user_id 
-                JOIN gym_addresses ad ON g.address_id = ad.address_id
-                WHERE g.created_at BETWEEN :start AND :end";
-        if ($tenant_filter !== 'all') { $sql .= " AND g.gym_id = :tid"; }
-        $sql .= " ORDER BY g.created_at DESC";
-        $stmt = $pdo->prepare($sql);
-        $params = $date_params;
-        if ($tenant_filter !== 'all') { $params['tid'] = $tenant_filter; }
-        $stmt->execute($params);
-        $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        break;
-
     case 'client_subs':
         $sql = "SELECT g.gym_name, u.first_name, u.last_name, p.plan_name, cs.* 
                 FROM client_subscriptions cs 
@@ -105,27 +90,6 @@ switch ($report_type) {
                 JOIN website_plans p ON cs.website_plan_id = p.website_plan_id
                 WHERE cs.created_at BETWEEN :start AND :end";
         if ($tenant_filter !== 'all') { $sql .= " AND cs.gym_id = :tid"; }
-        $stmt = $pdo->prepare($sql);
-        $params = $date_params;
-        if ($tenant_filter !== 'all') { $params['tid'] = $tenant_filter; }
-        $stmt->execute($params);
-        $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        break;
-
-    case 'system_alerts':
-        $sql = "SELECT * FROM system_alerts WHERE created_at BETWEEN :start AND :end ORDER BY created_at DESC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($date_params);
-        $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        break;
-
-    case 'audit_report':
-        $sql = "SELECT al.*, u.first_name, u.last_name 
-                FROM audit_logs al 
-                LEFT JOIN users u ON al.user_id = u.user_id
-                WHERE al.created_at BETWEEN :start AND :end";
-        if ($tenant_filter !== 'all') { $sql .= " AND al.gym_id = :tid"; }
-        $sql .= " ORDER BY al.created_at DESC";
         $stmt = $pdo->prepare($sql);
         $params = $date_params;
         if ($tenant_filter !== 'all') { $params['tid'] = $tenant_filter; }
@@ -173,15 +137,41 @@ switch ($report_type) {
         body { font-family: 'Lexend', sans-serif; background-color: #0b0a0f; color: #e2e8f0; } /* Softer background */
         .glass-card { background: #16141d; border: 1px solid rgba(255,255,255,0.03); border-radius: 24px; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5); }
         
-        /* Sidebar Hover Logic */
+        /* Sidebar Hover Logic - ADJUSTED WIDTHS */
         .sidebar-nav {
-            width: 110px;
+            width: 110px; 
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
         .sidebar-nav:hover {
-            width: 300px;
+            width: 300px; 
         }
+
+        /* Added: Scrollable container for links */
+        .sidebar-scroll-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 4px;
+        }
+
+        /* Custom Scrollbar for the sidebar */
+        .sidebar-scroll-container::-webkit-scrollbar {
+            width: 4px;
+        }
+        .sidebar-scroll-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(140, 43, 238, 0.1);
+            border-radius: 10px;
+        }
+        .sidebar-nav:hover .sidebar-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(140, 43, 238, 0.4);
+        }
+
         .nav-text {
             opacity: 0;
             transform: translateX(-15px);
@@ -206,20 +196,20 @@ switch ($report_type) {
         .sidebar-nav:hover .nav-section-header {
             max-height: 20px;
             opacity: 1;
-            margin-bottom: 0.5rem !important;
+            margin-bottom: 0px !important; 
             pointer-events: auto;
         }
-        /* Override for Overview which is the first section */
-        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0.75rem !important; }
-        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
+        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0px !important; } 
+        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 0px !important; } 
 
         .sidebar-content {
-            gap: 2px;
+            gap: 2px; 
             transition: all 0.3s ease-in-out;
         }
         .sidebar-nav:hover .sidebar-content {
-            gap: 4px;
+            gap: 4px; 
         }
+
         .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
         .active-nav::after { 
@@ -233,6 +223,11 @@ switch ($report_type) {
             background: #8c2bee; 
             border-radius: 99px; 
         }
+        
+        @media (max-width: 1023px) {
+            .active-nav::after { display: none; }
+        }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -314,7 +309,7 @@ switch ($report_type) {
         </div>
     </div>
     
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
+    <div class="sidebar-scroll-container">
         <div class="nav-section-header px-0 mb-2">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
         </div>
@@ -454,10 +449,7 @@ switch ($report_type) {
                 $report_titles = [
                     'tenant_activity' => ['title' => 'Tenant Activity Report', 'desc' => 'Member Interaction Per Gym'],
                     'gym_apps' => ['title' => 'Gym Owner Applications', 'desc' => 'Review new gym registration requests'],
-                    'active_gyms' => ['title' => 'Active Gyms Report', 'desc' => 'Overview of all registered gyms in the system'],
-                    'client_subs' => ['title' => 'Client Subscription Report', 'desc' => 'Tracking gym owner website plans and payments'],
-                    'system_alerts' => ['title' => 'System Alerts Report', 'desc' => 'Monitoring unresolved and high priority alerts'],
-                    'audit_report' => ['title' => 'System Audit Report', 'desc' => 'Detailed tracking of system record changes']
+                    'client_subs' => ['title' => 'Client Subscription Report', 'desc' => 'Tracking gym owner website plans and payments']
                 ];
                 $curr_report = $report_titles[$report_type] ?? $report_titles['tenant_activity'];
             ?>
@@ -506,31 +498,12 @@ switch ($report_type) {
                                         <th class="px-8 py-4">Submitted</th>
                                         <th class="px-8 py-4 text-center">Status</th>
                                         <?php break;
-                                    case 'active_gyms': ?>
-                                        <th class="px-8 py-4">Gym Info</th>
-                                        <th class="px-8 py-4">Owner</th>
-                                        <th class="px-8 py-4">Contact</th>
-                                        <th class="px-8 py-4">Address</th>
-                                        <th class="px-8 py-4 text-center">Status</th>
-                                        <?php break;
                                     case 'client_subs': ?>
                                         <th class="px-8 py-4">Gym / Owner</th>
                                         <th class="px-8 py-4">Plan</th>
                                         <th class="px-8 py-4">Duration</th>
                                         <th class="px-8 py-4 text-center">Sub Status</th>
                                         <th class="px-8 py-4 text-right">Payment</th>
-                                        <?php break;
-                                    case 'system_alerts': ?>
-                                        <th class="px-8 py-4">Type / Source</th>
-                                        <th class="px-8 py-4 w-1/3">Message</th>
-                                        <th class="px-8 py-4 text-center">Status</th>
-                                        <th class="px-8 py-4 text-right">Timestamp</th>
-                                        <?php break;
-                                    case 'audit_report': ?>
-                                        <th class="px-8 py-4">Performer</th>
-                                        <th class="px-8 py-4">Table / ID</th>
-                                        <th class="px-8 py-4">Changes</th>
-                                        <th class="px-8 py-4 text-right">Timestamp</th>
                                         <?php break;
                                     default: // tenant_activity ?>
                                         <th class="px-8 py-4">Tenant Info</th>
@@ -573,26 +546,6 @@ switch ($report_type) {
                                                 </div>
                                             </td>
                                             <?php break;
-                                        case 'active_gyms': ?>
-                                            <td class="px-8 py-5">
-                                                <p class="text-base font-bold text-white mb-1"><?= htmlspecialchars($row['gym_name']) ?></p>
-                                                <p class="text-xs text-primary font-black uppercase tracking-tighter italic"><?= htmlspecialchars($row['tenant_code']) ?></p>
-                                            </td>
-                                            <td class="px-8 py-5 text-sm font-bold text-white"><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></td>
-                                            <td class="px-8 py-5">
-                                                <p class="text-sm font-bold text-white mb-1"><?= htmlspecialchars($row['contact_number']) ?></p>
-                                                <p class="text-xs text-gray-500 font-black uppercase italic"><?= htmlspecialchars($row['email']) ?></p>
-                                            </td>
-                                            <td class="px-8 py-5">
-                                                <p class="text-xs text-gray-200 font-bold uppercase leading-tight break-words"><?= htmlspecialchars($row['address_line'] . ', ' . $row['city']) ?></p>
-                                            </td>
-                                            <td class="px-8 py-5 text-center">
-                                                <?php $c = $row['status'] == 'Active' ? 'emerald-500' : 'rose-500'; ?>
-                                                <span class="px-3 py-1 rounded-md bg-<?= $c ?>/10 border border-<?= $c ?>/20 text-xs text-<?= $c ?> font-black uppercase italic">
-                                                    <?= htmlspecialchars(str_replace('_', ' ', $row['status'])) ?>
-                                                </span>
-                                            </td>
-                                            <?php break;
                                         case 'client_subs': ?>
                                             <td class="px-8 py-5">
                                                 <p class="text-base font-bold text-white mb-1"><?= htmlspecialchars($row['gym_name']) ?></p>
@@ -611,36 +564,6 @@ switch ($report_type) {
                                             </td>
                                             <td class="px-8 py-5 text-right">
                                                 <p class="text-sm font-black text-emerald-500 italic uppercase"><?= htmlspecialchars($row['payment_status']) ?></p>
-                                            </td>
-                                            <?php break;
-                                        case 'system_alerts': ?>
-                                            <td class="px-8 py-5">
-                                                <p class="text-sm font-bold text-white mb-1"><?= htmlspecialchars(ucwords(str_replace('_', ' ', strtolower($row['type'])))) ?></p>
-                                                <p class="text-xs text-primary font-black uppercase italic">SRC: <?= htmlspecialchars(str_replace('_', ' ', $row['source'])) ?></p>
-                                            </td>
-                                            <td class="px-8 py-5">
-                                                <p class="text-xs text-gray-200 font-medium leading-relaxed italic break-words"><?= htmlspecialchars($row['message']) ?></p>
-                                            </td>
-                                            <td class="px-8 py-5 text-center text-xs font-black uppercase tracking-tighter text-gray-500 italic"><?= htmlspecialchars(str_replace('_', ' ', $row['status'])) ?></td>
-                                            <td class="px-8 py-5 text-right">
-                                                <p class="text-xs font-bold text-white"><?= date('M d, Y', strtotime($row['created_at'])) ?></p>
-                                            </td>
-                                            <?php break;
-                                        case 'audit_report': ?>
-                                            <td class="px-8 py-5">
-                                                <p class="text-base font-bold text-white mb-1"><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
-                                                <p class="text-xs text-primary font-black uppercase italic">Action: <?= htmlspecialchars(str_replace('_', ' ', $row['action_type'])) ?></p>
-                                            </td>
-                                            <td class="px-8 py-5">
-                                                <p class="text-sm font-black text-white italic uppercase tracking-widest"><?= htmlspecialchars($row['table_name']) ?></p>
-                                                <p class="text-xs text-gray-500 font-bold italic">Record #<?= $row['record_id'] ?></p>
-                                            </td>
-                                            <td class="px-8 py-5">
-                                                <p class="text-xs text-gray-500 italic break-words"><span class="text-rose-500/50">OLD:</span> <?= htmlspecialchars($row['old_values']) ?></p>
-                                                <p class="text-xs text-emerald-500/80 italic break-words"><span class="text-emerald-500">NEW:</span> <?= htmlspecialchars($row['new_values']) ?></p>
-                                            </td>
-                                            <td class="px-8 py-5 text-right">
-                                                <p class="text-xs font-bold text-white"><?= date('M d, H:i:s', strtotime($row['created_at'])) ?></p>
                                             </td>
                                             <?php break;
                                         default: // tenant_activity ?>
@@ -716,10 +639,10 @@ switch ($report_type) {
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: [<?php foreach($registration_data as $d) echo "'" . date('M d', strtotime($d['reg_date'])) . "',"; ?>],
+            labels: <?= json_encode(array_map(function($d) { return date('M d', strtotime($d['reg_date'])); }, $registration_data)) ?>,
             datasets: [{
                 label: 'New Registrations',
-                data: [<?php foreach($registration_data as $d) echo $d['count'] . ","; ?>],
+                data: <?= json_encode(array_map(function($d) { return (int)$d['count']; }, $registration_data)) ?>,
                 borderColor: '#8c2bee',
                 backgroundColor: 'rgba(140, 43, 238, 0.05)',
                 borderWidth: 3,
