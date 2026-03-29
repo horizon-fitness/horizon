@@ -2,11 +2,21 @@
 ob_start();
 header('Content-Type: application/json; charset=UTF-8');
 
+// --- DEBUG LOGGING UTILITY ---
+function payment_debug_log($message) {
+    $log_file = __DIR__ . '/payment_debug.log';
+    $timestamp = date('Y-m-d H:i:s');
+    file_put_contents($log_file, "[$timestamp] $message\n", FILE_APPEND);
+}
+
 try {
     require_once '../db.php';
     require_once '../includes/audit_logger.php';
 
-    $input = json_decode(file_get_contents('php://input'), true);
+    $input_raw = file_get_contents('php://input');
+    $input = json_decode($input_raw, true);
+    
+    payment_debug_log("RECEIVED DATA: " . $input_raw);
     
     // member_id in request can be user_id or actual member_id from Android app
     $member_id_input = isset($input['member_id']) ? (int)$input['member_id'] : 0;
@@ -19,6 +29,7 @@ try {
     $now = date('Y-m-d H:i:s');
 
     if ($member_id_input <= 0) {
+        payment_debug_log("ERROR: Member ID is required.");
         ob_end_clean();
         echo json_encode(['success' => false, 'message' => 'Member ID is required.']);
         exit;
@@ -39,6 +50,7 @@ try {
 
     // EMERGENCY AUTO-FIX: If member record doesn't exist for this user, create it now!
     if (!$member) {
+        payment_debug_log("MEMBER NOT FOUND: Attempting auto-fix for user_id $member_id_input");
         $stmtUser = $pdo->prepare("SELECT * FROM users WHERE user_id = ? LIMIT 1");
         $stmtUser->execute([$member_id_input]);
         $userData = $stmtUser->fetch();
@@ -48,12 +60,17 @@ try {
             $gym_id = $pdo->query("SELECT gym_id FROM gyms LIMIT 1")->fetchColumn() ?: 1;
             $member_code = 'MBR-' . str_pad($member_id_input, 4, '0', STR_PAD_LEFT);
             
-            $stmtInsertMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, birth_date, sex, member_status, created_at, updated_at) VALUES (?, ?, ?, '2000-01-01', 'Not Specified', 'Active', ?, ?)");
+            // FIX: Added missing NOT NULL fields (Emergency Contact Info)
+            $stmtInsertMember = $pdo->prepare("INSERT INTO members 
+                (user_id, gym_id, member_code, birth_date, sex, emergency_contact_name, emergency_contact_number, member_status, created_at, updated_at) 
+                VALUES (?, ?, ?, '2000-01-01', 'Not Specified', 'Not Provided', 'Not Provided', 'Active', ?, ?)");
             $stmtInsertMember->execute([$member_id_input, $gym_id, $member_code, $now, $now]);
             
             $real_member_id = $pdo->lastInsertId();
             $user_id = (int)$member_id_input;
+            payment_debug_log("AUTO-FIX SUCCESS: Created member_id $real_member_id for gym $gym_id");
         } else {
+            payment_debug_log("ERROR: User ID $member_id_input not found in users table.");
             ob_end_clean();
             echo json_encode(['success' => false, 'message' => "User ID: $member_id_input not found in system."]);
             exit;
@@ -77,6 +94,7 @@ try {
             $sessions_total = (int)$plan['session_limit'];
         }
     } else {
+        payment_debug_log("PLAN NOT FOUND: Falling back to standard values for plan_id $plan_id");
         // Fallback default prices based on standard app definitions
         if ($plan_id == 1) $amount = 1500.00;
         elseif ($plan_id == 2) $amount = 4000.00;
@@ -86,6 +104,7 @@ try {
     }
 
     $pdo->beginTransaction();
+    payment_debug_log("TRANSACTION STARTED: Inserting records for member $real_member_id");
 
     // 3. Create Subscription Record
     $stmtSub = $pdo->prepare("INSERT INTO member_subscriptions 
@@ -115,6 +134,7 @@ try {
     ]);
 
     $pdo->commit();
+    payment_debug_log("TRANSACTION SUCCESS: subscription_id $subscription_id, payment_id $payment_id");
 
     ob_end_clean();
     echo json_encode([
@@ -128,6 +148,7 @@ try {
     if (isset($pdo) && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
+    payment_debug_log("SERVER ERROR: " . $e->getMessage());
     ob_end_clean();
     echo json_encode(['success' => false, 'message' => 'Server error: ' . $e->getMessage()]);
 }
