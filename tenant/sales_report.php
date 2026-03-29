@@ -214,11 +214,17 @@ $active_page = "sales";
             </p>
         </div>
 
-        <div class="text-right flex flex-col items-end">
-            <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
-            <p id="topDate" class="text-primary font-bold uppercase tracking-widest text-[10px] mt-2 px-1 opacity-80 italic">
-                <?= date('l, M d, Y') ?>
-            </p>
+        <div class="flex items-center gap-8">
+            <a href="profile.php" class="hidden md:flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase italic tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 group">
+                <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">account_circle</span>
+                My Profile
+            </a>
+            <div class="text-right flex flex-col items-end">
+                <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
+                <p id="topDate" class="text-primary font-bold uppercase tracking-widest text-[10px] mt-2 px-1 opacity-80 italic">
+                    <?= date('l, M d, Y') ?>
+                </p>
+            </div>
         </div>
     </header>
 
