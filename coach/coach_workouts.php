@@ -16,13 +16,23 @@ $coach_name = ($_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ??
 // Fetch Gym Details
 $gym = null;
 if (!empty($gym_id)) {
-    $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ? LIMIT 1");
+    $stmtGym = $pdo->prepare("SELECT g.*, tp.logo_path FROM gyms g LEFT JOIN tenant_pages tp ON g.gym_id = tp.gym_id WHERE g.gym_id = ? LIMIT 1");
     $stmtGym->execute([$gym_id]);
     $gym = $stmtGym->fetch();
 }
 
-// Mock data if db is missing or for sample
-$member_name = "Sample Member";
+// Fetch Member Details
+$member_name = "Member";
+if ($user_id > 0) {
+    $stmtM = $pdo->prepare("SELECT first_name, last_name FROM users WHERE user_id = ? LIMIT 1");
+    $stmtM->execute([$user_id]);
+    $m_data = $stmtM->fetch();
+    if ($m_data) {
+        $member_name = $m_data['first_name'] . ' ' . $m_data['last_name'];
+    }
+}
+
+// Mock data for workouts (Note: workouts table not found in schema)
 $workouts = [
     ['id' => 1, 'name' => 'Upper Body Power', 'status' => 'Assigned', 'date' => '2026-03-28'],
     ['id' => 2, 'name' => 'Lower Body Strength', 'status' => 'Pending', 'date' => '2026-03-29'],

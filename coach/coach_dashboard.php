@@ -13,12 +13,12 @@ $user_id = $_SESSION['user_id'];
 $gym_id = $_SESSION['gym_id'];
 // Added variable for First Name only
 $coach_first_name = $_SESSION['first_name'] ?? 'Coach';
-$coach_name = ($$_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? '');
+$coach_name = ($_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? '');
 
 // Fetch Gym Details
 $gym = null;
 if (!empty($gym_id)) {
-    $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ? LIMIT 1");
+    $stmtGym = $pdo->prepare("SELECT g.*, tp.logo_path FROM gyms g LEFT JOIN tenant_pages tp ON g.gym_id = tp.gym_id WHERE g.gym_id = ? LIMIT 1");
     $stmtGym->execute([$gym_id]);
     $gym = $stmtGym->fetch();
 }
@@ -63,16 +63,6 @@ if ($coach_id > 0) {
     ");
     $stmtSched->execute([$coach_id, $today]);
     $schedule_result = $stmtSched->fetchAll();
-}
-
-// Sample Data if empty
-if (empty($schedule_result)) {
-    $schedule_result = [
-        ['first_name' => 'John', 'last_name' => 'Doe', 'username' => 'johndoe', 'session_name' => 'Weight Loss', 'start_time' => '08:00:00', 'booking_date' => $today, 'user_id' => 1],
-        ['first_name' => 'Jane', 'last_name' => 'Smith', 'username' => 'janesmith', 'session_name' => 'Muscle Gain', 'start_time' => '10:00:00', 'booking_date' => $today, 'user_id' => 2],
-        ['first_name' => 'Alex', 'last_name' => 'Brown', 'username' => 'alexb', 'session_name' => 'Endurance Training', 'start_time' => '14:00:00', 'booking_date' => $today, 'user_id' => 3],
-    ];
-    $today_count = 3;
 }
 ?>
 <!DOCTYPE html>
@@ -212,7 +202,7 @@ if (empty($schedule_result)) {
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Main Menu</span>
         </div>
         
-        <a href="coach_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_dashboard.php' && !isset($_GET['user_id'])) ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="coach_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_dashboard.php') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
             <?php if($pending_count > 0): ?><span class="size-1.5 rounded-full bg-primary alert-dot ml-auto"></span><?php endif; ?>
@@ -232,7 +222,7 @@ if (empty($schedule_result)) {
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Training</span>
         </div>
 
-        <a href="coach_workouts.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_workouts.php' || isset($_GET['user_id'])) ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="coach_workouts.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_workouts.php') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">fitness_center</span> 
             <span class="nav-text">Workouts</span>
         </a>
@@ -256,25 +246,6 @@ if (empty($schedule_result)) {
 </nav>
 
 <main class="flex-1 max-w-[1600px] p-6 lg:p-12 overflow-x-hidden">
-    <?php if (isset($_GET['user_id'])): ?>
-        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-fade-in">
-            <div>
-                <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">Member <span class="text-primary">Workouts</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Assign and track workouts for your members</p>
-            </div>
-            <div class="text-left md:text-right">
-                <a href="coach_dashboard.php" class="flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest">
-                    <span class="material-symbols-outlined text-sm">arrow_back</span> Back to Dashboard
-                </a>
-            </div>
-        </header>
-        
-        <div class="glass-card p-8 animate-slide-up">
-             <h3 class="text-lg font-black italic uppercase mb-4">Workout History for Member ID: <?= htmlspecialchars($_GET['user_id']) ?></h3>
-             <p class="text-gray-400 text-sm">Displaying assigned exercises and progress tracking here...</p>
-        </div>
-
-    <?php else: ?>
         <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 animate-fade-in">
             <div>
                 <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">Coach <span class="text-primary">Dashboard</span></h2>
@@ -321,10 +292,10 @@ if (empty($schedule_result)) {
                         <tr class="hover:bg-white/[0.02] transition-colors group">
                             <td class="px-8 py-6">
                                 <div class="flex items-center gap-3">
-                                    <div class="size-10 rounded-full bg-white/5 flex items-center justify-center font-black text-primary border border-white/5 group-hover:border-primary/50 text-sm"><?= substr($row['first_name'], 0, 1) ?></div>
+                                    <div class="size-10 rounded-full bg-white/5 flex items-center justify-center font-black text-primary border border-white/5 group-hover:border-primary/50 text-sm"><?= substr($row['first_name'] ?? 'M', 0, 1) ?></div>
                                     <div>
-                                        <p class="text-white font-black uppercase italic leading-tight"><?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
-                                        <p class="text-[9px] text-gray-500 font-bold uppercase">@<?= htmlspecialchars($row['username']) ?></p>
+                                        <p class="text-white font-black uppercase italic leading-tight"><?= htmlspecialchars(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')) ?></p>
+                                        <p class="text-[9px] text-gray-500 font-bold uppercase">@<?= htmlspecialchars($row['username'] ?? '') ?></p>
                                     </div>
                                 </div>
                             </td>
@@ -336,7 +307,7 @@ if (empty($schedule_result)) {
                                 <p class="text-[9px] text-gray-500 font-bold uppercase tracking-tighter"><?= date('l, M d', strtotime($row['booking_date'])) ?></p>
                             </td>
                             <td class="px-8 py-6 text-right">
-                                <a href="?user_id=<?= $row['user_id'] ?>" class="bg-white/5 border border-white/10 px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-primary hover:border-primary transition-all shadow-xl inline-block">Assign Workouts</a>
+                                <a href="coach_workouts.php?user_id=<?= $row['user_id'] ?>" class="bg-white/5 border border-white/10 px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-primary hover:border-primary transition-all shadow-xl inline-block">Assign Workouts</a>
                             </td>
                         </tr>
                         <?php endforeach; else: ?>
@@ -346,7 +317,6 @@ if (empty($schedule_result)) {
                 </table>
             </div>
         </div>
-    <?php endif; ?>
 </main>
 
 <div class="fixed bottom-0 left-0 right-0 h-20 mobile-taskbar z-[100] lg:hidden flex items-center justify-around px-4">
