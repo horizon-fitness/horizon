@@ -126,7 +126,7 @@ $active_page = "admin_report";
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>Reports | Horizon</title>
+    <title>System Reports | Horizon</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -520,7 +520,7 @@ $active_page = "admin_report";
                     class="nav-label">Attendance</span></a>
             <a href="admin_report.php" class="nav-item active"><span
                     class="material-symbols-outlined text-xl shrink-0">description</span><span
-                    class="nav-label">Reports</span></a>
+                    class="nav-label">System Reports</span></a>
         </div>
         <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
             <div class="nav-section-label px-[38px] mb-2"><span
@@ -540,7 +540,7 @@ $active_page = "admin_report";
         <main class="p-10 max-w-[1500px] mx-auto pb-20">
             <header class="mb-12 flex flex-row justify-between items-end gap-6">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Reports
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">System <span class="text-primary">Reports</span>
                     </h2>
                     <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Analytics
                         & Insights</p>
