@@ -476,3 +476,16 @@ INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, fea
 ('6-Month Kickstart', 5999.00, '6 Months', 6, 'Multi-Tenant Management, Core Analytics, Gym Page Customizer'),
 ('1-Year Momentum', 10999.00, '1 Year', 12, 'Revenue Reports, Priority Support, Gym Page Customizer'),
 ('3-Year Legacy', 27999.00, '3 Years', 36, 'White-Label Access, API Integration, Unlimited Team Accounts');
+
+CREATE TABLE member_workouts (
+    workout_id INT AUTO_INCREMENT PRIMARY KEY,
+    member_id INT NOT NULL,
+    coach_id INT NOT NULL,
+    gym_id INT NOT NULL,
+    workout_name VARCHAR(100) NOT NULL,
+    workout_description TEXT,
+    workout_status VARCHAR(50) NOT NULL DEFAULT 'Assigned',
+    scheduled_date DATE,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL
+);

@@ -33,68 +33,51 @@ if ($coach_id > 0) {
     $pending_count = $stmtPending->fetchColumn();
 }
 
-// Fetch Assigned Members (those who have booked with this coach)
+// Fetch Members assigned to this coach (via bookings)
 $members = [];
 if ($coach_id > 0) {
+    // We get distinct members who have booked this coach
     $stmtMembers = $pdo->prepare("
-        SELECT DISTINCT m.member_id as id, u.username, CONCAT(u.first_name, ' ', u.last_name) as fullname, m.member_code
-        FROM bookings b
-        JOIN members m ON b.member_id = m.member_id
+        SELECT DISTINCT m.member_id, u.first_name, u.last_name, u.email, u.contact_number, m.member_code, m.member_status,
+        (SELECT MAX(attendance_date) FROM attendance WHERE member_id = m.member_id) as last_visit
+        FROM members m
         JOIN users u ON m.user_id = u.user_id
-        WHERE b.coach_id = ?
+        JOIN bookings b ON m.member_id = b.member_id
+        WHERE b.coach_id = ? AND m.gym_id = ?
+        ORDER BY last_visit DESC
     ");
-    $stmtMembers->execute([$coach_id]);
+    $stmtMembers->execute([$coach_id, $gym_id]);
     $members = $stmtMembers->fetchAll();
-}
-
-// Sample Data if empty
-if (empty($members)) {
-    $members = [
-        ['id' => 1, 'fullname' => 'John Doe', 'username' => 'johndoe', 'member_code' => 'HF-001'],
-        ['id' => 2, 'fullname' => 'Jane Smith', 'username' => 'janesmith', 'member_code' => 'HF-002'],
-        ['id' => 3, 'fullname' => 'Alex Brown', 'username' => 'alexb', 'member_code' => 'HF-003'],
-    ];
 }
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>My Members | Herdoza Coach</title>
+    <title>My Members | Horizon Systems</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "<?= $_SESSION['theme_color'] ?? '#8c2bee' ?>", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
+            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
         }
-        function updateHeaderClock() {
-            const now = new Date();
-            if(document.getElementById('headerClock')) document.getElementById('headerClock').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }
-        window.onload = function() { setInterval(updateHeaderClock, 1000); updateHeaderClock(); };
     </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; padding-bottom: 100px; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         
-        /* Sidebar Hover Logic - ADJUSTED WIDTHS */
         .sidebar-nav {
             width: 110px; 
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
-            overflow-x: hidden !important;
             display: flex;
             flex-direction: column;
-            padding-right: 0 !important;
         }
         .sidebar-nav:hover {
             width: 280px; 
         }
-
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: hidden !important; }
 
         .nav-text {
             opacity: 0;
@@ -123,7 +106,6 @@ if (empty($members)) {
             margin-bottom: 0px !important; 
             pointer-events: auto;
         }
-        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 0px !important; } 
 
         .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
@@ -138,34 +120,30 @@ if (empty($members)) {
             background: #8c2bee; 
             border-radius: 4px 0 0 4px; 
         }
-        @media (max-width: 1024px) { 
-            .sidebar-nav { width: 100%; height: auto; position: relative; }
-            .sidebar-nav:hover { width: 100%; }
-            .nav-text { opacity: 1; transform: translateX(0); pointer-events: auto; }
-            .active-nav::after { display: none; } 
-            .nav-section-header { max-height: 20px; opacity: 1; margin-bottom: 8px !important; }
-        }
-        .mobile-taskbar { background: rgba(20, 18, 26, 0.9); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.05); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .search-input { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 12px 20px 12px 48px; color: white; transition: all 0.3s; width: 100%; }
+        .search-input:focus { border-color: #8c2bee; outline: none; background: rgba(140,43,238,0.05); }
+
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
         .alert-dot { animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-
-        /* Animations */
-        @keyframes slideUp { 
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .animate-fade-in { animation: fadeIn 0.8s ease-out; }
-        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
-        .member-card { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
     </style>
+    <script>
+        function updateHeaderClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('headerClock');
+            if (clockEl) clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        setInterval(updateHeaderClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);
+    </script>
 </head>
 <body class="antialiased flex flex-col lg:flex-row min-h-screen">
 
-    <nav class="sidebar-nav hidden lg:flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen pl-7 pr-0 py-8 z-50 shrink-0">
+<nav class="sidebar-nav hidden lg:flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen pl-7 pr-0 py-8 z-50 shrink-0">
     <div class="mb-10 shrink-0"> 
         <div class="flex items-center gap-4 mb-4"> 
             <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
@@ -229,89 +207,73 @@ if (empty($members)) {
     </div>
 </nav>
 
-    <main class="flex-1 max-w-[1600px] p-6 lg:p-12 overflow-x-hidden">
-        <header class="mb-10 flex flex-col md:flex-row justify-between items-start gap-4 animate-fade-in">
-            <div class="flex-1">
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">My <span class="text-primary">Members</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Clients officially assigned to your program</p>
-                
-                <div class="relative mt-6">
-                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
-                    <input type="text" id="memberSearch" placeholder="Find member..." class="bg-surface-dark border border-white/10 rounded-xl py-2 pl-10 pr-4 text-xs w-64 focus:border-primary outline-none transition-all text-white shadow-xl">
-                </div>
-            </div>
-
-            <div class="text-right shrink-0">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em]"><?= date('l, M d') ?></p>
-            </div>
-        </header>
-
-        <div class="grid grid-cols-1 gap-4" id="memberContainer">
-            <?php if (count($members) > 0): ?>
-                <?php foreach($members as $index => $row): 
-                    $stmtAtt = $pdo->prepare("SELECT MAX(attendance_date) as last_v FROM attendance WHERE member_id = ?");
-                    $stmtAtt->execute([$row['id']]);
-                    $att_data = $stmtAtt->fetch();
-                    $last_visit = ($att_data && $att_data['last_v']) ? date("M d, Y", strtotime($att_data['last_v'])) : "No record";
-                ?>
-                <div class="member-card glass-card p-6 flex flex-col md:flex-row items-center justify-between hover:border-primary/40 transition-all gap-6" style="animation-delay: <?= ($index * 0.1) ?>s;">
-                    <div class="flex items-center gap-5">
-                        <div class="size-14 rounded-2xl bg-white/5 flex items-center justify-center text-primary font-black text-2xl italic border border-white/5">
-                            <?= strtoupper(substr($row['fullname'], 0, 1)) ?>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-black italic uppercase text-white member-name"><?= htmlspecialchars($row['fullname']) ?></h3>
-                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">ID: #HF-<?= $row['id'] ?> • @<?= htmlspecialchars($row['username']) ?></p>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-8 md:gap-16">
-                        <div class="text-center">
-                            <p class="text-xs font-bold text-gray-300"><?= $last_visit ?></p>
-                            <p class="text-[9px] text-gray-600 font-black uppercase tracking-tighter">Last Attendance</p>
-                        </div>
-                        <a href="coach_workouts.php?user_id=<?= $row['id'] ?>" class="bg-primary/10 border border-primary/20 px-6 py-2 rounded-xl text-[10px] font-black uppercase text-primary hover:bg-primary hover:text-white transition-all">View Profile</a>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <div class="py-20 text-center glass-card opacity-50 border-dashed">
-                    <span class="material-symbols-outlined text-5xl mb-4">person_off</span>
-                    <p class="text-xs font-black uppercase tracking-[0.2em]">No members assigned to you yet</p>
-                </div>
-            <?php endif; ?>
+<main class="flex-1 max-w-[1600px] p-6 lg:p-12 overflow-x-hidden">
+    <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+            <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">My <span class="text-primary">Members</span></h2>
+            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Manage and track your assigned trainees</p>
         </div>
-    </main>
+        <div class="w-full md:w-80 relative flex flex-col items-end">
+            <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
+            <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4"><?= date('l, M d') ?></p>
+            <div class="relative w-full">
+                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">search</span>
+                <input type="text" id="memberSearch" placeholder="Search members..." class="search-input">
+            </div>
+        </div>
+    </header>
 
-    <div class="fixed bottom-0 left-0 right-0 h-20 mobile-taskbar z-[100] lg:hidden flex items-center justify-around px-4">
-        <a href="coach_dashboard.php" class="flex flex-col items-center gap-1 text-gray-500 relative">
-            <span class="material-symbols-outlined">grid_view</span>
-            <span class="text-[8px] font-black uppercase">Dashboard</span>
-            <?php if($pending_count > 0): ?><span class="absolute top-0 right-0 size-2 bg-primary rounded-full alert-dot"></span><?php endif; ?>
-        </a>
-        <a href="coach_schedule.php" class="flex flex-col items-center gap-1 text-gray-500">
-            <span class="material-symbols-outlined">edit_calendar</span>
-            <span class="text-[8px] font-black uppercase">Avail</span>
-        </a>
-        <a href="coach_members.php" class="flex flex-col items-center gap-1 text-primary">
-            <span class="material-symbols-outlined">groups</span>
-            <span class="text-[8px] font-black uppercase">Members</span>
-        </a>
-        <a href="coach_profile.php" class="flex flex-col items-center gap-1 text-gray-500">
-            <span class="material-symbols-outlined">person</span>
-            <span class="text-[8px] font-black uppercase">Profile</span>
-        </a>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-slide-up" id="memberContainer">
+        <?php if(count($members) > 0): foreach($members as $m): ?>
+        <div class="member-card glass-card p-6 flex flex-col gap-6 hover:border-primary/30 transition-all group" data-name="<?= strtolower($m['first_name'] . ' ' . $m['last_name']) ?>">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="size-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center font-black text-primary text-xl group-hover:bg-primary/10 group-hover:border-primary/20 transition-all">
+                        <?= strtoupper(substr($m['first_name'],0,1)) ?>
+                    </div>
+                    <div>
+                        <h3 class="text-white font-black uppercase italic tracking-tight group-hover:text-primary transition-colors text-name"><?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?></h3>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">#<?= htmlspecialchars($m['member_code']) ?></p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase tracking-widest border border-emerald-500/20"><?= htmlspecialchars($m['member_status']) ?></span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 py-4 border-y border-white/5">
+                <div>
+                    <p class="text-[8px] font-black uppercase text-gray-600 tracking-widest mb-1">Last Visit</p>
+                    <p class="text-xs font-bold italic text-gray-300"><?= $m['last_visit'] ? date('M d, Y', strtotime($m['last_visit'])) : 'No record' ?></p>
+                </div>
+                <div>
+                    <p class="text-[8px] font-black uppercase text-gray-600 tracking-widest mb-1">Contact</p>
+                    <p class="text-xs font-bold italic text-gray-300 truncate"><?= htmlspecialchars($m['contact_number'] ?: $m['email']) ?></p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="coach_workouts.php?member_id=<?= $m['member_id'] ?>" class="flex-1 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-primary hover:border-primary text-white text-[9px] font-black uppercase tracking-widest transition-all text-center">Manage Workouts</a>
+                <a href="mailto:<?= htmlspecialchars($m['email']) ?>" class="size-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-primary/10 hover:border-primary transition-all">
+                    <span class="material-symbols-outlined text-sm text-gray-400 group-hover:text-primary">mail</span>
+                </a>
+            </div>
+        </div>
+        <?php endforeach; else: ?>
+            <div class="col-span-full py-32 glass-card text-center flex flex-col items-center gap-4 border-dashed border-white/10 opacity-50">
+                <span class="material-symbols-outlined text-5xl text-gray-700">group_off</span>
+                <p class="text-xs font-black uppercase text-gray-600 tracking-widest italic">No members assigned to your schedule yet</p>
+            </div>
+        <?php endif; ?>
     </div>
+</main>
 
-    <script>
-        document.getElementById('memberSearch').addEventListener('input', function(e) {
-            let val = e.target.value.toLowerCase();
-            document.querySelectorAll('.member-card').forEach(card => {
-                let name = card.querySelector('.member-name').innerText.toLowerCase();
-                card.style.display = name.includes(val) ? 'flex' : 'none';
-            });
+<script>
+    document.getElementById('memberSearch').addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        document.querySelectorAll('.member-card').forEach(card => {
+            const name = card.querySelector('.text-name').innerText.toLowerCase();
+            card.style.display = name.includes(term) ? 'flex' : 'none';
         });
-    </script>
+    });
+</script>
 </body>
 </html>

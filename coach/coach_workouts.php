@@ -9,42 +9,96 @@ if (!isset($_SESSION['user_id']) || $role !== 'coach') {
     exit;
 }
 
-$user_id = $_GET['user_id'] ?? 0;
-$gym_id = $_SESSION['gym_id'] ?? 0;
-$coach_name = ($_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? '');
+$coach_user_id = $_SESSION['user_id'];
+$gym_id = $_SESSION['gym_id'];
+$member_id = $_GET['member_id'] ?? 0;
 
 // Fetch Gym Details
 $gym = null;
 if (!empty($gym_id)) {
-    $stmtGym = $pdo->prepare("SELECT g.*, tp.logo_path FROM gyms g LEFT JOIN tenant_pages tp ON g.gym_id = tp.gym_id WHERE g.gym_id = ? LIMIT 1");
+    $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ? LIMIT 1");
     $stmtGym->execute([$gym_id]);
     $gym = $stmtGym->fetch();
 }
 
-// Fetch Member Details
-$member_name = "Member";
-if ($user_id > 0) {
-    $stmtM = $pdo->prepare("SELECT first_name, last_name FROM users WHERE user_id = ? LIMIT 1");
-    $stmtM->execute([$user_id]);
-    $m_data = $stmtM->fetch();
-    if ($m_data) {
-        $member_name = $m_data['first_name'] . ' ' . $m_data['last_name'];
+// Fetch Coach ID
+$stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
+$stmtCoach->execute([$coach_user_id, $gym_id]);
+$coach = $stmtCoach->fetch();
+$coach_id = $coach ? $coach['coach_id'] : 0;
+
+$pending_count = 0;
+if ($coach_id > 0) {
+    $stmtPending = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_status = 'Pending'");
+    $stmtPending->execute([$coach_id]);
+    $pending_count = $stmtPending->fetchColumn();
+}
+
+// Handle Workout Assignment
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_workout'])) {
+    $m_id = $_POST['m_id'];
+    $workout_name = trim($_POST['workout_name']);
+    $workout_desc = trim($_POST['workout_description']);
+    $scheduled_date = $_POST['scheduled_date'];
+    
+    try {
+        $stmtAdd = $pdo->prepare("INSERT INTO member_workouts (member_id, coach_id, gym_id, workout_name, workout_description, workout_status, scheduled_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'Assigned', ?, NOW(), NOW())");
+        $stmtAdd->execute([$m_id, $coach_id, $gym_id, $workout_name, $workout_desc, $scheduled_date]);
+        $_SESSION['success_msg'] = "Workout assigned successfully!";
+        header("Location: coach_workouts.php?member_id=" . $m_id);
+        exit;
+    } catch (Exception $e) {
+        $_SESSION['error_msg'] = "Error: " . $e->getMessage();
     }
 }
 
-// Mock data for workouts (Note: workouts table not found in schema)
-$workouts = [
-    ['id' => 1, 'name' => 'Upper Body Power', 'status' => 'Assigned', 'date' => '2026-03-28'],
-    ['id' => 2, 'name' => 'Lower Body Strength', 'status' => 'Pending', 'date' => '2026-03-29'],
-    ['id' => 3, 'name' => 'Core & Cardio', 'status' => 'Completed', 'date' => '2026-03-27'],
-];
+// Handle Status Update
+if (isset($_GET['action']) && $_GET['action'] == 'update_status' && isset($_GET['workout_id'])) {
+    $w_id = $_GET['workout_id'];
+    $new_status = $_GET['status'];
+    $stmtUpdate = $pdo->prepare("UPDATE member_workouts SET workout_status = ?, updated_at = NOW() WHERE workout_id = ? AND coach_id = ?");
+    $stmtUpdate->execute([$new_status, $w_id, $coach_id]);
+    header("Location: coach_workouts.php?member_id=" . $member_id);
+    exit;
+}
 
+// Fetch Member Details if member_id is set
+$selected_member = null;
+if ($member_id > 0) {
+    $stmtMem = $pdo->prepare("SELECT m.*, u.first_name, u.last_name, u.email FROM members m JOIN users u ON m.user_id = u.user_id WHERE m.member_id = ? AND m.gym_id = ?");
+    $stmtMem->execute([$member_id, $gym_id]);
+    $selected_member = $stmtMem->fetch();
+}
+
+// Fetch Workout History
+$workouts = [];
+if ($member_id > 0) {
+    $stmtWork = $pdo->prepare("SELECT * FROM member_workouts WHERE member_id = ? AND coach_id = ? ORDER BY scheduled_date DESC, created_at DESC");
+    $stmtWork->execute([$member_id, $coach_id]);
+    $workouts = $stmtWork->fetchAll();
+} else {
+    // If no specific member, show all workouts assigned by this coach
+    $stmtWork = $pdo->prepare("
+        SELECT w.*, u.first_name, u.last_name 
+        FROM member_workouts w
+        JOIN members m ON w.member_id = m.member_id
+        JOIN users u ON m.user_id = u.user_id
+        WHERE w.coach_id = ? AND w.gym_id = ?
+        ORDER BY w.scheduled_date DESC
+    ");
+    $stmtWork->execute([$coach_id, $gym_id]);
+    $workouts = $stmtWork->fetchAll();
+}
+
+$success_msg = $_SESSION['success_msg'] ?? '';
+$error_msg = $_SESSION['error_msg'] ?? '';
+unset($_SESSION['success_msg'], $_SESSION['error_msg']);
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Coach Portal | Horizon Systems</title>
+    <title>Workouts Management | Horizon Systems</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -53,19 +107,6 @@ $workouts = [
             darkMode: "class",
             theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
         }
-        function updateHeaderClock() {
-            const now = new Date();
-            const clockEl = document.getElementById('headerClock');
-            if (clockEl) {
-                clockEl.textContent = now.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit' 
-                });
-            }
-        }
-        setInterval(updateHeaderClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateHeaderClock);
     </script>
     <style>
         body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; padding-bottom: 100px; }
@@ -75,13 +116,11 @@ $workouts = [
             width: 110px; 
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
-            overflow-x: hidden !important;
             display: flex;
             flex-direction: column;
-            padding-right: 0 !important; /* Ensure indicator can be flush */
         }
         .sidebar-nav:hover {
-            width: 280px; /* Increased to fit CORSANO FITNESS */
+            width: 280px; 
         }
 
         .nav-text {
@@ -111,7 +150,6 @@ $workouts = [
             margin-bottom: 0px !important; 
             pointer-events: auto;
         }
-        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 0px !important; } 
 
         .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
         .active-nav { color: #8c2bee !important; position: relative; }
@@ -126,35 +164,29 @@ $workouts = [
             background: #8c2bee; 
             border-radius: 4px 0 0 4px; 
         }
-        @media (max-width: 1024px) { 
-            .sidebar-nav { width: 100%; height: auto; position: relative; }
-            .sidebar-nav:hover { width: 100%; }
-            .nav-text { opacity: 1; transform: translateX(0); pointer-events: auto; }
-            .active-nav::after { display: none; } 
-            .nav-section-header { max-height: 20px; opacity: 1; margin-bottom: 8px !important; }
-        }
-        .mobile-taskbar { background: rgba(20, 18, 26, 0.9); backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.05); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .modal-input { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 16px; color: white; font-size: 13px; transition: all 0.2s; }
+        .modal-input:focus { border-color: #8c2bee; outline: none; background: rgba(140,43,238,0.05); }
+
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
         .alert-dot { animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
-
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; overflow-x: hidden !important; }
-
-        @keyframes slideUp { 
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .animate-fade-in { animation: fadeIn 0.8s ease-out; }
-        .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
     </style>
+    <script>
+        function updateHeaderClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('headerClock');
+            if (clockEl) clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        setInterval(updateHeaderClock, 1000);
+    </script>
 </head>
 <body class="antialiased flex flex-col lg:flex-row min-h-screen">
 
-    <nav class="sidebar-nav hidden lg:flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen pl-7 pr-0 py-8 z-50 shrink-0">
+<nav class="sidebar-nav hidden lg:flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen pl-7 pr-0 py-8 z-50 shrink-0">
     <div class="mb-10 shrink-0"> 
         <div class="flex items-center gap-4 mb-4"> 
             <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
@@ -165,7 +197,7 @@ $workouts = [
                 <?php endif; ?>
             </div>
             <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white leading-tight whitespace-nowrap">
-                <?= htmlspecialchars($gym['gym_name'] ?? 'HORIZON SYSTEMS') ?>
+                <?= htmlspecialchars($gym['gym_name'] ?? 'HORIZON COACH') ?>
             </h1>
         </div>
     </div>
@@ -175,10 +207,10 @@ $workouts = [
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Main Menu</span>
         </div>
         
-        <a href="coach_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_dashboard.php' && !isset($_GET['user_id'])) ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="coach_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_dashboard.php') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
-            <?php if(isset($pending_count) && $pending_count > 0): ?><span class="size-1.5 rounded-full bg-primary alert-dot ml-auto"></span><?php endif; ?>
+            <?php if($pending_count > 0): ?><span class="size-1.5 rounded-full bg-primary alert-dot ml-auto"></span><?php endif; ?>
         </a>
         
         <a href="coach_schedule.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_schedule.php') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
@@ -195,7 +227,7 @@ $workouts = [
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Training</span>
         </div>
 
-        <a href="coach_workouts.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_workouts.php' || isset($_GET['user_id'])) ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="coach_workouts.php" class="nav-link flex items-center gap-4 py-2 <?= (basename($_SERVER['PHP_SELF']) == 'coach_workouts.php') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">fitness_center</span> 
             <span class="nav-text">Workouts</span>
         </a>
@@ -218,85 +250,135 @@ $workouts = [
     </div>
 </nav>
 
-   <main class="flex-1 max-w-[1600px] p-6 lg:p-12 overflow-x-hidden">
-        <header class="mb-10 flex flex-col md:flex-row justify-between items-end gap-4 animate-fade-in">
-            <div>
-                <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">Member <span class="text-primary">Workouts</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Assign and track workouts for your members</p>
-            </div>
-            <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4"><?= date('l, M d') ?></p>
-                </div>
-        </header>
-
-        <div class="grid grid-cols-1 gap-6 mb-10">
-            <div class="glass-card p-8 border-l-4 border-primary shadow-xl animate-slide-up">
-                <div class="flex items-center gap-6">
-                    <div class="size-20 rounded-2xl bg-white/5 flex items-center justify-center text-primary font-black text-4xl italic border border-white/5">
-                        <?= strtoupper(substr($member_name, 0, 1)) ?>
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-black italic uppercase text-white"><?= htmlspecialchars($member_name) ?></h3>
-                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-1">ID: #HF-<?= $user_id ?></p>
-                    </div>
-                </div>
-            </div>
+<main class="flex-1 max-w-[1600px] p-6 lg:p-12 overflow-x-hidden">
+    <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div>
+            <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">
+                <?= $selected_member ? 'Member <span class="text-primary">Workouts</span>' : 'All <span class="text-primary">Workouts</span>' ?>
+            </h2>
+            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">
+                <?= $selected_member ? 'Managing routines for ' . htmlspecialchars($selected_member['first_name'] . ' ' . $selected_member['last_name']) : 'Tracking all your assigned routines' ?>
+            </p>
         </div>
-
-        <div class="glass-card overflow-hidden shadow-2xl animate-slide-up" style="animation-delay: 0.1s;">
-            <div class="p-8 border-b border-white/5 bg-white/5 flex flex-col sm:row justify-between items-start sm:items-center gap-4">
-                <h3 class="text-lg font-black italic uppercase">Workout History</h3>
-                <button class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Assign New Workout</button>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead>
-                        <tr class="text-[10px] font-black uppercase text-gray-500 tracking-widest bg-black/20">
-                            <th class="px-8 py-5">Workout Name</th>
-                            <th class="px-8 py-5">Status</th>
-                            <th class="px-8 py-5">Date</th>
-                            <th class="px-8 py-5 text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-white/5">
-                        <?php foreach($workouts as $w): ?>
-                        <tr class="hover:bg-white/[0.02] transition-colors group">
-                            <td class="px-8 py-6">
-                                <p class="text-white font-black uppercase italic"><?= htmlspecialchars($w['name']) ?></p>
-                            </td>
-                            <td class="px-8 py-6">
-                                <?php 
-                                    $statusColor = "text-yellow-500 bg-yellow-500/10 border-yellow-500/20";
-                                    if($w['status'] == 'Completed') $statusColor = "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
-                                    if($w['status'] == 'Assigned') $statusColor = "text-primary bg-primary/10 border-primary/20";
-                                ?>
-                                <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase border <?= $statusColor ?>"><?= $w['status'] ?></span>
-                            </td>
-                            <td class="px-8 py-6">
-                                <p class="text-gray-400 text-sm font-bold uppercase italic"><?= date('M d, Y', strtotime($w['date'])) ?></p>
-                            </td>
-                            <td class="px-8 py-6 text-right">
-                                <button class="bg-white/5 border border-white/10 px-4 py-2 rounded-xl text-[9px] font-black uppercase hover:bg-primary hover:border-primary transition-all shadow-xl inline-block">Edit</button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+        <div class="text-right flex flex-col items-end">
+            <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
+            <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4"><?= date('l, M d') ?></p>
+            <?php if($selected_member): ?>
+                <button onclick="document.getElementById('assignModal').classList.remove('hidden')" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">add_circle</span> Assign New
+                </button>
+            <?php endif; ?>
         </div>
-    </main>
+    </header>
 
-    <div class="fixed bottom-0 left-0 right-0 h-20 mobile-taskbar z-[100] lg:hidden flex items-center justify-around px-4">
-        <a href="coach_dashboard.php" class="flex flex-col items-center gap-1 text-gray-500">
-            <span class="material-symbols-outlined">grid_view</span>
-            <span class="text-[8px] font-black uppercase">Dashboard</span>
-        </a>
-        <a href="coach_members.php" class="flex flex-col items-center gap-1 text-primary">
-            <span class="material-symbols-outlined">groups</span>
-            <span class="text-[8px] font-black uppercase">Members</span>
-        </a>
+    <?php if($success_msg): ?>
+        <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3 animate-fade-in">
+            <span class="material-symbols-outlined text-sm">check_circle</span> <?= htmlspecialchars($success_msg) ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="glass-card overflow-hidden shadow-2xl animate-slide-up">
+        <div class="p-8 border-b border-white/5 bg-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h3 class="text-lg font-black italic uppercase tracking-tight">Workout Records</h3>
+            <?php if(!$selected_member): ?>
+                <span class="text-[10px] font-black uppercase text-gray-500 tracking-widest">Showing all member workouts</span>
+            <?php endif; ?>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-[10px] font-black uppercase text-gray-500 tracking-widest bg-black/20">
+                        <th class="px-8 py-5"><?= $selected_member ? 'Workout Name' : 'Member / Workout' ?></th>
+                        <th class="px-8 py-5">Scheduled Date</th>
+                        <th class="px-8 py-5">Status</th>
+                        <th class="px-8 py-5 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-white/5">
+                    <?php if(count($workouts) > 0): foreach($workouts as $w): ?>
+                    <tr class="hover:bg-white/[0.02] transition-colors group">
+                        <td class="px-8 py-6">
+                            <?php if(!$selected_member): ?>
+                                <p class="text-primary text-[10px] font-black uppercase mb-1"><?= htmlspecialchars($w['first_name'] . ' ' . $w['last_name']) ?></p>
+                            <?php endif; ?>
+                            <p class="text-white font-black uppercase italic"><?= htmlspecialchars($w['workout_name']) ?></p>
+                            <p class="text-[9px] text-gray-600 font-bold uppercase truncate max-w-xs"><?= htmlspecialchars($w['workout_description']) ?></p>
+                        </td>
+                        <td class="px-8 py-6">
+                            <p class="text-gray-300 text-sm font-bold uppercase italic"><?= $w['scheduled_date'] ? date('M d, Y', strtotime($w['scheduled_date'])) : 'Anytime' ?></p>
+                        </td>
+                        <td class="px-8 py-6">
+                            <?php 
+                                $statusColor = "text-yellow-500 bg-yellow-500/10 border-yellow-500/20";
+                                if($w['workout_status'] == 'Completed') $statusColor = "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
+                                if($w['workout_status'] == 'Assigned') $statusColor = "text-primary bg-primary/10 border-primary/20";
+                            ?>
+                            <span class="px-3 py-1 rounded-full text-[8px] font-black uppercase border <?= $statusColor ?>"><?= $w['workout_status'] ?></span>
+                        </td>
+                        <td class="px-8 py-6 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <?php if($w['workout_status'] != 'Completed'): ?>
+                                    <a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Completed" class="size-9 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-lg" title="Mark as Completed">
+                                        <span class="material-symbols-outlined text-sm">check</span>
+                                    </a>
+                                <?php endif; ?>
+                                <?php if($w['workout_status'] != 'Assigned'): ?>
+                                    <a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Assigned" class="size-9 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-lg" title="Re-assign">
+                                        <span class="material-symbols-outlined text-sm">refresh</span>
+                                    </a>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; else: ?>
+                        <tr><td colspan="4" class="p-20 text-center text-gray-600 uppercase font-black italic text-xs tracking-widest">No workout history found</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
+</main>
 
+<!-- Assign Modal -->
+<div id="assignModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[200] hidden items-center justify-center p-4">
+    <div class="glass-card w-full max-w-lg p-8 animate-slide-up border border-white/10">
+        <div class="flex items-center justify-between mb-8">
+            <h3 class="text-xl font-black italic uppercase">Assign <span class="text-primary">Workout</span></h3>
+            <button onclick="document.getElementById('assignModal').classList.add('hidden')" class="text-gray-500 hover:text-white transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        
+        <form action="" method="POST" class="space-y-6">
+            <input type="hidden" name="m_id" value="<?= $member_id ?>">
+            
+            <div class="flex flex-col gap-2">
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Routine Name</label>
+                <input type="text" name="workout_name" placeholder="e.g. Advanced Leg Day" class="modal-input" required>
+            </div>
+            
+            <div class="flex flex-col gap-2">
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Exercises & Details</label>
+                <textarea name="workout_description" rows="4" placeholder="List exercises, reps, sets..." class="modal-input resize-none"></textarea>
+            </div>
+            
+            <div class="flex flex-col gap-2">
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Scheduled Date</label>
+                <input type="date" name="scheduled_date" class="modal-input" value="<?= date('Y-m-d') ?>">
+            </div>
+            
+            <button type="submit" name="assign_workout" class="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-xl text-[11px] font-black uppercase italic tracking-widest transition-all active:scale-95 shadow-xl shadow-primary/20">
+                Confirm Assignment
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    window.onload = function() {
+        updateHeaderClock();
+        setInterval(updateHeaderClock, 1000);
+    };
+</script>
 </body>
 </html>
