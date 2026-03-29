@@ -1,40 +1,117 @@
 <?php
 session_start();
-// Database connection commented out for UI preview
-// require_once '../db.php';
+require_once '../db.php';
 
-// Mocked session data
-$_SESSION['user_id'] = 1;
-$_SESSION['gym_id'] = 1;
-$_SESSION['role'] = 'tenant';
+// Enable error reporting for debugging 500 error
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-$gym_id = $_SESSION['gym_id'];
-$user_id = $_SESSION['user_id'];
+// Security Check
+if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'tenant') {
+    header("Location: ../login.php");
+    exit;
+}
+
+$gym_id = $_SESSION['gym_id'] ?? null;
+$user_id = $_SESSION['user_id'] ?? null;
+
+if (!$user_id || !$gym_id) {
+    header("Location: ../login.php");
+    exit;
+}
+
+// Fetch Gym & Owner Details (gym_name and owner's name)
+$stmtGym = $pdo->prepare("
+    SELECT g.gym_name, u.first_name, u.last_name, g.owner_user_id
+    FROM gyms g 
+    JOIN users u ON g.owner_user_id = u.user_id 
+    WHERE g.gym_id = ?
+");
+$stmtGym->execute([$gym_id]);
+$gym_data = $stmtGym->fetch();
+
+$gym_name = $gym_data['gym_name'] ?? 'Horizon Gym';
+$first_name = $gym_data['first_name'] ?? 'Owner';
+$owner_user_id = $gym_data['owner_user_id'] ?? 0;
 $active_page = "dashboard";
 
-// Mock Gym Details
-$gym = [
-    'gym_name' => 'HERDOZA FITNESS'
-];
 
-// Mock Subscription
-$sub = [
-    'plan_name' => 'Legacy Plan'
-];
+// Fetch Branding Data from tenant_pages (logo_path, colors are here)
+$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ?");
+$stmtPage->execute([$gym_id]);
+$page = $stmtPage->fetch();
 
-// Mock CMS Page
-$page = [
-    'logo_path'   => '',
-    'page_slug'   => 'herdozafitness',
-    'page_title'  => 'HERDOZA FITNESS',
-    'theme_color' => '#8c2bee'
-];
+// Set default fallback values
+$theme_color = ($page && isset($page['theme_color'])) ? $page['theme_color'] : '#8c2bee';
+$bg_color = ($page && isset($page['bg_color'])) ? $page['bg_color'] : '#0a090d';
+// gym_name is already set above from gyms table
 
-// Mock Stats
-$total_staff   = 12;
-$total_members = 148;
+// Fetch Global Statistics (Staff + Coaches, excluding the Tenant/Owner)
+$stmtStaff = $pdo->prepare("
+    SELECT (
+        (SELECT COUNT(*) FROM staff WHERE gym_id = ? AND status = 'Active' AND user_id != ?) +
+        (SELECT COUNT(*) FROM coaches WHERE gym_id = ? AND status = 'Active' AND user_id != ?)
+    ) as total
+");
+$stmtStaff->execute([$gym_id, $owner_user_id, $gym_id, $owner_user_id]);
+$total_staff = $stmtStaff->fetchColumn() ?: 0;
+
+$stmtMembers = $pdo->prepare("SELECT COUNT(*) FROM members WHERE gym_id = ? AND member_status = 'Active'");
+$stmtMembers->execute([$gym_id]);
+$total_members = $stmtMembers->fetchColumn() ?: 0;
+
+// Fetch Monthly Revenue
+$stmtRev = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified' AND MONTH(created_at) = MONTH(CURRENT_DATE) AND YEAR(created_at) = YEAR(CURRENT_DATE)");
+$stmtRev->execute([$gym_id]);
+$monthly_rev = $stmtRev->fetchColumn() ?: 0;
+
+// Fetch Active Subscription / Plan
+$stmtSub = $pdo->prepare("
+    SELECT cs.subscription_status, wp.plan_name 
+    FROM client_subscriptions cs 
+    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id 
+    WHERE cs.gym_id = ? 
+    ORDER BY cs.created_at DESC LIMIT 1
+");
+$stmtSub->execute([$gym_id]);
+$subscription = $stmtSub->fetch();
+
+$plan_name = $subscription['plan_name'] ?? 'No Plan';
+$sub_status = $subscription['subscription_status'] ?? 'None';
 
 $page_title = "Owner Dashboard";
+
+// --- START OF CHART DATA QUERIES ---
+// Fetch Last 6 Months Revenue Trends
+$revenue_trends = [];
+for ($i = 5; $i >= 0; $i--) {
+    $month = date('m', strtotime("-$i months"));
+    $year = date('Y', strtotime("-$i months"));
+    $month_name = date('M', strtotime("-$i months"));
+    
+    $stmt = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified' AND MONTH(created_at) = ? AND YEAR(created_at) = ?");
+    $stmt->execute([$gym_id, $month, $year]);
+    $revenue_trends[] = [
+        'month' => $month_name,
+        'amount' => (float)($stmt->fetchColumn() ?: 0)
+    ];
+}
+
+// Fetch Last 6 Months Member Growth
+$member_growth = [];
+for ($i = 5; $i >= 0; $i--) {
+    $month = date('m', strtotime("-$i months"));
+    $year = date('Y', strtotime("-$i months"));
+    $month_name = date('M', strtotime("-$i months"));
+    
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM members WHERE gym_id = ? AND MONTH(created_at) = ? AND YEAR(created_at) = ?");
+    $stmt->execute([$gym_id, $month, $year]);
+    $member_growth[] = [
+        'month' => $month_name,
+        'count' => (int)($stmt->fetchColumn() ?: 0)
+    ];
+}
+// --- END OF CHART DATA QUERIES ---
 ?>
 
 
@@ -53,6 +130,7 @@ $page_title = "Owner Dashboard";
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
 
@@ -60,7 +138,16 @@ $page_title = "Owner Dashboard";
 
             darkMode: "class",
 
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+            theme: { 
+                extend: { 
+                    colors: { 
+                        "primary": "<?= $theme_color ?>", 
+                        "background-dark": "<?= $bg_color ?>", 
+                        "surface-dark": "#14121a", 
+                        "border-subtle": "rgba(255,255,255,0.05)"
+                    }
+                }
+            }
 
         }
 
@@ -68,13 +155,14 @@ $page_title = "Owner Dashboard";
 
     <style>
 
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
+        body { font-family: 'Lexend', sans-serif; background-color: <?= $bg_color ?>; color: white; overflow: hidden; }
 
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hover-lift:hover { transform: translateY(-10px); border-color: <?= $theme_color ?>40; box-shadow: 0 20px 40px -20px <?= $theme_color ?>30; }
 
-        .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
+        .nav-link { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; color: #94a3b8; }
 
-        .active-nav { color: #8c2bee !important; position: relative; }
+        .active-nav { color: <?= $theme_color ?> !important; position: relative; }
 
         .active-nav::after { 
 
@@ -82,7 +170,7 @@ $page_title = "Owner Dashboard";
 
             position: absolute; 
 
-            right: -32px; 
+            right: 0px; 
 
             top: 50%;
 
@@ -90,58 +178,32 @@ $page_title = "Owner Dashboard";
 
             width: 4px; 
 
-            height: 20px; 
+            height: 24px; 
 
-            background: #8c2bee; 
+            background: <?= $theme_color ?>; 
 
-            border-radius: 99px; 
+            border-radius: 4px 0 0 4px; 
 
         }
 
+        /* Unified Sidebar Navigation Styles from Admin Portal */
+        .side-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 50; }
+        .side-nav:hover { width: 300px; }
+        .main-content { margin-left: 110px; flex: 1; min-width: 0; transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .side-nav:hover ~ .main-content { margin-left: 300px; }
+
+        .nav-label { opacity: 0; transform: translateX(-15px); transition: all 0.3s ease-in-out; white-space: nowrap; pointer-events: none; }
+        .side-nav:hover .nav-label { opacity: 1; transform: translateX(0); pointer-events: auto; }
         
-
-        /* Sidebar Hover Logic */
-        .sidebar-nav {
-            width: 85px; 
-            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-        .sidebar-nav:hover {
-            width: 300px; 
-        }
-
-        .nav-text {
-            opacity: 0;
-            transform: translateX(-15px);
-            transition: all 0.3s ease-in-out;
-            white-space: nowrap;
-            pointer-events: none;
-        }
-        .sidebar-nav:hover .nav-text {
-            opacity: 1;
-            transform: translateX(0);
-            pointer-events: auto;
-        }
-
-        .nav-section-header {
-            max-height: 0;
-            opacity: 0;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            margin: 0 !important;
-            pointer-events: none;
-        }
-        .sidebar-nav:hover .nav-section-header {
-            max-height: 20px;
-            opacity: 1;
-            margin-bottom: 8px !important; 
-            pointer-events: auto;
-        }
-
+        .nav-section-label { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); margin: 0 !important; pointer-events: none; }
+        .side-nav:hover .nav-section-label { max-height: 20px; opacity: 1; margin-bottom: 8px !important; pointer-events: auto; }
+        
+        .nav-item { display: flex; align-items: center; gap: 16px; padding: 10px 38px; transition: all 0.2s ease; text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .nav-item.active { color: <?= $theme_color ?> !important; position: relative; }
+        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: <?= $theme_color ?>; border-radius: 4px 0 0 4px; }
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
-
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
     </style>
@@ -178,378 +240,325 @@ $page_title = "Owner Dashboard";
 
 <body class="antialiased flex h-screen overflow-hidden">
 
-<nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
-    <div class="mb-10 shrink-0"> 
-        <div class="flex items-center gap-4 mb-4"> 
-            <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($gym['logo_path'])): ?>
-                    <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
+<nav class="side-nav bg-background-dark border-r border-white/5 z-50">
+    <div class="px-7 py-8 mb-4 shrink-0">
+        <div class="flex items-center gap-4">
+            <div class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($page['logo_path']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
+                <?php if (!empty($page['logo_path'])): ?>
+                    <img src="<?= htmlspecialchars($page['logo_path']) ?>" class="size-full object-cover">
                 <?php else: ?>
                     <span class="material-symbols-outlined text-white text-2xl">bolt</span>
                 <?php endif; ?>
             </div>
-            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white leading-tight break-words line-clamp-2">
-                <?= htmlspecialchars($gym['gym_name'] ?? 'CORSANO FITNESS') ?>
-            </h1>
+            <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Owner Portal</h1>
         </div>
     </div>
     
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
-        <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Main Menu</span>
-        </div>
-        
-        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
+        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Main Menu</span></div>
+        <a href="tenant_dashboard.php" class="nav-item <?= ($active_page == 'dashboard') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
-            <span class="nav-text">Dashboard</span>
+            <span class="nav-label">Dashboard</span>
         </a>
         
-        <a href="my_users.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'users') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="my_users.php" class="nav-item <?= ($active_page == 'users') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span> 
-            <span class="nav-text">My Users</span>
+            <span class="nav-label">Users</span>
         </a>
 
-        <a href="transactions.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="transactions.php" class="nav-item <?= ($active_page == 'transactions') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
-            <span class="nav-text">Transactions</span>
-            <span class="size-1.5 rounded-full bg-red-500 ml-auto"></span>
+            <span class="nav-label">Transactions</span>
         </a>
 
-        <a href="attendance.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'attendance') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="attendance.php" class="nav-item <?= ($active_page == 'attendance') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">history</span> 
-            <span class="nav-text">Attendance</span>
+            <span class="nav-label">Attendance</span>
         </a>
 
-        <div class="nav-section-header px-0 mb-2 mt-6">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
-        </div>
+        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
 
-        <a href="staff.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'staff') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="staff.php" class="nav-item <?= ($active_page == 'staff') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">badge</span> 
-            <span class="nav-text">Staff Management</span>
+            <span class="nav-label">Staff</span>
         </a>
 
-        <a href="reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="reports.php" class="nav-item <?= ($active_page == 'reports') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
-            <span class="nav-text">System Reports</span>
+            <span class="nav-label">Reports</span>
         </a>
 
-        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="sales_report.php" class="nav-item <?= ($active_page == 'sales') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">payments</span> 
-            <span class="nav-text">Sales Reports</span>
+            <span class="nav-label">Sales Reports</span>
         </a>
     </div>
 
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0">
-        <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
-        </div>
-        
-        <a href="facility_setup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'facility') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+    <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
+        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
+        <a href="tenant_settings.php" class="nav-item <?= ($active_page == 'settings') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
-            <span class="nav-text">Settings</span>
+            <span class="nav-label">Settings</span>
         </a>
-
-        <a href="tenant_settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">person</span> 
-            <span class="nav-text">Profile</span>
+        <a href="profile.php" class="nav-item <?= ($active_page == 'profile') ? 'active' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">account_circle</span> 
+            <span class="nav-label">Profile</span>
         </a>
-
-        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
-            <span class="nav-link nav-text text-sm">Sign Out</span>
+        <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors">
+            <span class="material-symbols-outlined text-xl shrink-0">logout</span> 
+            <span class="nav-label">Sign Out</span>
         </a>
     </div>
 </nav>
 
-<div class="flex-1 p-10 overflow-y-auto no-scrollbar">
+<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar">
 
     <header class="mb-10 flex justify-between items-end">
-
         <div>
-
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Owner <span class="text-primary">Dashboard</span></h2>
-
-            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Industrial Brand Management</p>
-
+            <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic">Welcome Back, <span class="text-primary italic"><?= htmlspecialchars($first_name) ?></span></h2>
+            <p class="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1 italic"><?= htmlspecialchars($gym_name) ?> Management System</p>
         </div>
 
-        <div class="flex items-end gap-8">
-            <div class="flex flex-col items-end">
-                <p id="topClock" class="text-white font-black italic text-2xl leading-none">00:00:00 AM</p>
-                <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
-                <div class="flex items-center gap-2 mt-2 px-3 py-1 rounded-lg bg-white/5 border border-white/5">
-                    <p class="text-[9px] font-black uppercase text-gray-400 tracking-widest">Plan:</p>
-                    <p class="text-[10px] font-black uppercase text-white italic tracking-tighter"><?= htmlspecialchars($sub['plan_name'] ?? 'Standard Plan') ?></p>
-                    <span class="px-1.5 py-0.5 rounded-md bg-primary/20 text-primary text-[7px] font-black uppercase tracking-widest">Active</span>
-                </div>
-            </div>
-
-            <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="px-5 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
-
-                <span class="material-symbols-outlined text-sm">open_in_new</span> Full Web Portal
-
-            </a>
-
+        <div class="text-right">
+            <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
+            <p class="text-primary text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80"><?= date('l, M d, Y') ?></p>
         </div>
-
     </header>
 
 
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-
-        <div class="glass-card p-6 flex items-center gap-4">
-
-            <div class="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <div class="glass-card p-6 flex items-center gap-5 relative overflow-hidden group">
+            <div class="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shrink-0 group-hover:scale-110 transition-transform">
                 <span class="material-symbols-outlined text-2xl">badge</span>
-
             </div>
-
             <div>
-
-                <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Total Staff</p>
-
-                <h3 class="text-2xl font-black italic uppercase"><?= $total_staff ?></h3>
-
+                <p class="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Total Staff</p>
+                <h3 class="text-2xl font-extrabold mt-1 tracking-tight italic uppercase"><?= $total_staff ?></h3>
             </div>
-
+            <div class="absolute -right-4 -bottom-4 size-24 bg-primary/5 rounded-full blur-2xl"></div>
         </div>
 
-        <div class="glass-card p-6 flex items-center gap-4">
-
-            <div class="size-12 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-
+        <div class="glass-card p-6 flex items-center gap-5 relative overflow-hidden group">
+            <div class="size-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0 group-hover:scale-110 transition-transform">
                 <span class="material-symbols-outlined text-2xl">group</span>
-
             </div>
-
             <div>
-
-                <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Active Members</p>
-
-                <h3 class="text-2xl font-black italic uppercase"><?= $total_members ?></h3>
-
+                <p class="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Active Members</p>
+                <h3 class="text-2xl font-extrabold mt-1 tracking-tight italic uppercase"><?= $total_members ?></h3>
             </div>
-
+            <div class="absolute -right-4 -bottom-4 size-24 bg-emerald-500/5 rounded-full blur-2xl"></div>
         </div>
 
-        <div class="glass-card p-6 flex items-center gap-4">
-
-            <div class="size-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
-
-                <span class="material-symbols-outlined text-2xl">visibility</span>
-
-            </div>
-
-            <div>
-
-                <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">-</p>
-
-                <h3 class="text-2xl font-black italic uppercase">-</h3>
-
-            </div>
-
-        </div>
-
-        <div class="glass-card p-6 flex items-center gap-4">
-
-            <div class="size-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-
+        <div class="glass-card p-6 flex items-center gap-5 relative overflow-hidden group">
+            <div class="size-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0 group-hover:scale-110 transition-transform">
                 <span class="material-symbols-outlined text-2xl">payments</span>
-
             </div>
-
             <div>
-
-                <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Monthly Rev</p>
-
-                <h3 class="text-2xl font-black italic uppercase">₱0</h3>
-
+                <p class="text-[10px] font-bold uppercase text-gray-500 tracking-widest">Revenue</p>
+                <h3 class="text-2xl font-extrabold mt-1 tracking-tight italic uppercase">₱<?= number_format($monthly_rev, 0) ?></h3>
             </div>
-
+            <div class="absolute -right-4 -bottom-4 size-24 bg-amber-500/5 rounded-full blur-2xl"></div>
         </div>
 
+        <div class="glass-card p-6 flex items-center gap-5 relative overflow-hidden group">
+            <div class="size-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 shrink-0 group-hover:scale-110 transition-transform">
+                <span class="material-symbols-outlined text-2xl">card_membership</span>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold uppercase text-gray-500 tracking-widest"><?= htmlspecialchars($plan_name) ?></p>
+                <h3 class="text-xl font-extrabold mt-1 tracking-tight uppercase <?= (strtolower($sub_status) === 'active') ? 'text-emerald-500' : 'text-rose-500' ?> italic"><?= htmlspecialchars($sub_status) ?></h3>
+            </div>
+            <div class="absolute -right-4 -bottom-4 size-24 bg-blue-500/5 rounded-full blur-2xl"></div>
+        </div>
     </div>
 
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+        <div class="glass-card p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h4 class="text-base font-bold uppercase tracking-tight flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">palette</span> Page Design
+                </h4>
+                <span class="text-[9px] font-bold uppercase text-gray-500 tracking-widest">Current Style</span>
+            </div>
 
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pb-10">
-
-        <div class="glass-card p-8">
-
-            <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
-
-                <span class="material-symbols-outlined text-primary">palette</span> Page Customize
-
-            </h4>
-
-            <div class="p-6 rounded-2xl bg-background-dark border border-white/5 mb-6">
-
-                <div class="flex items-center gap-4 mb-4">
-
-                    <div class="size-12 rounded-lg bg-surface-dark border border-white/10 flex items-center justify-center overflow-hidden">
-
-                        <?php 
-
-                        $logo_src = $page['logo_path'] ?? '';
-
-                        if ($logo_src) {
-
-                            if (strpos($logo_src, 'data:') === 0) { } 
-
-                            elseif (strpos($logo_src, 'uploads/') === 0) { $logo_src = '../' . $logo_src; }
-
-                        }
-
-                        ?>
-
-                        <?php if($logo_src): ?>
-
-                            <img src="<?= htmlspecialchars($logo_src) ?>" class="w-full h-full object-contain">
-
+            <div class="p-6 rounded-3xl bg-background-dark/50 border border-white/5 mb-6">
+                <div class="flex items-center gap-4">
+                    <div class="size-12 rounded-xl bg-[#1a1821] flex items-center justify-center overflow-hidden shadow-inner">
+                        <?php if (!empty($page['logo_path'])): ?>
+                            <img src="<?= htmlspecialchars($page['logo_path']) ?>" class="w-full h-full object-cover">
                         <?php else: ?>
-
-                            <span class="material-symbols-outlined text-gray-700">image</span>
-
+                            <span class="material-symbols-outlined text-gray-600 text-xl">image</span>
                         <?php endif; ?>
-
                     </div>
-
                     <div>
-
-                        <p class="text-xs font-bold italic"><?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?></p>
-
-                        <p class="text-[9px] font-black uppercase tracking-widest text-primary">Slug: p/<?= htmlspecialchars($page['page_slug'] ?? '') ?></p>
-
+                        <h5 class="text-sm font-bold italic uppercase tracking-tight"><?= htmlspecialchars($gym_name) ?></h5>
+                        <div class="flex items-center gap-2 mt-1.5">
+                            <div class="size-3.5 rounded-full border border-white/20" style="background-color: <?= $theme_color ?>"></div>
+                            <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Theme Accent Color</p>
+                        </div>
                     </div>
-
                 </div>
-
-                <div class="flex gap-2">
-
-                    <div class="size-4 rounded-full border border-white/10" style="background-color: <?= $page['theme_color'] ?? '#7f13ec' ?>"></div>
-
-                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-tighter italic">Primary Theme Color</span>
-
-                </div>
-
             </div>
 
             <div class="flex gap-4">
-
-                <a href="tenant_settings.php" class="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest gap-2">
-
-                    <span class="material-symbols-outlined text-sm">edit</span> Customize Page
-
+                <a href="tenant_settings.php" class="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center text-[10px] font-bold uppercase tracking-widest gap-2">
+                    <span class="material-symbols-outlined text-lg">edit_note</span> Edit Page
                 </a>
-
-                <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="flex-1 h-12 rounded-xl bg-primary hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all flex items-center justify-center text-[10px] font-black uppercase tracking-widest gap-2">
-
-                    <span class="material-symbols-outlined text-sm">open_in_new</span> View Portal
-
+                <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="flex-1 h-12 rounded-xl bg-primary hover:opacity-90 transition-all flex items-center justify-center text-[10px] font-bold uppercase tracking-widest gap-2 text-white shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-lg">visibility</span> View Site
                 </a>
-
             </div>
-
         </div>
 
-        <div class="glass-card p-8">
+        <div class="glass-card p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h4 class="text-base font-bold uppercase tracking-tight flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">bolt</span> Actions
+                </h4>
+                <span class="text-[9px] font-bold uppercase text-gray-500 tracking-widest">Quick Access</span>
+            </div>
 
-            <h4 class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2">
-
-                <span class="material-symbols-outlined text-primary">bolt</span> Quick Actions
-
-            </h4>
-
-            <div class="grid grid-cols-1 gap-4">
-
-                <a href="staff.php" class="group p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-primary/50 transition-all flex items-center justify-between">
-
+            <div class="grid grid-cols-1 gap-3">
+                <a href="staff.php" class="group p-5 rounded-3xl bg-white/5 border border-white/5 hover:border-primary/50 transition-all flex items-center justify-between">
                     <div class="flex items-center gap-4">
-
-                        <div class="size-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
-
-                            <span class="material-symbols-outlined">badge</span>
-
+                        <div class="size-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-xl">person_add</span>
                         </div>
-
                         <div>
-
-                            <p class="text-xs font-black uppercase italic">Add Staff</p>
-
-                            <p class="text-[9px] text-gray-500 uppercase font-black">Manage your team</p>
-
+                            <p class="text-xs font-bold uppercase italic">Add Team Staff</p>
+                            <p class="text-[9px] text-gray-600 uppercase font-bold mt-0.5">Manage employees and roles</p>
                         </div>
-
                     </div>
-
-                    <span class="material-symbols-outlined text-gray-600 group-hover:translate-x-1 transition-transform">arrow_forward_ios</span>
-
+                    <span class="material-symbols-outlined text-gray-600 group-hover:translate-x-1 transition-transform">chevron_right</span>
                 </a>
 
+                <a href="my_users.php" class="group p-5 rounded-3xl bg-white/5 border border-white/5 hover:border-emerald-500/50 transition-all flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="size-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-xl">group_add</span>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold uppercase italic">Member Directory</p>
+                            <p class="text-[9px] text-gray-600 uppercase font-bold mt-0.5">Manage active memberships</p>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-gray-600 group-hover:translate-x-1 transition-transform">chevron_right</span>
+                </a>
             </div>
-
         </div>
-
     </div>
-
-
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-10">
-
-        <div class="glass-card p-8">
-
+        <div class="glass-card p-8 hover-lift">
             <div class="flex justify-between items-center mb-8">
-
-                <h4 class="text-sm font-black italic uppercase tracking-tighter flex items-center gap-2">
-
-                    <span class="material-symbols-outlined text-primary">analytics</span> Revenue Analytics
-
+                <h4 class="text-base font-bold uppercase tracking-tight flex items-center gap-3">
+                    <span class="material-symbols-outlined text-primary">bar_chart</span> Revenue Trends
                 </h4>
-
-                <span class="text-[9px] font-black uppercase text-gray-500 tracking-widest italic">Last 30 Days</span>
-
+                <div class="flex items-center gap-2">
+                    <div class="size-2 rounded-full bg-primary/20"></div>
+                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Last 6 Months</span>
+                </div>
             </div>
-
-            <div class="h-48 rounded-2xl bg-background-dark border border-dashed border-white/5 flex items-center justify-center">
-
-                <p class="text-[9px] font-black uppercase text-gray-700 italic tracking-widest">Revenue Data Visualization</p>
-
+            <div class="h-64 w-full">
+                <canvas id="revenueChart"></canvas>
             </div>
-
         </div>
 
-
-
-        <div class="glass-card p-8">
-
+        <div class="glass-card p-8 hover-lift">
             <div class="flex justify-between items-center mb-8">
-
-                <h4 class="text-sm font-black italic uppercase tracking-tighter flex items-center gap-2">
-
+                <h4 class="text-base font-bold uppercase tracking-tight flex items-center gap-3">
                     <span class="material-symbols-outlined text-primary">monitoring</span> Member Growth
-
                 </h4>
-
-                <span class="text-[9px] font-black uppercase text-gray-500 tracking-widest italic">Monthly Onboarding</span>
-
+                <div class="flex items-center gap-2">
+                    <div class="size-2 rounded-full bg-emerald-500/20"></div>
+                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">New Signups</span>
+                </div>
             </div>
-
-            <div class="h-48 rounded-2xl bg-background-dark border border-dashed border-white/5 flex items-center justify-center">
-
-                <p class="text-[9px] font-black uppercase text-gray-700 italic tracking-widest">Growth Data Visualization</p>
-
+            <div class="h-64 w-full">
+                <canvas id="growthChart"></canvas>
             </div>
-
         </div>
-
     </div>
 
-</div>
+</main>
 
 
+
+    <script>
+        // Chart Initialization with Dynamic Data
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#14121a',
+                    titleColor: '<?= $theme_color ?>',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: false,
+                    titleFont: { family: 'Lexend', size: 10, weight: '800' },
+                    bodyFont: { family: 'Lexend', size: 13, weight: '700' }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+                    ticks: { color: '#64748b', font: { family: 'Lexend', size: 10, weight: '600' } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#64748b', font: { family: 'Lexend', size: 10, weight: '600' } }
+                }
+            }
+        };
+
+        // Revenue Trends Chart (Line)
+        new Chart(document.getElementById('revenueChart'), {
+            type: 'line',
+            data: {
+                labels: [<?php foreach($revenue_trends as $r) echo "'".$r['month']."',"; ?>],
+                datasets: [{
+                    label: 'Revenue',
+                    data: [<?php foreach($revenue_trends as $r) echo $r['amount'].","; ?>],
+                    borderColor: '<?= $theme_color ?>',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    fill: true,
+                    backgroundColor: (ctx) => {
+                        const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 400);
+                        gradient.addColorStop(0, '<?= $theme_color ?>20');
+                        gradient.addColorStop(1, '<?= $theme_color ?>00');
+                        return gradient;
+                    },
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '<?= $theme_color ?>'
+                }]
+            },
+            options: chartOptions
+        });
+
+        // Member Growth Chart (Bar)
+        new Chart(document.getElementById('growthChart'), {
+            type: 'bar',
+            data: {
+                labels: [<?php foreach($member_growth as $m) echo "'".$m['month']."',"; ?>],
+                datasets: [{
+                    label: 'New Members',
+                    data: [<?php foreach($member_growth as $m) echo $m['count'].","; ?>],
+                    backgroundColor: '<?= $theme_color ?>80',
+                    hoverBackgroundColor: '<?= $theme_color ?>',
+                    borderRadius: 6,
+                    barThickness: 24
+                }]
+            },
+            options: chartOptions
+        });
+    </script>
 
 </body>
 
