@@ -62,14 +62,14 @@ $active_page = "register_member";
     <script> 
         tailwind.config = { 
             darkMode: "class", 
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}} 
+            theme: { extend: { colors: { "primary": "<?= $page['theme_color'] ?? '#8c2bee' ?>", "background-dark": "<?= $page['bg_color'] ?? '#0a090d' ?>", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}} 
         } 
     </script> 
     <style> 
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; display: flex; flex-direction: row; min-h-screen: 100vh; } 
+        body { font-family: 'Lexend', sans-serif; background-color: <?= $page['bg_color'] ?? '#0a090d' ?>; color: white; display: flex; flex-direction: row; min-h-screen: 100vh; } 
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; } 
-        .input-field { background: #0a090d; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; padding: 12px 16px; width: 100%; outline: none; transition: all 0.2s; } 
-        .input-field:focus { border-color: #8c2bee; } 
+        .input-field { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; padding: 12px 16px; width: 100%; outline: none; transition: all 0.2s; } 
+        .input-field:focus { border-color: <?= $page['theme_color'] ?? '#8c2bee' ?>; } 
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.5; cursor: pointer; }
         select.input-field { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1rem; }
         .strength-bar { height: 4px; border-radius: 2px; transition: all 0.3s ease; width: 0; }
@@ -77,21 +77,32 @@ $active_page = "register_member";
         .strength-medium { background-color: #f59e0b; width: 66.66%; }
         .strength-strong { background-color: #10b981; width: 100%; }
         
-        /* Sidebar Hover Logic - MATCHING SUPER ADMIN */
+        /* Sidebar Hover Logic - MATCHING CORE DASHBOARD */
         .side-nav {
             width: 110px; 
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            position: sticky;
+            position: fixed;
+            left: 0;
             top: 0;
             height: 100vh;
             z-index: 50;
-            shrink: 0;
         }
         .side-nav:hover {
             width: 300px; 
+        }
+
+        /* Main Content Adjustment */
+        .main-content {
+            margin-left: 110px; 
+            flex: 1;
+            min-width: 0;
+            transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .side-nav:hover ~ .main-content {
+            margin-left: 300px; 
         }
 
         .nav-label {
@@ -123,9 +134,32 @@ $active_page = "register_member";
         }
         .side-nav:hover .mt-0 { margin-top: 0px !important; } 
 
-        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 10px; transition: all 0.2s ease; text-decoration: none; white-space: nowrap; }
-        .nav-item:hover { background: rgba(255,255,255,0.05); }
-        .nav-item.active { color: #8c2bee !important; background: rgba(140,43,238,0.1); border: 1px solid rgba(140,43,238,0.15); }
+        .nav-item { 
+            display: flex; 
+            align-items: center; 
+            gap: 16px; 
+            padding: 10px 38px; 
+            transition: all 0.2s ease; 
+            text-decoration: none; 
+            white-space: nowrap; 
+            font-size: 13px; 
+            font-weight: 700; 
+            letter-spacing: 0.02em; 
+            color: #94a3b8;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .nav-item.active { color: <?= $page['theme_color'] ?? '#8c2bee' ?> !important; position: relative; }
+        .nav-item.active::after { 
+            content: ''; 
+            position: absolute; 
+            right: 0px; 
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px; 
+            height: 24px; 
+            background: <?= $page['theme_color'] ?? '#8c2bee' ?>; 
+            border-radius: 4px 0 0 4px; 
+        }
         .no-scrollbar::-webkit-scrollbar { display: none; } 
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; } 
 
@@ -214,57 +248,74 @@ $active_page = "register_member";
     </script> 
 </head> 
 <body class="antialiased flex flex-row min-h-screen overflow-hidden"> 
-<nav class="side-nav bg-[#0a090d] border-r border-white/5 shrink-0">
-    <div class="px-4 py-6">
-        <div class="flex items-center gap-3">
-            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0 overflow-hidden"> 
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span> 
-            </div> 
-            <span class="nav-label text-white font-black italic uppercase tracking-tighter text-base leading-none">Staff Dashboard</span>
+<nav class="side-nav flex flex-col fixed left-0 top-0 h-screen bg-background-dark border-r border-white/5 z-50">
+    <div class="px-7 py-8">
+        <div class="flex items-center gap-[6px]">
+            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($page['logo_path'])): 
+                    $logo_src = (strpos($page['logo_path'], 'data:image') === 0) ? $page['logo_path'] : '../' . $page['logo_path'];
+                ?>
+                    <img src="<?= $logo_src ?>" class="size-full object-contain">
+                <?php else: ?>
+                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                <?php endif; ?>
+            </div>
+            <span class="nav-label text-white font-black italic uppercase tracking-tighter text-base leading-none">Staff Portal</span>
         </div>
     </div>
-    <div class="flex flex-col flex-1 overflow-y-auto no-scrollbar px-3 gap-0.5">
-        <span class="nav-section-label text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 mt-0">Main Menu</span>
-        <a href="admin_dashboard.php" class="nav-item text-gray-400 hover:text-white">
+    
+    <div class="flex flex-col flex-1 overflow-y-auto no-scrollbar gap-0.5">
+        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-0">Main Menu</span>
+        
+        <a href="admin_dashboard.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_dashboard.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span>
-            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Dashboard</span>
-        </a>
-        <a href="register_member.php" class="nav-item active text-primary">
-            <span class="material-symbols-outlined text-xl shrink-0">person_add</span>
-            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Walk-in Member</span>
-        </a>
-        <a href="admin_users.php" class="nav-item text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl shrink-0">group</span>
-            <span class="nav-label font-black text-[10px] uppercase tracking-wider">My Users</span>
+            <span class="nav-label">Dashboard</span>
         </a>
 
-        <span class="nav-section-label text-[9px] font-black text-gray-500 uppercase tracking-widest px-3">Management</span>
-        <a href="admin_transaction.php" class="nav-item text-gray-400 hover:text-white">
+        <a href="register_member.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'register_member.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">person_add</span>
+            <span class="nav-label">Walk-in Member</span>
+        </a>
+
+        <a href="admin_users.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_users.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">group</span>
+            <span class="nav-label">My Users</span>
+        </a>
+
+        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
+        
+        <a href="admin_transaction.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_transaction.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
-            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Transactions</span>
+            <span class="nav-label">Transactions</span>
         </a>
-        <a href="admin_appointment.php" class="nav-item text-gray-400 hover:text-white">
+
+        <a href="admin_appointment.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_appointment.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">event_note</span>
-            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Bookings</span>
+            <span class="nav-label">Bookings</span>
         </a>
-        <a href="admin_attendance.php" class="nav-item text-gray-400 hover:text-white">
+
+        <a href="admin_attendance.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_attendance.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">history</span>
-            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Attendance</span>
+            <span class="nav-label">Attendance</span>
         </a>
-        <a href="admin_report.php" class="nav-item text-gray-400 hover:text-white">
+
+        <a href="admin_report.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_report.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">description</span>
-            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Reports</span>
+            <span class="nav-label">Reports</span>
         </a>
     </div>
-    <div class="px-3 pt-4 pb-4 border-t border-white/10 flex flex-col gap-0.5">
-        <span class="nav-section-label text-[9px] font-black text-gray-500 uppercase tracking-widest px-3 mt-0 mb-2">Account</span>
-        <a href="admin_profile.php" class="nav-item text-gray-400 hover:text-white">
-            <span class="material-symbols-outlined text-xl shrink-0">person</span>
-            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Profile</span>
+
+    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
+        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-0 mb-2">Account</span>
+
+        <a href="admin_profile.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_profile.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">account_circle</span>
+            <span class="nav-label">Profile</span>
         </a>
-        <a href="../logout.php" class="nav-item text-gray-400 hover:text-red-500 group">
+
+        <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors group">
             <span class="material-symbols-outlined text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
-            <span class="nav-label font-black text-[10px] uppercase tracking-wider">Sign Out</span>
+            <span class="nav-label">Sign Out</span>
         </a>
     </div>
 </nav>
@@ -273,8 +324,8 @@ $active_page = "register_member";
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto flex flex-col items-center">
         <header class="mb-10 w-full max-w-4xl flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
             <div>
-                <h1 class="text-3xl font-black text-white italic uppercase tracking-tighter mb-1">Walk-in <span class="text-primary">Registration</span></h1>
-                <p class="text-primary text-xs font-bold uppercase tracking-widest">New Member Onboarding • Facility Entry</p>
+                <h1 class="text-3xl font-black text-white italic uppercase tracking-tighter leading-none mb-2">Walk-in <span class="text-primary">Registration</span></h1>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest">New Member Onboarding • Facility Entry</p>
             </div>
             <div class="flex flex-row items-center gap-4">
                 <div class="px-6 py-3.5 rounded-2xl bg-white/5 border border-white/5 text-right flex flex-col items-end group shadow-sm hover:shadow-primary/10 transition-shadow">
