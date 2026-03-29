@@ -202,14 +202,18 @@ $attendance = $stmtAttendance->fetchAll();
 <main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar pb-10">
     <header class="mb-10 flex justify-between items-end">
         <div>
-            <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic">Attendance <span class="text-primary italic">Tracker</span></h2>
-            <p class="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1 italic"><?= htmlspecialchars($gym['gym_name'] ?? 'Horizon Gym') ?> Member Presence</p>
+            <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic leading-none">
+                ATTENDANCE <span class="text-primary italic">TRACKER</span>
+            </h2>
+            <p class="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1 italic leading-none">
+                <?= htmlspecialchars($gym['gym_name'] ?? 'Horizon Gym') ?> MEMBER PRESENCE
+            </p>
         </div>
 
-        <div class="text-right">
+        <div class="text-right flex flex-col items-end">
             <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
-            <p class="text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 italic">
-                <span class="text-primary"><?= date('l, M d, Y') ?></span>
+            <p id="topDate" class="text-primary font-bold uppercase tracking-widest text-[10px] mt-2 px-1 opacity-80 italic">
+                <?= date('l, M d, Y') ?>
             </p>
         </div>
     </header>
@@ -335,6 +339,22 @@ $attendance = $stmtAttendance->fetchAll();
         </div>
     </div>
 </main>
+
+<script>
+    function updateTopClock() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const dateString = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: '2-digit', year: 'numeric' });
+        
+        const clockEl = document.getElementById('topClock');
+        const dateEl = document.getElementById('topDate');
+        
+        if (clockEl) clockEl.textContent = timeString;
+        if (dateEl) dateEl.textContent = dateString;
+    }
+    setInterval(updateTopClock, 1000);
+    window.addEventListener('DOMContentLoaded', updateTopClock);
+</script>
 
 </body>
 </html>
