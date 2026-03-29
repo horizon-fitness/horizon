@@ -61,11 +61,11 @@ if ($gym_id > 0 && $user_id > 0) {
             $stmtSub->execute([$member_id, $plan_id, $start_date, $end_date, $sessions, $now, $now]);
             $subscription_id = $pdo->lastInsertId();
 
-            // 3. Record Payment
-            $reference_number = 'PM-' . strtoupper(substr(md5(time() . $member_id), 0, 8));
+            // 3. Record Payment (Using 'Verified' status for dashboard integration)
+            $reference_number = 'PAYM-' . strtoupper(substr(md5(time() . $member_id), 0, 8));
             $stmtPay = $pdo->prepare("INSERT INTO payments 
                 (member_id, gym_id, subscription_id, amount, payment_method, payment_type, reference_number, payment_status, created_at) 
-                VALUES (?, ?, ?, ?, 'PayMongo', 'Subscription', ?, 'Completed', ?)");
+                VALUES (?, ?, ?, ?, 'PayMongo', 'Membership', ?, 'Verified', ?)");
             $stmtPay->execute([$member_id, $gym_id, $subscription_id, $amount, $reference_number, $now]);
 
             // 4. Activate Member status

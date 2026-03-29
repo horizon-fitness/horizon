@@ -37,6 +37,7 @@ try {
             p.payment_id,
             p.amount,
             p.reference_number,
+            p.payment_method,
             p.payment_status,
             p.created_at,
             mp.plan_name
@@ -59,7 +60,7 @@ try {
             'service' => $row['plan_name'] ?? 'Membership Subscription',
             'reference' => $row['reference_number'],
             'amount' => number_format($row['amount'], 2), // App adds the symbol
-            'status' => (in_array($row['payment_status'], ['Completed', 'Paid', 'Active'])) ? 'Approved' : $row['payment_status']
+            'status' => (in_array($row['payment_status'], ['Completed', 'Verified', 'Paid', 'Active'])) ? 'Approved' : $row['payment_status']
         ];
     }
 

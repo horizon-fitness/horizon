@@ -33,10 +33,15 @@ $daily_sales = $stmtDaily->fetchColumn() ?? 0;
 
 // --- TRANSACTION HISTORY (Filtered) ---
 $stmtHistory = $pdo->prepare("
-    SELECT p.*, u.first_name, u.last_name 
+    SELECT p.*, 
+           COALESCE(u_member.first_name, u_owner.first_name) as first_name, 
+           COALESCE(u_member.last_name, u_owner.last_name) as last_name 
     FROM payments p 
+    LEFT JOIN member_subscriptions ms ON p.subscription_id = ms.subscription_id
+    LEFT JOIN members m ON p.member_id = m.member_id
+    LEFT JOIN users u_member ON m.user_id = u_member.user_id
     LEFT JOIN client_subscriptions cs ON p.client_subscription_id = cs.client_subscription_id
-    LEFT JOIN users u ON cs.owner_user_id = u.user_id 
+    LEFT JOIN users u_owner ON cs.owner_user_id = u_owner.user_id 
     WHERE p.gym_id = ? AND DATE(p.created_at) BETWEEN ? AND ?
     ORDER BY p.created_at DESC
 ");
