@@ -174,6 +174,7 @@ try {
         <a href="admin_transaction.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">receipt_long</span><span class="nav-label">Transactions</span></a>
         <a href="admin_appointment.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">event_note</span><span class="nav-label">Bookings</span></a>
         <a href="admin_attendance.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">history</span><span class="nav-label">Attendance</span></a>
+        <a href="admin_report.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">description</span><span class="nav-label">Reports</span></a>
     </div>
 
     <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">

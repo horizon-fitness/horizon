@@ -664,6 +664,9 @@ $active_page = "admin_users";
             <a href="admin_attendance.php" class="nav-item text-gray-400 hover:text-white"><span
                     class="material-symbols-outlined text-xl shrink-0">history</span><span
                     class="nav-label">Attendance</span></a>
+            <a href="admin_report.php" class="nav-item text-gray-400 hover:text-white"><span
+                    class="material-symbols-outlined text-xl shrink-0">description</span><span
+                    class="nav-label">Reports</span></a>
         </div>
         <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
             <div class="nav-section-label px-[38px] mb-2"><span
