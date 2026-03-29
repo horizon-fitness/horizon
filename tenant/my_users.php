@@ -67,9 +67,12 @@ if (isset($_GET['ajax_user_id'])) {
     if ($role_name === 'member') {
         $sql .= ", m.member_code, m.birth_date, m.sex, m.occupation, m.address, m.medical_history, m.emergency_contact_name, m.emergency_contact_number ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id ";
-    } elseif ($role_name === 'staff' || $role_name === 'coach') {
+    } elseif ($role_name === 'staff') {
         $sql .= ", s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN staff s ON u.user_id = s.user_id AND s.gym_id = ur.gym_id ";
+    } elseif ($role_name === 'coach') {
+        $sql .= ", c.coach_type as employment_type, c.specialization as staff_role, c.hire_date, c.status as staff_status ";
+        $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN coaches c ON u.user_id = c.user_id AND c.gym_id = ur.gym_id ";
     } else {
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id ";
     }
@@ -94,8 +97,7 @@ if (isset($_GET['ajax_user_id'])) {
                             </h2>
                         </div>
                         <div class="flex items-center gap-4">
-                            <span
-                                class="px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-[10px] text-primary font-black uppercase italic tracking-[0.1em]"><?= $u['role'] ?></span>
+                            <span class="px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-[10px] text-primary font-black uppercase italic tracking-[0.1em]"><?= $u['role'] ?></span>
                         </div>
                     </div>
                 </div>
@@ -107,132 +109,144 @@ if (isset($_GET['ajax_user_id'])) {
 
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-10">
                 <div class="xl:col-span-2 space-y-10">
-                    <?php if ($role_name === 'staff' || $role_name === 'coach'): ?>
-                        <section class="space-y-6">
-                            <h4
-                                class="text-[10px] font-black uppercase text-primary tracking-[0.3em] border-l-4 border-primary pl-4">
-                                Staff Registry</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Internal Role</p>
-                                    <p class="text-sm font-black text-white italic uppercase"><?= $u['staff_role'] ?: $u['role'] ?>
-                                    </p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Shift Class</p>
-                                    <p class="text-sm font-black text-white italic uppercase">
-                                        <?= $u['employment_type'] ?: 'ON-SITE' ?></p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Hire Registry</p>
-                                    <p class="text-sm font-black text-white italic">
-                                        <?= $u['hire_date'] ? date('M d, Y', strtotime($u['hire_date'])) : 'N/A' ?></p>
-                                </div>
+                    <!-- Section 1: Personal Information -->
+                    <section class="glass-card p-8 border border-white/5">
+                        <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
+                            <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-xl">person</span> Personal Information
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Username Alias</p>
+                                <p class="text-sm font-black text-white italic">@<?= htmlspecialchars($u['username']) ?></p>
                             </div>
-                        </section>
-                    <?php endif; ?>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">First Name</p>
+                                <p class="text-sm font-black text-white italic uppercase"><?= htmlspecialchars($u['first_name']) ?></p>
+                            </div>
+                            <?php if ($role_name === 'member'): ?>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Middle Name</p>
+                                <p class="text-sm font-black text-white italic uppercase"><?= htmlspecialchars($u['middle_name'] ?: 'N/A') ?></p>
+                            </div>
+                            <?php endif; ?>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Last Name</p>
+                                <p class="text-sm font-black text-white italic uppercase"><?= htmlspecialchars($u['last_name']) ?></p>
+                            </div>
+                            <?php if ($role_name === 'member'): ?>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Sex</p>
+                                <p class="text-sm font-black text-white italic uppercase"><?= $u['sex'] ?: 'N/A' ?></p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Birth Date</p>
+                                <p class="text-sm font-black text-white italic"><?= $u['birth_date'] ? date('M d, Y', strtotime($u['birth_date'])) : 'N/A' ?></p>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </section>
+
+                    <!-- Section 2: Contact Information -->
+                    <section class="glass-card p-8 border border-white/5">
+                        <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
+                            <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-xl">alternate_email</span> Contact Information
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Email Address</p>
+                                <p class="text-sm font-black text-white italic truncate"><?= htmlspecialchars($u['email']) ?></p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Contact Number</p>
+                                <p class="text-sm font-black text-white italic tracking-widest"><?= htmlspecialchars($u['contact_number'] ?: 'UNKNOWN') ?></p>
+                            </div>
+                            <?php if ($role_name === 'member' && !empty($u['address'])): ?>
+                            <div class="space-y-1 md:col-span-2">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Home Address</p>
+                                <p class="text-sm font-black text-white italic"><?= htmlspecialchars($u['address']) ?></p>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </section>
 
                     <?php if ($role_name === 'member'): ?>
-                        <section class="space-y-6">
-                            <h4
-                                class="text-[10px] font-black uppercase text-primary tracking-[0.3em] border-l-4 border-primary pl-4">
-                                Biological ID & Identity</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Sex</p>
-                                    <p class="text-sm font-black text-white italic uppercase"><?= $u['sex'] ?: 'N/A' ?></p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Birth Date</p>
-                                    <p class="text-sm font-black text-white italic">
-                                        <?= $u['birth_date'] ? date('M d, Y', strtotime($u['birth_date'])) : 'N/A' ?></p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Occupation</p>
-                                    <p class="text-sm font-black text-white italic uppercase truncate">
-                                        <?= $u['occupation'] ?: 'N/A' ?></p>
-                                </div>
+                    <!-- Section 3: Health & Profile -->
+                    <section class="glass-card p-8 border border-white/5">
+                        <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
+                            <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-xl">medical_information</span> Health & Profile
+                        </h4>
+                        <div class="space-y-6">
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Occupation</p>
+                                <p class="text-sm font-black text-white italic uppercase"><?= htmlspecialchars($u['occupation'] ?: 'N/A') ?></p>
                             </div>
-                        </section>
-
-                        <section class="space-y-6">
-                            <h4
-                                class="text-[10px] font-black uppercase text-rose-500 tracking-[0.3em] border-l-4 border-rose-500 pl-4">
-                                System Health Profile</h4>
-                            <div class="bg-rose-500/[0.03] p-8 rounded-[32px] border border-rose-500/10">
-                                <p class="text-[9px] font-black uppercase text-rose-500/60 tracking-widest mb-2">Medical History</p>
-                                <div
-                                    class="text-sm font-medium text-gray-400 italic leading-relaxed bg-black/20 p-6 rounded-2xl border border-white/5">
-                                    <?= nl2br(htmlspecialchars($u['medical_history'] ?: 'No records found.')) ?>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Medical History</p>
+                                <div class="text-sm font-medium text-gray-400 italic leading-relaxed bg-black/20 p-6 rounded-2xl border border-white/5">
+                                    <?= nl2br(htmlspecialchars($u['medical_history'] ?: 'No physical medical history recorded.')) ?>
                                 </div>
-                            </div>
-                        </section>
-                    <?php endif; ?>
-
-                    <section class="space-y-6">
-                        <h4
-                            class="text-[10px] font-black uppercase text-primary tracking-[0.3em] border-l-4 border-primary pl-4">
-                            Contact Nodes</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Email Address</p>
-                                <p class="text-base font-bold text-white"><?= htmlspecialchars($u['email']) ?></p>
-                            </div>
-                            <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Mobile Number</p>
-                                <p class="text-base font-bold text-white tracking-widest">
-                                    <?= htmlspecialchars($u['contact_number'] ?: 'UNKNOWN') ?></p>
                             </div>
                         </div>
                     </section>
+                    <?php endif; ?>
+
+                    <?php if ($role_name === 'staff' || $role_name === 'coach'): ?>
+                    <!-- Section 3: Professional Registry -->
+                    <section class="glass-card p-8 border border-white/5">
+                        <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
+                            <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-xl">badge</span> Professional Profile
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">System Role</p>
+                                <p class="text-sm font-black text-white italic uppercase"><?= $u['staff_role'] ?: $u['role'] ?></p>
+                            </div>
+                             <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Class</p>
+                                <p class="text-sm font-black text-white italic uppercase"><?= $u['employment_type'] ?: 'N/A' ?></p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Registry Date</p>
+                                <p class="text-sm font-black text-white italic"><?= $u['hire_date'] ? date('M d, Y', strtotime($u['hire_date'])) : 'N/A' ?></p>
+                            </div>
+                        </div>
+                    </section>
+                    <?php endif; ?>
                 </div>
 
                 <div class="space-y-10">
-                    <section class="space-y-6">
-                        <h4
-                            class="text-[10px] font-black uppercase text-amber-500 tracking-[0.3em] border-l-4 border-amber-500 pl-4">
-                            Emergency Support</h4>
-                        <div class="bg-amber-500/[0.03] p-8 rounded-[32px] border border-amber-500/10">
-                            <div class="space-y-6">
-                                <div>
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Primary
-                                        Contact</p>
-                                    <p class="text-base font-black text-white italic uppercase">
-                                        <?= htmlspecialchars($u['emergency_contact_name'] ?: 'NOT LISTED') ?></p>
-                                </div>
-                                <div>
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Contact Number
-                                    </p>
-                                    <p class="text-base font-bold text-amber-500 tracking-widest">
-                                        <?= htmlspecialchars($u['emergency_contact_number'] ?: 'OFFLINE') ?></p>
-                                </div>
+                    <!-- Sidebar section: Auth Status -->
+                    <section class="glass-card p-8 border border-white/5">
+                        <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.3em] border-l-4 border-primary pl-4 mb-6">Security Node</h4>
+                        <div class="p-8 rounded-[32px] bg-gradient-to-br from-white/5 to-transparent border border-white/10">
+                            <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-3">Auth Protocol</p>
+                            <div class="flex items-center gap-4">
+                                <span class="size-3 rounded-full <?= $u['is_active'] ? 'bg-emerald-500 animate-pulse' : 'bg-red-500' ?>"></span>
+                                <p class="text-sm font-black uppercase italic tracking-widest <?= $u['is_active'] ? 'text-emerald-500' : 'text-red-500' ?>">
+                                    <?= $u['is_active'] ? 'Authorized' : 'Restricted' ?>
+                                </p>
                             </div>
                         </div>
                     </section>
 
-                    <section class="space-y-6">
-                        <h4
-                            class="text-[10px] font-black uppercase text-primary tracking-[0.3em] border-l-4 border-primary pl-4">
-                            Node Profile</h4>
-                        <div class="space-y-4">
-                            <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Username Alias</p>
-                                <p class="text-lg font-black text-white italic">@<?= htmlspecialchars($u['username']) ?></p>
-                            </div>
-                            <div
-                                class="p-8 rounded-[32px] bg-gradient-to-br from-white/5 to-transparent border border-white/10">
-                                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-3">Auth Status</p>
-                                <div class="flex items-center gap-4">
-                                    <span
-                                        class="size-3 rounded-full <?= $u['is_active'] ? 'bg-emerald-500 animate-pulse' : 'bg-red-500' ?>"></span>
-                                    <p
-                                        class="text-sm font-black uppercase italic tracking-widest <?= $u['is_active'] ? 'text-emerald-500' : 'text-red-500' ?>">
-                                        <?= $u['is_active'] ? 'Authorized' : 'Restricted' ?>
-                                    </p>
+                    <?php if ($role_name === 'member' || !empty($u['emergency_contact_name'])): ?>
+                    <!-- Sidebar section: Emergency Support -->
+                    <section class="glass-card p-8 border border-white/5">
+                        <h4 class="text-[10px] font-black uppercase text-amber-500 tracking-[0.3em] border-l-4 border-amber-500 pl-4 mb-6">Emergency Protocol</h4>
+                        <div class="bg-amber-500/[0.03] p-8 rounded-[32px] border border-amber-500/10">
+                            <div class="space-y-6">
+                                <div>
+                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Primary Contact</p>
+                                    <p class="text-base font-black text-white italic uppercase"><?= htmlspecialchars($u['emergency_contact_name'] ?: 'NOT LISTED') ?></p>
+                                </div>
+                                <div>
+                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Contact Signal</p>
+                                    <p class="text-base font-bold text-amber-500 tracking-widest"><?= htmlspecialchars($u['emergency_contact_number'] ?: 'OFFLINE') ?></p>
                                 </div>
                             </div>
                         </div>
                     </section>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
