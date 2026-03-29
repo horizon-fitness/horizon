@@ -31,23 +31,51 @@ try {
     $member = $stmt->fetch();
 
     if (!$member) {
-        // Check if input was user_id (fall back)
+        // Check if input was user_id
         $stmt = $pdo->prepare("SELECT member_id, user_id, gym_id FROM members WHERE user_id = ? LIMIT 1");
         $stmt->execute([$member_id_input]);
         $member = $stmt->fetch();
     }
 
+    // EMERGENCY AUTO-FIX: If member record doesn't exist for this user, create it now!
     if (!$member) {
-        ob_end_clean();
-        echo json_encode(['success' => false, 'message' => "Member record not found for ID: $member_id_input"]);
-        exit;
+        $stmtUser = $pdo->prepare("SELECT * FROM users WHERE user_id = ? LIMIT 1");
+        $stmtUser->execute([$member_id_input]);
+        $userData = $stmtUser->fetch();
+
+        if ($userData) {
+            // Find a gym_id (default to 1 or the first one found)
+            $gym_id = $pdo->query("SELECT gym_id FROM gyms LIMIT 1")->fetchColumn() ?: 1;
+            $member_code = 'MBR-' . str_pad($member_id_input, 4, '0', STR_PAD_LEFT);
+            
+            $stmtInsertMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, birth_date, sex, member_status, created_at, updated_at) VALUES (?, ?, ?, '2000-01-01', 'Not Specified', 'Active', ?, ?)");
+            $stmtInsertMember->execute([$member_id_input, $gym_id, $member_code, $now, $now]);
+            
+            $real_member_id = $pdo->lastInsertId();
+            $user_id = (int)$member_id_input;
+        } else {
+            ob_end_clean();
+            echo json_encode(['success' => false, 'message' => "User ID: $member_id_input not found in system."]);
+            exit;
+        }
+    } else {
+        $real_member_id = (int)$member['member_id'];
+        $user_id = (int)$member['user_id'];
+        $gym_id = (int)$member['gym_id'];
     }
 
-    $real_member_id = (int)$member['member_id'];
-    $user_id = (int)$member['user_id'];
-    $gym_id = (int)$member['gym_id'];
+    // 2. Resolve Plan Details & Amount
+    // SEEDING CHECK: If no plans exist for this gym, add the standard ones now!
+    $stmtCountPlans = $pdo->prepare("SELECT COUNT(*) FROM membership_plans WHERE gym_id = ?");
+    $stmtCountPlans->execute([$gym_id]);
+    if ($stmtCountPlans->fetchColumn() == 0) {
+        $stmtSeed = $pdo->prepare("INSERT INTO membership_plans (gym_id, plan_name, plan_type_id, duration_value, price, session_limit, created_at, updated_at) VALUES 
+            (?, 'MONTHLY PASS', 1, 30, 1500.00, 30, ?, ?),
+            (?, 'QUARTERLY ELITE', 1, 90, 4000.00, 90, ?, ?),
+            (?, 'VIP ANNUAL', 1, 365, 14000.00, 365, ?, ?)");
+        $stmtSeed->execute([$gym_id, $now, $now, $gym_id, $now, $now, $gym_id, $now, $now]);
+    }
 
-    // 2. Resolve Plan Details & Amount (Optional validation)
     $amount = 0.0;
     $stmtPlan = $pdo->prepare("SELECT * FROM membership_plans WHERE membership_plan_id = ? AND gym_id = ? LIMIT 1");
     $stmtPlan->execute([$plan_id, $gym_id]);
@@ -59,7 +87,7 @@ try {
             $sessions_total = (int)$plan['session_limit'];
         }
     } else {
-        // Fallback default prices based on app selection logic if plan not in DB
+        // Fallback default prices based on app selection logic
         if ($plan_id == 1) $amount = 1500.00;
         elseif ($plan_id == 2) $amount = 4000.00;
         elseif ($plan_id == 3) $amount = 14000.00;
