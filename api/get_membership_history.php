@@ -42,12 +42,13 @@ try {
             p.created_at,
             mp.plan_name
         FROM payments p
+        JOIN members m ON p.member_id = m.member_id
         LEFT JOIN member_subscriptions ms ON p.subscription_id = ms.subscription_id
         LEFT JOIN membership_plans mp ON ms.membership_plan_id = mp.membership_plan_id
-        WHERE p.member_id = ?
+        WHERE m.user_id = ?
         ORDER BY p.created_at DESC
     ");
-    $stmt->execute([$member_id]);
+    $stmt->execute([$user_id]);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $history = [];
