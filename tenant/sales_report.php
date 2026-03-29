@@ -16,18 +16,18 @@ $date_from = $_GET['date_from'] ?? date('Y-m-01'); // Default to start of month
 $date_to = $_GET['date_to'] ?? date('Y-m-d');
 
 // --- FINANCIAL CALCULATIONS (Scoped by Date Range) ---
-// Total Revenue (within range)
-$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND DATE(created_at) BETWEEN ? AND ?");
+// Total Revenue (Verified only)
+$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified' AND DATE(created_at) BETWEEN ? AND ?");
 $stmtTotal->execute([$gym_id, $date_from, $date_to]);
 $total_revenue = $stmtTotal->fetchColumn() ?? 0;
 
-// Lifetime Revenue (For Context)
-$stmtLifetime = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ?");
+// Lifetime Revenue (Verified only)
+$stmtLifetime = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified'");
 $stmtLifetime->execute([$gym_id]);
 $lifetime_revenue = $stmtLifetime->fetchColumn() ?? 0;
 
 // Today's Sales
-$stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND DATE(created_at) = CURDATE()");
+$stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified' AND DATE(created_at) = CURDATE()");
 $stmtDaily->execute([$gym_id]);
 $daily_sales = $stmtDaily->fetchColumn() ?? 0;
 
@@ -327,7 +327,9 @@ $active_page = "sales";
                     <?php else: ?>
                         <?php foreach($transactions as $t): ?>
                         <tr class="hover:bg-white/[0.01] transition-all group">
-                            <td class="px-8 py-6 font-mono text-xs text-gray-500">#<?= str_pad($t['payment_id'], 6, '0', STR_PAD_LEFT) ?></td>
+                            <td class="px-8 py-6 font-mono text-xs text-gray-400">
+                                <?= !empty($t['reference_number']) ? htmlspecialchars($t['reference_number']) : '#'.str_pad($t['payment_id'], 5, '0', STR_PAD_LEFT) ?>
+                            </td>
                             <td class="px-8 py-6">
                                 <p class="font-black italic uppercase tracking-tighter text-white">
                                     <?= $t['first_name'] ? htmlspecialchars($t['first_name'].' '.$t['last_name']) : 'Walk-in Guest' ?>

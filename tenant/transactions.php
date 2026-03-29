@@ -72,10 +72,14 @@ if (!empty($f_year)) {
 
 $where_sql = implode(" AND ", $where);
 $stmtItems = $pdo->prepare("
-    SELECT p.*, u.first_name, u.last_name 
+    SELECT p.*, 
+           COALESCE(u_member.first_name, u_owner.first_name) as first_name, 
+           COALESCE(u_member.last_name, u_owner.last_name) as last_name 
     FROM payments p
     LEFT JOIN members m ON p.member_id = m.member_id
-    LEFT JOIN users u ON m.user_id = u.user_id
+    LEFT JOIN users u_member ON m.user_id = u_member.user_id
+    LEFT JOIN client_subscriptions cs ON p.client_subscription_id = cs.client_subscription_id
+    LEFT JOIN users u_owner ON cs.owner_user_id = u_owner.user_id
     WHERE $where_sql
     ORDER BY p.created_at DESC
     LIMIT 100
@@ -307,7 +311,9 @@ $transactions = $stmtItems->fetchAll();
                             $table_total += $t['amount'];
                         ?>
                         <tr class="hover:bg-white/[0.02] transition-all group">
-                            <td class="px-8 py-6 text-xs font-mono text-gray-300">#TRX-<?= str_pad($t['payment_id'], 5, '0', STR_PAD_LEFT) ?></td>
+                            <td class="px-8 py-6 text-xs font-mono text-gray-300">
+                                <?= !empty($t['reference_number']) ? htmlspecialchars($t['reference_number']) : '#TRX-'.str_pad($t['payment_id'], 5, '0', STR_PAD_LEFT) ?>
+                            </td>
                             <td class="px-8 py-6">
                                 <p class="font-black italic uppercase tracking-tighter text-[13px] text-white">
                                     <?= (!empty($t['first_name'])) ? htmlspecialchars($t['first_name'].' '.$t['last_name']) : 'Manual Entry' ?>

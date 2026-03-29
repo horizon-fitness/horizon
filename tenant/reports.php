@@ -56,10 +56,16 @@ $plan_name = $stmtSub->fetchColumn() ?: 'Standard Plan';
 
 // Fetch Financial Transactions (Money Reports)
 $stmtFinancials = $pdo->prepare("
-    SELECT payment_id, amount, payment_method, created_at, reference_number, payment_status
-    FROM payments 
-    WHERE gym_id = :gid AND payment_status = 'Verified' AND created_at BETWEEN :start AND :end
-    ORDER BY created_at DESC
+    SELECT p.payment_id, p.amount, p.payment_method, p.created_at, p.reference_number, p.payment_status,
+           COALESCE(u_member.first_name, u_owner.first_name) as first_name, 
+           COALESCE(u_member.last_name, u_owner.last_name) as last_name 
+    FROM payments p
+    LEFT JOIN members m ON p.member_id = m.member_id
+    LEFT JOIN users u_member ON m.user_id = u_member.user_id
+    LEFT JOIN client_subscriptions cs ON p.client_subscription_id = cs.client_subscription_id
+    LEFT JOIN users u_owner ON cs.owner_user_id = u_owner.user_id
+    WHERE p.gym_id = :gid AND p.payment_status = 'Verified' AND p.created_at BETWEEN :start AND :end
+    ORDER BY p.created_at DESC
 ");
 $stmtFinancials->execute($date_params);
 $financials = $stmtFinancials->fetchAll();
@@ -359,6 +365,7 @@ $total_active_subs = count(array_filter($subscriptions, fn($s) => $s['subscripti
                 <thead class="text-[10px] font-black uppercase text-gray-500 tracking-widest border-b border-white/5">
                     <tr>
                         <th class="px-8 py-5">Ref ID</th>
+                        <th class="px-8 py-5">Payer Name</th>
                         <th class="px-8 py-5">Amount</th>
                         <th class="px-8 py-5">Method</th>
                         <th class="px-8 py-5 text-right">Date</th>
@@ -367,10 +374,17 @@ $total_active_subs = count(array_filter($subscriptions, fn($s) => $s['subscripti
                 <tbody class="divide-y divide-white/5 text-sm font-medium">
                     <?php foreach($financials as $f): ?>
                     <tr class="hover:bg-white/[0.01]">
-                        <td class="px-8 py-6 text-gray-400 font-mono">#<?= $f['payment_id'] ?></td>
+                        <td class="px-8 py-6 text-gray-400 font-mono text-[10px]">
+                             <?= !empty($f['reference_number']) ? htmlspecialchars($f['reference_number']) : '#'.str_pad($f['payment_id'], 5, '0', STR_PAD_LEFT) ?>
+                        </td>
+                        <td class="px-8 py-6">
+                            <p class="font-black italic uppercase tracking-tighter text-xs">
+                                <?= $f['first_name'] ? htmlspecialchars($f['first_name'].' '.$f['last_name']) : 'Manual Entry' ?>
+                            </p>
+                        </td>
                         <td class="px-8 py-6 font-black text-white italic">₱<?= number_format($f['amount'], 2) ?></td>
-                        <td class="px-8 py-6 uppercase text-[10px] font-bold"><?= $f['payment_method'] ?></td>
-                        <td class="px-8 py-6 text-right text-gray-500"><?= date('M d, Y', strtotime($f['created_at'])) ?></td>
+                        <td class="px-8 py-6 uppercase text-[10px] font-bold text-gray-500"><?= $f['payment_method'] ?></td>
+                        <td class="px-8 py-6 text-right text-gray-500 text-[11px]"><?= date('M d, Y', strtotime($f['created_at'])) ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
