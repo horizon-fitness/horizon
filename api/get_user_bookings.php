@@ -26,14 +26,16 @@ try {
 
     $placeholders = implode(',', array_fill(0, count($member_ids), '?'));
 
-    // 2. Fetch bookings with service names
+    // 2. Fetch bookings matching TrainingLog model fields
     $stmt = $pdo->prepare("
         SELECT 
             b.booking_id, 
             b.booking_reference, 
             b.booking_date as date, 
-            b.start_time, 
-            COALESCE(gs.custom_service_name, sc.service_name) as service_name, 
+            b.start_time as time, 
+            '60 mins' as duration,
+            COALESCE(gs.custom_service_name, sc.service_name) as service, 
+            'Gym Staff' as trainer,
             b.booking_status as status,
             g.gym_name
         FROM bookings b
