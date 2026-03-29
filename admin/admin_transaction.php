@@ -21,6 +21,11 @@ $gym = $stmtGym->fetch();
 $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
+
+// Fetch Transactions
+$stmtPayments = $pdo->prepare("SELECT p.*, CONCAT(u.first_name, ' ', u.last_name) as fullname, u.username FROM payments p JOIN members m ON p.member_id = m.member_id JOIN users u ON m.user_id = u.user_id ORDER BY p.created_at DESC");
+$stmtPayments->execute();
+$payments_list = $stmtPayments->fetchAll();
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -180,12 +185,12 @@ $page = $stmtPage->fetch();
             <span class="nav-label">Walk-in Member</span>
         </a>
 
+        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
+        
         <a href="admin_users.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_users.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span>
             <span class="nav-label">My Users</span>
         </a>
-
-        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
         
         <a href="admin_transaction.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_transaction.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
@@ -281,75 +286,39 @@ $page = $stmtPage->fetch();
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
+                            <?php if($payments_list): foreach($payments_list as $pay): ?>
                             <tr class="hover:bg-white/[0.02] transition-colors">
                                 <td class="px-8 py-4">
                                     <div class="flex items-center gap-4">
-                                        <div class="size-9 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-sm shadow-lg border border-primary/30">J</div>
+                                        <div class="size-9 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary text-sm shadow-lg border border-primary/20"><?= substr($pay['fullname'], 0, 1) ?></div>
                                         <div>
-                                            <p class="text-white font-black uppercase italic text-sm tracking-tight">JOHN DOE</p>
-                                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">@J.DOE</p>
+                                            <p class="text-white font-black uppercase italic text-sm tracking-tight"><?= htmlspecialchars($pay['fullname']) ?></p>
+                                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">@<?= htmlspecialchars($pay['username']) ?></p>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-8 py-4 text-center">
-                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-white">₱1,000.00</span>
+                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-white">₱<?= number_format($pay['amount'], 2) ?></span>
                                 </td>
                                 <td class="px-8 py-4 text-center">
-                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-gray-300">GCASH</span>
+                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-gray-300"><?= htmlspecialchars($pay['payment_type'] ?? 'OTHER') ?></span>
                                 </td>
                                 <td class="px-8 py-4">
                                     <div class="flex items-center gap-2">
-                                        <p class="text-white font-black italic text-xs tracking-wide">01:00 PM</p>
+                                        <p class="text-white font-black italic text-xs tracking-wide"><?= date('h:i A', strtotime($pay['created_at'])) ?></p>
                                         <span class="text-gray-600 text-[10px] font-black">→</span>
-                                        <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest">JAN 01, 2024</p>
+                                        <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest"><?= date('M d, Y', strtotime($pay['created_at'])) ?></p>
                                     </div>
                                 </td>
                                 <td class="px-8 py-4 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <button class="size-8 rounded-lg badge-outline flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all text-gray-400">
-                                            <span class="material-symbols-outlined text-[16px]">check</span>
-                                        </button>
-                                        <button class="size-8 rounded-lg badge-outline flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 transition-all text-gray-400">
-                                            <span class="material-symbols-outlined text-[16px]">close</span>
-                                        </button>
+                                    <div class="flex justify-end gap-2 text-gray-400 text-[9px] font-black uppercase tracking-widest italic opacity-60">
+                                        <?= htmlspecialchars($pay['status']) ?>
                                     </div>
                                 </td>
                             </tr>
-                            
-                            <tr class="hover:bg-white/[0.02] transition-colors">
-                                <td class="px-8 py-4">
-                                    <div class="flex items-center gap-4">
-                                        <div class="size-9 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-sm shadow-lg border border-primary/30">J</div>
-                                        <div>
-                                            <p class="text-white font-black uppercase italic text-sm tracking-tight">JANE SMITH</p>
-                                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">@J.SMITH</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-8 py-4 text-center">
-                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-white">₱1,500.00</span>
-                                </td>
-                                <td class="px-8 py-4 text-center">
-                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-gray-300">CASH</span>
-                                </td>
-                                <td class="px-8 py-4">
-                                    <div class="flex items-center gap-2">
-                                        <p class="text-white font-black italic text-xs tracking-wide">02:30 PM</p>
-                                        <span class="text-gray-600 text-[10px] font-black">→</span>
-                                        <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest">JAN 02, 2024</p>
-                                    </div>
-                                </td>
-                                <td class="px-8 py-4 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <button class="size-8 rounded-lg badge-outline flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all text-gray-400">
-                                            <span class="material-symbols-outlined text-[16px]">check</span>
-                                        </button>
-                                        <button class="size-8 rounded-lg badge-outline flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 transition-all text-gray-400">
-                                            <span class="material-symbols-outlined text-[16px]">close</span>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
+                            <?php endforeach; else: ?>
+                                <tr><td colspan="5" class="px-8 py-20 text-center text-gray-500 uppercase font-black text-xs italic tracking-widest">No records found</td></tr>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>

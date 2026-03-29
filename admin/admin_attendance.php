@@ -28,40 +28,48 @@ $start_date = $_GET['start_date'] ?? '';
 $end_date = $_GET['end_date'] ?? '';
 $search_query = $_GET['search'] ?? '';
 
-// --- MOCK STATS ---
-$checkins_today = 12;
-$peak_hour = "06:00 PM";
+// --- FETCH ACTUAL ATTENDANCE LOGS ---
+$query = "
+    SELECT a.*, u.username, CONCAT(u.first_name, ' ', u.last_name) as fullname, gs.duration_minutes as scheduled_duration
+    FROM attendance a 
+    JOIN members m ON a.member_id = m.member_id 
+    JOIN users u ON m.user_id = u.user_id 
+    LEFT JOIN bookings b ON a.booking_id = b.booking_id
+    LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
+    WHERE a.gym_id = ?
+";
+$params = [$gym_id];
 
-// --- MOCK ATTENDANCE LOGS ---
-// To prevent errors with mysqli functions, we create a mock result object.
-// This allows the view to render correctly without a database connection.
-class MockMysqliResult {
-    private $data;
-    private $pointer = 0;
-    public $num_rows;
-
-    public function __construct($data) {
-        $this->data = $data;
-        $this->num_rows = count($data);
-    }
-
-    public function fetch_assoc() {
-        if ($this->pointer < $this->num_rows) {
-            return $this->data[$this->pointer++];
-        }
-        return null;
-    }
-}
-
-$mock_data = [];
 if ($view === 'live') {
-    $mock_data[] = ['username' => 'live.user', 'fullname' => 'Live User', 'check_in' => date('Y-m-d H:i:s', time() - 1800), 'check_out' => '1970-01-01 00:00:01', 'scheduled_duration' => 2];
-} else {
-    $mock_data[] = ['username' => 'j.doe', 'fullname' => 'John Doe', 'check_in' => date('Y-m-d H:i:s', time() - 86400), 'check_out' => date('Y-m-d H:i:s', time() - 82800), 'scheduled_duration' => 1];
-    $mock_data[] = ['username' => 'j.smith', 'fullname' => 'Jane Smith', 'check_in' => date('Y-m-d H:i:s', time() - 90000), 'check_out' => date('Y-m-d H:i:s', time() - 86400), 'scheduled_duration' => 1];
+    $query .= " AND a.check_out_time IS NULL";
 }
 
-$log_result = new MockMysqliResult($mock_data);
+if ($start_date) {
+    $query .= " AND a.attendance_date >= ?";
+    $params[] = $start_date;
+}
+if ($end_date) {
+    $query .= " AND a.attendance_date <= ?";
+    $params[] = $end_date;
+}
+if ($search_query) {
+    $query .= " AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)";
+    $sterm = "%$search_query%";
+    $params[] = $sterm;
+    $params[] = $sterm;
+    $params[] = $sterm;
+}
+
+$query .= " ORDER BY a.attendance_date DESC, a.check_in_time DESC";
+
+$stmtLogs = $pdo->prepare($query);
+$stmtLogs->execute($params);
+$attendance_list = $stmtLogs->fetchAll();
+
+$checkins_today = 0;
+$stmtToday = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id = ? AND attendance_date = CURRENT_DATE");
+$stmtToday->execute([$gym_id]);
+$checkins_today = $stmtToday->fetchColumn();
 
 ?>
 
@@ -69,7 +77,7 @@ $log_result = new MockMysqliResult($mock_data);
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Attendance History | Herdoza Fitness</title>
+    <title>Attendance History | Horizon Partners</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -213,13 +221,13 @@ $log_result = new MockMysqliResult($mock_data);
             <span class="nav-label">Walk-in Member</span>
         </a>
 
+        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
+        
         <a href="admin_users.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_users.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span>
             <span class="nav-label">My Users</span>
         </a>
 
-        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
-        
         <a href="admin_transaction.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_transaction.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
             <span class="nav-label">Transactions</span>
@@ -273,8 +281,8 @@ $log_result = new MockMysqliResult($mock_data);
             
         <div class="flex gap-8 mb-6 border-b border-white/5 mt-6 w-full items-center justify-between">
             <div class="flex gap-8">
-                <a href="?view=history" class="pb-4 text-[10px] font-black uppercase tracking-widest border-b-2 border-primary text-primary transition-all">History</a>
-                <a href="?view=live" class="pb-4 text-[10px] font-black uppercase tracking-widest border-b-2 border-transparent text-gray-500 hover:text-white transition-all">Active Session</a>
+                <a href="?view=history" class="pb-4 text-[10px] font-black uppercase tracking-widest border-b-2 <?= ($view === 'history') ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-white' ?> transition-all">History</a>
+                <a href="?view=live" class="pb-4 text-[10px] font-black uppercase tracking-widest border-b-2 <?= ($view === 'live') ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-white' ?> transition-all">Active Session</a>
             </div>
             
             <div class="flex flex-wrap items-center gap-4 mb-3">
@@ -298,13 +306,11 @@ $log_result = new MockMysqliResult($mock_data);
                 </form>
 
                 <div class="h-6 w-px bg-white/10 mx-1"></div>
-                <a href="?export=csv&view=<?= $view ?>&start_date=<?= $start_date ?>&end_date=<?= $end_date ?>&search=<?= urlencode($search_query) ?>" class="flex items-center gap-2 px-4 py-3 bg-white/5 border border-white/10 text-primary rounded-xl text-[10px] font-black uppercase hover:bg-white/10 transition-all">
+                <a href="#" class="flex items-center gap-2 px-4 py-3 bg-white/5 border border-white/10 text-primary rounded-xl text-[10px] font-black uppercase hover:bg-white/10 transition-all">
                     <span class="material-symbols-outlined text-sm">download</span> CSV
                 </a>
             </div>
         </div>
-
-
 
         <div class="glass-card overflow-hidden shadow-2xl mt-4">
             <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
@@ -315,21 +321,17 @@ $log_result = new MockMysqliResult($mock_data);
                     <thead>
                         <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
                             <th class="px-8 py-4">Member Details</th>
-                            <th class="px-8 py-4 text-center">Session Length</th>
+                            <th class="px-8 py-4 text-center">Reference</th>
                             <th class="px-8 py-4">Check-in / Out</th>
                             <th class="px-8 py-4 text-right">Status</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
-                        <?php if ($log_result->num_rows > 0): ?>
-                            <?php while($row = $log_result->fetch_assoc()): 
-                                $isTraining = ($row['check_out'] == '1970-01-01 00:00:01' || empty($row['check_out'])); 
-                                
-                                // Auto-calculate expected end time
-                                $booked_duration = $row['scheduled_duration'] ?: 1; // Default to 1 hour if not found
-                                $check_in_ts = strtotime($row['check_in']);
-                                $expected_end_ts = $check_in_ts + ($booked_duration * 3600);
-                                $expected_end_str = date('h:i A', $expected_end_ts);
+                        <?php if (!empty($attendance_list)): ?>
+                            <?php foreach($attendance_list as $row): 
+                                $isTraining = (empty($row['check_out_time'])); 
+                                $check_in_ts = strtotime($row['attendance_date'] . ' ' . $row['check_in_time']);
+                                $check_out_ts = $row['check_out_time'] ? strtotime($row['attendance_date'] . ' ' . $row['check_out_time']) : null;
                             ?>
                             <tr class="hover:bg-white/5 transition-all">
                                 <td class="px-8 py-5">
@@ -339,7 +341,7 @@ $log_result = new MockMysqliResult($mock_data);
                                     </div>
                                 </td>
                                 <td class="px-8 py-5 text-center">
-                                    <span class="text-[10px] font-black bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg text-gray-400 uppercase tracking-widest"><?= $booked_duration ?> Hour(s)</span>
+                                    <span class="text-[10px] font-black bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg text-gray-400 uppercase tracking-widest">#<?= str_pad($row['attendance_id'], 5, '0', STR_PAD_LEFT) ?></span>
                                 </td>
                                 <td class="px-8 py-5">
                                     <div class="flex flex-col">
@@ -348,9 +350,9 @@ $log_result = new MockMysqliResult($mock_data);
                                             <span class="text-gray-600 mx-1">→</span> 
                                             <?php 
                                                 if ($isTraining) {
-                                                    echo '<span class="text-emerald-400 font-bold">End: ' . $expected_end_str . '</span>';
+                                                    echo '<span class="text-emerald-400 font-bold">Active</span>';
                                                 } else {
-                                                    echo '<span class="text-gray-400 font-bold">' . date('h:i A', strtotime($row['check_out'])) . '</span>';
+                                                    echo '<span class="text-gray-400 font-bold">' . date('h:i A', $check_out_ts) . '</span>';
                                                 }
                                             ?>
                                         </div>
@@ -359,13 +361,13 @@ $log_result = new MockMysqliResult($mock_data);
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     <?php if ($isTraining): ?>
-                                        <span class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase tracking-widest">Active</span>
+                                        <span class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase tracking-widest">Present</span>
                                     <?php else: ?>
                                         <span class="px-4 py-1.5 rounded-full bg-gray-500/10 border border-gray-500/20 text-[9px] text-gray-400 font-black uppercase tracking-widest">Completed</span>
                                     <?php endif; ?>
                                 </td>
                             </tr>
-                            <?php endwhile; ?>
+                            <?php endforeach; ?>
                         <?php else: ?>
                             <tr><td colspan="4" class="px-8 py-20 text-center text-gray-600 uppercase font-black text-xs italic tracking-widest">No matching records found</td></tr>
                         <?php endif; ?>

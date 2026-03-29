@@ -22,49 +22,10 @@ $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1")
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
-// Sample Data
-$sample_appointments = [
-    [
-        'id' => 1,
-        'fullname' => 'Mike Johnson',
-        'username' => 'mike.j',
-        'service' => 'Powerlifting Class',
-        'trainer' => 'Coach Dave',
-        'date' => date('Y-m-d', strtotime('+1 day')),
-        'time' => '10:00 AM',
-        'status' => 'Confirmed'
-    ],
-    [
-        'id' => 2,
-        'fullname' => 'Sarah Wilson',
-        'username' => 'sarah.w',
-        'service' => 'Yoga Essentials',
-        'trainer' => 'Coach Elena',
-        'date' => date('Y-m-d', strtotime('+1 day')),
-        'time' => '02:00 PM',
-        'status' => 'Pending'
-    ],
-    [
-        'id' => 3,
-        'fullname' => 'Robert Chen',
-        'username' => 'rob.c',
-        'service' => 'HIIT Session',
-        'trainer' => 'Coach Dave',
-        'date' => date('Y-m-d', strtotime('+2 days')),
-        'time' => '08:30 AM',
-        'status' => 'Confirmed'
-    ],
-    [
-        'id' => 4,
-        'fullname' => 'Emily Davis',
-        'username' => 'emily.d',
-        'service' => 'Personal Training',
-        'trainer' => 'Coach Elena',
-        'date' => date('Y-m-d', strtotime('+2 days')),
-        'time' => '04:00 PM',
-        'status' => 'Cancelled'
-    ]
-];
+// Fetch Appointments
+$stmtBookings = $pdo->prepare("SELECT b.*, CONCAT(u.first_name, ' ', u.last_name) as fullname, u.username FROM bookings b JOIN members m ON b.member_id = m.member_id JOIN users u ON m.user_id = u.user_id ORDER BY b.booking_date DESC, b.start_time DESC");
+$stmtBookings->execute();
+$bookings_list = $stmtBookings->fetchAll();
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -211,12 +172,12 @@ $sample_appointments = [
             <span class="nav-label">Walk-in Member</span>
         </a>
 
+        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
+        
         <a href="admin_users.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_users.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span>
             <span class="nav-label">My Users</span>
         </a>
-
-        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
         
         <a href="admin_transaction.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_transaction.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
@@ -290,7 +251,7 @@ $sample_appointments = [
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
-                        <?php foreach($sample_appointments as $appt): ?>
+                        <?php if($bookings_list): foreach($bookings_list as $appt): ?>
                             <tr class="hover:bg-white/[0.02] transition-colors">
                                 <td class="px-8 py-6">
                                     <div class="flex items-center gap-3">
@@ -341,7 +302,9 @@ $sample_appointments = [
                                     </div>
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
+                        <?php endforeach; else: ?>
+                            <tr><td colspan="5" class="px-8 py-20 text-center text-gray-500 uppercase font-black text-xs italic tracking-widest">No matching records found</td></tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
             </div>

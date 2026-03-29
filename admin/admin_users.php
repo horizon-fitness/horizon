@@ -22,6 +22,9 @@ $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1")
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
+$stmtUsers = $pdo->prepare("SELECT u.user_id as id, CONCAT(u.first_name, ' ', u.last_name) as fullname, u.username, u.email, u.contact_number, r.role_name as role, u.created_at FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id ORDER BY u.created_at DESC");
+$stmtUsers->execute();
+$users_list = $stmtUsers->fetchAll();
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -186,12 +189,12 @@ $page = $stmtPage->fetch();
             <span class="nav-label">Walk-in Member</span>
         </a>
 
+        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
+        
         <a href="admin_users.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_users.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span>
             <span class="nav-label">My Users</span>
         </a>
-
-        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
         
         <a href="admin_transaction.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_transaction.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
@@ -266,7 +269,7 @@ $page = $stmtPage->fetch();
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
-                        <?php if($users_q): while($row = mysqli_fetch_assoc($users_q)): 
+                        <?php if($users_list): foreach($users_list as $row): 
                             $roleClean = strtolower($row['role'] ?? 'member');
                             $roleClass = "role-badge-" . $roleClean;
                         ?>
@@ -278,7 +281,7 @@ $page = $stmtPage->fetch();
                             </td>
                             <td class="px-8 py-6">
                                 <p class="text-gray-300 text-xs font-medium"><?= htmlspecialchars($row['email']) ?></p>
-                                <p class="text-gray-600 text-[10px] font-bold mt-0.5"><?= htmlspecialchars($row['phone_number'] ?? 'NO PHONE') ?></p>
+                                <p class="text-gray-600 text-[10px] font-bold mt-0.5"><?= htmlspecialchars($row['contact_number'] ?? 'NO PHONE') ?></p>
                             </td>
                             <td class="px-8 py-6">
                                 <span class="px-3 py-1 rounded-lg text-[9px] font-black uppercase italic <?= $roleClass ?>">
@@ -299,7 +302,7 @@ $page = $stmtPage->fetch();
                                 </div>
                             </td>
                         </tr>
-                        <?php endwhile; endif; ?>
+                        <?php endforeach; endif; ?>
                     </tbody>
                 </table>
             </div>
