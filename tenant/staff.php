@@ -623,13 +623,18 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
                             <?php foreach ($staff_list as $s): ?>
                                 <tr class="hover:bg-white/[0.02] transition-all group">
                                     <td class="px-8 py-6 flex items-center gap-4">
+                                        <?php
+                                        $initials = strtoupper(substr($s['first_name'] ?? '', 0, 1) . substr($s['last_name'] ?? '', 0, 1));
+                                        ?>
                                         <div
-                                            class="size-10 rounded-xl bg-white/5 border border-white/5 overflow-hidden flex items-center justify-center">
+                                            class="size-14 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shadow-lg shadow-black/20">
                                             <?php if (!empty($s['profile_picture'])): ?>
                                                 <img src="<?= htmlspecialchars('../' . $s['profile_picture']) ?>"
-                                                    class="size-full object-cover">
+                                                    class="size-full object-cover"
+                                                    onerror="this.outerHTML='<span class=\'text-gray-500 font-black italic text-sm tracking-tighter\'><?= $initials ?></span>'">
                                             <?php else: ?>
-                                                <span class="material-symbols-outlined text-gray-600 text-xl">person</span>
+                                                <span
+                                                    class="text-gray-500 font-black italic text-sm tracking-tighter"><?= $initials ?></span>
                                             <?php endif; ?>
                                         </div>
                                         <div>
@@ -688,17 +693,17 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
                 </button>
             </div>
             <div class="p-8 space-y-8">
-                <div class="flex items-center gap-5">
+                <div class="flex items-center gap-6">
                     <div id="view_avatar"
-                        class="size-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+                        class="size-28 rounded-3xl bg-white/5 border-2 border-white/10 flex items-center justify-center overflow-hidden shadow-2xl shadow-primary/10 transition-all">
                         <!-- Avatar will be set by JS -->
                     </div>
-                    <div>
+                    <div class="space-y-2">
                         <h2 id="view_full_name"
-                            class="text-2xl font-black italic uppercase tracking-tighter text-white">
+                            class="text-3xl font-black italic uppercase tracking-tighter text-white leading-tight">
                             -</h2>
                         <span id="view_role_badge"
-                            class="px-3 py-1 rounded-lg bg-primary/5 border border-primary/10 text-primary text-[10px] font-black uppercase tracking-widest italic">-</span>
+                            class="px-4 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary text-[11px] font-black uppercase tracking-widest italic">-</span>
                     </div>
                 </div>
 
@@ -861,10 +866,12 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
 
             // Set Avatar
             const avatarDiv = document.getElementById('view_avatar');
+            const initials = (s.first_name[0] + s.last_name[0]).toUpperCase();
+            
             if (s.profile_picture) {
-                avatarDiv.innerHTML = `<img src="../${s.profile_picture}" class="size-full object-cover">`;
+                avatarDiv.innerHTML = `<img src="../${s.profile_picture}" class="size-full object-cover shadow-inner group-hover:scale-110 transition-transform duration-500" onerror="this.outerHTML='<span class=\\'text-gray-500 font-black italic text-4xl tracking-tighter\\'>${initials}</span>'">`;
             } else {
-                avatarDiv.innerHTML = `<span class="material-symbols-outlined text-gray-600 text-3xl">person</span>`;
+                avatarDiv.innerHTML = `<span class="text-gray-500 font-black italic text-4xl tracking-tighter">${initials}</span>`;
             }
 
             document.getElementById('view_full_name').innerText = s.first_name + ' ' + s.last_name;
