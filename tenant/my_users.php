@@ -336,8 +336,8 @@ $page_title = "User Database";
             theme: {
                 extend: {
                     colors: {
-                        "primary": "<?= $theme_color ?>",
-                        "background-dark": "<?= $bg_color ?>",
+                        "primary": "var(--primary)",
+                        "background-dark": "var(--background)",
                         "surface-dark": "#14121a",
                         "border-subtle": "rgba(255,255,255,0.05)"
                     }
@@ -347,15 +347,19 @@ $page_title = "User Database";
     </script>
 
     <style>
-        :root { --nav-width: 110px; }
+        :root { 
+            --nav-width: 110px;
+            --primary: <?= $theme_color ?>;
+            --background: <?= $bg_color ?>;
+        }
         body:has(.side-nav:hover) { --nav-width: 300px; }
 
-        body { font-family: 'Lexend', sans-serif; background-color: <?= $bg_color ?>; color: white; overflow: hidden; }
+        body { font-family: 'Lexend', sans-serif; background-color: var(--background); color: white; overflow: hidden; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .hover-lift:hover { transform: translateY(-5px); border-color: <?= $theme_color ?>40; }
+        .hover-lift:hover { transform: translateY(-5px); border-color: var(--primary); }
 
         /* Sidebar: Dynamic Logic */
-        .side-nav { width: var(--nav-width); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 250; background: <?= $bg_color ?>; border-right: 1px solid rgba(255,255,255,0.05); }
+        .side-nav { width: var(--nav-width); transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 250; background: var(--background); border-right: 1px solid rgba(255,255,255,0.05); }
         .main-content { margin-left: var(--nav-width); flex: 1; min-width: 0; transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 
         .nav-label { opacity: 0; transform: translateX(-15px); transition: all 0.3s ease-in-out; white-space: nowrap; pointer-events: none; }
@@ -365,16 +369,16 @@ $page_title = "User Database";
         .side-nav:hover .nav-section-label { max-height: 20px; opacity: 1; margin-bottom: 8px !important; pointer-events: auto; }
         
         .nav-item { display: flex; align-items: center; gap: 16px; padding: 10px 38px; transition: all 0.2s ease; text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
-        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { color: <?= $theme_color ?> !important; position: relative; }
-        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: <?= $theme_color ?>; border-radius: 4px 0 0 4px; }
+        .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: white; }
+        .nav-item.active { color: var(--primary) !important; position: relative; }
+        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: var(--primary); border-radius: 4px 0 0 4px; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* Inputs */
         .input-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: white; padding: 10px 16px; font-size: 11px; font-weight: 500; outline: none; transition: all 0.2s; }
-        .input-box:focus { border-color: <?= $theme_color ?>; background: rgba(255, 255, 255, 0.08); }
+        .input-box:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.08); }
         .input-box option { background: #14121a; color: white; }
         select.input-box { cursor: pointer; color-scheme: dark; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 0.85em; padding-right: 2.5rem; }
 
@@ -440,11 +444,10 @@ $page_title = "User Database";
 
 <body class="antialiased flex h-screen overflow-hidden">
 
-    <nav class="side-nav bg-background-dark border-r border-white/5">
+    <nav class="side-nav bg-background-dark border-r border-white/5 z-50">
         <div class="px-7 py-8 mb-4 shrink-0">
             <div class="flex items-center gap-4">
-                <div
-                    class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($page['logo_path']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
+                <div class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($page['logo_path']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
                     <?php if (!empty($page['logo_path'])): ?>
                         <img src="<?= htmlspecialchars($page['logo_path']) ?>" class="size-full object-cover">
                     <?php else: ?>
@@ -456,55 +459,58 @@ $page_title = "User Database";
         </div>
 
         <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-            <div class="nav-section-label px-[38px] mb-2"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400/50">Overview</span></div>
-            <a href="tenant_dashboard.php" class="nav-item">
+            <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Main Menu</span></div>
+            <a href="tenant_dashboard.php" class="nav-item <?= ($active_page == 'dashboard') ? 'active' : '' ?>">
                 <span class="material-symbols-outlined text-xl shrink-0">grid_view</span>
-                <span class="nav-label">DASHBOARD</span>
+                <span class="nav-label">Dashboard</span>
             </a>
-            <div class="nav-section-label px-[38px] mb-2 mt-6"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400/50">Management</span></div>
-            <a href="my_users.php" class="nav-item active">
+            
+            <a href="my_users.php" class="nav-item <?= ($active_page == 'users' || $active_page == 'my_users') ? 'active' : '' ?>">
                 <span class="material-symbols-outlined text-xl shrink-0">group</span>
-                <span class="nav-label">MY USERS</span>
-            </a>
-            <a href="transactions.php" class="nav-item">
-                <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
-                <span class="nav-label">TRANSACTIONS</span>
-            </a>
-            <a href="attendance.php" class="nav-item">
-                <span class="material-symbols-outlined text-xl shrink-0">history</span>
-                <span class="nav-label">ATTENDANCE</span>
+                <span class="nav-label">Users</span>
             </a>
 
-            <a href="staff.php" class="nav-item">
+            <a href="transactions.php" class="nav-item <?= ($active_page == 'transactions') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
+                <span class="nav-label">Transactions</span>
+            </a>
+
+            <a href="attendance.php" class="nav-item <?= ($active_page == 'attendance') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">history</span>
+                <span class="nav-label">Attendance</span>
+            </a>
+
+            <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
+
+            <a href="staff.php" class="nav-item <?= ($active_page == 'staff') ? 'active' : '' ?>">
                 <span class="material-symbols-outlined text-xl shrink-0">badge</span>
-                <span class="nav-label">STAFF</span>
+                <span class="nav-label">Staff</span>
             </a>
-            <a href="reports.php" class="nav-item">
+
+            <a href="reports.php" class="nav-item <?= ($active_page == 'reports') ? 'active' : '' ?>">
                 <span class="material-symbols-outlined text-xl shrink-0">analytics</span>
-                <span class="nav-label">REPORTS</span>
+                <span class="nav-label">Reports</span>
             </a>
-             <a href="sales_report.php" class="nav-item">
+
+            <a href="sales_report.php" class="nav-item <?= ($active_page == 'sales') ? 'active' : '' ?>">
                 <span class="material-symbols-outlined text-xl shrink-0">payments</span>
-                <span class="nav-label">SALES REPORTS</span>
+                <span class="nav-label">Sales Reports</span>
             </a>
         </div>
 
         <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
-            <div class="nav-section-label px-[38px] mb-2"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400/50">Account</span></div>
-            <a href="tenant_settings.php" class="nav-item">
+            <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
+            <a href="tenant_settings.php" class="nav-item <?= ($active_page == 'settings') ? 'active' : '' ?>">
                 <span class="material-symbols-outlined text-xl shrink-0">settings</span>
-                <span class="nav-label">SETTINGS</span>
+                <span class="nav-label">Settings</span>
             </a>
-            <a href="profile.php" class="nav-item">
+            <a href="profile.php" class="nav-item <?= ($active_page == 'profile') ? 'active' : '' ?>">
                 <span class="material-symbols-outlined text-xl shrink-0">account_circle</span>
-                <span class="nav-label">PROFILE</span>
+                <span class="nav-label">Profile</span>
             </a>
             <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors">
                 <span class="material-symbols-outlined text-xl shrink-0">logout</span>
-                <span class="nav-label">SIGN OUT</span>
+                <span class="nav-label">Sign Out</span>
             </a>
         </div>
     </nav>
