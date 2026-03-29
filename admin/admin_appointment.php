@@ -2,7 +2,7 @@
 session_start();
 require_once '../db.php';
 
-// Security Check
+// Security Check: Only Staff and Coach
 $role = strtolower($_SESSION['role'] ?? '');
 if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
     header("Location: ../login.php");
@@ -10,52 +10,113 @@ if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
 }
 
 $gym_id = $_SESSION['gym_id'];
-$adminName = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
+$admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
 
-// Fetch Gym Details
+// --- FETCH BRANDING & CONFIG ---
 $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]);
 $gym = $stmtGym->fetch();
 
-// Active CMS Page (for logo & theme)
 $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
 $stmtPage->execute([$gym_id]);
-$page = $stmtPage->fetch();
+$tenant_config = $stmtPage->fetch();
 
-// Fetch Appointments
-$stmtBookings = $pdo->prepare("SELECT b.*, CONCAT(u.first_name, ' ', u.last_name) as fullname, u.username FROM bookings b JOIN members m ON b.member_id = m.member_id JOIN users u ON m.user_id = u.user_id ORDER BY b.booking_date DESC, b.start_time DESC");
-$stmtBookings->execute();
+// --- FILTERING LOGIC ---
+$search = $_GET['search'] ?? '';
+$date_from = $_GET['date_from'] ?? '';
+$date_to = $_GET['date_to'] ?? '';
+$status = $_GET['status'] ?? '';
+
+// Base Query Structure
+$sql_parts = ["m.gym_id = :gym_id"];
+$sql_params = [':gym_id' => $gym_id];
+
+if (!empty($search)) {
+    $sql_parts[] = "(u.first_name LIKE :s1 OR u.last_name LIKE :s2 OR u.username LIKE :s3)";
+    $sql_params[':s1'] = "%$search%";
+    $sql_params[':s2'] = "%$search%";
+    $sql_params[':s3'] = "%$search%";
+}
+
+if (!empty($date_from)) {
+    $sql_parts[] = "b.booking_date >= :d1";
+    $sql_params[':d1'] = $date_from;
+}
+
+if (!empty($date_to)) {
+    $sql_parts[] = "b.booking_date <= :d2";
+    $sql_params[':d2'] = $date_to;
+}
+
+if (!empty($status)) {
+    $sql_parts[] = "b.status = :status";
+    $sql_params[':status'] = $status;
+}
+
+$where_clause = "WHERE " . implode(' AND ', $sql_parts);
+
+$sql = "
+    SELECT b.*, u.first_name, u.last_name, u.username 
+    FROM bookings b 
+    JOIN members m ON b.member_id = m.member_id 
+    JOIN users u ON m.user_id = u.user_id 
+    $where_clause 
+    ORDER BY b.booking_date DESC, b.start_time DESC
+";
+
+$stmtBookings = $pdo->prepare($sql);
+$stmtBookings->execute($sql_params);
 $bookings_list = $stmtBookings->fetchAll();
+
+$active_page = "admin_appointment";
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
 <head>
-    <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title>Appointments | Horizon Partners</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Appointment Masterlist | Horizon Partners</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "<?= $page['theme_color'] ?? '#8c2bee' ?>", "background-dark": "<?= $page['bg_color'] ?? '#0a090d' ?>", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" }}}
-        }
-        function updateHeaderClock() {
-            const now = new Date();
-            const clockEl = document.getElementById('headerClock');
-            if (clockEl) {
-                clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "<?= $tenant_config['theme_color'] ?? '#8c2bee' ?>",
+                        "background-dark": "<?= $tenant_config['bg_color'] ?? '#0a090d' ?>",
+                        "surface-dark": "#14121a",
+                        "border-subtle": "rgba(255,255,255,0.05)"
+                    }
+                }
             }
-        }
-        window.onload = function() { setInterval(updateHeaderClock, 1000); updateHeaderClock(); };
+        } 
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: <?= $page['bg_color'] ?? '#0a090d' ?>; color: white; display: flex; flex-direction: row; min-h-screen: 100vh; }
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        
-        /* Sidebar Hover Logic - MATCHING CORE DASHBOARD */
+        body {
+            font-family: 'Lexend', sans-serif;
+            background-color: <?= $tenant_config['bg_color'] ?? '#0a090d' ?>;
+            color: white;
+            display: flex;
+            flex-direction: row;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .glass-card {
+            background: #14121a;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+        }
+
+        /* Sidebar Hover Logic */
+        :root { --nav-width: 110px; }
+        body:has(.side-nav:hover) { --nav-width: 300px; }
+
         .side-nav {
-            width: 110px; 
+            width: var(--nav-width);
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
             display: flex;
@@ -64,21 +125,16 @@ $bookings_list = $stmtBookings->fetchAll();
             left: 0;
             top: 0;
             height: 100vh;
-            z-index: 50;
-        }
-        .side-nav:hover {
-            width: 300px; 
+            z-index: 110;
         }
 
-        /* Main Content Adjustment */
         .main-content {
-            margin-left: 110px; 
+            margin-left: var(--nav-width);
             flex: 1;
             min-width: 0;
             transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .side-nav:hover ~ .main-content {
-            margin-left: 300px; 
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .nav-label {
@@ -88,6 +144,7 @@ $bookings_list = $stmtBookings->fetchAll();
             white-space: nowrap;
             pointer-events: none;
         }
+
         .side-nav:hover .nav-label {
             opacity: 1;
             transform: translateX(0);
@@ -102,215 +159,283 @@ $bookings_list = $stmtBookings->fetchAll();
             margin: 0 !important;
             pointer-events: none;
         }
+
         .side-nav:hover .nav-section-label {
             max-height: 20px;
             opacity: 1;
-            margin-bottom: 0px !important; 
+            margin-bottom: 8px !important;
             pointer-events: auto;
         }
-        .side-nav:hover .mt-0 { margin-top: 0px !important; } 
 
-        .nav-item { 
-            display: flex; 
-            align-items: center; 
-            gap: 16px; 
-            padding: 10px 38px; 
-            transition: all 0.2s ease; 
-            text-decoration: none; 
-            white-space: nowrap; 
-            font-size: 13px; 
-            font-weight: 700; 
-            letter-spacing: 0.02em; 
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 38px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            white-space: nowrap;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             color: #94a3b8;
         }
-        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { color: <?= $page['theme_color'] ?? '#8c2bee' ?> !important; position: relative; }
-        .nav-item.active::after { 
-            content: ''; 
-            position: absolute; 
-            right: 0px; 
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .nav-item.active {
+            color: <?= $tenant_config['theme_color'] ?? '#8c2bee' ?> !important;
+            position: relative;
+        }
+
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            right: 0px;
             top: 50%;
             transform: translateY(-50%);
-            width: 4px; 
-            height: 24px; 
-            background: <?= $page['theme_color'] ?? '#8c2bee' ?>; 
-            border-radius: 4px 0 0 4px; 
+            width: 4px;
+            height: 24px;
+            background: <?= $tenant_config['theme_color'] ?? '#8c2bee' ?>;
+            border-radius: 4px 0 0 4px;
         }
-        
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
-</head>
-<body class="antialiased min-h-screen flex">
 
-<nav class="side-nav flex flex-col fixed left-0 top-0 h-screen bg-background-dark border-r border-white/5 z-50">
-    <div class="px-7 py-8">
-        <div class="flex items-center gap-[6px]">
+        .input-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .input-box:focus {
+            border-color: <?= $tenant_config['theme_color'] ?? '#8c2bee' ?>;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .input-box::placeholder { color: #4b5563; }
+        
+        .input-box option {
+            background-color: #1a1821;
+            color: white;
+        }
+        
+        select.input-box {
+            cursor: pointer;
+            color-scheme: dark;
+            padding-right: 2.5rem !important;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1em;
+        }
+
+        .status-badge {
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-style: italic;
+            padding: 4px 12px;
+            border-radius: 99px;
+        }
+    </style>
+    <script>
+        function updateHeaderClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('headerClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+        }
+        setInterval(updateHeaderClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);
+
+        function clearAppointmentFilters() {
+            window.location.href = 'admin_appointment.php';
+        }
+    </script>
+</head>
+<body class="antialiased flex h-screen overflow-hidden">
+
+<nav class="side-nav flex flex-col fixed left-0 top-0 h-screen bg-background-dark border-r border-white/5">
+    <div class="px-7 py-8 mb-4 shrink-0">
+        <div class="flex items-center gap-4">
             <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($page['logo_path'])): 
-                    $logo_src = (strpos($page['logo_path'], 'data:image') === 0) ? $page['logo_path'] : '../' . $page['logo_path'];
+                <?php if (!empty($tenant_config['logo_path'])):
+                    $logo_src = (strpos($tenant_config['logo_path'], 'data:image') === 0) ? $tenant_config['logo_path'] : '../' . $tenant_config['logo_path'];
                 ?>
                     <img src="<?= $logo_src ?>" class="size-full object-contain">
                 <?php else: ?>
                     <span class="material-symbols-outlined text-white text-2xl">bolt</span>
                 <?php endif; ?>
             </div>
-            <span class="nav-label text-white font-black italic uppercase tracking-tighter text-base leading-none">Staff Portal</span>
+            <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Staff Portal</h1>
         </div>
     </div>
-    
-    <div class="flex flex-col flex-1 overflow-y-auto no-scrollbar gap-0.5">
-        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-0">Main Menu</span>
-        
-        <a href="admin_dashboard.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_dashboard.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span>
-            <span class="nav-label">Dashboard</span>
-        </a>
-
-        <a href="register_member.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'register_member.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">person_add</span>
-            <span class="nav-label">Walk-in Member</span>
-        </a>
-
-        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
-        
-        <a href="admin_users.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_users.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">group</span>
-            <span class="nav-label">My Users</span>
-        </a>
-        
-        <a href="admin_transaction.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_transaction.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
-            <span class="nav-label">Transactions</span>
-        </a>
-
-        <a href="admin_appointment.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_appointment.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">event_note</span>
-            <span class="nav-label">Bookings</span>
-        </a>
-
-        <a href="admin_attendance.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_attendance.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">history</span>
-            <span class="nav-label">Attendance</span>
-        </a>
-
-        <a href="admin_report.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_report.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">description</span>
-            <span class="nav-label">Reports</span>
-        </a>
+    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
+        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span></div>
+        <a href="admin_dashboard.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">grid_view</span><span class="nav-label">Dashboard</span></a>
+        <a href="register_member.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">person_add</span><span class="nav-label">Walk-in Member</span></a>
+        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
+        <a href="admin_users.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">group</span><span class="nav-label">My Users</span></a>
+        <a href="admin_transaction.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">receipt_long</span><span class="nav-label">Transactions</span></a>
+        <a href="admin_appointment.php" class="nav-item active"><span class="material-symbols-outlined text-xl shrink-0">event_note</span><span class="nav-label">Bookings</span></a>
+        <a href="admin_attendance.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">history</span><span class="nav-label">Attendance</span></a>
     </div>
-
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
-        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-0 mb-2">Account</span>
-
-        <a href="admin_profile.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_profile.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">account_circle</span>
-            <span class="nav-label">Profile</span>
-        </a>
-
+    <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
+        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
+        <a href="admin_profile.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">account_circle</span><span class="nav-label">Profile</span></a>
         <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors group">
             <span class="material-symbols-outlined text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
-            <span class="nav-label">Sign Out</span>
+            <span class="nav-label whitespace-nowrap">Sign Out</span>
         </a>
     </div>
 </nav>
 
-<div class="main-content flex flex-col min-w-0">
-    <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
-        <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+<div class="main-content flex-1 overflow-y-auto no-scrollbar">
+    <main class="p-10 max-w-[1400px] mx-auto pb-20">
+        <header class="mb-12 flex flex-row justify-between items-end gap-6">
             <div>
-                <h1 class="text-3xl font-black text-white italic uppercase tracking-tighter leading-none mb-2">Member <span class="text-primary">Appointments</span></h1>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest">Operational Schedule • Booking Management</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Appointment <span class="text-primary">Masterlist</span></h2>
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Operations Scheduler • Session Registry</p>
             </div>
-            <div class="flex flex-row items-center gap-4">
-                <div class="px-6 py-3.5 rounded-2xl bg-white/5 border border-white/5 text-right flex flex-col items-end group shadow-sm hover:shadow-primary/10 transition-shadow">
-                    <p id="headerClock" class="text-white font-black italic text-xl leading-none mb-1 group-hover:text-primary transition-colors">00:00:00 AM</p>
-                    <p class="text-gray-500 text-[9px] font-black uppercase tracking-[0.2em] group-hover:text-white transition-colors"><?= date('l, M d') ?></p>
+            <div class="flex items-end gap-8 text-right shrink-0">
+                <div class="flex flex-col items-end">
+                    <p id="headerClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
+                    <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
                 </div>
             </div>
         </header>
 
-        <div class="glass-card overflow-hidden shadow-2xl">
-            <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                <h4 class="font-black italic uppercase text-sm tracking-tighter text-gray-400">Scheduled Appointments</h4>
-                <div class="flex gap-2">
-                    <button class="bg-white/5 border border-white/10 px-4 py-2 rounded-xl text-[10px] font-black uppercase hover:bg-white/10 transition-all flex items-center gap-2">
-                        <span class="material-symbols-outlined text-xs">filter_list</span> Filter
-                    </button>
+        <!-- Functional Filter Matrix -->
+        <div class="mb-10">
+            <form method="GET" class="glass-card p-8 border border-white/5 relative overflow-hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 items-end">
+                    <div class="space-y-2 lg:col-span-1">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Identity Filter</p>
+                        <div class="relative">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search member..." class="input-box pl-12 w-full">
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Date Registry (Start)</p>
+                        <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" class="input-box w-full">
+                    </div>
+
+                    <div class="space-y-2">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Date Registry (End)</p>
+                        <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" class="input-box w-full">
+                    </div>
+
+                    <div class="space-y-2">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Protocol Status</p>
+                        <select name="status" class="input-box w-full">
+                            <option value="">All Status</option>
+                            <option value="Confirmed" <?= ($status === 'Confirmed') ? 'selected' : '' ?>>Confirmed</option>
+                            <option value="Pending" <?= ($status === 'Pending') ? 'selected' : '' ?>>Pending</option>
+                            <option value="Cancelled" <?= ($status === 'Cancelled') ? 'selected' : '' ?>>Cancelled</option>
+                        </select>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button type="submit" class="flex-1 bg-primary hover:bg-primary/90 text-white h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 active:scale-95">Execute Apply</button>
+                        <button type="button" onclick="clearAppointmentFilters()" class="size-[46px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-400 hover:bg-rose-500/10 hover:text-rose-500 transition-all group active:scale-95">
+                            <span class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform">restart_alt</span>
+                        </button>
+                    </div>
                 </div>
+            </form>
+        </div>
+
+        <div class="flex justify-between items-center mb-6">
+            <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">LIVE SCHEDULER MATRIX — <span class="text-white">ACTIVE FEED</span></p>
+            <div class="flex items-center gap-4">
+                <span class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest text-gray-400">Total Bookings: <?= count($bookings_list) ?></span>
             </div>
+        </div>
+
+        <div class="glass-card shadow-2xl overflow-hidden border border-white/5">
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
-                            <th class="px-8 py-5">Member</th>
-                            <th class="px-8 py-5">Service / Trainer</th>
-                            <th class="px-8 py-5">Schedule</th>
-                            <th class="px-8 py-5 text-center">Status</th>
-                            <th class="px-8 py-5 text-right">Actions</th>
+                        <tr class="text-[10px] font-black uppercase tracking-[0.15em] text-gray-600 border-b border-white/5 bg-white/[0.01]">
+                            <th class="px-8 py-5">NODE IDENTITY</th>
+                            <th class="px-8 py-5">HANDLERS / SERVICE</th>
+                            <th class="px-8 py-5">SCHEDULE PROTOCOL</th>
+                            <th class="px-8 py-5 text-center">SYSTEM STATUS</th>
+                            <th class="px-8 py-5 text-right">CONTROLS</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
-                        <?php if($bookings_list): foreach($bookings_list as $appt): ?>
-                            <tr class="hover:bg-white/[0.02] transition-colors">
-                                <td class="px-8 py-6">
-                                    <div class="flex items-center gap-3">
-                                        <div class="size-10 rounded-full bg-primary/10 flex items-center justify-center font-black text-primary uppercase shadow-lg border border-primary/20">
-                                            <?= substr($appt['fullname'], 0, 1) ?>
-                                        </div>
-                                        <div>
-                                            <p class="text-white font-black uppercase italic text-sm tracking-tight"><?= htmlspecialchars($appt['fullname']) ?></p>
-                                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">@<?= htmlspecialchars($appt['username']) ?></p>
-                                        </div>
+                        <?php if (empty($bookings_list)): ?>
+                        <tr>
+                            <td colspan="5" class="px-8 py-24 text-center">
+                                <span class="material-symbols-outlined text-4xl text-gray-700 mb-4 block">event_busy</span>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">No scheduled appointments detected in current matrix.</p>
+                            </td>
+                        </tr>
+                        <?php else: foreach ($bookings_list as $appt): ?>
+                        <tr class="hover:bg-white/[0.02] group transition-colors">
+                            <td class="px-8 py-6">
+                                <div class="flex items-center gap-4">
+                                    <div class="size-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black italic text-base">
+                                        <?= substr($appt['first_name'] ?? 'U', 0, 1) ?>
                                     </div>
-                                </td>
-                                <td class="px-8 py-6">
-                                    <p class="text-white font-bold text-xs"><?= htmlspecialchars($appt['service']) ?></p>
-                                    <p class="text-primary text-[10px] font-black uppercase tracking-widest mt-1"><?= htmlspecialchars($appt['trainer']) ?></p>
-                                </td>
-                                <td class="px-8 py-6">
-                                    <div class="flex flex-col">
-                                        <div class="text-xs font-black italic text-gray-300">
-                                            <?= $appt['time'] ?>
-                                        </div>
-                                        <p class="text-[10px] text-gray-600 font-bold mt-1 uppercase tracking-widest">
-                                            <?= date('M d, Y', strtotime($appt['date'])) ?>
-                                        </p>
+                                    <div>
+                                        <p class="text-[13px] font-black italic uppercase text-white group-hover:text-primary transition-colors"><?= htmlspecialchars(($appt['first_name'] ?? '') . ' ' . ($appt['last_name'] ?? '')) ?></p>
+                                        <p class="text-[10px] font-bold text-gray-500 tracking-tight lowercase">@<?= htmlspecialchars($appt['username'] ?? 'unknown') ?></p>
                                     </div>
-                                </td>
-                                <td class="px-8 py-6 text-center">
-                                    <?php 
-                                        $statusClass = '';
-                                        switch($appt['status']) {
-                                            case 'Confirmed': $statusClass = 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'; break;
-                                            case 'Pending': $statusClass = 'bg-amber-500/10 border-amber-500/20 text-amber-500'; break;
-                                            case 'Cancelled': $statusClass = 'bg-red-500/10 border-red-500/20 text-red-500'; break;
-                                        }
-                                    ?>
-                                    <span class="px-4 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest <?= $statusClass ?>">
-                                        <?= $appt['status'] ?>
-                                    </span>
-                                </td>
-                                <td class="px-8 py-6 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <button class="size-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all text-gray-400" title="Edit">
-                                            <span class="material-symbols-outlined text-[16px]">edit</span>
-                                        </button>
-                                        <button class="size-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 transition-all text-gray-400" title="Cancel">
-                                            <span class="material-symbols-outlined text-[16px]">close</span>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; else: ?>
-                            <tr><td colspan="5" class="px-8 py-20 text-center text-gray-500 uppercase font-black text-xs italic tracking-widest">No matching records found</td></tr>
-                        <?php endif; ?>
+                                </div>
+                            </td>
+                            <td class="px-8 py-6">
+                                <p class="text-xs font-black italic text-white uppercase"><?= htmlspecialchars($appt['service'] ?? 'Session') ?></p>
+                                <p class="text-[10px] font-black text-primary tracking-widest uppercase mt-0.5"><?= htmlspecialchars($appt['trainer'] ?? 'Personal Trainer') ?></p>
+                            </td>
+                            <td class="px-8 py-6">
+                                <div class="space-y-0.5 text-left">
+                                    <p class="text-[11px] font-black italic text-white uppercase"><?= htmlspecialchars($appt['start_time'] ?? '00:00') ?></p>
+                                    <p class="text-[9px] font-bold text-gray-600 uppercase tracking-widest italic"><?= date('M d, Y', strtotime($appt['booking_date'] ?? 'today')) ?></p>
+                                </div>
+                            </td>
+                            <td class="px-8 py-6 text-center">
+                                <?php 
+                                    $st = $appt['status'] ?? 'Pending';
+                                    $col = $st === 'Confirmed' ? 'emerald' : ($st === 'Cancelled' ? 'red' : 'amber');
+                                ?>
+                                <span class="status-badge bg-<?= $col ?>-500/10 border border-<?= $col ?>-500/20 text-<?= $col ?>-500"><?= $st ?></span>
+                            </td>
+                            <td class="px-8 py-6 text-right">
+                                <div class="flex justify-end gap-2">
+                                    <button class="size-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all transition-colors active:scale-95">
+                                        <span class="material-symbols-outlined text-[18px]">edit_note</span>
+                                    </button>
+                                    <button class="size-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-rose-500 hover:bg-rose-500/10 transition-all transition-colors active:scale-95">
+                                        <span class="material-symbols-outlined text-[18px]">cancel</span>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; endif; ?>
                     </tbody>
                 </table>
             </div>
         </div>
     </main>
 </div>
-
 </body>
 </html>
