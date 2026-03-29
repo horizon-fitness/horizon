@@ -11,43 +11,51 @@ if (!isset($_SESSION['user_id']) || !in_array($role, ['tenant', 'admin'])) {
 
 $gym_id = $_SESSION['gym_id'];
 
-// --- FINANCIAL CALCULATIONS ---
-// Total Revenue (Lifetime)
-$stmtTotal = $pdo->prepare("SELECT SUM(amount) as total FROM payments WHERE gym_id = ?");
-$stmtTotal->execute([$gym_id]);
+// --- DATE FILTERING LOGIC ---
+$date_from = $_GET['date_from'] ?? date('Y-m-01'); // Default to start of month
+$date_to = $_GET['date_to'] ?? date('Y-m-d');
+
+// --- FINANCIAL CALCULATIONS (Scoped by Date Range) ---
+// Total Revenue (within range)
+$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND DATE(created_at) BETWEEN ? AND ?");
+$stmtTotal->execute([$gym_id, $date_from, $date_to]);
 $total_revenue = $stmtTotal->fetchColumn() ?? 0;
 
-// Monthly Sales (Current Month)
-$stmtMonthly = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())");
-$stmtMonthly->execute([$gym_id]);
-$monthly_sales = $stmtMonthly->fetchColumn() ?? 0;
+// Lifetime Revenue (For Context)
+$stmtLifetime = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ?");
+$stmtLifetime->execute([$gym_id]);
+$lifetime_revenue = $stmtLifetime->fetchColumn() ?? 0;
 
-// Daily Sales (Today)
+// Today's Sales
 $stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND DATE(created_at) = CURDATE()");
 $stmtDaily->execute([$gym_id]);
 $daily_sales = $stmtDaily->fetchColumn() ?? 0;
 
-// Transaction History Summary (Latest 50)
+// --- TRANSACTION HISTORY (Filtered) ---
 $stmtHistory = $pdo->prepare("
     SELECT p.*, u.first_name, u.last_name 
     FROM payments p 
     LEFT JOIN client_subscriptions cs ON p.client_subscription_id = cs.client_subscription_id
     LEFT JOIN users u ON cs.owner_user_id = u.user_id 
-    WHERE p.gym_id = ? 
-    ORDER BY p.created_at DESC LIMIT 50
+    WHERE p.gym_id = ? AND DATE(p.created_at) BETWEEN ? AND ?
+    ORDER BY p.created_at DESC
 ");
-$stmtHistory->execute([$gym_id]);
+$stmtHistory->execute([$gym_id, $date_from, $date_to]);
 $transactions = $stmtHistory->fetchAll();
 
-// Sidebar Info
+// Gym Branding Info
 $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]);
-$gym = $stmtGym->fetch();
+$gym_data = $stmtGym->fetch();
+$gym_name = $gym_data['gym_name'] ?? 'Horizon Gym';
+$theme_color = $gym_data['theme_color'] ?? '#8b5cf6';
+$bg_color = $gym_data['bg_color'] ?? '#0a090b';
 
 // Check Subscription
 $stmtSub = $pdo->prepare("SELECT ws.plan_name FROM client_subscriptions cs JOIN website_plans ws ON cs.website_plan_id = ws.website_plan_id WHERE cs.gym_id = ? AND cs.subscription_status = 'Active' LIMIT 1");
 $stmtSub->execute([$gym_id]);
 $sub = $stmtSub->fetch();
+$plan_name = $sub['plan_name'] ?? 'Free Trial';
 
 $active_page = "sales";
 ?>
@@ -60,34 +68,43 @@ $active_page = "sales";
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
         tailwind.config = {
-            darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "bg-dark": "#050505", "card-dark": "#121212" }}}
+            darkMode: 'class',
+            theme: { extend: { colors: { "primary": "<?= $theme_color ?>", "surface-dark": "#14121a", "background-dark": "<?= $bg_color ?>" }}}
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
-        .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { content: ''; position: absolute; right: -32px; top: 50%; transform: translateY(-50%); width: 4px; height: 20px; background: #8c2bee; border-radius: 99px; }
-        
-        .sidebar-nav { width: 85px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; }
-        .sidebar-nav:hover { width: 300px; }
-        .nav-text { opacity: 0; transform: translateX(-15px); transition: all 0.3s ease-in-out; white-space: nowrap; pointer-events: none; }
-        .sidebar-nav:hover .nav-text { opacity: 1; transform: translateX(0); pointer-events: auto; }
+        body { font-family: 'Lexend', sans-serif; background-color: <?= $bg_color ?>; color: white; overflow: hidden; }
 
-        .nav-section-header { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); margin: 0 !important; pointer-events: none; }
-        .sidebar-nav:hover .nav-section-header { max-height: 20px; opacity: 1; margin-bottom: 8px !important; pointer-events: auto; }
+        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hover-lift:hover { transform: translateY(-10px); border-color: <?= $theme_color ?>40; box-shadow: 0 20px 40px -20px <?= $theme_color ?>30; }
+
+        /* Unified Expanding Sidebar Navigation */
+        .side-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 50; }
+        .side-nav:hover { width: 300px; }
+        .main-content { margin-left: 110px; flex: 1; min-width: 0; transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .side-nav:hover ~ .main-content { margin-left: 300px; }
+
+        .nav-label { opacity: 0; transform: translateX(-15px); transition: all 0.3s ease-in-out; white-space: nowrap; pointer-events: none; }
+        .side-nav:hover .nav-label { opacity: 1; transform: translateX(0); pointer-events: auto; }
+        
+        .nav-section-label { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); margin: 0 !important; pointer-events: none; }
+        .side-nav:hover .nav-section-label { max-height: 20px; opacity: 1; margin-bottom: 8px !important; pointer-events: auto; }
+        
+        .nav-item { display: flex; align-items: center; gap: 16px; padding: 10px 38px; transition: all 0.2s ease; text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .nav-item.active { color: <?= $theme_color ?> !important; position: relative; }
+        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: <?= $theme_color ?>; border-radius: 4px 0 0 4px; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .stat-card { background: linear-gradient(145deg, #121212 0%, #0a0a0a 100%); border: 1px solid rgba(255,255,255,0.05); }
 
-        /* Filter Styles */
-        .filter-input { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 10px 14px; font-size: 11px; font-weight: 700; color: white; outline: none; transition: all 0.2s; text-transform: uppercase; }
-        .filter-input:focus { border-color: #8c2bee; background: rgba(140, 43, 238, 0.05); }
+        /* Inputs */
+        .input-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: white; padding: 10px 16px; font-size: 11px; font-weight: 500; outline: none; transition: all 0.2s; }
+        .input-box:focus { border-color: <?= $theme_color ?>; background: rgba(255, 255, 255, 0.08); }
+        .input-box option { background: #14121a; color: white; }
     </style>
     <script>
         function updateTopClock() {
@@ -102,199 +119,217 @@ $active_page = "sales";
 </head>
 <body class="flex h-screen overflow-hidden">
 
-<nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
-    <div class="mb-10 shrink-0"> 
-        <div class="flex items-center gap-4 mb-4"> 
-            <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($gym['logo_path'])): ?>
-                    <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
+<body class="antialiased flex h-screen overflow-hidden">
+
+<nav class="side-nav bg-background-dark border-r border-white/5 z-50">
+    <div class="px-7 py-8 mb-4 shrink-0">
+        <div class="flex items-center gap-4">
+            <div class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($gym_data['logo_path']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
+                <?php if (!empty($gym_data['logo_path'])): ?>
+                    <img src="<?= htmlspecialchars($gym_data['logo_path']) ?>" class="size-full object-cover">
                 <?php else: ?>
                     <span class="material-symbols-outlined text-white text-2xl">bolt</span>
                 <?php endif; ?>
             </div>
-            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white leading-tight break-words line-clamp-2">
-                <?= htmlspecialchars($gym['gym_name'] ?? 'CORSANO FITNESS') ?>
-            </h1>
+            <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Owner Portal</h1>
         </div>
     </div>
     
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
-        <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Main Menu</span>
-        </div>
-        
-        <a href="tenant_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
+        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Main Menu</span></div>
+        <a href="tenant_dashboard.php" class="nav-item">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
-            <span class="nav-text">Dashboard</span>
+            <span class="nav-label">Dashboard</span>
         </a>
         
-        <a href="my_users.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'users') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="my_users.php" class="nav-item">
             <span class="material-symbols-outlined text-xl shrink-0">group</span> 
-            <span class="nav-text">My Users</span>
+            <span class="nav-label">Users</span>
         </a>
 
-        <a href="transactions.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="transactions.php" class="nav-item">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
-            <span class="nav-text">Transactions</span>
-            <span class="size-1.5 rounded-full bg-red-500 ml-auto"></span>
+            <span class="nav-label">Transactions</span>
         </a>
 
-        <a href="attendance.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'attendance') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="attendance.php" class="nav-item">
             <span class="material-symbols-outlined text-xl shrink-0">history</span> 
-            <span class="nav-text">Attendance</span>
+            <span class="nav-label">Attendance</span>
         </a>
 
-        <div class="nav-section-header px-0 mb-2 mt-6">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
-        </div>
+        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
 
-        <a href="staff.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'staff') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="staff.php" class="nav-item">
             <span class="material-symbols-outlined text-xl shrink-0">badge</span> 
-            <span class="nav-text">Staff Management</span>
+            <span class="nav-label">Staff</span>
         </a>
 
-        <a href="reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="reports.php" class="nav-item">
             <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
-            <span class="nav-text">System Reports</span>
+            <span class="nav-label">Reports</span>
         </a>
 
-        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="sales_report.php" class="nav-item active">
             <span class="material-symbols-outlined text-xl shrink-0">payments</span> 
-            <span class="nav-text">Sales Reports</span>
+            <span class="nav-label">Sales Reports</span>
         </a>
     </div>
 
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0">
-        <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
-        </div>
-        
-        <a href="facility_setup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'facility') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+    <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
+        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
+        <a href="tenant_settings.php" class="nav-item">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
-            <span class="nav-text">Settings</span>
+            <span class="nav-label">Settings</span>
         </a>
-
-        <a href="tenant_settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">person</span> 
-            <span class="nav-text">Profile</span>
+        <a href="profile.php" class="nav-item">
+            <span class="material-symbols-outlined text-xl shrink-0">account_circle</span> 
+            <span class="nav-label">Profile</span>
         </a>
-
-        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
-            <span class="nav-link nav-text text-sm">Sign Out</span>
+        <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors">
+            <span class="material-symbols-outlined text-xl shrink-0">logout</span> 
+            <span class="nav-label">Sign Out</span>
         </a>
     </div>
 </nav>
-<main class="flex-1 overflow-y-auto no-scrollbar p-10">
+
+<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar">
+
     <header class="mb-10 flex justify-between items-end">
         <div>
-            <h2 class="text-3xl font-black italic uppercase tracking-tighter text-primary">Sales <span class="text-white">Report</span></h2>
-            <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Revenue Tracking & Transaction Analytics</p>
+            <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic leading-none">
+                SALES <span class="text-primary italic">REPORTS</span>
+            </h2>
+            <p class="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1 italic leading-none">
+                <?= htmlspecialchars($gym_name) ?> FINANCIAL INTELLIGENCE
+            </p>
         </div>
 
-        <div class="flex flex-col items-end">
-            <p id="topClock" class="text-white font-black italic text-2xl leading-none">00:00:00 AM</p>
-            <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
+        <div class="text-right flex flex-col items-end">
+            <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
+            <p id="topDate" class="text-primary font-bold uppercase tracking-widest text-[10px] mt-2 px-1 opacity-80 italic">
+                <?= date('l, M d, Y') ?>
+            </p>
         </div>
     </header>
 
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-        <div class="stat-card p-8 rounded-[32px]">
-            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Total Revenue</p>
-            <h3 class="text-3xl font-black italic tracking-tighter text-white">₱<?= number_format($total_revenue, 2) ?></h3>
+        <div class="glass-card p-8 hover-lift">
+            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 italic">Total Revenue</p>
+            <h3 class="text-3xl font-black italic tracking-tighter text-white uppercase">₱<?= number_format($total_revenue, 2) ?></h3>
+            <div class="mt-4 flex items-center gap-2">
+                <span class="size-2 rounded-full bg-primary animate-pulse"></span>
+                <span class="text-[9px] font-black text-gray-500 uppercase tracking-widest italic leading-none pt-0.5">Filtered Results</span>
+            </div>
         </div>
-        <div class="stat-card p-8 rounded-[32px] border-l-4 border-primary">
-            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Monthly Sales</p>
-            <h3 class="text-3xl font-black italic tracking-tighter text-primary">₱<?= number_format($monthly_sales, 2) ?></h3>
+
+        <div class="glass-card p-8 hover-lift border-l-4 border-primary/40">
+            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 italic">Lifetime Sales</p>
+            <h3 class="text-3xl font-black italic tracking-tighter text-primary uppercase">₱<?= number_format($lifetime_revenue, 2) ?></h3>
+            <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-4 italic leading-none">All-time Recorded</p>
         </div>
-        <div class="stat-card p-8 rounded-[32px]">
-            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Weekly Forecast</p>
-            <h3 class="text-3xl font-black italic tracking-tighter text-white">₱<?= number_format($monthly_sales / 4, 2) ?></h3>
+
+        <div class="glass-card p-8 hover-lift">
+            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 italic">Today's Sales</p>
+            <h3 class="text-3xl font-black italic tracking-tighter text-white uppercase">₱<?= number_format($daily_sales, 2) ?></h3>
+            <div class="mt-4 flex items-center gap-1.5">
+                <span class="text-[9px] font-black text-emerald-500 uppercase tracking-widest italic">Live Tracking</span>
+            </div>
         </div>
-        <div class="stat-card p-8 rounded-[32px] border-l-4 border-emerald-500">
-            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Daily Revenue</p>
-            <h3 class="text-3xl font-black italic tracking-tighter text-emerald-500">₱<?= number_format($daily_sales, 2) ?></h3>
+
+        <div class="glass-card p-8 hover-lift border-l-4 border-emerald-500/40">
+            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 italic">Forecast</p>
+            <h3 class="text-3xl font-black italic tracking-tighter text-emerald-500 uppercase">₱<?= number_format($daily_sales * 30, 2) ?></h3>
+            <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-4 italic leading-none">Estimated Monthly</p>
         </div>
     </div>
 
-    <div class="glass-card p-6 mb-6">
-        <div class="flex flex-wrap items-center gap-6">
+    <!-- Filter Bar -->
+    <div class="glass-card p-6 mb-10 overflow-hidden relative group">
+        <form method="GET" class="flex flex-wrap items-end gap-6 relative z-10">
             <div class="flex flex-col gap-2">
-                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Specific Day</label>
-                <input type="date" class="filter-input w-44">
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] ml-1 italic">Date From</label>
+                <input type="date" name="date_from" value="<?= $date_from ?>" class="input-box w-48 py-3">
             </div>
             <div class="flex flex-col gap-2">
-                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Month</label>
-                <select class="filter-input w-40">
-                    <option value="">All Months</option>
-                    <?php for($m=1; $m<=12; ++$m): ?>
-                        <option value="<?= $m ?>"><?= date('F', mktime(0, 0, 0, $m, 1)) ?></option>
-                    <?php endfor; ?>
-                </select>
+                <label class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] ml-1 italic">Date To</label>
+                <input type="date" name="date_to" value="<?= $date_to ?>" class="input-box w-48 py-3">
             </div>
-            <div class="flex flex-col gap-2">
-                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Year</label>
-                <select class="filter-input w-32">
-                    <option>2026</option>
-                    <option>2025</option>
-                    <option>2024</option>
-                </select>
+            <div class="flex gap-2">
+                <button type="submit" class="bg-primary text-white h-[46px] px-8 rounded-xl font-black italic uppercase tracking-tighter text-[11px] shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">filter_list</span>
+                    Apply Filters
+                </button>
+                <a href="sales_report.php" class="bg-white/5 text-gray-400 h-[46px] px-6 rounded-xl font-black italic uppercase tracking-tighter text-[11px] hover:text-white hover:bg-white/10 transition-all flex items-center justify-center">
+                    Reset
+                </a>
             </div>
-            <button class="mt-5 bg-white/5 hover:bg-white/10 text-white border border-white/10 px-6 py-2.5 rounded-xl font-black italic uppercase tracking-tighter text-[10px] transition-all">
-                Filter Results
-            </button>
-        </div>
+
+            <div class="ml-auto flex gap-3 h-[46px]">
+                <button type="button" onclick="exportReportToPDF('sales-table-container', 'Sales Report', true)" class="px-6 rounded-xl bg-white/5 border border-white/5 font-black italic uppercase text-[10px] tracking-widest text-gray-500 hover:text-white transition-all flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">visibility</span> View Report
+                </button>
+                <button type="button" onclick="exportReportToPDF('sales-table-container', 'Sales Report', false)" class="px-6 rounded-xl bg-primary/10 border border-primary/20 font-black italic uppercase text-[10px] tracking-widest text-primary hover:bg-primary/20 transition-all flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">picture_as_pdf</span> Get PDF
+                </button>
+            </div>
+        </form>
     </div>
 
-    <div class="bg-card-dark rounded-[32px] border border-white/5 overflow-hidden shadow-2xl">
-        <div class="px-8 py-5 border-b border-white/5 flex flex-col md:flex-row justify-between items-center bg-white/[0.02] gap-4">
-            <h4 class="font-black italic uppercase text-xs tracking-widest flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary">receipt_long</span> Transaction History
+    <div id="sales-table-container" class="bg-surface-dark rounded-[32px] border border-white/5 overflow-hidden shadow-2xl">
+        <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+            <h4 class="font-black italic uppercase text-xs tracking-widest text-primary flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">payments</span>
+                Transaction History
             </h4>
-            
-            <div class="flex items-center gap-3">
-                <button class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 font-black italic uppercase text-[9px] tracking-widest hover:bg-white/10 transition-all flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">picture_as_pdf</span> Download PDF
-                </button>
-                <button class="px-5 py-2.5 rounded-xl bg-primary text-white font-black italic uppercase text-[9px] tracking-widest shadow-lg shadow-primary/20 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-sm">analytics</span> Generate Audit
-                </button>
-            </div>
+            <span class="text-[10px] font-black uppercase text-gray-500 tracking-widest">
+                Showing <?= count($transactions) ?> Records
+            </span>
         </div>
         
         <div class="overflow-x-auto">
-            <table class="w-full text-left">
+            <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="text-[10px] font-black uppercase tracking-widest text-gray-500 border-b border-white/5">
-                        <th class="px-8 py-5">Transaction ID</th>
-                        <th class="px-8 py-5">Customer / Member</th>
+                        <th class="px-8 py-5">Ref ID</th>
+                        <th class="px-8 py-5">Payer / Member</th>
                         <th class="px-8 py-5">Amount</th>
-                        <th class="px-8 py-5">Method</th>
-                        <th class="px-8 py-5">Timestamp</th>
+                        <th class="px-8 py-5 text-right">Date & Time</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-white/5">
+                <tbody class="divide-y divide-white/5 text-sm">
                     <?php if(empty($transactions)): ?>
-                        <tr><td colspan="5" class="px-8 py-20 text-center text-gray-600 font-black italic uppercase">No financial data recorded yet.</td></tr>
+                        <tr>
+                            <td colspan="4" class="px-8 py-20 text-center">
+                                <p class="text-[10px] font-black uppercase text-gray-600 tracking-[0.2em] italic">No sales recorded for this period</p>
+                            </td>
+                        </tr>
                     <?php else: ?>
                         <?php foreach($transactions as $t): ?>
-                        <tr class="hover:bg-white/[0.02] transition-all group">
-                            <td class="px-8 py-6 text-xs font-mono text-gray-400">#TRX-<?= str_pad($t['payment_id'], 5, '0', STR_PAD_LEFT) ?></td>
+                        <tr class="hover:bg-white/[0.01] transition-all group">
+                            <td class="px-8 py-6 font-mono text-xs text-gray-500">#<?= str_pad($t['payment_id'], 6, '0', STR_PAD_LEFT) ?></td>
                             <td class="px-8 py-6">
-                                <p class="font-black italic uppercase tracking-tighter text-sm">
-                                    <?= $t['first_name'] ? htmlspecialchars($t['first_name'].' '.$t['last_name']) : 'Guest Transaction' ?>
+                                <p class="font-black italic uppercase tracking-tighter text-white">
+                                    <?= $t['first_name'] ? htmlspecialchars($t['first_name'].' '.$t['last_name']) : 'Walk-in Guest' ?>
+                                </p>
+                                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mt-0.5">
+                                    <?= htmlspecialchars($t['payment_method']) ?> Verified
                                 </p>
                             </td>
                             <td class="px-8 py-6">
-                                <span class="text-sm font-black italic text-emerald-400">₱<?= number_format($t['amount'], 2) ?></span>
+                                <div class="flex flex-col">
+                                    <span class="font-black italic text-white">₱<?= number_format($t['amount'], 2) ?></span>
+                                    <span class="text-[8px] font-black text-primary uppercase tracking-widest">Paid In Full</span>
+                                </div>
                             </td>
-                            <td class="px-8 py-6">
-                                <span class="text-[9px] font-black uppercase px-3 py-1 rounded bg-white/5 border border-white/10 text-gray-400">
-                                    <?= $t['payment_method'] ?>
-                                </span>
-                            </td>
-                            <td class="px-8 py-6 text-[10px] font-bold text-gray-500 uppercase">
-                                <?= date('M d, Y | h:i A', strtotime($t['created_at'])) ?>
+                            <td class="px-8 py-6 text-right">
+                                <div class="flex flex-col items-end leading-tight">
+                                    <span class="font-black uppercase text-primary tracking-tighter italic text-xs">
+                                        <?= date('M d, Y', strtotime($t['created_at'])) ?>
+                                    </span>
+                                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">
+                                        <?= date('h:i A', strtotime($t['created_at'])) ?>
+                                    </span>
+                                </div>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -305,5 +340,130 @@ $active_page = "sales";
     </div>
 </main>
 
+<script>
+    function updateTopClock() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const dateString = now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: '2-digit', year: 'numeric' });
+        
+        const clockEl = document.getElementById('topClock');
+        const dateEl = document.getElementById('topDate');
+        
+        if (clockEl) clockEl.textContent = timeString;
+        if (dateEl) dateEl.textContent = dateString;
+    }
+    setInterval(updateTopClock, 1000);
+    window.addEventListener('DOMContentLoaded', updateTopClock);
+
+    function exportReportToPDF(sectionId, reportTitle, preview = false) {
+        const element = document.getElementById(sectionId);
+        const gymName = "<?= htmlspecialchars($gym_name) ?>";
+        const generatedAt = "<?= date('M d, Y h:i A') ?>";
+        const dateRange = "<?= date('M d, Y', strtotime($date_from)) ?> to <?= date('M d, Y', strtotime($date_to)) ?>";
+
+        // Dynamic Header (Surgical Style)
+        const header = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px; font-family: 'Roboto Mono', monospace;">
+                <div style="text-align: left;">
+                    <h1 style="font-size: 28px; font-weight: 800; color: #000; margin: 0; text-transform: uppercase;">${gymName}</h1>
+                </div>
+                <div style="text-align: right;">
+                    <h2 style="font-size: 16px; font-weight: 700; color: #000; margin: 0; text-transform: uppercase;">${reportTitle}</h2>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px; font-size: 10px; line-height: 1.6; font-family: 'Roboto Mono', monospace;">
+                <div style="text-align: left; color: #000;">
+                    <p style="margin: 0;"><?= htmlspecialchars($gym_data['gym_email'] ?? '') ?></p>
+                    <p style="margin: 0;">Phone: <?= htmlspecialchars($gym_data['gym_contact'] ?? '') ?></p>
+                </div>
+                <div style="text-align: right; color: #000;">
+                    <p style="margin: 0;">Period: ${dateRange}</p>
+                    <p style="margin: 0;">Generated on: ${generatedAt}</p>
+                    <p style="margin: 0; font-weight: bold; border-top: 1px solid #000; padding-top: 5px; margin-top: 5px;">OFFICIAL FINANCIAL TRANSCRIPT</p>
+                </div>
+            </div>
+            <div style="border-bottom: 3px double #000; margin-bottom: 30px;"></div>
+        `;
+
+        const wrapper = document.createElement('div');
+        wrapper.style.padding = '50px';
+        wrapper.style.color = '#000';
+        wrapper.style.backgroundColor = '#fff';
+        wrapper.style.fontFamily = "'Roboto Mono', monospace";
+
+        // Surgical Cloning
+        const contentClone = element.cloneNode(true);
+        [contentClone, ...contentClone.querySelectorAll('*')].forEach(el => {
+            el.removeAttribute('class');
+            el.style.setProperty('color', '#000000', 'important');
+            el.style.setProperty('background-color', 'transparent', 'important');
+            el.style.setProperty('border-radius', '0', 'important');
+            el.style.setProperty('box-shadow', 'none', 'important');
+            el.style.setProperty('text-shadow', 'none', 'important');
+            el.style.setProperty('filter', 'none', 'important');
+            el.style.setProperty('opacity', '1', 'important');
+            el.style.setProperty('visibility', 'visible', 'important');
+        });
+
+        contentClone.querySelectorAll('button, .material-symbols-outlined, h3, h4').forEach(el => el.remove());
+        
+        const table = contentClone.querySelector('table');
+        if (table) {
+            table.style.setProperty('width', '100%', 'important');
+            table.style.setProperty('border-collapse', 'collapse', 'important');
+            table.style.setProperty('font-size', '10px', 'important');
+            table.style.setProperty('border', '2px solid #000', 'important');
+
+            table.querySelectorAll('th').forEach(th => {
+                th.style.setProperty('background-color', '#eee', 'important'); 
+                th.style.setProperty('border', '1px solid #000', 'important');
+                th.style.setProperty('padding', '12px 10px', 'important');
+                th.style.setProperty('text-transform', 'uppercase', 'important');
+                th.style.setProperty('font-weight', '900', 'important');
+                th.style.setProperty('text-align', 'left', 'important');
+            });
+
+            table.querySelectorAll('td').forEach(td => {
+                td.style.setProperty('border', '1px solid #000', 'important');
+                td.style.setProperty('padding', '10px 10px', 'important');
+                td.style.setProperty('background-color', '#fff', 'important');
+
+                td.querySelectorAll('*').forEach(ch => {
+                    ch.style.setProperty('color', '#000', 'important');
+                    ch.style.setProperty('font-size', '10px', 'important');
+                    ch.style.setProperty('font-weight', '700', 'important');
+                });
+            });
+        }
+
+        const footer = document.createElement('div');
+        footer.style.marginTop = '60px';
+        footer.style.textAlign = 'center';
+        footer.style.fontSize = '9px';
+        footer.style.borderTop = '1px solid #000';
+        footer.style.paddingTop = '15px';
+        footer.innerHTML = `<p style="margin: 0; font-weight: bold;">FINANCIAL DATA PRIVACY NOTICE - INTERNAL ONLY</p>`;
+
+        wrapper.innerHTML = header;
+        wrapper.appendChild(contentClone);
+        wrapper.appendChild(footer);
+
+        const opt = {
+            margin: [0.3, 0.3],
+            filename: `Sales_Report_${new Date().getTime()}.pdf`,
+            image: { type: 'jpeg', quality: 1.0 },
+            html2canvas: { scale: 3, backgroundColor: '#ffffff', useCORS: true },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+
+        if (preview) {
+            html2pdf().set(opt).from(wrapper).toPdf().get('pdf').then(function (pdf) {
+                window.open(pdf.output('bloburl'), '_blank');
+            });
+        } else {
+            html2pdf().set(opt).from(wrapper).save();
+        }
+    }
+</script>
 </body>
 </html>
