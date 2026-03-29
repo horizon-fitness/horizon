@@ -31,19 +31,16 @@ $pending_payments = 0;
 $pending_appts = 0;
 
 try {
-    // Total Members for this gym
-    $stmtMembers = $pdo->prepare("SELECT COUNT(*) as total FROM user_roles ur JOIN roles r ON ur.role_id = r.role_id WHERE ur.gym_id = ? AND r.role_name = 'Member' AND ur.role_status = 'Active'");
-    $stmtMembers->execute([$gym_id]);
+    $stmtMembers = $pdo->prepare("SELECT COUNT(*) as total FROM users WHERE role = 'member'");
+    $stmtMembers->execute();
     $total_members = $stmtMembers->fetch()['total'] ?? 0;
 
-    // Pending Payments for this gym
-    $stmtPendingPayments = $pdo->prepare("SELECT COUNT(*) as total FROM payments WHERE gym_id = ? AND status = 'Pending'");
-    $stmtPendingPayments->execute([$gym_id]);
+    $stmtPendingPayments = $pdo->prepare("SELECT COUNT(*) as total FROM payments WHERE status = 'Pending'");
+    $stmtPendingPayments->execute();
     $pending_payments = $stmtPendingPayments->fetch()['total'] ?? 0;
 
-    // Pending Bookings for this gym
-    $stmtPendingAppts = $pdo->prepare("SELECT COUNT(*) as total FROM bookings WHERE gym_id = ? AND status = 'Pending'");
-    $stmtPendingAppts->execute([$gym_id]);
+    $stmtPendingAppts = $pdo->prepare("SELECT COUNT(*) as total FROM bookings WHERE status = 'Pending'");
+    $stmtPendingAppts->execute();
     $pending_appts = $stmtPendingAppts->fetch()['total'] ?? 0;
 } catch (Exception $e) {
     // Silently fail if tables don't exist

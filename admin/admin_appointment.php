@@ -22,30 +22,49 @@ $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1")
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
-// Handle Appointment Actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    $booking_id = $_POST['booking_id'];
-    $new_status = ($_POST['action'] === 'confirm') ? 'Confirmed' : 'Cancelled';
-    
-    try {
-        $stmtUpdate = $pdo->prepare("UPDATE bookings SET status = ? WHERE booking_id = ? AND gym_id = ?");
-        $stmtUpdate->execute([$new_status, $booking_id, $gym_id]);
-        $success_msg = "Booking updated to $new_status.";
-    } catch (Exception $e) {
-        $error_msg = "Error: " . $e->getMessage();
-    }
-}
-
-// Fetch Appointments for this gym
-$stmtAppts = $pdo->prepare("
-    SELECT b.*, u.username, CONCAT(u.first_name, ' ', u.last_name) as fullname 
-    FROM bookings b 
-    JOIN users u ON b.user_id = u.user_id 
-    WHERE b.gym_id = ? 
-    ORDER BY b.booking_date DESC, b.booking_time DESC
-");
-$stmtAppts->execute([$gym_id]);
-$appointments = $stmtAppts->fetchAll();
+// Sample Data
+$sample_appointments = [
+    [
+        'id' => 1,
+        'fullname' => 'Mike Johnson',
+        'username' => 'mike.j',
+        'service' => 'Powerlifting Class',
+        'trainer' => 'Coach Dave',
+        'date' => date('Y-m-d', strtotime('+1 day')),
+        'time' => '10:00 AM',
+        'status' => 'Confirmed'
+    ],
+    [
+        'id' => 2,
+        'fullname' => 'Sarah Wilson',
+        'username' => 'sarah.w',
+        'service' => 'Yoga Essentials',
+        'trainer' => 'Coach Elena',
+        'date' => date('Y-m-d', strtotime('+1 day')),
+        'time' => '02:00 PM',
+        'status' => 'Pending'
+    ],
+    [
+        'id' => 3,
+        'fullname' => 'Robert Chen',
+        'username' => 'rob.c',
+        'service' => 'HIIT Session',
+        'trainer' => 'Coach Dave',
+        'date' => date('Y-m-d', strtotime('+2 days')),
+        'time' => '08:30 AM',
+        'status' => 'Confirmed'
+    ],
+    [
+        'id' => 4,
+        'fullname' => 'Emily Davis',
+        'username' => 'emily.d',
+        'service' => 'Personal Training',
+        'trainer' => 'Coach Elena',
+        'date' => date('Y-m-d', strtotime('+2 days')),
+        'time' => '04:00 PM',
+        'status' => 'Cancelled'
+    ]
+];
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -271,7 +290,7 @@ $appointments = $stmtAppts->fetchAll();
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
-                        <?php if(!empty($appointments)): foreach($appointments as $appt): ?>
+                        <?php foreach($sample_appointments as $appt): ?>
                             <tr class="hover:bg-white/[0.02] transition-colors">
                                 <td class="px-8 py-6">
                                     <div class="flex items-center gap-3">
@@ -285,16 +304,16 @@ $appointments = $stmtAppts->fetchAll();
                                     </div>
                                 </td>
                                 <td class="px-8 py-6">
-                                    <p class="text-white font-bold text-xs"><?= htmlspecialchars($appt['service_name'] ?? 'General Session') ?></p>
-                                    <p class="text-primary text-[10px] font-black uppercase tracking-widest mt-1"><?= htmlspecialchars($appt['trainer_name'] ?? 'Staff') ?></p>
+                                    <p class="text-white font-bold text-xs"><?= htmlspecialchars($appt['service']) ?></p>
+                                    <p class="text-primary text-[10px] font-black uppercase tracking-widest mt-1"><?= htmlspecialchars($appt['trainer']) ?></p>
                                 </td>
                                 <td class="px-8 py-6">
                                     <div class="flex flex-col">
                                         <div class="text-xs font-black italic text-gray-300">
-                                            <?= date('h:i A', strtotime($appt['booking_time'])) ?>
+                                            <?= $appt['time'] ?>
                                         </div>
                                         <p class="text-[10px] text-gray-600 font-bold mt-1 uppercase tracking-widest">
-                                            <?= date('M d, Y', strtotime($appt['booking_date'])) ?>
+                                            <?= date('M d, Y', strtotime($appt['date'])) ?>
                                         </p>
                                     </div>
                                 </td>
@@ -313,34 +332,16 @@ $appointments = $stmtAppts->fetchAll();
                                 </td>
                                 <td class="px-8 py-6 text-right">
                                     <div class="flex justify-end gap-2">
-                                        <?php if($appt['status'] === 'Pending'): ?>
-                                        <form method="POST">
-                                            <input type="hidden" name="booking_id" value="<?= $appt['booking_id'] ?>">
-                                            <input type="hidden" name="action" value="confirm">
-                                            <button type="submit" class="size-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-emerald-500/20 hover:text-emerald-500 transition-all text-gray-400" title="Confirm">
-                                                <span class="material-symbols-outlined text-[16px]">check</span>
-                                            </button>
-                                        </form>
-                                        <form method="POST">
-                                            <input type="hidden" name="booking_id" value="<?= $appt['booking_id'] ?>">
-                                            <input type="hidden" name="action" value="cancel">
-                                            <button type="submit" class="size-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 transition-all text-gray-400" title="Cancel">
-                                                <span class="material-symbols-outlined text-[16px]">close</span>
-                                            </button>
-                                        </form>
-                                        <?php else: ?>
-                                            <span class="text-[10px] text-gray-500 font-bold uppercase italic tracking-widest">PROCESSED</span>
-                                        <?php endif; ?>
+                                        <button class="size-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all text-gray-400" title="Edit">
+                                            <span class="material-symbols-outlined text-[16px]">edit</span>
+                                        </button>
+                                        <button class="size-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 transition-all text-gray-400" title="Cancel">
+                                            <span class="material-symbols-outlined text-[16px]">close</span>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
-                        <?php endforeach; else: ?>
-                            <tr>
-                                <td colspan="5" class="px-8 py-20 text-center text-gray-600 uppercase font-black text-xs italic tracking-widest">
-                                    No scheduled appointments found
-                                </td>
-                            </tr>
-                        <?php endif; ?>
+                        <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>

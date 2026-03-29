@@ -22,34 +22,6 @@ $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1")
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
-// Handle Delete User
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_user'])) {
-    $target_user_id = $_POST['user_id'];
-    try {
-        $pdo->beginTransaction();
-        // Update role status to Inactive instead of hard delete to preserve logs
-        $stmtDelete = $pdo->prepare("UPDATE user_roles SET role_status = 'Inactive' WHERE user_id = ? AND gym_id = ?");
-        $stmtDelete->execute([$target_user_id, $gym_id]);
-        $pdo->commit();
-        $success_msg = "User deactivated successfully.";
-    } catch (Exception $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        $error_msg = "Error: " . $e->getMessage();
-    }
-}
-
-// Fetch Users for this gym
-$users_stmt = $pdo->prepare("
-    SELECT u.*, r.role_name as role, u.user_id as id, 
-           CONCAT(u.first_name, ' ', u.last_name) as fullname 
-    FROM users u 
-    JOIN user_roles ur ON u.user_id = ur.user_id 
-    JOIN roles r ON ur.role_id = r.role_id 
-    WHERE ur.gym_id = ? AND ur.role_status = 'Active'
-    ORDER BY u.created_at DESC
-");
-$users_stmt->execute([$gym_id]);
-$users = $users_stmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -294,7 +266,7 @@ $users = $users_stmt->fetchAll();
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
-                        <?php if(!empty($users)): foreach($users as $row): 
+                        <?php if($users_q): while($row = mysqli_fetch_assoc($users_q)): 
                             $roleClean = strtolower($row['role'] ?? 'member');
                             $roleClass = "role-badge-" . $roleClean;
                         ?>
@@ -306,7 +278,7 @@ $users = $users_stmt->fetchAll();
                             </td>
                             <td class="px-8 py-6">
                                 <p class="text-gray-300 text-xs font-medium"><?= htmlspecialchars($row['email']) ?></p>
-                                <p class="text-gray-600 text-[10px] font-bold mt-0.5"><?= htmlspecialchars($row['contact_number'] ?? 'NO PHONE') ?></p>
+                                <p class="text-gray-600 text-[10px] font-bold mt-0.5"><?= htmlspecialchars($row['phone_number'] ?? 'NO PHONE') ?></p>
                             </td>
                             <td class="px-8 py-6">
                                 <span class="px-3 py-1 rounded-lg text-[9px] font-black uppercase italic <?= $roleClass ?>">
@@ -315,9 +287,9 @@ $users = $users_stmt->fetchAll();
                             </td>
                             <td class="px-8 py-6 text-right">
                                 <div class="flex justify-end gap-2">
-                                    <a href="edit_user.php?id=<?= $row['user_id'] ?>" class="size-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-primary transition-all group">
+                                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-primary transition-all group">
                                         <span class="material-symbols-outlined text-sm text-gray-500 group-hover:text-white">edit</span>
-                                    </a>
+                                    </button>
                                     <form method="POST" onsubmit="return confirm('Are you sure?');">
                                         <input type="hidden" name="user_id" value="<?= $row['id'] ?>">
                                         <button type="submit" name="delete_user" class="size-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-red-500/20 transition-all group">
@@ -327,7 +299,7 @@ $users = $users_stmt->fetchAll();
                                 </div>
                             </td>
                         </tr>
-                        <?php endforeach; endif; ?>
+                        <?php endwhile; endif; ?>
                     </tbody>
                 </table>
             </div>

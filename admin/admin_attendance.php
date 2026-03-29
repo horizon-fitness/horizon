@@ -22,74 +22,47 @@ $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1")
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
-// --- CSV EXPORT LOGIC ---
-if (isset($_GET['export']) && $_GET['export'] === 'csv') {
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="attendance_report_' . date('Ymd') . '.csv"');
-    $output = fopen('php://output', 'w');
-    fputcsv($output, ['Username', 'Full Name', 'Check-in', 'Check-out', 'Status']);
-
-    $view = $_GET['view'] ?? 'history';
-    $params = [$gym_id];
-    $sql = "SELECT a.*, u.fullname FROM attendance a JOIN users u ON a.username = u.username WHERE a.gym_id = ?";
-    
-    if ($view === 'live') {
-        $sql .= " AND (a.check_out = '1970-01-01 00:00:01' OR a.check_out IS NULL)";
-    }
-    
-    $stmtExport = $pdo->prepare($sql);
-    $stmtExport->execute($params);
-    while ($row = $stmtExport->fetch()) {
-        $status = ($row['check_out'] == '1970-01-01 00:00:01' || empty($row['check_out'])) ? 'Active' : 'Completed';
-        fputcsv($output, [$row['username'], $row['fullname'], $row['check_in'], $row['check_out'], $status]);
-    }
-    fclose($output);
-    exit;
-}
-
-// --- VIEW & FILTER LOGIC ---
+// --- VIEW & FILTER LOGIC (from GET params) ---
 $view = $_GET['view'] ?? 'history';
 $start_date = $_GET['start_date'] ?? '';
 $end_date = $_GET['end_date'] ?? '';
 $search_query = $_GET['search'] ?? '';
 
-// --- FETCH ATTENDANCE LOGS ---
-$params = [$gym_id];
-$sql = "SELECT a.*, u.fullname, 
-               (SELECT duration FROM bookings b WHERE b.user_id = u.user_id AND b.gym_id = a.gym_id AND b.status = 'Confirmed' ORDER BY b.booking_date DESC LIMIT 1) as scheduled_duration
-        FROM attendance a 
-        JOIN users u ON a.username = u.username 
-        WHERE a.gym_id = ?";
+// --- MOCK STATS ---
+$checkins_today = 12;
+$peak_hour = "06:00 PM";
 
+// --- MOCK ATTENDANCE LOGS ---
+// To prevent errors with mysqli functions, we create a mock result object.
+// This allows the view to render correctly without a database connection.
+class MockMysqliResult {
+    private $data;
+    private $pointer = 0;
+    public $num_rows;
+
+    public function __construct($data) {
+        $this->data = $data;
+        $this->num_rows = count($data);
+    }
+
+    public function fetch_assoc() {
+        if ($this->pointer < $this->num_rows) {
+            return $this->data[$this->pointer++];
+        }
+        return null;
+    }
+}
+
+$mock_data = [];
 if ($view === 'live') {
-    $sql .= " AND (a.check_out = '1970-01-01 00:00:01' OR a.check_out IS NULL)";
+    $mock_data[] = ['username' => 'live.user', 'fullname' => 'Live User', 'check_in' => date('Y-m-d H:i:s', time() - 1800), 'check_out' => '1970-01-01 00:00:01', 'scheduled_duration' => 2];
+} else {
+    $mock_data[] = ['username' => 'j.doe', 'fullname' => 'John Doe', 'check_in' => date('Y-m-d H:i:s', time() - 86400), 'check_out' => date('Y-m-d H:i:s', time() - 82800), 'scheduled_duration' => 1];
+    $mock_data[] = ['username' => 'j.smith', 'fullname' => 'Jane Smith', 'check_in' => date('Y-m-d H:i:s', time() - 90000), 'check_out' => date('Y-m-d H:i:s', time() - 86400), 'scheduled_duration' => 1];
 }
 
-if ($search_query) {
-    $sql .= " AND (u.fullname LIKE ? OR u.username LIKE ?)";
-    $params[] = "%$search_query%";
-    $params[] = "%$search_query%";
-}
+$log_result = new MockMysqliResult($mock_data);
 
-if ($start_date && $view === 'history') {
-    $sql .= " AND a.check_in >= ?";
-    $params[] = $start_date . ' 00:00:00';
-}
-if ($end_date && $view === 'history') {
-    $sql .= " AND a.check_in <= ?";
-    $params[] = $end_date . ' 23:59:59';
-}
-
-$sql .= " ORDER BY a.check_in DESC";
-$stmtLogs = $pdo->prepare($sql);
-$stmtLogs->execute($params);
-$logs = $stmtLogs->fetchAll();
-
-// Stats
-$checkins_today = 0;
-$stmtToday = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id = ? AND DATE(check_in) = CURDATE()");
-$stmtToday->execute([$gym_id]);
-$checkins_today = $stmtToday->fetchColumn();
 ?>
 
 <!DOCTYPE html>
@@ -348,8 +321,8 @@ $checkins_today = $stmtToday->fetchColumn();
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
-                        <?php if (!empty($logs)): ?>
-                            <?php foreach($logs as $row): 
+                        <?php if ($log_result->num_rows > 0): ?>
+                            <?php while($row = $log_result->fetch_assoc()): 
                                 $isTraining = ($row['check_out'] == '1970-01-01 00:00:01' || empty($row['check_out'])); 
                                 
                                 // Auto-calculate expected end time
@@ -392,7 +365,7 @@ $checkins_today = $stmtToday->fetchColumn();
                                     <?php endif; ?>
                                 </td>
                             </tr>
-                            <?php endforeach; ?>
+                            <?php endwhile; ?>
                         <?php else: ?>
                             <tr><td colspan="4" class="px-8 py-20 text-center text-gray-600 uppercase font-black text-xs italic tracking-widest">No matching records found</td></tr>
                         <?php endif; ?>

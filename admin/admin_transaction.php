@@ -21,54 +21,6 @@ $gym = $stmtGym->fetch();
 $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
-
-// Handle Payment Actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    $payment_id = $_POST['payment_id'];
-    $new_status = ($_POST['action'] === 'approve') ? 'Approved' : 'Rejected';
-    
-    try {
-        $stmtUpdate = $pdo->prepare("UPDATE payments SET status = ? WHERE payment_id = ? AND gym_id = ?");
-        $stmtUpdate->execute([$new_status, $payment_id, $gym_id]);
-        $success_msg = "Transaction updated to $new_status.";
-    } catch (Exception $e) {
-        $error_msg = "Error: " . $e->getMessage();
-    }
-}
-
-// Filters
-$search = $_GET['search'] ?? '';
-$start_date = $_GET['start_date'] ?? '';
-$end_date = $_GET['end_date'] ?? '';
-
-// Fetch Payments
-$query = "SELECT p.*, u.username, CONCAT(u.first_name, ' ', u.last_name) as fullname 
-          FROM payments p 
-          JOIN users u ON p.user_id = u.user_id 
-          WHERE p.gym_id = ?";
-$params = [$gym_id];
-
-if ($search) {
-    $query .= " AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.username LIKE ?)";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
-}
-
-if ($start_date) {
-    $query .= " AND p.payment_date >= ?";
-    $params[] = $start_date . ' 00:00:00';
-}
-
-if ($end_date) {
-    $query .= " AND p.payment_date <= ?";
-    $params[] = $end_date . ' 23:59:59';
-}
-
-$query .= " ORDER BY p.payment_date DESC";
-$stmtPayments = $pdo->prepare($query);
-$stmtPayments->execute($params);
-$payments = $stmtPayments->fetchAll();
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -292,24 +244,24 @@ $payments = $stmtPayments->fetchAll();
                 <button class="pb-4 -mb-4 text-[11px] font-black uppercase tracking-widest border-b-2 border-primary text-primary transition-all">BILLING HISTORY</button>
             </div>
 
-            <form method="GET" class="flex flex-wrap items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
                 <div class="relative">
                     <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
-                    <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search member..." class="custom-input rounded-xl pl-9 pr-4 py-2 text-xs w-48 font-medium">
+                    <input type="text" placeholder="Search member..." class="custom-input rounded-xl pl-9 pr-4 py-2 text-xs w-48 font-medium">
                 </div>
                 
-                <input type="date" name="start_date" value="<?= htmlspecialchars($start_date) ?>" class="custom-input rounded-xl px-3 py-2 text-xs font-medium text-gray-300 w-36 uppercase">
+                <input type="date" class="custom-input rounded-xl px-3 py-2 text-xs font-medium text-gray-300 w-36 uppercase">
                 <span class="text-gray-500 text-[10px] font-black uppercase tracking-wider">TO</span>
-                <input type="date" name="end_date" value="<?= htmlspecialchars($end_date) ?>" class="custom-input rounded-xl px-3 py-2 text-xs font-medium text-gray-300 w-36 uppercase">
+                <input type="date" class="custom-input rounded-xl px-3 py-2 text-xs font-medium text-gray-300 w-36 uppercase">
                 
-                <button type="submit" class="custom-input rounded-xl px-6 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/5">APPLY</button>
+                <button class="custom-input rounded-xl px-6 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-white/5">APPLY</button>
                 
                 <div class="h-6 w-px bg-white/10 mx-1"></div>
                 
-                <a href="?export=csv" class="custom-input rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary hover:border-primary/30 flex items-center gap-2">
+                <button class="custom-input rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary hover:border-primary/30 flex items-center gap-2">
                     <span class="material-symbols-outlined text-sm">download</span> CSV
-                </a>
-            </form>
+                </button>
+            </div>
         </div>
 
         <div id="billing-tab">
@@ -329,67 +281,75 @@ $payments = $stmtPayments->fetchAll();
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <?php if(!empty($payments)): foreach($payments as $row): 
-                                $statusClass = '';
-                                switch($row['status']) {
-                                    case 'Approved': $statusClass = 'text-emerald-500'; break;
-                                    case 'Rejected': $statusClass = 'text-rose-500'; break;
-                                    case 'Pending': $statusClass = 'text-amber-500'; break;
-                                }
-                            ?>
                             <tr class="hover:bg-white/[0.02] transition-colors">
                                 <td class="px-8 py-4">
                                     <div class="flex items-center gap-4">
-                                        <div class="size-9 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-sm shadow-lg border border-primary/30"><?= substr($row['fullname'], 0, 1) ?></div>
+                                        <div class="size-9 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-sm shadow-lg border border-primary/30">J</div>
                                         <div>
-                                            <p class="text-white font-black uppercase italic text-sm tracking-tight"><?= htmlspecialchars($row['fullname']) ?></p>
-                                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">@<?= htmlspecialchars($row['username']) ?></p>
+                                            <p class="text-white font-black uppercase italic text-sm tracking-tight">JOHN DOE</p>
+                                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">@J.DOE</p>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-8 py-4 text-center">
-                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-white">₱<?= number_format($row['amount'], 2) ?></span>
+                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-white">₱1,000.00</span>
                                 </td>
                                 <td class="px-8 py-4 text-center">
-                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-gray-300"><?= $row['payment_method'] ?></span>
+                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-gray-300">GCASH</span>
                                 </td>
                                 <td class="px-8 py-4">
                                     <div class="flex items-center gap-2">
-                                        <p class="text-white font-black italic text-xs tracking-wide"><?= date('h:i A', strtotime($row['payment_date'])) ?></p>
+                                        <p class="text-white font-black italic text-xs tracking-wide">01:00 PM</p>
                                         <span class="text-gray-600 text-[10px] font-black">→</span>
-                                        <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest"><?= date('M d, Y', strtotime($row['payment_date'])) ?></p>
+                                        <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest">JAN 01, 2024</p>
                                     </div>
                                 </td>
                                 <td class="px-8 py-4 text-right">
-                                    <?php if($row['status'] === 'Pending'): ?>
                                     <div class="flex justify-end gap-2">
-                                        <form method="POST">
-                                            <input type="hidden" name="payment_id" value="<?= $row['payment_id'] ?>">
-                                            <input type="hidden" name="action" value="approve">
-                                            <button type="submit" class="size-8 rounded-lg badge-outline flex items-center justify-center hover:bg-emerald-500/20 hover:text-emerald-500 transition-all text-gray-400">
-                                                <span class="material-symbols-outlined text-[16px]">check</span>
-                                            </button>
-                                        </form>
-                                        <form method="POST">
-                                            <input type="hidden" name="payment_id" value="<?= $row['payment_id'] ?>">
-                                            <input type="hidden" name="action" value="reject">
-                                            <button type="submit" class="size-8 rounded-lg badge-outline flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-500 transition-all text-gray-400">
-                                                <span class="material-symbols-outlined text-[16px]">close</span>
-                                            </button>
-                                        </form>
+                                        <button class="size-8 rounded-lg badge-outline flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all text-gray-400">
+                                            <span class="material-symbols-outlined text-[16px]">check</span>
+                                        </button>
+                                        <button class="size-8 rounded-lg badge-outline flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 transition-all text-gray-400">
+                                            <span class="material-symbols-outlined text-[16px]">close</span>
+                                        </button>
                                     </div>
-                                    <?php else: ?>
-                                        <span class="text-[10px] font-black uppercase italic <?= $statusClass ?>"><?= $row['status'] ?></span>
-                                    <?php endif; ?>
                                 </td>
                             </tr>
-                            <?php endforeach; else: ?>
-                            <tr>
-                                <td colspan="5" class="px-8 py-20 text-center text-gray-600 uppercase font-black text-xs italic tracking-widest">
-                                    No transaction records found
+                            
+                            <tr class="hover:bg-white/[0.02] transition-colors">
+                                <td class="px-8 py-4">
+                                    <div class="flex items-center gap-4">
+                                        <div class="size-9 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-sm shadow-lg border border-primary/30">J</div>
+                                        <div>
+                                            <p class="text-white font-black uppercase italic text-sm tracking-tight">JANE SMITH</p>
+                                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">@J.SMITH</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-8 py-4 text-center">
+                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-white">₱1,500.00</span>
+                                </td>
+                                <td class="px-8 py-4 text-center">
+                                    <span class="text-[10px] font-black badge-outline px-4 py-1.5 rounded-full uppercase tracking-widest text-gray-300">CASH</span>
+                                </td>
+                                <td class="px-8 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-white font-black italic text-xs tracking-wide">02:30 PM</p>
+                                        <span class="text-gray-600 text-[10px] font-black">→</span>
+                                        <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest">JAN 02, 2024</p>
+                                    </div>
+                                </td>
+                                <td class="px-8 py-4 text-right">
+                                    <div class="flex justify-end gap-2">
+                                        <button class="size-8 rounded-lg badge-outline flex items-center justify-center hover:bg-primary/20 hover:text-primary transition-all text-gray-400">
+                                            <span class="material-symbols-outlined text-[16px]">check</span>
+                                        </button>
+                                        <button class="size-8 rounded-lg badge-outline flex items-center justify-center hover:bg-red-500/20 hover:text-red-500 transition-all text-gray-400">
+                                            <span class="material-symbols-outlined text-[16px]">close</span>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
-                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
