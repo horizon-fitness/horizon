@@ -187,18 +187,19 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
 <body class="antialiased flex flex-col lg:flex-row min-h-screen">
 
 <nav class="sidebar-nav hidden lg:flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen pl-7 pr-0 py-8 z-50 shrink-0">
-    <div class="mb-10 shrink-0"> 
-        <div class="flex items-center gap-4 mb-4"> 
-            <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+    <div class="mb-12 shrink-0"> 
+        <div class="flex items-center gap-4"> 
+            <div class="size-14 rounded-2xl bg-white/5 flex items-center justify-center shadow-2xl shrink-0 overflow-hidden border border-white/10">
                 <?php if ($gym && !empty($gym['logo_path'])): ?>
-                    <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
+                    <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-cover">
                 <?php else: ?>
-                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                    <span class="material-symbols-outlined text-primary text-3xl">bolt</span>
                 <?php endif; ?>
             </div>
-            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white leading-tight whitespace-nowrap">
-                <?= htmlspecialchars($gym['gym_name'] ?? 'HORIZON COACH') ?>
-            </h1>
+            <div class="nav-text">
+                <h1 class="text-xs font-black italic uppercase tracking-[0.2em] text-primary leading-none mb-1">Horizon</h1>
+                <h2 class="text-lg font-black italic uppercase tracking-tighter text-white leading-none">Systems</h2>
+            </div>
         </div>
     </div>
     
@@ -251,20 +252,25 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
 </nav>
 
 <main class="flex-1 max-w-[1600px] p-6 lg:p-12 overflow-x-hidden">
-    <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-        <div>
-            <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">
-                <?= $selected_member ? 'Member <span class="text-primary">Workouts</span>' : 'All <span class="text-primary">Workouts</span>' ?>
-            </h2>
-            <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">
-                <?= $selected_member ? 'Managing routines for ' . htmlspecialchars($selected_member['first_name'] . ' ' . $selected_member['last_name']) : 'Tracking all your assigned routines' ?>
-            </p>
+    <header class="mb-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div class="flex items-center gap-6 animate-slide-up">
+            <div class="size-20 rounded-[2rem] bg-white/5 flex items-center justify-center shadow-2xl shrink-0 overflow-hidden border border-white/10 p-2">
+                <?php if ($gym && !empty($gym['logo_path'])): ?>
+                    <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
+                <?php else: ?>
+                    <span class="material-symbols-outlined text-primary text-4xl">bolt</span>
+                <?php endif; ?>
+            </div>
+            <div>
+                <h2 class="text-4xl lg:text-5xl font-black italic uppercase tracking-tighter text-white leading-none">Member <span class="text-primary">Workouts</span></h2>
+                <p class="text-gray-500 text-[10px] font-black uppercase tracking-[0.3em] mt-3 ml-1 opacity-60">Training Program Management</p>
+            </div>
         </div>
-        <div class="text-right flex flex-col items-end">
-            <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-            <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4"><?= date('l, M d') ?></p>
+        <div class="text-left md:text-right animate-slide-up" style="animation-delay: 0.1s;">
+            <p id="headerClock" class="text-white font-black italic text-2xl tracking-tight leading-none mb-2">00:00:00 AM</p>
+            <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em]"><?= date('l, M d, Y') ?></p>
             <?php if($selected_member): ?>
-                <button onclick="document.getElementById('assignModal').classList.remove('hidden')" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex items-center gap-2">
+                <button onclick="document.getElementById('assignModal').classList.remove('hidden')" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95 flex items-center gap-2 mt-4">
                     <span class="material-symbols-outlined text-sm">add_circle</span> Assign New
                 </button>
             <?php endif; ?>

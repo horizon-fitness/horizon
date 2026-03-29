@@ -152,16 +152,16 @@ if ($coach_id > 0) {
 
 <nav class="sidebar-nav hidden lg:flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen pl-7 pr-0 py-8 z-50 shrink-0">
     <div class="mb-10 shrink-0"> 
-        <div class="flex items-center gap-4 mb-4"> 
-            <div class="size-11 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+        <div class="flex items-center gap-4"> 
+            <div class="size-11 rounded-xl bg-white/5 flex items-center justify-center shadow-lg shrink-0 overflow-hidden border border-white/10">
                 <?php if ($gym && !empty($gym['logo_path'])): ?>
                     <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-contain">
                 <?php else: ?>
-                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                    <span class="material-symbols-outlined text-primary text-2xl">bolt</span>
                 <?php endif; ?>
             </div>
             <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white leading-tight whitespace-nowrap">
-                <?= htmlspecialchars($gym['gym_name'] ?? 'HORIZON COACH') ?>
+                Coach Dashboard
             </h1>
         </div>
     </div>
@@ -217,7 +217,7 @@ if ($coach_id > 0) {
 <main class="flex-1 max-w-[1600px] p-6 lg:p-12 overflow-x-hidden">
     <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-            <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">Coach <span class="text-primary">Dashboard</span></h2>
+            <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">Coach Dashboard</h2>
             <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Manage your training sessions and member progress</p>
         </div>
         <div class="text-left md:text-right">
