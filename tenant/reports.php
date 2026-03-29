@@ -64,7 +64,7 @@ $stmtFinancials = $pdo->prepare("
     LEFT JOIN users u_member ON m.user_id = u_member.user_id
     LEFT JOIN client_subscriptions cs ON p.client_subscription_id = cs.client_subscription_id
     LEFT JOIN users u_owner ON cs.owner_user_id = u_owner.user_id
-    WHERE p.gym_id = :gid AND p.payment_status = 'Verified' AND p.created_at BETWEEN :start AND :end
+    WHERE p.gym_id = :gid AND p.payment_status IN ('Verified', 'Completed', 'Paid') AND p.created_at BETWEEN :start AND :end
     ORDER BY p.created_at DESC
 ");
 $stmtFinancials->execute($date_params);

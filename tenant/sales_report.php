@@ -17,17 +17,17 @@ $date_to = $_GET['date_to'] ?? date('Y-m-d');
 
 // --- FINANCIAL CALCULATIONS (Scoped by Date Range) ---
 // Total Revenue (Verified only)
-$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified' AND DATE(created_at) BETWEEN ? AND ?");
+$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND DATE(created_at) BETWEEN ? AND ?");
 $stmtTotal->execute([$gym_id, $date_from, $date_to]);
 $total_revenue = $stmtTotal->fetchColumn() ?? 0;
 
 // Lifetime Revenue (Verified only)
-$stmtLifetime = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified'");
+$stmtLifetime = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid')");
 $stmtLifetime->execute([$gym_id]);
 $lifetime_revenue = $stmtLifetime->fetchColumn() ?? 0;
 
 // Today's Sales
-$stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified' AND DATE(created_at) = CURDATE()");
+$stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND DATE(created_at) = CURDATE()");
 $stmtDaily->execute([$gym_id]);
 $daily_sales = $stmtDaily->fetchColumn() ?? 0;
 

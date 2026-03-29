@@ -33,17 +33,17 @@ $bg_color = ($page && isset($page['bg_color'])) ? $page['bg_color'] : '#0a090d';
 
 // --- CALCULATION LOGIC ---
 // Total Revenue (Verified only)
-$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified'");
+$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid')");
 $stmtTotal->execute([$gym_id]);
 $total_revenue = (float)($stmtTotal->fetchColumn() ?: 0);
 
 // Monthly Sales
-$stmtMonthly = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified' AND MONTH(created_at) = MONTH(CURRENT_DATE) AND YEAR(created_at) = YEAR(CURRENT_DATE)");
+$stmtMonthly = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND MONTH(created_at) = MONTH(CURRENT_DATE) AND YEAR(created_at) = YEAR(CURRENT_DATE)");
 $stmtMonthly->execute([$gym_id]);
 $monthly_sales = (float)($stmtMonthly->fetchColumn() ?: 0);
 
 // Daily Revenue
-$stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status = 'Verified' AND DATE(created_at) = CURRENT_DATE");
+$stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND DATE(created_at) = CURRENT_DATE");
 $stmtDaily->execute([$gym_id]);
 $daily_sales = (float)($stmtDaily->fetchColumn() ?: 0);
 
