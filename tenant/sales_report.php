@@ -43,13 +43,19 @@ $stmtHistory = $pdo->prepare("
 $stmtHistory->execute([$gym_id, $date_from, $date_to]);
 $transactions = $stmtHistory->fetchAll();
 
-// Gym Branding Info
+// Fetch Gym Branding Info
 $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]);
 $gym_data = $stmtGym->fetch();
 $gym_name = $gym_data['gym_name'] ?? 'Horizon Gym';
-$theme_color = $gym_data['theme_color'] ?? '#8b5cf6';
-$bg_color = $gym_data['bg_color'] ?? '#0a090b';
+
+// Fetch Custom Branding from tenant_pages
+$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ?");
+$stmtPage->execute([$gym_id]);
+$page = $stmtPage->fetch();
+
+$theme_color = $page['theme_color'] ?? '#8c2bee';
+$bg_color = $page['bg_color'] ?? '#0a090d';
 
 // Check Subscription
 $stmtSub = $pdo->prepare("SELECT ws.plan_name FROM client_subscriptions cs JOIN website_plans ws ON cs.website_plan_id = ws.website_plan_id WHERE cs.gym_id = ? AND cs.subscription_status = 'Active' LIMIT 1");
@@ -72,17 +78,21 @@ $active_page = "sales";
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: { extend: { colors: { "primary": "<?= $theme_color ?>", "surface-dark": "#14121a", "background-dark": "<?= $bg_color ?>" }}}
+            theme: { extend: { colors: { "primary": "var(--primary)", "surface-dark": "#14121a", "background-dark": "var(--background)" }}}
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: <?= $bg_color ?>; color: white; overflow: hidden; }
+        :root {
+            --primary: <?= $theme_color ?>;
+            --background: <?= $bg_color ?>;
+        }
+        body { font-family: 'Lexend', sans-serif; background-color: var(--background); color: white; overflow: hidden; }
 
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .hover-lift:hover { transform: translateY(-10px); border-color: <?= $theme_color ?>40; box-shadow: 0 20px 40px -20px <?= $theme_color ?>30; }
+        .hover-lift:hover { transform: translateY(-10px); border-color: var(--primary); box-shadow: 0 20px 40px -20px var(--primary); }
 
         /* Unified Expanding Sidebar Navigation */
-        .side-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 50; }
+        .side-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 50; background-color: var(--background); }
         .side-nav:hover { width: 300px; }
         .main-content { margin-left: 110px; flex: 1; min-width: 0; transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .side-nav:hover ~ .main-content { margin-left: 300px; }
@@ -95,15 +105,15 @@ $active_page = "sales";
         
         .nav-item { display: flex; align-items: center; gap: 16px; padding: 10px 38px; transition: all 0.2s ease; text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
         .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { color: <?= $theme_color ?> !important; position: relative; }
-        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: <?= $theme_color ?>; border-radius: 4px 0 0 4px; }
+        .nav-item.active { color: var(--primary) !important; position: relative; }
+        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: var(--primary); border-radius: 4px 0 0 4px; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* Inputs */
         .input-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: white; padding: 10px 16px; font-size: 11px; font-weight: 500; outline: none; transition: all 0.2s; }
-        .input-box:focus { border-color: <?= $theme_color ?>; background: rgba(255, 255, 255, 0.08); }
+        .input-box:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.08); }
         .input-box option { background: #14121a; color: white; }
     </style>
     <script>
@@ -124,9 +134,9 @@ $active_page = "sales";
 <nav class="side-nav bg-background-dark border-r border-white/5 z-50">
     <div class="px-7 py-8 mb-4 shrink-0">
         <div class="flex items-center gap-4">
-            <div class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($gym_data['logo_path']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
-                <?php if (!empty($gym_data['logo_path'])): ?>
-                    <img src="<?= htmlspecialchars($gym_data['logo_path']) ?>" class="size-full object-cover">
+            <div class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($page['logo_path']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
+                <?php if (!empty($page['logo_path'])): ?>
+                    <img src="<?= htmlspecialchars($page['logo_path']) ?>" class="size-full object-cover">
                 <?php else: ?>
                     <span class="material-symbols-outlined text-white text-2xl">bolt</span>
                 <?php endif; ?>
