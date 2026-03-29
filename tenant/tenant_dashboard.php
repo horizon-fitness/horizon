@@ -420,6 +420,19 @@ for ($i = 5; $i >= 0; $i--) {
             </div>
 
             <div class="grid grid-cols-1 gap-3">
+                <a href="profile.php" class="group p-5 rounded-3xl bg-white/5 border border-white/5 hover:border-indigo-500/50 transition-all flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="size-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-xl">account_circle</span>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold uppercase italic">My Profile</p>
+                            <p class="text-[9px] text-gray-600 uppercase font-bold mt-0.5">Edit personal and account details</p>
+                        </div>
+                    </div>
+                    <span class="material-symbols-outlined text-gray-600 group-hover:translate-x-1 transition-transform">chevron_right</span>
+                </a>
+
                 <a href="staff.php" class="group p-5 rounded-3xl bg-white/5 border border-white/5 hover:border-primary/50 transition-all flex items-center justify-between">
                     <div class="flex items-center gap-4">
                         <div class="size-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
