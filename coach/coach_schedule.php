@@ -440,10 +440,8 @@ if ($coach_id > 0) {
                     </p>
                 </div>
                 <div class="flex flex-col items-end text-right">
-                    <p id="headerClock" class="text-white font-black italic text-2xl leading-none uppercase">00:00:00 AM
-                    </p>
-                    <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
-                        <?= date('l, M d, Y') ?></p>
+                    <p id="headerClock" class="text-white font-black italic text-2xl leading-none transition-colors hover:text-primary">00:00:00 AM</p>
+                    <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
                 </div>
             </header>
 

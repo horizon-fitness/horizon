@@ -290,13 +290,13 @@ $active_page = "workouts";
                 <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">
                     <?= $selected_member ? 'Member <span class="text-primary">Programs</span>' : 'Training <span class="text-primary">Registry</span>' ?>
                 </h2>
-                <p class="text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-2 ml-0.5">
+                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2 px-1">
                     <?= $selected_member ? 'Managing routines for ' . htmlspecialchars($selected_member['first_name'] . ' ' . $selected_member['last_name']) : 'Tracking all active routines for your members' ?>
                 </p>
             </div>
             <div class="text-right shrink-0">
                 <p id="headerClock" class="text-white font-black italic text-2xl leading-none transition-colors hover:text-primary">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] mt-2"><?= date('l, M d') ?></p>
+                <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
@@ -462,7 +462,7 @@ $active_page = "workouts";
                                 foreach($workouts as $w) { ?>
                             <tr>
                                 <td>
-                                    <p class="text-primary text-[9px] font-black uppercase tracking-widest mb-1 opacity-80"><?= htmlspecialchars($w['first_name'] . ' ' . $w['last_name']) ?></p>
+                                    <p class="text-white/[0.4] text-[9px] font-black uppercase tracking-widest mb-1 italic"><?= htmlspecialchars($w['first_name'] . ' ' . $w['last_name']) ?></p>
                                     <p class="text-white font-black italic uppercase text-sm leading-tight mb-1 truncate max-w-[250px]"><?= htmlspecialchars($w['workout_name']) ?></p>
                                     <p class="text-[10px] text-gray-500 font-medium italic truncate max-w-sm"><?= htmlspecialchars($w['workout_description'] ?: 'No instructions.') ?></p>
                                 </td>
