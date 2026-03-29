@@ -201,7 +201,7 @@ CREATE TABLE gym_services (
 
 CREATE TABLE membership_plans (
     membership_plan_id INT AUTO_INCREMENT PRIMARY KEY,
-    gym_id INT NOT NULL,
+    gym_id INT, -- NULL means Global Plan shared by all
     plan_name VARCHAR(100) NOT NULL,
     plan_type_id INT NOT NULL,
     duration_value INT NOT NULL,
@@ -400,6 +400,7 @@ CREATE TABLE payments (
     reference_number VARCHAR(50) NOT NULL,
     receipt_image LONGTEXT,
     payment_status VARCHAR(50) NOT NULL,
+    payment_date DATE,
     verified_by INT,
     verified_at DATETIME,
     remarks TEXT,
@@ -489,3 +490,11 @@ CREATE TABLE member_workouts (
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 );
+
+-- Standardized Global Membership Plans
+INSERT INTO membership_plan_types (type_name) VALUES ('Gym Membership');
+
+INSERT INTO membership_plans (gym_id, plan_name, plan_type_id, duration_value, price, session_limit, description, created_at, updated_at) VALUES 
+(NULL, 'MONTHLY PASS', 1, 30, 1500.00, 30, 'Standard 30-day gym access with a 30-session limit.', NOW(), NOW()),
+(NULL, 'QUARTERLY ELITE', 1, 90, 4000.00, 90, 'Premium 90-day access for dedicated members.', NOW(), NOW()),
+(NULL, 'VIP ANNUAL', 1, 365, 14000.00, 365, 'The ultimate membership for those who want yearly consistency.', NOW(), NOW());

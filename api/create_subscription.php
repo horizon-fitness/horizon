@@ -65,19 +65,9 @@ try {
     }
 
     // 2. Resolve Plan Details & Amount
-    // SEEDING CHECK: If no plans exist for this gym, add the standard ones now!
-    $stmtCountPlans = $pdo->prepare("SELECT COUNT(*) FROM membership_plans WHERE gym_id = ?");
-    $stmtCountPlans->execute([$gym_id]);
-    if ($stmtCountPlans->fetchColumn() == 0) {
-        $stmtSeed = $pdo->prepare("INSERT INTO membership_plans (gym_id, plan_name, plan_type_id, duration_value, price, session_limit, created_at, updated_at) VALUES 
-            (?, 'MONTHLY PASS', 1, 30, 1500.00, 30, ?, ?),
-            (?, 'QUARTERLY ELITE', 1, 90, 4000.00, 90, ?, ?),
-            (?, 'VIP ANNUAL', 1, 365, 14000.00, 365, ?, ?)");
-        $stmtSeed->execute([$gym_id, $now, $now, $gym_id, $now, $now, $gym_id, $now, $now]);
-    }
-
     $amount = 0.0;
-    $stmtPlan = $pdo->prepare("SELECT * FROM membership_plans WHERE membership_plan_id = ? AND gym_id = ? LIMIT 1");
+    // Check for both gym-specific and global plans (gym_id IS NULL)
+    $stmtPlan = $pdo->prepare("SELECT * FROM membership_plans WHERE membership_plan_id = ? AND (gym_id = ? OR gym_id IS NULL) LIMIT 1");
     $stmtPlan->execute([$plan_id, $gym_id]);
     $plan = $stmtPlan->fetch();
 
@@ -87,7 +77,7 @@ try {
             $sessions_total = (int)$plan['session_limit'];
         }
     } else {
-        // Fallback default prices based on app selection logic
+        // Fallback default prices based on standard app definitions
         if ($plan_id == 1) $amount = 1500.00;
         elseif ($plan_id == 2) $amount = 4000.00;
         elseif ($plan_id == 3) $amount = 14000.00;
@@ -108,9 +98,9 @@ try {
     $reference_number = 'PM-' . strtoupper(substr(md5(time() . $real_member_id), 0, 8));
     
     $stmtPay = $pdo->prepare("INSERT INTO payments 
-        (member_id, gym_id, subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at) 
-        VALUES (?, ?, ?, ?, 'PayMongo', 'Subscription', ?, 'Completed', ?, ?)");
-    $stmtPay->execute([$real_member_id, $gym_id, $subscription_id, $amount, $reference_number, date('Y-m-d'), $now]);
+        (member_id, gym_id, subscription_id, amount, payment_method, payment_type, reference_number, payment_status, created_at) 
+        VALUES (?, ?, ?, ?, 'PayMongo', 'Subscription', ?, 'Completed', ?)");
+    $stmtPay->execute([$real_member_id, $gym_id, $subscription_id, $amount, $reference_number, $now]);
     $payment_id = $pdo->lastInsertId();
 
     // 5. Update Member Status if needed
