@@ -67,13 +67,10 @@ if (isset($_GET['action']) && $_GET['action'] == 'update_status' && isset($_GET[
 if (isset($_GET['seed_demo']) && $member_id > 0) {
     try {
         $sample_workouts = [
-            ['Push Day (Hypertrophy)', 'Bench Press: 3x10, DB Incline: 3x12, Lateral Raises: 4x15, Tricep Pushdowns: 3x15. Focus on mind-muscle connection.', 'Assigned', date('Y-m-d', strtotime('+1 day'))],
-            ['Pull Day (Strength)', 'Deadlifts: 5x5, Pull-ups: 3xMax, Barbell Rows: 4x8, Face Pulls: 3x20. Maintain neutral spine throughout.', 'Assigned', date('Y-m-d', strtotime('+3 days'))],
-            ['Leg Day (Power)', 'Back Squats: 5x5, Romanian Deadlifts: 3x10, Bulgarian Split Squats: 3x12 each, Goblet Squats: 3x15.', 'Assigned', date('Y-m-d', strtotime('+5 days'))],
-            ['Metabolic Conditioning', 'Circuit: Kettlebell Swings (20), Burpees (10), Box Jumps (15), Battle Ropes (30s). 5 rounds, 60s rest.', 'Completed', date('Y-m-d', strtotime('-2 days'))],
-            ['Active Recovery & Mobility', '20min walking, Cat-Cow (10), Bird-Dog (10 each), Hip Openers, Foam Rolling (Full body).', 'Completed', date('Y-m-d', strtotime('-4 days'))]
+            ['Chest & Triceps', 'Bench press 4x8, Incline Dumbbell press 3x10, Tricep pushdowns 3x15', 'Assigned', date('Y-m-d', strtotime('+1 day'))],
+            ['Leg Day A', 'Squats 4x6, Leg Press 3x12, Leg curls 3x15, Calf raises 4x20', 'Assigned', date('Y-m-d', strtotime('+3 days'))],
+            ['Active Recovery', '30 min steady state cardio, foam rolling, stretching', 'Completed', date('Y-m-d', strtotime('-2 days'))]
         ];
-
         
         $stmtSeed = $pdo->prepare("INSERT INTO member_workouts (member_id, coach_id, gym_id, workout_name, workout_description, workout_status, scheduled_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
         foreach($sample_workouts as $sw) {
