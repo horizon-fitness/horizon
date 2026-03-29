@@ -95,6 +95,36 @@ $stmtUsers->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
 $stmtUsers->execute();
 $users_list = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
 
+// --- ACCOUNT STATUS TOGGLE HANDLER ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_status_id'])) {
+    $target_uid = (int) $_POST['toggle_status_id'];
+    
+    // Safety check: verify user exists in this gym and is NOT a tenant/superadmin
+    $stmt = $pdo->prepare("
+        SELECT u.is_active, r.role_name 
+        FROM users u 
+        JOIN user_roles ur ON u.user_id = ur.user_id 
+        JOIN roles r ON ur.role_id = r.role_id 
+        WHERE u.user_id = ? AND ur.gym_id = ? 
+        LIMIT 1
+    ");
+    $stmt->execute([$target_uid, $gym_id]);
+    $user_data = $stmt->fetch();
+    
+    if ($user_data && strtolower($user_data['role_name']) !== 'tenant' && strtolower($user_data['role_name']) !== 'superadmin') {
+        $new_status = $user_data['is_active'] ? 0 : 1;
+        $stmtUpdate = $pdo->prepare("UPDATE users SET is_active = ?, updated_at = NOW() WHERE user_id = ?");
+        $stmtUpdate->execute([$new_status, $target_uid]);
+        
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true]);
+    } else {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'The target account is a protected system node and cannot be restricted.']);
+    }
+    exit;
+}
+
 // --- AJAX USER PROFILE FETCH ---
 if (isset($_GET['ajax_user_id'])) {
     $uid = (int) $_GET['ajax_user_id'];
@@ -562,7 +592,32 @@ $active_page = "admin_users";
             }
         }
         setInterval(updateHeaderClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateHeaderClock); 
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);        async function toggleAccountStatus(userId) {
+            if (!confirm('Proceed with account status protocol? User access will be updated immediately.')) return;
+
+            try {
+                const formData = new FormData();
+                formData.append('toggle_status_id', userId);
+
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                // This will fail if the response isn't JSON, e.g. error redirect
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update table reactively
+                    reactiveFilter();
+                } else {
+                    alert(result.message || 'Access protocol update failed.');
+                }
+            } catch (error) {
+                console.error('Status Update Error:', error);
+                alert('A synchronisation error occurred in the gateway.');
+            }
+        }
     </script>
 </head>
 
@@ -775,9 +830,19 @@ $active_page = "admin_users";
                                                         <span class="material-symbols-outlined text-lg">verified_user</span>
                                                     </button>
                                                 <?php else: ?>
-                                                    <button class="size-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white/10 text-gray-500 transition-all cursor-not-allowed opacity-30" title="Control logic in protocol sync...">
-                                                        <span class="material-symbols-outlined text-lg">lock</span>
-                                                    </button>
+                                                    <?php if($row['is_active']): ?>
+                                                        <button onclick="toggleAccountStatus(<?= $row['id'] ?>)" 
+                                                            class="size-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/10 hover:text-rose-500 text-gray-500 transition-all active:scale-90" 
+                                                            title="Lock / Restrict Account Access">
+                                                            <span class="material-symbols-outlined text-lg">lock</span>
+                                                        </button>
+                                                    <?php else: ?>
+                                                        <button onclick="toggleAccountStatus(<?= $row['id'] ?>)" 
+                                                            class="size-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center hover:bg-emerald-500/10 hover:text-emerald-500 text-rose-500 transition-all active:scale-90" 
+                                                            title="Unlock / Restore Account Access">
+                                                            <span class="material-symbols-outlined text-lg">lock_open</span>
+                                                        </button>
+                                                    <?php endif; ?>
                                                 <?php endif; ?>
                                             </div>
                                         </td>
