@@ -3,9 +3,9 @@ session_start();
 require_once '../db.php';
 require_once '../includes/audit_logger.php';
 
-// Security Check
-$role = strtolower($_SESSION['role'] ?? '');
-if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
+// Security Check: Only Staff and Coach
+$role_session = strtolower($_SESSION['role'] ?? '');
+if (!isset($_SESSION['user_id']) || ($role_session !== 'staff' && $role_session !== 'coach')) {
     header("Location: ../login.php");
     exit;
 }
@@ -16,7 +16,8 @@ $success_msg = '';
 $error_msg = '';
 
 // Helper function for Base64 conversion
-function convertFileToBase64($fileInputName) {
+function convertFileToBase64($fileInputName)
+{
     if (isset($_FILES[$fileInputName]) && $_FILES[$fileInputName]['error'] == 0) {
         $tmpPath = $_FILES[$fileInputName]['tmp_name'];
         $fileType = $_FILES[$fileInputName]['type'];
@@ -31,46 +32,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $first_name = trim($_POST['first_name']);
     $last_name = trim($_POST['last_name']);
     $email = trim($_POST['email']);
-    $phone = trim($_POST['phone']);
+    $contact_number = trim($_POST['phone']);
     $now = date('Y-m-d H:i:s');
 
     try {
         $pdo->beginTransaction();
-        
-        // Fetch old values for audit
-        $stmtOld = $pdo->prepare("SELECT first_name, last_name, email, phone_number, profile_picture FROM users WHERE user_id = ?");
+
+        $stmtOld = $pdo->prepare("SELECT first_name, last_name, email, contact_number, profile_picture FROM users WHERE user_id = ?");
         $stmtOld->execute([$user_id]);
         $old_values = $stmtOld->fetch(PDO::FETCH_ASSOC);
 
         $profile_picture = convertFileToBase64('profile_picture');
-        
+
         if ($profile_picture) {
-            $stmtUpdate = $pdo->prepare("UPDATE users SET first_name = ?, last_name = ?, email = ?, phone_number = ?, profile_picture = ?, updated_at = ? WHERE user_id = ?");
-            $params = [$first_name, $last_name, $email, $phone, $profile_picture, $now, $user_id];
-            $new_values = ['first_name' => $first_name, 'last_name' => $last_name, 'email' => $email, 'phone_number' => $phone, 'profile_picture' => '[IMAGE DATA]'];
+            $stmtUpdate = $pdo->prepare("UPDATE users SET first_name = ?, last_name = ?, email = ?, contact_number = ?, profile_picture = ?, updated_at = ? WHERE user_id = ?");
+            $params = [$first_name, $last_name, $email, $contact_number, $profile_picture, $now, $user_id];
+            $new_values = ['first_name' => $first_name, 'last_name' => $last_name, 'email' => $email, 'contact_number' => $contact_number, 'profile_picture' => '[IMAGE DATA]'];
         } else {
-            $stmtUpdate = $pdo->prepare("UPDATE users SET first_name = ?, last_name = ?, email = ?, phone_number = ?, updated_at = ? WHERE user_id = ?");
-            $params = [$first_name, $last_name, $email, $phone, $now, $user_id];
-            $new_values = ['first_name' => $first_name, 'last_name' => $last_name, 'email' => $email, 'phone_number' => $phone];
+            $stmtUpdate = $pdo->prepare("UPDATE users SET first_name = ?, last_name = ?, email = ?, contact_number = ?, updated_at = ? WHERE user_id = ?");
+            $params = [$first_name, $last_name, $email, $contact_number, $now, $user_id];
+            $new_values = ['first_name' => $first_name, 'last_name' => $last_name, 'email' => $email, 'contact_number' => $contact_number];
         }
 
         $stmtUpdate->execute($params);
-        
-        // Log Audit Event
         log_audit_event($pdo, $user_id, $gym_id, 'Update', 'users', $user_id, $old_values, $new_values);
-        
         $pdo->commit();
         $success_msg = "Profile updated successfully!";
-        
-        // Refresh session data
         $_SESSION['first_name'] = $first_name;
         $_SESSION['last_name'] = $last_name;
-        $_SESSION['email'] = $email;
-        $_SESSION['phone_number'] = $phone;
-        
     } catch (Exception $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        $error_msg = "Error updating profile: " . $e->getMessage();
+        if ($pdo->inTransaction())
+            $pdo->rollBack();
+        $error_msg = "Error: " . $e->getMessage();
     }
 }
 
@@ -88,13 +81,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
         if (!password_verify($current_password, $user_data['password_hash'])) {
             throw new Exception("Incorrect current password.");
         }
-
         if ($new_password !== $confirm_password) {
-            throw new Exception("New passwords do not match.");
+            throw new Exception("Passwords do not match.");
         }
-
         if (strlen($new_password) < 8) {
-            throw new Exception("New password must be at least 8 characters long.");
+            throw new Exception("Must be at least 8 characters.");
         }
 
         $new_hash = password_hash($new_password, PASSWORD_BCRYPT);
@@ -102,16 +93,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
         $stmtUpdate->execute([$new_hash, $user_id]);
 
         log_audit_event($pdo, $user_id, $gym_id, 'Update', 'users', $user_id, ['password' => 'CHANGED'], ['password' => 'CHANGED']);
-
         $success_msg = "Password changed successfully!";
     } catch (Exception $e) {
         $error_msg = $e->getMessage();
     }
 }
 
-// Fetch current user data and gym branding
-$stmtUser = $pdo->prepare("SELECT * FROM users WHERE user_id = ?");
-$stmtUser->execute([$user_id]);
+// FETCH Comprehensive Data
+$stmtUser = $pdo->prepare("
+    SELECT u.*, s.staff_role, s.employment_type, s.status as staff_status
+    FROM users u
+    INNER JOIN staff s ON u.user_id = s.user_id
+    WHERE u.user_id = ? AND s.gym_id = ?
+");
+$stmtUser->execute([$user_id, $gym_id]);
 $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 
 $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
@@ -120,31 +115,67 @@ $gym = $stmtGym->fetch();
 
 $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
 $stmtPage->execute([$gym_id]);
-$page = $stmtPage->fetch();
+$tenant_config = $stmtPage->fetch();
 
-$page_title = "Staff Profile";
+$page_title = "Account Profile";
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
+
 <head>
-    <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title><?= $page_title ?> | Staff Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Profile | Horizon</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "<?= $page['theme_color'] ?? '#8c2bee' ?>", "background-dark": "<?= $page['bg_color'] ?? '#0a090d' ?>", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" }}}
-        }
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "<?= $tenant_config['theme_color'] ?? '#8c2bee' ?>",
+                        "background-dark": "<?= $tenant_config['bg_color'] ?? '#0a090d' ?>",
+                        "surface-dark": "#14121a",
+                        "border-subtle": "rgba(255,255,255,0.05)"
+                    }
+                }
+            }
+        } 
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: <?= $page['bg_color'] ?? '#0a090d' ?>; color: white; display: flex; flex-direction: row; min-h-screen: 100vh; }
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        
-        /* Sidebar Hover Logic - MATCHING CORE DASHBOARD */
+        body {
+            font-family: 'Lexend', sans-serif;
+            background-color:
+                <?= $tenant_config['bg_color'] ?? '#0a090d' ?>
+            ;
+            color: white;
+            display: flex;
+            flex-direction: row;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .glass-card {
+            background: #14121a;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+        }
+
+        :root {
+            --nav-width: 100px;
+        }
+
+        body:has(.side-nav:hover) {
+            --nav-width: 280px;
+        }
+
         .side-nav {
-            width: 110px; 
+            width: var(--nav-width);
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
             display: flex;
@@ -153,21 +184,16 @@ $page_title = "Staff Profile";
             left: 0;
             top: 0;
             height: 100vh;
-            z-index: 50;
-        }
-        .side-nav:hover {
-            width: 300px; 
+            z-index: 110;
         }
 
-        /* Main Content Adjustment */
         .main-content {
-            margin-left: 110px; 
+            margin-left: var(--nav-width);
             flex: 1;
             min-width: 0;
             transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .side-nav:hover ~ .main-content {
-            margin-left: 300px; 
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .nav-label {
@@ -177,6 +203,7 @@ $page_title = "Staff Profile";
             white-space: nowrap;
             pointer-events: none;
         }
+
         .side-nav:hover .nav-label {
             opacity: 1;
             transform: translateX(0);
@@ -191,51 +218,111 @@ $page_title = "Staff Profile";
             margin: 0 !important;
             pointer-events: none;
         }
+
         .side-nav:hover .nav-section-label {
             max-height: 20px;
             opacity: 1;
-            margin-bottom: 0px !important; 
+            margin-bottom: 8px !important;
             pointer-events: auto;
         }
-        .side-nav:hover .mt-0 { margin-top: 0px !important; } 
 
-        .nav-item { 
-            display: flex; 
-            align-items: center; 
-            gap: 16px; 
-            padding: 10px 38px; 
-            transition: all 0.2s ease; 
-            text-decoration: none; 
-            white-space: nowrap; 
-            font-size: 13px; 
-            font-weight: 700; 
-            letter-spacing: 0.02em; 
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 32px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            white-space: nowrap;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
             color: #94a3b8;
         }
-        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { color: <?= $page['theme_color'] ?? '#8c2bee' ?> !important; position: relative; }
-        .nav-item.active::after { 
-            content: ''; 
-            position: absolute; 
-            right: 0px; 
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .nav-item.active {
+            color:
+                <?= $tenant_config['theme_color'] ?? '#8c2bee' ?>
+                !important;
+            position: relative;
+        }
+
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            right: 0px;
             top: 50%;
             transform: translateY(-50%);
-            width: 4px; 
-            height: 24px; 
-            background: <?= $page['theme_color'] ?? '#8c2bee' ?>; 
-            border-radius: 4px 0 0 4px; 
+            width: 4px;
+            height: 20px;
+            background:
+                <?= $tenant_config['theme_color'] ?? '#8c2bee' ?>
+            ;
+            border-radius: 4px 0 0 4px;
         }
-        
-        .input-field { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 16px; color: white; font-size: 13px; transition: all 0.2s; backdrop-filter: blur(12px); width: 100%; }
-        .input-field:focus { border-color: <?= $page['theme_color'] ?? '#8c2bee' ?>; outline: none; background: rgba(140,43,238,0.05); }
-        
-        .strength-bar { height: 4px; border-radius: 2px; transition: all 0.3s ease; width: 0; }
-        .strength-weak { background-color: #ef4444; width: 33.33%; }
-        .strength-medium { background-color: #f59e0b; width: 66.66%; }
-        .strength-strong { background-color: #10b981; width: 100%; }
-        
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .input-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: white;
+            padding: 10px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .input-box:focus {
+            border-color:
+                <?= $tenant_config['theme_color'] ?? '#8c2bee' ?>
+            ;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .strength-bar {
+            height: 4px;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+            width: 0;
+        }
+
+        .strength-weak {
+            background-color: #ef4444;
+            width: 33.33%;
+        }
+
+        .strength-medium {
+            background-color: #f59e0b;
+            width: 66.66%;
+        }
+
+        .strength-strong {
+            background-color: #10b981;
+            width: 100%;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .info-value {
+            word-break: break-all;
+            white-space: normal;
+            line-height: 1.2;
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -248,283 +335,353 @@ $page_title = "Staff Profile";
         setInterval(updateHeaderClock, 1000);
         window.addEventListener('DOMContentLoaded', updateHeaderClock);
 
-        function togglePassword(id, btn) {
-            const input = document.getElementById(id);
-            const icon = btn.querySelector('.material-symbols-outlined');
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.textContent = 'visibility_off';
-            } else {
-                input.type = 'password';
-                icon.textContent = 'visibility';
-            }
-        }
-
         function checkPasswordStrength(password) {
             let strength = 0;
             const indicator = document.getElementById('strength-indicator');
             const text = document.getElementById('strength-text');
-            
             if (password.length >= 8) strength++;
             if (/[A-Z]/.test(password)) strength++;
-            if (/[a-z]/.test(password)) strength++;
             if (/[0-9]/.test(password)) strength++;
             if (/[^A-Za-z0-9]/.test(password)) strength++;
-
             indicator.className = 'strength-bar';
-            
             if (password.length === 0) {
                 text.textContent = '';
-            } else if (strength <= 2) {
+            } else if (strength <= 1) {
                 indicator.classList.add('strength-weak');
                 text.textContent = 'Weak';
-                text.className = 'text-[10px] font-black uppercase tracking-widest text-red-500 mt-1';
-            } else if (strength <= 4) {
+                text.className = 'text-[8px] font-black uppercase tracking-widest text-rose-500 mt-1';
+            } else if (strength <= 3) {
                 indicator.classList.add('strength-medium');
                 text.textContent = 'Medium';
-                text.className = 'text-[10px] font-black uppercase tracking-widest text-amber-500 mt-1';
+                text.className = 'text-[8px] font-black uppercase tracking-widest text-amber-500 mt-1';
             } else {
                 indicator.classList.add('strength-strong');
                 text.textContent = 'Strong';
-                text.className = 'text-[10px] font-black uppercase tracking-widest text-emerald-500 mt-1';
+                text.className = 'text-[8px] font-black uppercase tracking-widest text-emerald-500 mt-1';
+            }
+        }
+
+        function previewProfileImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const img = document.getElementById('profilePreviewImg');
+                    const placeholder = document.getElementById('profilePlaceholder');
+                    if (img) {
+                        img.src = e.target.result;
+                        img.classList.remove('hidden');
+                    }
+                    if (placeholder) placeholder.classList.add('hidden');
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function togglePassword(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.textContent = 'visibility';
+            } else {
+                input.type = 'password';
+                icon.textContent = 'visibility_off';
             }
         }
     </script>
 </head>
-<body class="antialiased flex flex-row min-h-screen">
 
-<nav class="side-nav flex flex-col fixed left-0 top-0 h-screen bg-background-dark border-r border-white/5 z-50">
-    <div class="px-7 py-8">
-        <div class="flex items-center gap-[6px]">
-            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($page['logo_path'])): 
-                    $logo_src = (strpos($page['logo_path'], 'data:image') === 0) ? $page['logo_path'] : '../' . $page['logo_path'];
-                ?>
-                    <img src="<?= $logo_src ?>" class="size-full object-contain">
-                <?php else: ?>
-                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
-                <?php endif; ?>
+<body class="antialiased flex h-screen overflow-hidden">
+
+    <nav class="side-nav flex flex-col fixed left-0 top-0 h-screen bg-background-dark border-r border-white/5 no-print">
+        <div class="px-7 py-8 mb-4 shrink-0">
+            <div class="flex items-center gap-4">
+                <div
+                    class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                    <?php if (!empty($tenant_config['logo_path'])):
+                        $logo_src = (strpos($tenant_config['logo_path'], 'data:image') === 0) ? $tenant_config['logo_path'] : '../' . $tenant_config['logo_path'];
+                        ?>
+                        <img src="<?= $logo_src ?>" class="size-full object-contain">
+                    <?php else: ?>
+                        <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                    <?php endif; ?>
+                </div>
+                <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Staff Portal</h1>
             </div>
-            <span class="nav-label text-white font-black italic uppercase tracking-tighter text-base leading-none">Staff Portal</span>
         </div>
-    </div>
-    
-    <div class="flex flex-col flex-1 overflow-y-auto no-scrollbar gap-0.5">
-        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-0">Main Menu</span>
-        
-        <a href="admin_dashboard.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_dashboard.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span>
-            <span class="nav-label">Dashboard</span>
-        </a>
-
-        <a href="register_member.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'register_member.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">person_add</span>
-            <span class="nav-label">Walk-in Member</span>
-        </a>
-
-        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-4 mb-2">Management</span>
-        
-        <a href="admin_users.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_users.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">group</span>
-            <span class="nav-label">My Users</span>
-        </a>
-        
-        <a href="admin_transaction.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_transaction.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
-            <span class="nav-label">Transactions</span>
-        </a>
-
-        <a href="admin_appointment.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_appointment.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">event_note</span>
-            <span class="nav-label">Bookings</span>
-        </a>
-
-        <a href="admin_attendance.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_attendance.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">history</span>
-            <span class="nav-label">Attendance</span>
-        </a>
-
-        <a href="admin_report.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_report.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">description</span>
-            <span class="nav-label">Reports</span>
-        </a>
-    </div>
-
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
-        <span class="nav-section-label text-[10px] font-black text-gray-500 uppercase tracking-widest px-[38px] mt-0 mb-2">Account</span>
-
-        <a href="admin_profile.php" class="nav-item <?= (basename($_SERVER['PHP_SELF']) == 'admin_profile.php') ? 'active' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">account_circle</span>
-            <span class="nav-label">Profile</span>
-        </a>
-
-        <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors group">
-            <span class="material-symbols-outlined text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
-            <span class="nav-label">Sign Out</span>
-        </a>
-    </div>
-</nav>
-
-<div class="main-content flex flex-col min-w-0">
-    <main class="flex-1 p-6 md:p-10 max-w-[1200px] w-full mx-auto">
-        <header class="mb-10 flex flex-row justify-between items-end gap-6">
-            <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Staff <span class="text-primary">Profile</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Personal Identity & Security</p>
-            </div>
-            <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
-            </div>
-        </header>
-
-        <?php if ($success_msg): ?>
-        <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
-            <span class="material-symbols-outlined text-sm">check_circle</span>
-            <?= htmlspecialchars($success_msg) ?>
+        <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
+            <div class="nav-section-label px-[38px] mb-2"><span
+                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span></div>
+            <a href="admin_dashboard.php" class="nav-item"><span
+                    class="material-symbols-outlined text-xl shrink-0">grid_view</span><span
+                    class="nav-label">Dashboard</span></a>
+            <a href="register_member.php" class="nav-item"><span
+                    class="material-symbols-outlined text-xl shrink-0">person_add</span><span class="nav-label">Walk-in
+                    Member</span></a>
+            <div class="nav-section-label px-[38px] mb-2 mt-6"><span
+                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
+            <a href="admin_users.php" class="nav-item"><span
+                    class="material-symbols-outlined text-xl shrink-0">group</span><span class="nav-label">My
+                    Users</span></a>
+            <a href="admin_transaction.php" class="nav-item"><span
+                    class="material-symbols-outlined text-xl shrink-0">receipt_long</span><span
+                    class="nav-label">Transactions</span></a>
+            <a href="admin_appointment.php" class="nav-item"><span
+                    class="material-symbols-outlined text-xl shrink-0">event_note</span><span
+                    class="nav-label">Bookings</span></a>
+            <a href="admin_attendance.php" class="nav-item"><span
+                    class="material-symbols-outlined text-xl shrink-0">history</span><span
+                    class="nav-label">Attendance</span></a>
+            <a href="admin_report.php" class="nav-item"><span
+                    class="material-symbols-outlined text-xl shrink-0">description</span><span
+                    class="nav-label">Reports</span></a>
         </div>
-        <?php endif; ?>
-
-        <?php if ($error_msg): ?>
-        <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-3">
-            <span class="material-symbols-outlined text-sm">error</span>
-            <?= htmlspecialchars($error_msg) ?>
+        <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
+            <div class="nav-section-label px-[38px] mb-2"><span
+                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
+            <a href="admin_profile.php" class="nav-item active"><span
+                    class="material-symbols-outlined text-xl shrink-0">account_circle</span><span
+                    class="nav-label">Profile</span></a>
+            <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors group">
+                <span
+                    class="material-symbols-outlined text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
+                <span class="nav-label whitespace-nowrap">Sign Out</span>
+            </a>
         </div>
-        <?php endif; ?>
+    </nav>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <!-- Profile Info Column -->
-            <div class="md:col-span-2 space-y-8">
-                <form action="" method="POST" enctype="multipart/form-data" class="glass-card p-8 space-y-8">
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-primary">person</span>
-                        </div>
-                        <div>
-                            <h3 class="text-sm font-black italic uppercase tracking-widest">Personal Information</h3>
-                            <p class="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Update your staff identity</p>
-                        </div>
+    <div class="main-content flex-1 overflow-y-auto no-scrollbar">
+        <main class="p-10 max-w-[1100px] mx-auto pb-20">
+            <header class="mb-12 flex flex-row justify-between items-end gap-6">
+                <div>
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Account
+                        <span class="text-primary">Profile</span></h2>
+                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60">
+                        Identity & Safety</p>
+                </div>
+                <div class="flex items-end gap-8 text-right shrink-0 no-print">
+                    <div class="flex flex-col items-end">
+                        <p id="headerClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">
+                            00:00:00 AM</p>
+                        <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
+                            <?= date('l, M d, Y') ?></p>
                     </div>
+                </div>
+            </header>
 
-                    <div class="flex flex-col md:flex-row gap-8 items-start">
-                        <div class="shrink-0 flex flex-col items-center gap-4">
-                            <div class="size-32 rounded-[2rem] bg-white/5 border border-white/10 overflow-hidden relative group">
-                                <?php if ($user['profile_picture']): ?>
-                                    <img src="<?= $user['profile_picture'] ?>" class="size-full object-cover">
-                                <?php else: ?>
-                                    <div class="size-full flex items-center justify-center bg-primary/5 text-primary text-4xl font-black italic">
-                                        <?= strtoupper($user['first_name'][0] . $user['last_name'][0]) ?>
-                                    </div>
-                                <?php endif; ?>
-                                <label class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer">
-                                    <span class="material-symbols-outlined text-2xl mb-1">photo_camera</span>
-                                    <span class="text-[8px] font-black uppercase tracking-widest">Change</span>
-                                    <input type="file" name="profile_picture" class="hidden" accept="image/*">
-                                </label>
+            <?php if ($success_msg): ?>
+                <div
+                    class="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-3">
+                    <span class="material-symbols-outlined text-base">check_circle</span> <?= $success_msg ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($error_msg): ?>
+                <div
+                    class="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[9px] font-black uppercase tracking-[0.2em] flex items-center gap-3">
+                    <span class="material-symbols-outlined text-base">error</span> <?= $error_msg ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 space-y-6">
+                    <form action="" method="POST" enctype="multipart/form-data"
+                        class="glass-card p-8 space-y-5 border border-white/5 relative overflow-hidden">
+                        <div
+                            class="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl">
+                        </div>
+
+                        <div class="flex items-center gap-3 relative z-10 border-b border-white/5 pb-4 mb-2">
+                            <div
+                                class="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                                <span class="material-symbols-outlined text-xl">person</span>
+                            </div>
+                            <div>
+                                <h3 class="text-[11px] font-black italic uppercase tracking-[0.2em] text-white">PROFILE
+                                </h3>
+                                <p class="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Edit your
+                                    staff credentials</p>
                             </div>
                         </div>
 
-                        <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-                            <div class="flex flex-col gap-2">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">First Name</label>
-                                <input type="text" name="first_name" class="input-field" value="<?= htmlspecialchars($user['first_name']) ?>" required>
+                        <div class="flex flex-col md:flex-row gap-8 items-start relative z-10">
+                            <div class="shrink-0 mx-auto md:mx-0">
+                                <div
+                                    class="size-28 rounded-[28px] bg-white/5 border border-white/10 overflow-hidden relative group cursor-pointer shadow-2xl">
+                                    <?php if (!empty($user['profile_picture'])): ?>
+                                        <img id="profilePreviewImg" src="<?= $user['profile_picture'] ?>"
+                                            class="size-full object-cover transition-transform duration-700 group-hover:scale-110">
+                                    <?php else: ?>
+                                        <img id="profilePreviewImg" src=""
+                                            class="size-full object-cover transition-transform duration-700 group-hover:scale-110 hidden">
+                                        <div id="profilePlaceholder"
+                                            class="size-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-primary text-3xl font-black italic group-hover:scale-110 transition-transform duration-500">
+                                            <?= strtoupper($user['first_name'][0] . $user['last_name'][0]) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <label
+                                        class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-1.5 backdrop-blur-sm">
+                                        <span class="material-symbols-outlined text-white text-2xl">add_a_photo</span>
+                                        <span
+                                            class="text-[8px] font-black uppercase text-white tracking-[0.2em]">Update</span>
+                                        <input type="file" name="profile_picture" class="hidden" accept="image/*"
+                                            onchange="previewProfileImage(this)">
+                                    </label>
+                                </div>
                             </div>
-                            <div class="flex flex-col gap-2">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Last Name</label>
-                                <input type="text" name="last_name" class="input-field" value="<?= htmlspecialchars($user['last_name']) ?>" required>
-                            </div>
-                            <div class="flex flex-col gap-2">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Email Address</label>
-                                <input type="email" name="email" class="input-field" value="<?= htmlspecialchars($user['email']) ?>" required>
-                            </div>
-                            <div class="flex flex-col gap-2">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Phone Number</label>
-                                <input type="text" name="phone" class="input-field" value="<?= htmlspecialchars($user['phone_number']) ?>" required>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="pt-4 flex justify-end">
-                        <button type="submit" name="update_profile" class="px-8 py-3 rounded-xl bg-primary hover:bg-primary/90 text-white text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-[0.98] flex items-center gap-2">
-                            <span class="material-symbols-outlined text-sm">save</span> Update Profile
-                        </button>
-                    </div>
-                </form>
+                            <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
+                                <div class="space-y-1.5">
+                                    <p class="text-[9px] font-black uppercase tracking-widest text-primary/60 ml-1">
+                                        First Name</p>
+                                    <input type="text" name="first_name"
+                                        value="<?= htmlspecialchars($user['first_name']) ?>" class="input-box" required>
+                                </div>
+                                <div class="space-y-1.5">
+                                    <p class="text-[9px] font-black uppercase tracking-widest text-primary/60 ml-1">Last
+                                        Name</p>
+                                    <input type="text" name="last_name"
+                                        value="<?= htmlspecialchars($user['last_name']) ?>" class="input-box" required>
+                                </div>
+                                <div class="space-y-1.5 md:col-span-2">
+                                    <p
+                                        class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1 opacity-60">
+                                        Email Address</p>
+                                    <input type="email" name="email" value="<?= htmlspecialchars($user['email']) ?>"
+                                        class="input-box info-value" required>
+                                </div>
+                                <div class="space-y-1.5 md:col-span-2">
+                                    <p
+                                        class="text-[9px] font-black uppercase tracking-widest text-gray-500 ml-1 opacity-60">
+                                        Contact Number</p>
+                                    <input type="text" name="phone"
+                                        value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" class="input-box"
+                                        placeholder="+63 000 000 0000">
+                                </div>
+                            </div>
+                        </div>
 
-                <div class="glass-card p-8 border border-white/5 bg-white/5">
-                    <div class="flex items-center gap-4 mb-6">
-                        <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-gray-400">info</span>
+                        <div class="pt-5 border-t border-white/5 flex justify-end relative z-10">
+                            <button type="submit" name="update_profile"
+                                class="px-8 py-3 bg-primary text-white rounded-xl text-[9px] font-black uppercase italic tracking-[0.2em] shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all active:scale-[0.98] flex items-center gap-2.5">
+                                <span class="material-symbols-outlined text-base">verified</span> Save Changes
+                            </button>
                         </div>
-                        <div>
-                            <h3 class="text-sm font-black italic uppercase tracking-widest">Account Details</h3>
-                            <p class="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Internal system references</p>
+                    </form>
+
+                    <div
+                        class="glass-card p-6 border border-white/5 bg-white/[0.01] grid grid-cols-1 sm:grid-cols-3 gap-6 text-center sm:text-left">
+                        <div class="px-2 overflow-hidden">
+                            <p class="text-[8px] font-black uppercase text-gray-600 tracking-[0.2em] mb-1.5">Username
+                            </p>
+                            <p class="text-[11px] font-black italic text-white tracking-tighter info-value">
+                                @<?= htmlspecialchars($user['username']) ?></p>
                         </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <p class="text-[8px] font-black uppercase text-gray-600 tracking-[0.2em] mb-1">Username</p>
-                            <p class="text-xs font-bold italic text-white">@<?= htmlspecialchars($user['username']) ?></p>
+                        <div class="px-2 overflow-hidden border-x border-white/5">
+                            <p class="text-[8px] font-black uppercase text-gray-600 tracking-[0.2em] mb-1.5">Assigned
+                                Role</p>
+                            <p class="text-[11px] font-black italic uppercase text-primary tracking-tighter info-value">
+                                <?= htmlspecialchars(strtoupper($user['staff_role'] ?? 'STAFF')) ?></p>
                         </div>
-                        <div>
-                            <p class="text-[8px] font-black uppercase text-gray-600 tracking-[0.2em] mb-1">Account Created</p>
-                            <p class="text-xs font-bold italic text-white"><?= date('M d, Y', strtotime($user['created_at'])) ?></p>
+                        <div class="px-2 overflow-hidden">
+                            <p class="text-[8px] font-black uppercase text-gray-600 tracking-[0.2em] mb-1.5">Employment
+                            </p>
+                            <p class="text-[11px] font-black italic uppercase text-white tracking-tighter info-value">
+                                <?= htmlspecialchars(strtoupper($user['employment_type'] ?? 'FULL-TIME')) ?></p>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Security Column -->
-            <div class="space-y-8">
-                <form action="" method="POST" class="glass-card p-8 space-y-6 border border-primary/20 bg-primary/[0.02]">
-                    <div class="flex items-center gap-4 mb-2">
-                        <div class="size-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-primary">security</span>
+                <div class="space-y-6">
+                    <form action="" method="POST"
+                        class="glass-card p-7 space-y-6 border border-primary/10 bg-primary/[0.03] relative overflow-hidden group">
+                        <div
+                            class="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full translate-x-1/2 -translate-y-1/2 blur-2xl group-hover:bg-primary/20 transition-colors">
                         </div>
-                        <div>
-                            <h3 class="text-sm font-black italic uppercase tracking-widest">Security</h3>
-                            <p class="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Update credentials</p>
-                        </div>
-                    </div>
-
-                    <div class="space-y-5">
-                        <div class="flex flex-col gap-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Current Password</label>
-                            <input type="password" name="current_password" class="input-field" required>
-                        </div>
-                        <div class="h-px bg-white/5 mx-2"></div>
-                        <div class="flex flex-col gap-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">New Password</label>
-                            <input type="password" name="new_password" id="new_password" onkeyup="checkPasswordStrength(this.value)" class="input-field" placeholder="At least 8 characters" required>
-                            <div class="w-full bg-white/5 h-1 rounded-full mt-2 overflow-hidden">
-                                <div id="strength-indicator" class="strength-bar"></div>
+                        <div class="flex items-center gap-3 relative z-10">
+                            <div class="size-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                                <span class="material-symbols-outlined text-xl">security</span></div>
+                            <div>
+                                <h3 class="text-[11px] font-black italic uppercase tracking-[0.2em] text-white">Security
+                                </h3>
+                                <p class="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Change
+                                    password</p>
                             </div>
-                            <p id="strength-text" class="text-[10px] font-black uppercase tracking-widest"></p>
                         </div>
-                        <div class="flex flex-col gap-2">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Confirm New Password</label>
-                            <input type="password" name="confirm_password" id="confirm_password" class="input-field" required>
+                        <div class="space-y-4 relative z-10">
+                            <div class="space-y-1.5">
+                                <p class="text-[9px] font-black uppercase tracking-widest text-primary/60 ml-0.5">
+                                    Current Password</p>
+                                <div class="relative">
+                                    <input type="password" id="current_password" name="current_password"
+                                        class="input-box bg-white/5 border-white/10 pr-10" required>
+                                    <button type="button"
+                                        onclick="togglePassword('current_password', 'current_pass_icon')"
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"><span
+                                            id="current_pass_icon"
+                                            class="material-symbols-outlined text-base">visibility_off</span></button>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <p class="text-[9px] font-black uppercase tracking-widest text-primary/60 ml-0.5">New
+                                    Password</p>
+                                <div class="relative">
+                                    <input type="password" id="new_password" name="new_password"
+                                        onkeyup="checkPasswordStrength(this.value)"
+                                        class="input-box bg-white/5 border-white/10 pr-10" required>
+                                    <button type="button" onclick="togglePassword('new_password', 'new_pass_icon')"
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"><span
+                                            id="new_pass_icon"
+                                            class="material-symbols-outlined text-base">visibility_off</span></button>
+                                </div>
+                                <div class="w-full bg-white/5 h-1 rounded-full mt-2 overflow-hidden">
+                                    <div id="strength-indicator" class="strength-bar"></div>
+                                </div>
+                                <div id="strength-text"></div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <p class="text-[9px] font-black uppercase tracking-widest text-primary/60 ml-0.5">
+                                    Confirm Password</p>
+                                <div class="relative">
+                                    <input type="password" id="confirm_password" name="confirm_password"
+                                        class="input-box bg-white/5 border-white/10 pr-10" required>
+                                    <button type="button"
+                                        onclick="togglePassword('confirm_password', 'confirm_pass_icon')"
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"><span
+                                            id="confirm_pass_icon"
+                                            class="material-symbols-outlined text-base">visibility_off</span></button>
+                                </div>
+                            </div>
                         </div>
+                        <div class="pt-2 relative z-10">
+                            <button type="submit" name="change_password"
+                                class="w-full py-3 border border-primary/30 rounded-xl text-[9px] font-black uppercase italic tracking-[0.2em] text-primary hover:bg-primary/10 transition-all flex items-center justify-center gap-2.5">
+                                <span class="material-symbols-outlined text-base">lock_reset</span> Update Key
+                            </button>
+                        </div>
+                    </form>
+                    <div
+                        class="glass-card p-6 border border-white/5 bg-gradient-to-br from-white/[0.01] to-transparent text-center">
+                        <div
+                            class="size-16 rounded-[24px] bg-primary mx-auto mb-4 flex items-center justify-center shadow-2xl overflow-hidden">
+                            <?php if (!empty($tenant_config['logo_path'])):
+                                $logo_src = (strpos($tenant_config['logo_path'], 'data:image') === 0) ? $tenant_config['logo_path'] : '../' . $tenant_config['logo_path'];
+                                ?>
+                                <img src="<?= $logo_src ?>" class="size-full object-contain">
+                            <?php else: ?>
+                                <span class="material-symbols-outlined text-white text-3xl">bolt</span>
+                            <?php endif; ?>
+                        </div>
+                        <h4 class="text-[11px] font-black italic uppercase tracking-tighter text-white">
+                            <?= htmlspecialchars($gym['gym_name'] ?? 'Horizon Gym') ?></h4>
+                        <p class="text-[7px] font-bold text-gray-600 uppercase tracking-widest mt-1 italic opacity-60">
+                            Verified Member Since <?= date('Y', strtotime($user['created_at'])) ?></p>
                     </div>
-
-                    <div class="pt-4">
-                        <button type="submit" name="change_password" class="w-full py-4 rounded-xl border border-primary/30 hover:bg-primary/10 text-primary text-[10px] font-black uppercase italic tracking-widest transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-                            <span class="material-symbols-outlined text-sm">lock_reset</span> Change Password
-                        </button>
-                    </div>
-                </form>
-
-                <div class="p-8 border border-white/5 rounded-3xl text-center">
-                    <span class="material-symbols-outlined text-3xl text-gray-600 mb-3">shield_lock</span>
-                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest italic leading-relaxed">
-                        Security Notice: Ensure your password is unique and not used elsewhere.
-                    </p>
                 </div>
             </div>
-        </div>
-    </main>
-</div>
+        </main>
+    </div>
 
 </body>
+
 </html>
