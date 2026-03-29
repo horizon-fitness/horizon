@@ -382,7 +382,7 @@ $active_page = "admin_users";
 
         /* Sidebar Hover Logic */
         :root { --nav-width: 110px; }
-        .side-nav:hover { --nav-width: 300px; }
+        body:has(.side-nav:hover) { --nav-width: 300px; }
 
         .side-nav {
             width: var(--nav-width);
@@ -592,7 +592,9 @@ $active_page = "admin_users";
             }
         }
         setInterval(updateHeaderClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateHeaderClock);        async function toggleAccountStatus(userId) {
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);
+
+        async function toggleAccountStatus(userId) {
             if (!confirm('Proceed with account status protocol? User access will be updated immediately.')) return;
 
             try {
