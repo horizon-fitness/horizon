@@ -21,6 +21,7 @@ if (!$page) {
 }
 
 $primary_color = $page['theme_color'] ?? '#8c2bee';
+$secondary_color = $page['secondary_color'] ?? '#a1a1aa';
 $bg_color = $page['bg_color'] ?? '#0a090d';
 $font_family = $page['font_family'] ?? 'Lexend';
 ?>
@@ -53,6 +54,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
         :root {
             --pg-bg: <?= $bg_color ?>;
             --pg-primary: <?= $primary_color ?>;
+            --pg-secondary: <?= $secondary_color ?>;
             --pg-font: '<?= $font_family ?>', 'Plus Jakarta Sans', sans-serif;
         }
         body { 
@@ -88,7 +90,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
         .btn-premium:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px var(--pg-primary); }
         
         .text-gradient {
-            background: linear-gradient(to right, #fff, #a1a1aa);
+            background: linear-gradient(to right, #fff, var(--pg-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -150,8 +152,12 @@ $font_family = $page['font_family'] ?? 'Lexend';
 
     <header class="w-full px-6 md:px-12 py-5 flex justify-between items-center bg-background-dark/80 backdrop-blur-xl fixed top-0 z-50 border-b border-white/5 transition-all">
         <div class="flex items-center gap-4">
-            <div class="size-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                <span class="material-symbols-outlined text-white text-xl font-bold">bolt</span>
+            <div id="header-logo-container" class="size-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden">
+                <?php if (!empty($page['logo_path'])): ?>
+                    <img id="header-logo-img" src="<?= htmlspecialchars($page['logo_path']) ?>" class="size-full object-cover">
+                <?php else: ?>
+                    <span id="header-logo-icon" class="material-symbols-outlined text-white text-xl font-bold">bolt</span>
+                <?php endif; ?>
             </div>
             <h1 class="text-xl font-bold tracking-tight text-white font-display uppercase tracking-widest gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h1>
         </div>
@@ -167,68 +173,11 @@ $font_family = $page['font_family'] ?? 'Lexend';
         </div>
     </header>
 
-    <main class="flex-1 flex flex-col items-center <?= isset($_GET['preview']) ? 'pt-4' : 'pt-32' ?> pb-20 px-6 relative overflow-hidden">
+    <main class="flex-1 flex flex-col items-center pt-32 pb-20 px-6 relative overflow-hidden">
         <!-- Premium Ambient Glows -->
         <div class="fixed top-[-10%] right-[-5%] size-[600px] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none"></div>
         <div class="fixed bottom-[10%] left-[-5%] size-[500px] bg-primary/5 rounded-full blur-[100px] -z-10 pointer-events-none"></div>
 
-        <?php if (isset($_GET['preview'])): ?>
-        <!-- Android Status Bar -->
-        <div class="android-status-bar">
-            <span>6:42</span>
-            <div class="flex items-center gap-1.5 opacity-80">
-                <span class="material-symbols-outlined text-[14px]">signal_cellular_4_bar</span>
-                <span class="material-symbols-outlined text-[14px]">wifi</span>
-                <span class="material-symbols-outlined text-[14px]">battery_full</span>
-            </div>
-        </div>
-
-        <!-- Mobile Landing Page Replica -->
-        <div class="w-full max-w-[340px] flex flex-col items-center pt-2">
-            <!-- Header Row (Logo + Title) -->
-            <div class="flex items-center gap-3 mb-6 w-full px-4 pt-2">
-                <div id="preview-logo-container" class="size-9 rounded-xl bg-primary flex items-center justify-center">
-                    <span id="logo-placeholder-icon" class="material-symbols-outlined text-white text-lg font-bold">bolt</span>
-                </div>
-                <h1 class="text-[15px] font-black tracking-widest text-white uppercase gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h1>
-            </div>
-
-            <!-- Banner Card -->
-            <div class="banner-card mx-4">
-                <div class="flex flex-col items-center gap-2">
-                    <span class="material-symbols-outlined text-5xl text-white/20">fitness_center</span>
-                    <span class="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Horizon Systems</span>
-                </div>
-            </div>
-
-            <div class="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/[0.03] border border-white/[0.02] mb-8 text-primary shadow-inner">
-                <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
-                <span class="text-[10px] font-black uppercase tracking-[0.2em]">Open for Membership</span>
-            </div>
-
-            <h2 class="text-4xl font-black uppercase tracking-tighter text-white mb-4 leading-[1.1] text-center px-4">
-                Elevate Your <br/> Fitness at <br/> <span class="gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
-            </h2>
-
-            <p id="hero-description-display" class="text-gray-400 text-[13px] font-medium leading-relaxed mb-12 px-6 text-center opacity-70">
-                <?= htmlspecialchars($page['about_text'] ?? 'Welcome to Horizon Systems. Your fitness journey starts here.') ?>
-            </p>
-
-            <div class="w-full space-y-3.5 px-4 mb-10">
-                <div class="h-[60px] rounded-2xl bg-primary flex items-center justify-center text-[13px] font-black uppercase tracking-widest text-white shadow-xl shadow-primary/10 transition-transform active:scale-95">Sign In</div>
-                <div class="h-[60px] rounded-2xl bg-primary flex items-center justify-center text-[13px] font-black uppercase tracking-widest text-white shadow-xl shadow-primary/10 transition-transform active:scale-95">Register</div>
-            </div>
-
-            <div id="contact-text-mobile" class="mt-8 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 text-center px-8 leading-loose opacity-60">
-                <?= htmlspecialchars($page['contact_text'] ?? '') ?>
-            </div>
-        </div>
-
-        <!-- Android Nav Bar -->
-        <div class="android-nav-bar">
-            <div class="android-nav-line"></div>
-        </div>
-        <?php else: ?>
         <section class="max-w-5xl w-full text-center relative mb-24 mt-10 md:mt-20">
             <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 mb-8">
                 <span class="relative flex h-2 w-2">
@@ -242,21 +191,20 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 Elevate Your <span class="text-primary">Fitness</span> <br class="hidden md:block"/> at <span class="text-gradient gym-name-display"><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></span>
             </h2>
             
-            <p class="text-gray-400 text-base md:text-xl max-w-2xl mx-auto leading-relaxed mb-12 font-body font-light">
-                Discover a premium workout experience powered by Horizon's elite technology and world-class coaching staff.
+            <p id="hero-description-display" class="text-gray-400 text-base md:text-xl max-w-2xl mx-auto leading-relaxed mb-12 font-body font-light">
+                <?= htmlspecialchars($page['about_text'] ?? 'Discover a premium workout experience powered by Horizon\'s elite technology and world-class coaching staff.') ?>
             </p>
             
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 px-10 rounded-2xl btn-premium flex items-center justify-center text-sm font-bold text-white">
                     Member Login
                 </a>
-                <a id="app-download-btn" href="https://drive.google.com/drive/folders/1Mg7gltjfTP5dsb4CG_PVdgSdPYUjaFz6?usp=sharing" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-semibold text-white transition-all group">
+                <a id="app-download-btn" href="<?= htmlspecialchars($page['app_download_link'] ?? 'https://drive.google.com/drive/folders/1Mg7gltjfTP5dsb4CG_PVdgSdPYUjaFz6?usp=sharing') ?>" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-semibold text-white transition-all group">
                     <span class="material-symbols-outlined text-xl mr-2.5">smartphone</span>
                     Download App
                 </a>
             </div>
         </section>
-        <?php endif; ?>
 
         <section class="max-w-5xl w-full" id="portal-info">
             <!-- Information Card -->
@@ -341,12 +289,14 @@ $font_family = $page['font_family'] ?? 'Lexend';
             if (event.data.type === 'updateStyles') {
                 const data = event.data.data;
                 const primary = data.theme_color || '<?= $primary_color ?>';
+                const secondary = data.secondary_color || '<?= $secondary_color ?>';
                 const bg = data.bg_color || '<?= $bg_color ?>';
                 const font = data.font_family || '<?= $font_family ?>';
                 
                 // Update CSS variables
                 document.documentElement.style.setProperty('--pg-bg', bg);
                 document.documentElement.style.setProperty('--pg-primary', primary);
+                document.documentElement.style.setProperty('--pg-secondary', secondary);
                 document.documentElement.style.setProperty('--pg-font', `'${font}', 'Plus Jakarta Sans', sans-serif`);
                 
                 // Update Gym Name/Title
@@ -380,6 +330,22 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 if (data.about_text !== undefined) {
                     const heroDesc = document.getElementById('hero-description-display');
                     if (heroDesc) heroDesc.innerText = data.about_text;
+                }
+
+                // Update Logo Real-time
+                if (data.logo_url) {
+                    const headerImg = document.getElementById('header-logo-img');
+                    const headerIcon = document.getElementById('header-logo-icon');
+                    if (headerImg) {
+                        headerImg.src = data.logo_url;
+                        headerImg.classList.remove('hidden');
+                        if (headerIcon) headerIcon.classList.add('hidden');
+                    } else {
+                        const container = document.getElementById('header-logo-container');
+                        if (container) {
+                            container.innerHTML = `<img id="header-logo-img" src="${data.logo_url}" class="size-full object-cover">`;
+                        }
+                    }
                 }
             }
         });

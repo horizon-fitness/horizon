@@ -213,7 +213,7 @@ $members = [
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
         </div>
         
-        <a href="facility_setup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'facility') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="tenant_settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
             <span class="nav-text">Settings</span>
         </a>
