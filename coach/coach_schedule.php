@@ -35,46 +35,61 @@ $week_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 
 // Handle Save Availability
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_availability'])) {
-    try {
-        $pdo->beginTransaction();
+    if ($coach_id <= 0) {
+        $msg = "Error: Coach profile not found. Please contact support.";
+    } else {
+        try {
+            $pdo->beginTransaction();
 
-        $stmtDelete = $pdo->prepare("DELETE FROM coach_schedules WHERE coach_id = ?");
-        $stmtDelete->execute([$coach_id]);
+            $stmtDelete = $pdo->prepare("DELETE FROM coach_schedules WHERE coach_id = ?");
+            $stmtDelete->execute([$coach_id]);
 
-        foreach ($week_days as $day) {
-            $is_off = isset($_POST["off_$day"]) ? 1 : 0;
-            $start = $_POST["start_$day"] ?? '08:00';
-            $end = $_POST["end_$day"] ?? '17:00';
+            foreach ($week_days as $day) {
+                $is_off = isset($_POST["off_$day"]) ? 1 : 0;
+                $start = $_POST["start_$day"] ?? '08:00';
+                $end = $_POST["end_$day"] ?? '12:00';
+                $start2 = $_POST["start2_$day"] ?? '13:00';
+                $end2 = $_POST["end2_$day"] ?? '17:00';
 
-            $stmtInsert = $pdo->prepare("INSERT INTO coach_schedules (coach_id, day_of_week, start_time, end_time, availability_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
-            $status = $is_off ? 'Off' : 'Available';
-            $stmtInsert->execute([$coach_id, $day, $start, $end, $status]);
+                $stmtInsert = $pdo->prepare("INSERT INTO coach_schedules (coach_id, day_of_week, start_time, end_time, start_time_2, end_time_2, availability_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+                $status = $is_off ? 'Off' : 'Available';
+                $stmtInsert->execute([$coach_id, $day, $start, $end, $start2, $end2, $status]);
+            }
+
+            $pdo->commit();
+            $msg = "Schedule updated successfully.";
+        } catch (Exception $e) {
+            if ($pdo->inTransaction())
+                $pdo->rollBack();
+            $msg = "Error updating schedule: " . $e->getMessage();
         }
-
-        $pdo->commit();
-        $msg = "Schedule updated successfully.";
-    } catch (Exception $e) {
-        if ($pdo->inTransaction())
-            $pdo->rollBack();
-        $msg = "Error updating schedule: " . $e->getMessage();
     }
 }
 
-// Fetch current availability
+// Fetch current availability with normalized defaults
 $avail_map = [];
 foreach ($week_days as $day) {
-    $avail_map[$day] = ['start_time' => '08:00', 'end_time' => '17:00', 'is_off_day' => 0];
+    $avail_map[$day] = [
+        'start_time' => '08:00',
+        'end_time' => '12:00',
+        'start_time_2' => '13:00',
+        'end_time_2' => '17:00',
+        'is_off_day' => 0
+    ];
 }
 
 $stmtAvail = $pdo->prepare("SELECT * FROM coach_schedules WHERE coach_id = ?");
 $stmtAvail->execute([$coach_id]);
 $rows = $stmtAvail->fetchAll();
 foreach ($rows as $r) {
-    if (isset($avail_map[$r['day_of_week']])) {
-        $avail_map[$r['day_of_week']] = [
-            'start_time' => $r['start_time'],
-            'end_time' => $r['end_time'],
-            'is_off_day' => ($r['availability_status'] === 'Off') ? 1 : 0
+    $d = $r['day_of_week'];
+    if (isset($avail_map[$d])) {
+        $avail_map[$d] = [
+            'start_time' => !empty($r['start_time']) ? date('H:i', strtotime($r['start_time'])) : '08:00',
+            'end_time' => !empty($r['end_time']) ? date('H:i', strtotime($r['end_time'])) : '12:00',
+            'start_time_2' => !empty($r['start_time_2']) ? date('H:i', strtotime($r['start_time_2'])) : '13:00',
+            'end_time_2' => !empty($r['end_time_2']) ? date('H:i', strtotime($r['end_time_2'])) : '17:00',
+            'is_off_day' => (trim($r['availability_status']) === 'Off') ? 1 : 0
         ];
     }
 }
@@ -316,6 +331,10 @@ if ($coach_id > 0) {
             display: none;
         }
 
+        .tab-content {
+            display: none;
+        }
+
         .tab-content.active {
             display: block;
             animation: fadeIn 0.4s ease-out;
@@ -330,8 +349,105 @@ if ($coach_id > 0) {
                 opacity: 1;
             }
         }
+
+        .day-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .day-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .day-card.is-off {
+            background: rgba(244, 63, 94, 0.02); /* rose-500 at 2% */
+            border-color: rgba(244, 63, 94, 0.1);
+        }
+
+        .day-card.is-off .shift-inputs {
+            opacity: 0.2;
+            pointer-events: none;
+            filter: grayscale(1);
+        }
+
+        /* Daily View Day Off Sync Style */
+        .is-day-off-view .available-slot-box,
+        .is-day-off-view .booked-slot-box {
+            display: none !important;
+        }
+
+        .is-day-off-view .blank-slot-row {
+            display: flex !important;
+            opacity: 0.5 !important;
+        }
+
+        /* Modern Toggle Switch - Rose/Pink theme */
+        .toggle-switch {
+            position: relative;
+            display: inline-flex;
+            width: 52px;
+            height: 28px;
+            background-color: #1a1a1a;
+            border-radius: 100px;
+            padding: 4px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .toggle-switch .dot {
+            width: 18px;
+            height: 18px;
+            background-color: white;
+            border-radius: 50%;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-input:checked + .toggle-switch {
+            background-color: #f43f5e; /* Rose-500 */
+            border-color: #fb7185; /* Rose-400 */
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.3);
+        }
+
+        .toggle-input:checked + .toggle-switch .dot {
+            transform: translateX(24px);
+        }
     </style>
     <script>
+        function toggleDayOff(checkbox, dayName) {
+            const card = document.getElementById('card-' + dayName);
+            const statusLabel = document.getElementById('status-' + dayName);
+            const miniLabel = document.getElementById('label-' + dayName);
+            const timeline = document.getElementById('timeline-' + dayName);
+            
+            if (checkbox.checked) {
+                card.classList.add('is-off');
+                if (timeline) timeline.classList.add('is-day-off-view');
+                if (statusLabel) {
+                    statusLabel.textContent = 'DAY OFF';
+                    statusLabel.className = 'px-5 py-2 bg-rose-500/10 text-rose-500 rounded-xl text-[8px] font-black uppercase tracking-widest border border-rose-500/10 shadow-lg shadow-rose-500/5 transition-all animate-pulse';
+                }
+                if (miniLabel) {
+                    miniLabel.textContent = 'DAY OFF';
+                    miniLabel.className = 'text-[9px] font-black uppercase tracking-widest text-rose-500 transition-colors';
+                }
+            } else {
+                card.classList.remove('is-off');
+                if (timeline) timeline.classList.remove('is-day-off-view');
+                if (statusLabel) {
+                    statusLabel.textContent = 'WORKING DAY';
+                    statusLabel.className = 'px-5 py-2 bg-emerald-500/10 text-emerald-500 rounded-xl text-[8px] font-black uppercase tracking-widest border border-emerald-500/10 shadow-lg shadow-emerald-500/5';
+                }
+                if (miniLabel) {
+                    miniLabel.textContent = 'WORKING';
+                    miniLabel.className = 'text-[9px] font-black uppercase tracking-widest text-gray-500 transition-colors';
+                }
+            }
+        }
         function updateHeaderClock() {
             const now = new Date();
             const clockEl = document.getElementById('headerClock');
@@ -471,37 +587,70 @@ if ($coach_id > 0) {
                         <form method="POST" class="space-y-4">
                             <?php foreach ($week_days as $day):
                                 $s1 = $avail_map[$day]['start_time'] ?? '08:00';
-                                $e1 = $avail_map[$day]['end_time'] ?? '17:00';
+                                $e1 = $avail_map[$day]['end_time'] ?? '12:00';
+                                $s2 = $avail_map[$day]['start_time_2'] ?? '13:00';
+                                $e2 = $avail_map[$day]['end_time_2'] ?? '17:00';
                                 $off = ($avail_map[$day]['is_off_day'] ?? 0) == 1;
                                 ?>
-                                <div
-                                    class="bg-white/5 p-6 rounded-[24px] border border-white/5 group hover:border-primary/20 transition-all">
+                                <div id="card-<?= $day ?>"
+                                    class="day-card p-6 rounded-[24px] transition-all <?= $off ? 'is-off' : '' ?>">
                                     <div class="flex justify-between items-center mb-6">
-                                        <span
-                                            class="font-black italic uppercase text-xs text-white tracking-widest"><?= $day ?></span>
-                                        <label class="inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" name="off_<?= $day ?>" value="1" <?= $off ? 'checked' : '' ?> class="sr-only peer">
-                                            <div
-                                                class="relative w-11 h-5.5 bg-gray-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-primary after:content-[''] after:absolute after:top-[3px] after:start-[3px] after:bg-white after:rounded-full after:h-4.5 after:w-4.5 after:transition-all after:shadow-sm">
-                                            </div>
-                                            <span
-                                                class="ms-3 text-[10px] font-black uppercase text-gray-500 peer-checked:text-primary tracking-widest">OFF</span>
-                                        </label>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <p class="text-[9px] text-gray-600 uppercase font-black mb-2 tracking-widest">
-                                                Shift Start</p>
-                                            <input type="time" name="start_<?= $day ?>" value="<?= substr($s1, 0, 5) ?>"
-                                                min="07:00" max="21:00"
-                                                class="w-full bg-black/40 border border-white/5 rounded-xl p-3.5 text-xs text-white outline-none focus:border-primary transition-all font-bold">
+                                        <div class="flex flex-col">
+                                            <span class="font-black italic uppercase text-[11px] text-white tracking-[0.1em]"><?= $day ?></span>
+                                            <p class="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Availability Status</p>
                                         </div>
+                                        
+                                        <div class="flex items-center gap-3">
+                                            <span class="text-[9px] font-black uppercase tracking-widest <?= $off ? 'text-rose-500' : 'text-gray-500' ?> transition-colors" id="label-<?= $day ?>">
+                                                <?= $off ? 'DAY OFF' : 'WORKING' ?>
+                                            </span>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" name="off_<?= $day ?>" value="1" 
+                                                    <?= $off ? 'checked' : '' ?> 
+                                                    class="sr-only toggle-input" 
+                                                    onchange="toggleDayOff(this, '<?= $day ?>')">
+                                                <div class="toggle-switch">
+                                                    <div class="dot"></div>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="shift-inputs space-y-6 transition-all duration-300">
                                         <div>
-                                            <p class="text-[9px] text-gray-600 uppercase font-black mb-2 tracking-widest">
-                                                Shift End</p>
-                                            <input type="time" name="end_<?= $day ?>" value="<?= substr($e1, 0, 5) ?>"
-                                                min="07:00" max="21:00"
-                                                class="w-full bg-black/40 border border-white/5 rounded-xl p-3.5 text-xs text-white outline-none focus:border-primary transition-all font-bold">
+                                            <p class="text-[8px] text-primary uppercase font-black mb-3 tracking-[0.2em] italic flex items-center gap-2">
+                                                <span class="size-1 bg-primary rounded-full"></span> Shift 1
+                                            </p>
+                                            <div class="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p class="text-[9px] text-gray-600 uppercase font-bold mb-2 tracking-widest">Start Time</p>
+                                                    <input type="time" name="start_<?= $day ?>" value="<?= substr($s1, 0, 5) ?>"
+                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-white outline-none focus:border-primary transition-all font-medium">
+                                                </div>
+                                                <div>
+                                                    <p class="text-[9px] text-gray-600 uppercase font-bold mb-2 tracking-widest">End Time</p>
+                                                    <input type="time" name="end_<?= $day ?>" value="<?= substr($e1, 0, 5) ?>"
+                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-white outline-none focus:border-primary transition-all font-medium">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <p class="text-[8px] text-primary/60 uppercase font-black mb-3 tracking-[0.2em] italic flex items-center gap-2">
+                                                <span class="size-1 bg-primary/60 rounded-full"></span> Shift 2
+                                            </p>
+                                            <div class="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p class="text-[9px] text-gray-600 uppercase font-bold mb-2 tracking-widest">Start Time</p>
+                                                    <input type="time" name="start2_<?= $day ?>" value="<?= substr($s2, 0, 5) ?>"
+                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-white outline-none focus:border-primary transition-all font-medium">
+                                                </div>
+                                                <div>
+                                                    <p class="text-[9px] text-gray-600 uppercase font-bold mb-2 tracking-widest">End Time</p>
+                                                    <input type="time" name="end2_<?= $day ?>" value="<?= substr($e2, 0, 5) ?>"
+                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-white outline-none focus:border-primary transition-all font-medium">
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -543,13 +692,20 @@ if ($coach_id > 0) {
                         </div>
 
                         <div class="flex-1 custom-scroll overflow-y-auto pr-2">
-                            <?php
-                            foreach ($week_days as $index => $day_name):
-                                $loop_date = date('Y-m-d', strtotime("monday this week +$index days"));
-                                $is_off = ($avail_map[$day_name]['is_off_day'] ?? 0) == 1;
-                                $s1_ts = strtotime($loop_date . ' ' . ($avail_map[$day_name]['start_time'] ?? '08:00'));
-                                $e1_ts = strtotime($loop_date . ' ' . ($avail_map[$day_name]['end_time'] ?? '17:00'));
-                                ?>
+                                <?php
+                                foreach ($week_days as $index => $day_name):
+                                    $loop_date = date('Y-m-d', strtotime("monday this week +$index days"));
+                                    $day_data = $avail_map[$day_name];
+                                    $is_off = (int)($day_data['is_off_day'] ?? 0) === 1;
+                                    
+                                    // Shift 1 Bound
+                                    $s1_ts = strtotime($loop_date . ' ' . ($day_data['start_time'] ?? '08:00'));
+                                    $e1_ts = strtotime($loop_date . ' ' . ($day_data['end_time'] ?? '12:00'));
+                                    
+                                    // Shift 2 Bound
+                                    $s2_ts = strtotime($loop_date . ' ' . ($day_data['start_time_2'] ?? '13:00'));
+                                    $e2_ts = strtotime($loop_date . ' ' . ($day_data['end_time_2'] ?? '17:00'));
+                                    ?>
                                 <div id="<?= $day_name ?>" class="tab-content transition-all">
                                     <div class="flex justify-between items-center mb-10 pb-6 border-b border-white/5">
                                         <div>
@@ -560,23 +716,22 @@ if ($coach_id > 0) {
                                                 <?= date('F d, Y', strtotime($loop_date)) ?></p>
                                         </div>
                                         <?php if ($is_off): ?>
-                                            <span
-                                                class="px-5 py-2 bg-rose-500/10 text-rose-500 rounded-xl text-[8px] font-black uppercase tracking-widest border border-rose-500/10 shadow-lg shadow-rose-500/5">Protocol:
-                                                REST</span>
+                                            <span id="status-<?= $day_name ?>"
+                                                class="px-5 py-2 bg-rose-500/10 text-rose-500 rounded-xl text-[8px] font-black uppercase tracking-widest border border-rose-500/10 shadow-lg shadow-rose-500/5 transition-all animate-pulse">DAY OFF</span>
                                         <?php else: ?>
-                                            <span
-                                                class="px-5 py-2 bg-emerald-500/10 text-emerald-500 rounded-xl text-[8px] font-black uppercase tracking-widest border border-emerald-500/10 shadow-lg shadow-emerald-500/5">ACTIVE</span>
+                                            <span id="status-<?= $day_name ?>"
+                                                class="px-5 py-2 bg-emerald-500/10 text-emerald-500 rounded-xl text-[8px] font-black uppercase tracking-widest border border-emerald-500/10 shadow-lg shadow-emerald-500/5">WORKING DAY</span>
                                         <?php endif; ?>
                                     </div>
 
-                                    <div class="space-y-4">
+                                    <div id="timeline-<?= $day_name ?>" class="space-y-4 <?= $is_off ? 'is-day-off-view' : '' ?>">
                                         <?php
                                         $start_day = strtotime($loop_date . ' 07:00');
-                                        $end_day = strtotime($loop_date . ' 21:00');
+                                        $end_day = strtotime($loop_date . ' 22:00');
 
                                         while ($start_day < $end_day):
                                             $slot_end = strtotime('+30 minutes', $start_day);
-                                            $pretty_time = date('h:i A', $start_day);
+                                            $pretty_range = date('h:i A', $start_day) . ' - ' . date('h:i A', $slot_end);
 
                                             $found_booking = null;
                                             foreach ($all_bookings as $b) {
@@ -586,13 +741,16 @@ if ($coach_id > 0) {
                                                 }
                                             }
 
-                                            $is_working_hour = ($start_day >= $s1_ts && $start_day < $e1_ts) && !$is_off;
+                                            $is_working_hour = (
+                                                ($start_day >= $s1_ts && $start_day < $e1_ts) || 
+                                                ($start_day >= $s2_ts && $start_day < $e2_ts)
+                                            ) && !$is_off;
                                             ?>
                                             <?php if ($found_booking): ?>
                                                 <div
-                                                    class="flex items-center bg-primary/20 border border-primary/30 p-6 rounded-[24px] shadow-2xl animate-slide-up group relative overflow-hidden">
-                                                    <div class="w-20 text-[10px] font-black text-primary leading-none">
-                                                        <?= $pretty_time ?></div>
+                                                    class="booked-slot-box flex items-center bg-primary/20 border border-primary/30 p-6 rounded-[24px] shadow-2xl animate-slide-up group relative overflow-hidden">
+                                                    <div class="w-24 text-[10px] font-black text-primary leading-relaxed">
+                                                        <?= date('h:i A', $start_day) ?> - <?= date('h:i', $slot_end) ?><br><?= date('A', $slot_end) ?></div>
                                                     <div class="flex-1 ml-6 border-l border-primary/20 pl-6">
                                                         <p
                                                             class="text-sm font-black text-white uppercase italic group-hover:text-primary transition-colors">
@@ -609,26 +767,26 @@ if ($coach_id > 0) {
                                                 </div>
                                             <?php elseif ($is_working_hour): ?>
                                                 <div
-                                                    class="flex items-center bg-white/[0.02] border border-white/5 p-5 rounded-[20px] hover:bg-white/[0.04] hover:border-emerald-500/30 transition-all group">
+                                                    class="available-slot-box flex items-center bg-white/[0.02] border border-white/5 p-5 rounded-[20px] hover:bg-white/[0.04] hover:border-emerald-500/30 transition-all group">
                                                     <div
-                                                        class="w-20 text-[10px] font-black text-gray-600 group-hover:text-emerald-500 transition-colors">
-                                                        <?= $pretty_time ?></div>
+                                                        class="w-24 text-[10px] font-black text-gray-500 group-hover:text-emerald-500 transition-colors leading-relaxed">
+                                                        <?= date('h:i A', $start_day) ?> - <?= date('h:i', $slot_end) ?><br><?= date('A', $slot_end) ?></div>
                                                     <div class="flex-1 ml-6 border-l border-white/5 pl-6">
                                                         <p
-                                                            class="text-[9px] font-black text-emerald-500/60 uppercase tracking-widest group-hover:text-emerald-500 transition-colors">
-                                                            Available Operation Hour</p>
+                                                            class="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] group-hover:text-emerald-400 transition-colors">
+                                                            AVAILABLE SLOT</p>
                                                     </div>
                                                     <span
                                                         class="material-symbols-outlined text-emerald-500/20 group-hover:text-emerald-500 transition-colors text-lg italic">add_task</span>
                                                 </div>
-                                            <?php else: ?>
-                                                <div class="flex items-center opacity-30 p-4 hover:opacity-50 transition-opacity">
-                                                    <div class="w-20 text-[10px] font-black text-gray-700"><?= $pretty_time ?></div>
-                                                    <div class="h-px flex-1 bg-white/10 ml-6"></div>
-                                                    <span
-                                                        class="material-symbols-outlined text-gray-700 text-xs ml-4">lock_clock</span>
-                                                </div>
                                             <?php endif; ?>
+                                            
+                                            <!-- Standard Blank Row (Always exists but selectively visible via CSS) -->
+                                            <div class="blank-slot-row <?= ($is_off || (!$found_booking && !$is_working_hour)) ? 'flex' : 'hidden' ?> items-center p-4 hover:opacity-50 transition-all cursor-default">
+                                                <div class="w-24 text-[10px] font-black text-gray-500 leading-relaxed uppercase opacity-70">
+                                                    <?= date('h:i A', $start_day) ?> - <?= date('h:i', $slot_end) ?><br><?= date('A', $slot_end) ?></div>
+                                                <div class="h-px flex-1 bg-white/5 ml-6"></div>
+                                            </div>
                                             <?php $start_day = $slot_end; ?>
                                         <?php endwhile; ?>
                                     </div>
@@ -640,11 +798,5 @@ if ($coach_id > 0) {
             </div>
         </div>
     </div>
-
 </body>
-
-</html>
-
-</body>
-
 </html>
