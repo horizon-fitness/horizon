@@ -464,13 +464,34 @@ if ($coach_id > 0) {
             const targetBtn = document.getElementById('btn-' + dayName);
             targetBtn.classList.remove('bg-white/5', 'text-gray-400');
             targetBtn.classList.add('active', 'bg-primary', 'text-white', 'shadow-lg', 'shadow-primary/20');
+            localStorage.setItem('last_active_day', dayName);
         }
         setInterval(updateHeaderClock, 1000);
         window.addEventListener('DOMContentLoaded', function () {
             updateHeaderClock();
-            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const today = days[new Date().getDay()];
-            if (today !== 'Sunday' && document.getElementById(today)) { openTab(today); } else { openTab('Monday'); }
+            const lastActiveDay = localStorage.getItem('last_active_day');
+            if (lastActiveDay && document.getElementById(lastActiveDay)) {
+                openTab(lastActiveDay);
+            } else {
+                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                const today = days[new Date().getDay()];
+                if (today !== 'Sunday' && document.getElementById(today)) { 
+                    openTab(today); 
+                } else { 
+                    openTab('Monday'); 
+                }
+            }
+
+            // Auto-dismiss alert after 5s
+            const alert = document.getElementById('statusAlert');
+            if (alert) {
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    alert.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
+                    alert.style.transform = 'translateY(-10px)';
+                    setTimeout(() => alert.style.display = 'none', 800);
+                }, 5000);
+            }
         });
     </script>
 </head>
@@ -562,9 +583,16 @@ if ($coach_id > 0) {
             </header>
 
             <?php if ($msg): ?>
-                <div
-                    class="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-500 text-[10px] font-black uppercase italic mb-8 flex items-center gap-2 animate-fade-in">
-                    <span class="material-symbols-outlined text-sm">check_circle</span> <?= $msg ?>
+                <div id="statusAlert"
+                    class="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-500 text-[11px] font-black uppercase italic mb-8 flex items-center justify-between group animate-fade-in">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-base">check_circle</span>
+                        <span><?= $msg ?></span>
+                    </div>
+                    <button onclick="document.getElementById('statusAlert').style.display='none'" 
+                        class="size-6 flex items-center justify-center rounded-lg hover:bg-emerald-500/20 transition-all text-emerald-500/50 hover:text-emerald-500">
+                        <span class="material-symbols-outlined text-sm">close</span>
+                    </button>
                 </div>
             <?php endif; ?>
 
@@ -596,12 +624,12 @@ if ($coach_id > 0) {
                                     class="day-card p-6 rounded-[24px] transition-all <?= $off ? 'is-off' : '' ?>">
                                     <div class="flex justify-between items-center mb-6">
                                         <div class="flex flex-col">
-                                            <span class="font-black italic uppercase text-[11px] text-white tracking-[0.1em]"><?= $day ?></span>
-                                            <p class="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Availability Status</p>
+                                            <span class="font-black italic uppercase text-xs text-white tracking-[0.1em]"><?= $day ?></span>
+                                            <p class="text-[11px] font-bold text-gray-500 uppercase tracking-widest mt-1">Availability Status</p>
                                         </div>
                                         
                                         <div class="flex items-center gap-3">
-                                            <span class="text-[9px] font-black uppercase tracking-widest <?= $off ? 'text-rose-500' : 'text-gray-500' ?> transition-colors" id="label-<?= $day ?>">
+                                            <span class="text-[11px] font-black uppercase tracking-widest <?= $off ? 'text-rose-500' : 'text-gray-500' ?> transition-colors" id="label-<?= $day ?>">
                                                 <?= $off ? 'DAY OFF' : 'WORKING' ?>
                                             </span>
                                             <label class="relative inline-flex items-center cursor-pointer">
@@ -618,37 +646,37 @@ if ($coach_id > 0) {
 
                                     <div class="shift-inputs space-y-6 transition-all duration-300">
                                         <div>
-                                            <p class="text-[8px] text-primary uppercase font-black mb-3 tracking-[0.2em] italic flex items-center gap-2">
+                                            <p class="text-[11px] text-primary uppercase font-black mb-4 tracking-[0.2em] italic flex items-center gap-2">
                                                 <span class="size-1 bg-primary rounded-full"></span> Shift 1
                                             </p>
                                             <div class="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <p class="text-[9px] text-gray-600 uppercase font-bold mb-2 tracking-widest">Start Time</p>
+                                                    <p class="text-xs text-gray-600 uppercase font-bold mb-3 tracking-widest">Start Time</p>
                                                     <input type="time" name="start_<?= $day ?>" value="<?= substr($s1, 0, 5) ?>"
-                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-white outline-none focus:border-primary transition-all font-medium">
+                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm text-white outline-none focus:border-primary transition-all font-medium">
                                                 </div>
                                                 <div>
-                                                    <p class="text-[9px] text-gray-600 uppercase font-bold mb-2 tracking-widest">End Time</p>
+                                                    <p class="text-xs text-gray-600 uppercase font-bold mb-3 tracking-widest">End Time</p>
                                                     <input type="time" name="end_<?= $day ?>" value="<?= substr($e1, 0, 5) ?>"
-                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-white outline-none focus:border-primary transition-all font-medium">
+                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm text-white outline-none focus:border-primary transition-all font-medium">
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div>
-                                            <p class="text-[8px] text-primary/60 uppercase font-black mb-3 tracking-[0.2em] italic flex items-center gap-2">
+                                            <p class="text-[11px] text-primary/60 uppercase font-black mb-4 tracking-[0.2em] italic flex items-center gap-2">
                                                 <span class="size-1 bg-primary/60 rounded-full"></span> Shift 2
                                             </p>
                                             <div class="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <p class="text-[9px] text-gray-600 uppercase font-bold mb-2 tracking-widest">Start Time</p>
+                                                    <p class="text-xs text-gray-600 uppercase font-bold mb-3 tracking-widest">Start Time</p>
                                                     <input type="time" name="start2_<?= $day ?>" value="<?= substr($s2, 0, 5) ?>"
-                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-white outline-none focus:border-primary transition-all font-medium">
+                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm text-white outline-none focus:border-primary transition-all font-medium">
                                                 </div>
                                                 <div>
-                                                    <p class="text-[9px] text-gray-600 uppercase font-bold mb-2 tracking-widest">End Time</p>
+                                                    <p class="text-xs text-gray-600 uppercase font-bold mb-3 tracking-widest">End Time</p>
                                                     <input type="time" name="end2_<?= $day ?>" value="<?= substr($e2, 0, 5) ?>"
-                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-xs text-white outline-none focus:border-primary transition-all font-medium">
+                                                        class="w-full bg-black/40 border border-white/5 rounded-xl p-3 text-sm text-white outline-none focus:border-primary transition-all font-medium">
                                                 </div>
                                             </div>
                                         </div>
@@ -749,31 +777,33 @@ if ($coach_id > 0) {
                                             <?php if ($found_booking): ?>
                                                 <div
                                                     class="booked-slot-box flex items-center bg-primary/20 border border-primary/30 p-6 rounded-[24px] shadow-2xl animate-slide-up group relative overflow-hidden">
-                                                    <div class="w-24 text-[10px] font-black text-primary leading-relaxed">
-                                                        <?= date('h:i A', $start_day) ?> - <?= date('h:i', $slot_end) ?><br><?= date('A', $slot_end) ?></div>
-                                                    <div class="flex-1 ml-6 border-l border-primary/20 pl-6">
+                                                    <div class="w-44 text-[11px] font-black text-primary leading-none shrink-0 border-r-2 border-primary/30 pr-6 mr-6 flex items-center">
+                                                        <?= date('h:i A', $start_day) ?> - <?= date('h:i A', $slot_end) ?>
+                                                    </div>
+                                                    <div class="flex-1">
                                                         <p
-                                                            class="text-sm font-black text-white uppercase italic group-hover:text-primary transition-colors">
+                                                            class="text-base font-black text-white uppercase italic group-hover:text-primary transition-colors">
                                                             <?= htmlspecialchars($found_booking['fullname']) ?></p>
                                                         <p
-                                                            class="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                                                            class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
                                                             Confirmed Member Training</p>
                                                     </div>
                                                     <span
                                                         class="material-symbols-outlined text-primary text-2xl group-hover:scale-110 transition-transform">verified</span>
                                                     <div
                                                         class="absolute -right-4 -bottom-4 size-24 bg-primary/5 rounded-full blur-2xl">
-                                                    </div>
+                                                     </div>
                                                 </div>
                                             <?php elseif ($is_working_hour): ?>
                                                 <div
                                                     class="available-slot-box flex items-center bg-white/[0.02] border border-white/5 p-5 rounded-[20px] hover:bg-white/[0.04] hover:border-emerald-500/30 transition-all group">
                                                     <div
-                                                        class="w-24 text-[10px] font-black text-gray-500 group-hover:text-emerald-500 transition-colors leading-relaxed">
-                                                        <?= date('h:i A', $start_day) ?> - <?= date('h:i', $slot_end) ?><br><?= date('A', $slot_end) ?></div>
-                                                    <div class="flex-1 ml-6 border-l border-white/5 pl-6">
+                                                        class="w-44 text-[11px] font-black text-gray-500 group-hover:text-emerald-500 transition-colors leading-none shrink-0 border-r-2 border-white/10 pr-6 mr-6 flex items-center">
+                                                        <?= date('h:i A', $start_day) ?> - <?= date('h:i A', $slot_end) ?>
+                                                    </div>
+                                                    <div class="flex-1">
                                                         <p
-                                                            class="text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] group-hover:text-emerald-400 transition-colors">
+                                                            class="text-[11px] font-black text-emerald-500 uppercase tracking-[0.2em] group-hover:text-emerald-400 transition-colors">
                                                             AVAILABLE SLOT</p>
                                                     </div>
                                                     <span
@@ -782,10 +812,11 @@ if ($coach_id > 0) {
                                             <?php endif; ?>
                                             
                                             <!-- Standard Blank Row (Always exists but selectively visible via CSS) -->
-                                            <div class="blank-slot-row <?= ($is_off || (!$found_booking && !$is_working_hour)) ? 'flex' : 'hidden' ?> items-center p-4 hover:opacity-50 transition-all cursor-default">
-                                                <div class="w-24 text-[10px] font-black text-gray-500 leading-relaxed uppercase opacity-70">
-                                                    <?= date('h:i A', $start_day) ?> - <?= date('h:i', $slot_end) ?><br><?= date('A', $slot_end) ?></div>
-                                                <div class="h-px flex-1 bg-white/5 ml-6"></div>
+                                            <div class="blank-slot-row <?= ($is_off || (!$found_booking && !$is_working_hour)) ? 'flex' : 'hidden' ?> items-center py-8 px-5 hover:opacity-50 transition-all cursor-default">
+                                                <div class="w-44 text-[11px] font-black text-gray-500 leading-normal uppercase opacity-70 shrink-0 border-r border-white/10 pr-6 mr-6 flex items-center">
+                                                    <?= date('h:i A', $start_day) ?> - <?= date('h:i A', $slot_end) ?>
+                                                </div>
+                                                <div class="h-px flex-1 bg-white/10"></div>
                                             </div>
                                             <?php $start_day = $slot_end; ?>
                                         <?php endwhile; ?>
