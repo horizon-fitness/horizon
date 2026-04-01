@@ -42,14 +42,16 @@ if (isset($_GET['ajax_user_id'])) {
     $target_uid = (int) $_GET['ajax_user_id'];
     
     // Fetch unique member data
+    // Check if this member has booked with this coach
     $stmt = $pdo->prepare("
         SELECT u.*, m.* 
         FROM users u 
         JOIN members m ON u.user_id = m.user_id 
-        WHERE u.user_id = ? AND m.gym_id = ?
+        JOIN bookings b ON m.member_id = b.member_id
+        WHERE u.user_id = ? AND m.gym_id = ? AND b.coach_id = ?
         LIMIT 1
     ");
-    $stmt->execute([$target_uid, $gym_id]);
+    $stmt->execute([$target_uid, $gym_id, $coach_id]);
     $u = $stmt->fetch();
 
     if (!$u && $target_uid >= 101) { // Mock support
@@ -191,6 +193,7 @@ if ($sort_by === 'oldest') $order_sql = "ORDER BY last_visit ASC";
 
 $sql = "
     SELECT DISTINCT m.member_id, u.user_id, u.first_name, u.last_name, u.email, u.contact_number, m.member_code, m.member_status,
+    (SELECT COUNT(*) FROM bookings WHERE member_id = m.member_id AND coach_id = ?) as session_count,
     (SELECT MAX(attendance_date) FROM attendance WHERE member_id = m.member_id) as last_visit,
     (SELECT workout_name FROM member_workouts WHERE member_id = m.member_id ORDER BY created_at DESC LIMIT 1) as workout_plan,
     (SELECT workout_status FROM member_workouts WHERE member_id = m.member_id ORDER BY created_at DESC LIMIT 1) as workout_status
@@ -200,6 +203,8 @@ $sql = "
     WHERE " . implode(" AND ", $where_clauses) . "
     $order_sql
 ";
+
+$params = array_merge([$coach_id], $params); // Add for subquery
 
 $members = [];
 if ($coach_id > 0) {
@@ -463,7 +468,11 @@ $active_page = "members";
                         <div class="size-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center font-black text-primary text-xl shadow-inner"><?= strtoupper(substr($m['first_name'],0,1)) ?></div>
                         <div>
                             <h3 class="text-white font-black uppercase italic tracking-tight text-base"><?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?></h3>
-                            <p class="text-[9px] text-gray-600 font-black uppercase tracking-[0.2em]">Code: <?= htmlspecialchars($m['member_code']) ?></p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <p class="text-[9px] text-gray-600 font-black uppercase tracking-[0.2em]">Code: <?= htmlspecialchars($m['member_code']) ?></p>
+                                <span class="size-1 bg-gray-700 rounded-full"></span>
+                                <p class="text-[9px] text-primary font-black uppercase tracking-[0.2em]"><?= $m['session_count'] ?> Sessions</p>
+                            </div>
                         </div>
                     </div>
                     <?php $sc = $m['member_status'] === 'Active' ? 'text-emerald-500 bg-emerald-500/10' : ($m['member_status'] === 'Pending' ? 'text-amber-500 bg-amber-500/10' : 'text-rose-500 bg-rose-500/10'); ?>
@@ -516,7 +525,10 @@ $active_page = "members";
                             <td>
                                 <div class="flex items-center gap-4">
                                     <div class="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-sm shadow-inner"><?= substr($m['first_name'],0,1) ?></div>
-                                    <span class="font-bold text-white italic"><?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?></span>
+                                    <div class="flex flex-col">
+                                        <span class="font-bold text-white italic"><?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?></span>
+                                        <span class="text-[8px] text-primary font-black uppercase tracking-widest mt-0.5"><?= $m['session_count'] ?> Sessions with You</span>
+                                    </div>
                                 </div>
                             </td>
                             <td class="text-gray-300 text-xs font-bold"><?= htmlspecialchars($m['workout_plan'] ?: 'None') ?></td>

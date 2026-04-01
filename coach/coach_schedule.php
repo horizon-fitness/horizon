@@ -109,7 +109,7 @@ if ($coach_id > 0) {
         FROM bookings b
         JOIN members m ON b.member_id = m.member_id
         JOIN users u ON m.user_id = u.user_id
-        WHERE b.coach_id = ? AND b.booking_status = 'Confirmed'
+        WHERE b.coach_id = ? AND b.booking_status IN ('Confirmed', 'Pending')
     ");
     $stmtBookings->execute([$coach_id]);
     $fetched_bookings = $stmtBookings->fetchAll();
@@ -119,7 +119,8 @@ if ($coach_id > 0) {
             'ts_start' => strtotime($fb['booking_date'] . ' ' . $fb['start_time']),
             'ts_end' => strtotime($fb['booking_date'] . ' ' . $fb['end_time']),
             'fullname' => $fb['fullname'],
-            'username' => $fb['username']
+            'username' => $fb['username'],
+            'status' => $fb['booking_status']
         ];
     }
 }
@@ -774,24 +775,34 @@ if ($coach_id > 0) {
                                                 ($start_day >= $s2_ts && $start_day < $e2_ts)
                                             ) && !$is_off;
                                             ?>
-                                            <?php if ($found_booking): ?>
+                                            <?php if ($found_booking): 
+                                                $is_pending = ($found_booking['status'] === 'Pending');
+                                                $accent_color = $is_pending ? 'amber-500' : 'primary';
+                                                $bg_color = $is_pending ? 'bg-amber-500/10' : 'bg-primary/20';
+                                                $border_color = $is_pending ? 'border-amber-500/30' : 'border-primary/30';
+                                                $text_color = $is_pending ? 'text-amber-500' : 'text-primary';
+                                                $icon = $is_pending ? 'timer' : 'verified';
+                                                $status_label = $is_pending ? 'Pending Request' : 'Confirmed Training';
+                                            ?>
                                                 <div
-                                                    class="booked-slot-box flex items-center bg-primary/20 border border-primary/30 p-6 rounded-[24px] shadow-2xl animate-slide-up group relative overflow-hidden">
-                                                    <div class="w-44 text-[11px] font-black text-primary leading-none shrink-0 border-r-2 border-primary/30 pr-6 mr-6 flex items-center">
+                                                    class="booked-slot-box flex items-center <?= $bg_color ?> border <?= $border_color ?> p-6 rounded-[24px] shadow-2xl animate-slide-up group relative overflow-hidden">
+                                                    <div class="w-44 text-[11px] font-black <?= $text_color ?> leading-none shrink-0 border-r-2 <?= $border_color ?> pr-6 mr-6 flex items-center">
                                                         <?= date('h:i A', $start_day) ?> - <?= date('h:i A', $slot_end) ?>
                                                     </div>
                                                     <div class="flex-1">
+                                                        <p class="text-[10px] font-black <?= $text_color ?> uppercase tracking-[0.2em] mb-1">
+                                                            BOOKED BY:</p>
                                                         <p
-                                                            class="text-base font-black text-white uppercase italic group-hover:text-primary transition-colors">
+                                                            class="text-base font-black text-white uppercase italic group-hover:text-<?= $accent_color ?> transition-colors">
                                                             <?= htmlspecialchars($found_booking['fullname']) ?></p>
                                                         <p
                                                             class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
-                                                            Confirmed Member Training</p>
+                                                            <?= $status_label ?></p>
                                                     </div>
                                                     <span
-                                                        class="material-symbols-outlined text-primary text-2xl group-hover:scale-110 transition-transform">verified</span>
+                                                        class="material-symbols-outlined <?= $text_color ?> text-2xl group-hover:scale-110 transition-transform"><?= $icon ?></span>
                                                     <div
-                                                        class="absolute -right-4 -bottom-4 size-24 bg-primary/5 rounded-full blur-2xl">
+                                                        class="absolute -right-4 -bottom-4 size-24 bg-<?= $accent_color ?>/5 rounded-full blur-2xl">
                                                      </div>
                                                 </div>
                                             <?php elseif ($is_working_hour): ?>
