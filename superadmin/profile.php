@@ -14,7 +14,7 @@ $success_msg = $_SESSION['success_msg'] ?? '';
 $error_msg = $_SESSION['error_msg'] ?? '';
 unset($_SESSION['success_msg'], $_SESSION['error_msg']);
 
-// Helper function for Base64 conversion (matching Horizon pattern)
+// Helper function for Base64 conversion
 function convertFileToBase64($fileInputName)
 {
     if (isset($_FILES[$fileInputName]) && $_FILES[$fileInputName]['error'] == 0) {
@@ -26,7 +26,7 @@ function convertFileToBase64($fileInputName)
     return null;
 }
 
-// Handle Profile & Password Update (Unified)
+// Handle Profile & Password Update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_profile') {
     $current_password = $_POST['current_password'] ?? '';
     $username = trim($_POST['username']);
@@ -35,6 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $last_name = trim($_POST['last_name']);
     $email = trim($_POST['email']);
     $contact_number = trim($_POST['contact_number']);
+
+    // New Fields
+    $birth_date = trim($_POST['birth_date'] ?? '');
+    $sex = trim($_POST['sex'] ?? '');
+    $address = trim($_POST['address'] ?? '');
+    $shift_schedule = trim($_POST['shift_schedule'] ?? '');
 
     $new_password = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
@@ -54,16 +60,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $pdo->beginTransaction();
 
         // Fetch old values for audit
-        $stmtOld = $pdo->prepare("SELECT username, first_name, middle_name, last_name, email, contact_number, profile_picture FROM users WHERE user_id = ?");
+        $stmtOld = $pdo->prepare("SELECT username, first_name, middle_name, last_name, email, contact_number, birth_date, sex, address, shift_schedule, profile_picture FROM users WHERE user_id = ?");
         $stmtOld->execute([$user_id]);
         $old_values = $stmtOld->fetch(PDO::FETCH_ASSOC);
 
         $profile_picture = convertFileToBase64('profile_picture');
 
         // Build Update Query
-        $updates = ["username = ?", "first_name = ?", "middle_name = ?", "last_name = ?", "email = ?", "contact_number = ?", "updated_at = ?"];
-        $params = [$username, $first_name, $middle_name, $last_name, $email, $contact_number, $now];
-        $new_values = ['username' => $username, 'first_name' => $first_name, 'middle_name' => $middle_name, 'last_name' => $last_name, 'email' => $email, 'contact_number' => $contact_number];
+        $updates = [
+            "username = ?",
+            "first_name = ?",
+            "middle_name = ?",
+            "last_name = ?",
+            "email = ?",
+            "contact_number = ?",
+            "birth_date = ?",
+            "sex = ?",
+            "address = ?",
+            "shift_schedule = ?",
+            "updated_at = ?"
+        ];
+        $params = [$username, $first_name, $middle_name, $last_name, $email, $contact_number, $birth_date, $sex, $address, $shift_schedule, $now];
+        $new_values = [
+            'username' => $username,
+            'first_name' => $first_name,
+            'middle_name' => $middle_name,
+            'last_name' => $last_name,
+            'email' => $email,
+            'contact_number' => $contact_number,
+            'birth_date' => $birth_date,
+            'sex' => $sex,
+            'address' => $address,
+            'shift_schedule' => $shift_schedule
+        ];
 
         if ($profile_picture) {
             $updates[] = "profile_picture = ?";
@@ -97,8 +126,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         header("Location: profile.php?status=success&msg=" . urlencode("Profile updated successfully!"));
         exit;
     } catch (Exception $e) {
-        if ($pdo->inTransaction())
+        if ($pdo->inTransaction()) {
             $pdo->rollBack();
+        }
         $_SESSION['error_msg'] = $e->getMessage();
         header("Location: profile.php?status=error&msg=" . urlencode($e->getMessage()));
         exit;
@@ -115,8 +145,14 @@ $active_page = "profile";
 
 // Data Preparation for the template
 $joined = isset($user['created_at']) ? date("F Y", strtotime($user['created_at'])) : 'N/A';
-$status = "Active"; // Hardcoded for Superadmin for now
+$status = "Active";
 $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
+
+$sex = htmlspecialchars($user['sex'] ?? '');
+$birthDate = htmlspecialchars($user['birth_date'] ?? '');
+$address = htmlspecialchars($user['address'] ?? '');
+$shift = htmlspecialchars($user['shift_schedule'] ?? '');
+$role = "Superadmin"; // Hardcoded role for Superadmin profile
 
 ?>
 <!DOCTYPE html>
@@ -125,7 +161,9 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title><?= $page_title ?> | Horizon System</title>
+    <title>
+        <?= $page_title ?> | Horizon System
+    </title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet" />
     <link
@@ -146,12 +184,6 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
             font-family: 'Lexend', sans-serif;
             background-color: #0a090d;
             color: white;
-        }
-
-        .glass-card {
-            background: #14121a;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 24px;
         }
 
         .sidebar-nav {
@@ -188,7 +220,6 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
             overflow-x: hidden;
         }
 
-        /* Custom Scrollbar for the sidebar */
         .sidebar-scroll-container::-webkit-scrollbar {
             width: 4px;
         }
@@ -308,7 +339,7 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
             scrollbar-width: none;
         }
 
-        /* Profile Specific Styles (Purplized) */
+        /* Profile Specific Styles (Merged Logic + Superadmin Theme) */
         .profile-input {
             background-color: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -339,8 +370,13 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
             box-shadow: 0 0 0 1px rgba(140, 43, 238, 0.1);
         }
 
-        .profile-input.has-icon:not(:disabled) {
-            padding-left: 2.5rem;
+        .profile-input.has-icon:not(:disabled),
+        .edit-mode .profile-input.has-icon:disabled {
+            padding-left: 2.5rem !important;
+        }
+
+        body:not(.edit-mode) .profile-input.has-icon {
+            padding-left: 0 !important;
         }
 
         body:not(.edit-mode) .input-icon,
@@ -370,6 +406,11 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
             max-height: 1000px;
             opacity: 1;
             margin-top: 1.5rem;
+        }
+
+        select.profile-input option {
+            background-color: #14121a;
+            color: white;
         }
 
         /* Dynamic Main Wrapper Sizing */
@@ -496,7 +537,6 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
     </nav>
 
     <div class="main-content flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
-        <!-- Main Wrapper is now dynamically resized using CSS ID -->
         <main id="main-wrapper" class="flex-1 p-6 md:p-8 lg:p-10 w-full mx-auto pb-32 animate-fade-in">
             <header class="mb-12 flex flex-row justify-between items-end gap-6">
                 <div>
@@ -508,7 +548,7 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                 </div>
                 <div class="flex flex-col items-end justify-center">
                     <p id="headerClock"
-                        class="text-white font-black italic text-2xl leading-none transition-colors hover:text-primary font-black italic uppercase tracking-tighter">
+                        class="text-white font-black italic text-2xl leading-none transition-colors hover:text-primary uppercase tracking-tighter">
                         00:00:00 AM</p>
                     <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
                         <?= date('l, M d, Y') ?>
@@ -526,40 +566,49 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                         </div>
                         <div class="relative z-10">
                             <div
-                                class="w-32 h-32 mx-auto rounded-[40px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden group">
+                                class="w-32 h-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden group">
                                 <div
-                                    class="w-full h-full rounded-[40px] bg-[#14121a] flex items-center justify-center overflow-hidden relative">
+                                    class="w-full h-full rounded-[30px] bg-[#14121a] flex items-center justify-center overflow-hidden relative">
                                     <?php if (!empty($user['profile_picture'])): ?>
-                                        <img id="summaryProfileImg" src="<?= $user['profile_picture'] ?>"
+                                        <img id="profilePreviewImg" src="<?= $user['profile_picture'] ?>"
                                             class="size-full object-cover transition-transform duration-700 group-hover:scale-110">
                                     <?php else: ?>
-                                        <div id="summaryPlaceholder"
+                                        <div id="profilePlaceholder"
                                             class="size-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-primary text-4xl font-black italic">
                                             <?= strtoupper($user['first_name'][0] . ($user['last_name'][0] ?? '')) ?>
                                         </div>
                                     <?php endif; ?>
                                     <label
-                                        class="edit-reveal absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-1.5 backdrop-blur-sm cursor-pointer">
-                                        <span class="material-symbols-rounded text-white text-2xl">add_a_photo</span>
+                                        class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px]">
+                                        <div
+                                            class="size-12 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300">
+                                            <span class="material-symbols-rounded text-2xl">add_a_photo</span>
+                                        </div>
+                                        <span
+                                            class="text-[10px] font-black uppercase tracking-[0.2em] text-white italic">Update</span>
                                         <input type="file" name="profile_picture" form="profile-form" class="hidden"
-                                            accept="image/*" onchange="previewProfileImage(this)" disabled>
+                                            accept="image/*" onchange="previewProfileImage(this)">
                                     </label>
                                 </div>
                             </div>
                             <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">
                                 <?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?>
                             </h2>
-                            <p class="text-[10px] text-gray-500 mb-5 font-bold uppercase tracking-widest">Superadmin</p>
+                            <p class="text-[10px] text-primary mb-5 font-bold uppercase tracking-widest">
+                                <?= $role ?>
+                            </p>
                             <div class="flex justify-center gap-2 mb-8">
                                 <span
                                     class="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                                    Online
+                                    <?= $status ?>
                                 </span>
                             </div>
                             <div class="pt-6 border-t border-white/5">
                                 <p class="text-[9px] uppercase tracking-[0.2em] text-gray-600 font-black mb-1">
                                     Administrator Since</p>
-                                <p class="text-sm font-bold text-gray-300 italic"><?= $joined ?></p>
+                                <p class="text-sm font-bold text-gray-300 italic">
+                                    <?= $joined ?>
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -570,15 +619,16 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                             class="material-symbols-rounded group-hover:text-primary transition-colors">edit_square</span>
                         <span>Edit Profile</span>
                     </button>
-                    <button id="cancel-btn" onclick="cancelEdit()"
-                        class="hidden w-full py-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3">
-                        <span class="material-symbols-rounded">close</span>
+
+                    <button id="discard-btn" onclick="cancelEdit()"
+                        class="hidden w-full py-4 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 text-rose-500 text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group">
+                        <span class="material-symbols-rounded group-hover:scale-110 transition-transform">close</span>
                         <span>Discard Changes</span>
                     </button>
 
-                    <div class="mt-4 px-2 opacity-40">
+                    <div class="mt-4 px-2 opacity-80">
                         <p
-                            class="text-[9px] font-bold text-gray-500 uppercase tracking-widest leading-relaxed text-center">
+                            class="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed text-center">
                             Security Notice: Ensure your password is unique and not used elsewhere.
                         </p>
                     </div>
@@ -603,7 +653,7 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                         <div class="space-y-6">
                             <h3 class="profile-section-title">Account Details</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                <div class="space-y-2 md:col-span-2">
+                                <div class="space-y-2">
                                     <label
                                         class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Username</label>
                                     <div class="relative group">
@@ -614,6 +664,20 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                                         <input type="text" name="username"
                                             value="<?= htmlspecialchars($user['username'] ?? '') ?>" disabled required
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label
+                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Administrator
+                                        Role</label>
+                                    <div class="relative group">
+                                        <span
+                                            class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none transition-colors">
+                                            <span class="material-symbols-rounded text-lg">badge</span>
+                                        </span>
+                                        <input type="text" name="staff_role" value="<?= $role ?>" disabled
+                                            class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                     </div>
                                 </div>
 
@@ -632,14 +696,16 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                                                     Password</label>
                                                 <div class="relative">
                                                     <input type="password" name="new_password" id="new_pass"
-                                                        onkeyup="checkStrength(this.value)" placeholder="••••••••"
+                                                        onkeyup="checkStrength(this.value)"
+                                                        placeholder="Leave blank to keep current"
                                                         class="w-full bg-[#0a090d] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary focus:outline-none transition-all placeholder:text-gray-800"
                                                         disabled>
                                                     <button type="button"
                                                         onclick="togglePassword('new_pass', 'icon_new')"
-                                                        class="absolute right-4 top-3.5 text-gray-600 hover:text-white"><span
-                                                            class="material-symbols-rounded text-lg"
-                                                            id="icon_new">visibility_off</span></button>
+                                                        class="absolute right-4 top-3.5 text-gray-600 hover:text-white">
+                                                        <span class="material-symbols-rounded text-lg"
+                                                            id="icon_new">visibility_off</span>
+                                                    </button>
                                                 </div>
                                                 <div class="h-1 w-full bg-white/5 rounded-full mt-3 overflow-hidden">
                                                     <div id="strength-bar"
@@ -656,14 +722,15 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                                                     New Password</label>
                                                 <div class="relative">
                                                     <input type="password" name="confirm_password" id="confirm_pass"
-                                                        placeholder="••••••••"
+                                                        placeholder="Re-enter new password"
                                                         class="w-full bg-[#0a090d] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary focus:outline-none transition-all placeholder:text-gray-800"
                                                         disabled>
                                                     <button type="button"
                                                         onclick="togglePassword('confirm_pass', 'icon_confirm')"
-                                                        class="absolute right-4 top-3.5 text-gray-600 hover:text-white"><span
-                                                            class="material-symbols-rounded text-lg"
-                                                            id="icon_confirm">visibility_off</span></button>
+                                                        class="absolute right-4 top-3.5 text-gray-600 hover:text-white">
+                                                        <span class="material-symbols-rounded text-lg"
+                                                            id="icon_confirm">visibility_off</span>
+                                                    </button>
                                                 </div>
                                                 <p id="match-text"
                                                     class="text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-rose-500 min-h-[15px]">
@@ -686,10 +753,25 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
-                                            <span class="material-symbols-rounded text-lg">person</span>
+                                            <span class="material-symbols-rounded text-lg">badge</span>
                                         </span>
                                         <input type="text" name="first_name"
                                             value="<?= htmlspecialchars($user['first_name'] ?? '') ?>" disabled required
+                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label
+                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Middle
+                                        Name</label>
+                                    <div class="relative group">
+                                        <span
+                                            class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                            <span class="material-symbols-rounded text-lg">badge</span>
+                                        </span>
+                                        <input type="text" name="middle_name"
+                                            value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>" disabled
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                     </div>
                                 </div>
@@ -701,7 +783,7 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
-                                            <span class="material-symbols-rounded text-lg">person</span>
+                                            <span class="material-symbols-rounded text-lg">badge</span>
                                         </span>
                                         <input type="text" name="last_name"
                                             value="<?= htmlspecialchars($user['last_name'] ?? '') ?>" disabled required
@@ -709,31 +791,73 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                                     </div>
                                 </div>
 
-                                <div class="space-y-2 md:col-span-2">
+                                <div class="space-y-2">
+                                    <!-- Grid Spacer -->
+                                </div>
+
+                                <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Middle
-                                        Name</label>
+                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Date
+                                        of Birth</label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
-                                            <span class="material-symbols-rounded text-lg">person</span>
+                                            <span class="material-symbols-rounded text-lg">cake</span>
                                         </span>
-                                        <input type="text" name="middle_name"
-                                            value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>" disabled
-                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                        <input type="date" name="birth_date" value="<?= $birthDate ?>" disabled required
+                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold [color-scheme:dark]">
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label
+                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Sex</label>
+                                    <div class="relative group">
+                                        <span
+                                            class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                            <span class="material-symbols-rounded text-lg">wc</span>
+                                        </span>
+                                        <select name="sex" disabled required
+                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none cursor-pointer">
+                                            <option value="" disabled <?= empty($sex) ? 'selected' : '' ?>>Select Sex
+                                            </option>
+                                            <option value="Male" <?= $sex === 'Male' ? 'selected' : '' ?>>Male</option>
+                                            <option value="Female" <?= $sex === 'Female' ? 'selected' : '' ?>>Female
+                                            </option>
+                                            <option value="Other" <?= $sex === 'Other' ? 'selected' : '' ?>>Other</option>
+                                        </select>
+                                        <span
+                                            class="input-chevron absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 pointer-events-none">
+                                            <span class="material-symbols-rounded text-lg">expand_more</span>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Contact Information -->
+                        <!-- Contact & Details -->
                         <div class="space-y-6">
-                            <h3 class="profile-section-title">Contact Information</h3>
+                            <h3 class="profile-section-title">Contact & Details</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Email
-                                        Address</label>
+                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Contact
+                                        No.</label>
+                                    <div class="relative group">
+                                        <span
+                                            class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                            <span class="material-symbols-rounded text-lg">smartphone</span>
+                                        </span>
+                                        <input type="text" name="contact_number"
+                                            value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" disabled
+                                            required
+                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label
+                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Email</label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
@@ -745,93 +869,200 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
                                     </div>
                                 </div>
 
-                                <div class="space-y-2">
-                                    <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Contact
-                                        Number</label>
-                                    <div class="relative group">
-                                        <span
-                                            class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
-                                            <span class="material-symbols-rounded text-lg">call</span>
-                                        </span>
-                                        <input type="text" name="contact_number"
-                                            value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" disabled
-                                            required
-                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
-                                    </div>
-                                </div>
+
+
+
+
+
                             </div>
                         </div>
 
-                        <!-- Clean Original Look Confirm Changes -->
-                        <div class="edit-reveal mt-2">
+                        <!-- Bottom Save Section -->
+                        <div id="save-section" class="hidden border-t border-white/5 pt-10 mt-6 animate-fade-in">
                             <div
-                                class="pt-6 border-t border-white/5 flex flex-col md:flex-row items-end justify-between gap-6">
-                                <div class="w-full md:w-1/2 space-y-2">
-                                    <label class="text-[9px] uppercase font-bold text-gray-500 tracking-widest ml-1">
-                                        Current Password Required to Save <span class="text-rose-500">*</span>
-                                    </label>
-                                    <div class="relative group">
-                                        <span
-                                            class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
-                                            <span class="material-symbols-rounded text-lg">key</span>
-                                        </span>
-                                        <input type="password" name="current_password" id="current_password"
-                                            placeholder="Enter current password"
-                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold focus:border-primary focus:outline-none transition-all disabled:opacity-50"
-                                            disabled>
+                                class="bg-[#1a1824] border border-primary/20 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save">
+                                <div
+                                    class="absolute inset-0 bg-primary/5 opacity-0 group-hover/save:opacity-100 transition-opacity">
+                                </div>
+
+                                <div class="flex items-center gap-5 shrink-0 relative z-10">
+                                    <div
+                                        class="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/30 shadow-inner group-hover/save:scale-110 transition-transform duration-500">
+                                        <span class="material-symbols-rounded text-2xl">shield_locked</span>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-black italic uppercase tracking-tighter text-white">
+                                            Confirm Changes</h4>
+                                        <p
+                                            class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-1 opacity-80">
+                                            Enter current password to save changes.</p>
                                     </div>
                                 </div>
-                                <div class="w-full md:w-auto shrink-0">
-                                    <button type="submit" id="save-btn"
-                                        class="w-full px-10 py-3.5 bg-primary hover:bg-primary-hover text-white text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3"
-                                        disabled>
-                                        <span class="material-symbols-rounded text-lg">save</span>
-                                        <span>Confirm Changes</span>
+
+                                <div
+                                    class="flex flex-col sm:flex-row items-center gap-5 w-full md:w-auto relative z-10 shrink-0">
+                                    <div class="relative w-full sm:w-44 group/input">
+                                        <input type="password" name="current_password" id="current_pass" required
+                                            placeholder="Password" disabled
+                                            class="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-xs font-black italic text-white focus:border-primary/50 focus:outline-none transition-all pr-12 placeholder:text-gray-800 tracking-widest">
+                                        <button type="button" onclick="togglePassword('current_pass', 'icon_curr')"
+                                            class="absolute right-4 top-2.5 text-gray-700 hover:text-white transition-colors">
+                                            <span class="material-symbols-rounded text-lg"
+                                                id="icon_curr">visibility_off</span>
+                                        </button>
+                                    </div>
+
+                                    <button type="submit"
+                                        class="shrink-0 text-primary hover:text-white text-[11px] font-black italic uppercase tracking-[0.2em] transition-all hover:scale-110 active:scale-95 py-2">
+                                        SAVE CHANGES
                                     </button>
                                 </div>
                             </div>
                         </div>
+
                     </form>
                 </div>
             </div>
         </main>
     </div>
 
-    <script>
-        const body = document.body;
-        const form = document.getElementById('profile-form');
-        const inputs = form.querySelectorAll('input:not([type="hidden"])');
-        const editBtn = document.getElementById('edit-btn');
-        const cancelBtn = document.getElementById('cancel-btn');
-        const saveBtn = document.getElementById('save-btn');
-        const editIndicator = document.getElementById('edit-indicator');
+    <!-- Custom Modal (Themed for Superadmin) -->
+    <div id="custom-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 hidden xl:pl-[110px]">
+        <div class="absolute inset-0 backdrop-blur-sm transition-opacity duration-300 opacity-0 bg-[#0a090d]/80"
+            id="modal-backdrop" onclick="closeModal()">
+        </div>
 
+        <div class="relative z-10 bg-[#14121a] w-full max-w-sm rounded-[32px] shadow-2xl border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0"
+            id="modal-content">
+            <div class="p-8 text-center">
+                <div class="w-20 h-20 rounded-[24px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10"
+                    id="modal-icon-bg">
+                    <span class="material-symbols-rounded text-4xl text-primary" id="modal-icon">info</span>
+                </div>
+
+                <h3 class="text-xl font-black italic text-white uppercase tracking-tighter mb-3" id="modal-title">
+                    Notification</h3>
+                <p class="text-gray-400 text-[11px] font-bold tracking-wider mb-8 leading-relaxed px-2"
+                    id="modal-message">Message goes here...</p>
+
+                <div class="flex gap-3 justify-center" id="modal-actions">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- MODAL LOGIC ---
+        function showModal(title, message, type, callback = null) {
+            const modal = document.getElementById('custom-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const content = document.getElementById('modal-content');
+
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+
+            const actionsDiv = document.getElementById('modal-actions');
+            actionsDiv.innerHTML = '';
+
+            if (type === 'confirm') {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = "px-6 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-black italic uppercase tracking-[0.2em] transition-colors";
+                cancelBtn.innerText = "Cancel";
+                cancelBtn.onclick = closeModal;
+                actionsDiv.appendChild(cancelBtn);
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = "px-8 py-3.5 rounded-2xl bg-primary hover:bg-primary-hover text-white text-[10px] font-black italic uppercase tracking-[0.2em] shadow-lg shadow-primary/20 transition-all flex items-center gap-2";
+                confirmBtn.innerHTML = '<span class="material-symbols-rounded text-base">check</span> Confirm';
+                confirmBtn.onclick = function () {
+                    if (callback) callback();
+                    closeModal();
+                };
+                actionsDiv.appendChild(confirmBtn);
+
+                document.getElementById('modal-icon').innerText = 'security';
+                document.getElementById('modal-icon').className = 'material-symbols-rounded text-4xl text-primary';
+                document.getElementById('modal-icon-bg').className = 'w-20 h-20 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto mb-6 border border-primary/20';
+
+            } else {
+                const okBtn = document.createElement('button');
+                okBtn.className = "w-full py-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-black italic uppercase tracking-[0.2em] transition-colors";
+                okBtn.innerText = "Okay, Got it";
+                okBtn.onclick = closeModal;
+                actionsDiv.appendChild(okBtn);
+
+                document.getElementById('modal-icon').innerText = 'warning';
+                document.getElementById('modal-icon').className = 'material-symbols-rounded text-4xl text-rose-500';
+                document.getElementById('modal-icon-bg').className = 'w-20 h-20 rounded-[24px] bg-rose-500/10 flex items-center justify-center mx-auto mb-6 border border-rose-500/20';
+
+                if (type === 'success') {
+                    document.getElementById('modal-icon').innerText = 'check_circle';
+                    document.getElementById('modal-icon').className = 'material-symbols-rounded text-4xl text-emerald-400';
+                    document.getElementById('modal-icon-bg').className = 'w-20 h-20 rounded-[24px] bg-emerald-400/10 flex items-center justify-center mx-auto mb-6 border border-emerald-400/20';
+                }
+            }
+
+            modal.classList.remove('hidden');
+
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                content.classList.remove('scale-90', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const content = document.getElementById('modal-content');
+
+            backdrop.classList.add('opacity-0');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-90', 'opacity-0');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // --- FORM LOGIC ---
         let initialValues = {};
 
         function toggleEdit() {
-            body.classList.add('edit-mode');
-            editBtn.classList.add('hidden');
-            cancelBtn.classList.remove('hidden');
-            editIndicator.classList.remove('hidden');
-            saveBtn.disabled = false;
+            const form = document.getElementById('profile-form');
+            const inputs = form.querySelectorAll('input, select, textarea');
+            const saveSection = document.getElementById('save-section');
+            const editBtn = document.getElementById('edit-btn');
+            const discardBtn = document.getElementById('discard-btn');
+            const indicator = document.getElementById('edit-indicator');
+
+            document.body.classList.add('edit-mode');
 
             inputs.forEach(input => {
-                if (!input.classList.contains('read-only-box')) {
+                if (input.name !== 'staff_role') {
                     input.disabled = false;
                     initialValues[input.name] = input.value;
                 }
             });
 
-            document.getElementById('current_password').setAttribute('required', 'true');
+            editBtn.classList.add('hidden');
+            discardBtn.classList.remove('hidden');
+            saveSection.classList.remove('hidden');
+            indicator.classList.remove('hidden');
+
+            const firstInput = form.querySelector('input:not([disabled])');
+            if (firstInput && firstInput.type !== 'hidden') firstInput.focus();
         }
 
         function cancelEdit() {
-            body.classList.remove('edit-mode');
-            editBtn.classList.remove('hidden');
-            cancelBtn.classList.add('hidden');
-            editIndicator.classList.add('hidden');
-            saveBtn.disabled = true;
+            const form = document.getElementById('profile-form');
+            const inputs = form.querySelectorAll('input, select, textarea');
+            const saveSection = document.getElementById('save-section');
+            const editBtn = document.getElementById('edit-btn');
+            const discardBtn = document.getElementById('discard-btn');
+            const indicator = document.getElementById('edit-indicator');
+
+            document.body.classList.remove('edit-mode');
 
             inputs.forEach(input => {
                 input.disabled = true;
@@ -842,29 +1073,38 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
 
             document.getElementById('new_pass').value = '';
             document.getElementById('confirm_pass').value = '';
-            document.getElementById('current_password').value = '';
-            document.getElementById('current_password').removeAttribute('required');
+            document.getElementById('current_pass').value = '';
             document.getElementById('strength-bar').style.width = '0';
             document.getElementById('strength-text').innerText = '';
             document.getElementById('match-text').innerText = '';
+
+            editBtn.classList.remove('hidden');
+            discardBtn.classList.add('hidden');
+            saveSection.classList.add('hidden');
+            indicator.classList.add('hidden');
         }
 
         function previewProfileImage(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function (e) {
-                    let img = document.getElementById('summaryProfileImg');
+                    let img = document.getElementById('profilePreviewImg');
                     if (!img) {
-                        const placeholder = document.getElementById('summaryPlaceholder');
+                        const placeholder = document.getElementById('profilePlaceholder');
                         if (placeholder) {
                             img = document.createElement('img');
-                            img.id = 'summaryProfileImg';
+                            img.id = 'profilePreviewImg';
                             img.className = 'size-full object-cover transition-transform duration-700 group-hover:scale-110';
                             placeholder.parentNode.insertBefore(img, placeholder);
                             placeholder.remove();
                         }
                     }
                     if (img) img.src = e.target.result;
+                    
+                    // Auto-trigger Edit Mode if not already in it
+                    if (!document.body.classList.contains('edit-mode')) {
+                        toggleEdit();
+                    }
                 }
                 reader.readAsDataURL(input.files[0]);
             }
@@ -885,6 +1125,14 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
         function checkStrength(password) {
             const bar = document.getElementById('strength-bar');
             const text = document.getElementById('strength-text');
+
+            if (password.length === 0) {
+                bar.style.width = '0%';
+                bar.className = 'h-full transition-all duration-300';
+                text.innerText = '';
+                return;
+            }
+
             let strength = 0;
             if (password.length >= 8) strength += 25;
             if (password.match(/[A-Z]/)) strength += 25;
@@ -896,22 +1144,34 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
             else if (strength <= 50) { bar.className = 'h-full transition-all duration-300 bg-amber-500'; text.innerText = 'FAIR'; text.className = 'text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-amber-500 min-h-[15px]'; }
             else if (strength <= 75) { bar.className = 'h-full transition-all duration-300 bg-emerald-400'; text.innerText = 'GOOD'; text.className = 'text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-emerald-400 min-h-[15px]'; }
             else { bar.className = 'h-full transition-all duration-300 bg-primary'; text.innerText = 'STRONG'; text.className = 'text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-primary min-h-[15px]'; }
-
-            if (password.length === 0) { bar.style.width = '0'; text.innerText = ''; }
         }
 
-        function validateAndSubmit(e) {
+        function validateAndSubmit(event) {
+            event.preventDefault();
+
             const newPass = document.getElementById('new_pass').value;
             const confirmPass = document.getElementById('confirm_pass').value;
+            const matchText = document.getElementById('match-text');
 
-            if (newPass || confirmPass) {
+            if (newPass.length > 0) {
                 if (newPass !== confirmPass) {
-                    e.preventDefault();
-                    document.getElementById('match-text').innerText = 'PASSWORDS DO NOT MATCH';
+                    matchText.innerText = "PASSWORDS DO NOT MATCH!";
+                    matchText.className = "text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-rose-500 min-h-[15px]";
+
+                    showModal('Password Mismatch', 'The new passwords you entered do not match. Please try again.', 'error');
                     return false;
                 }
             }
-            return true;
+
+            showModal(
+                'Save Changes?',
+                'Are you sure you want to update your profile details? This action cannot be undone.',
+                'confirm',
+                function () {
+                    document.getElementById('profile-form').submit();
+                }
+            );
+            return false;
         }
 
         setInterval(() => {
@@ -919,6 +1179,25 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
             document.getElementById('headerClock').innerText = now.toLocaleTimeString('en-US');
         }, 1000);
     </script>
+
+    <?php if (isset($_GET['status']) && isset($_GET['msg'])): ?>
+        <script>
+            window.addEventListener('DOMContentLoaded', () => {
+                const status = "<?= htmlspecialchars($_GET['status']) ?>";
+                const msg = "<?= htmlspecialchars(urldecode($_GET['msg'])) ?>";
+                const title = status === 'success' ? 'Success' : 'Notice';
+                const type = status === 'success' ? 'success' : 'error';
+
+                showModal(title, msg, type);
+
+                if (history.replaceState) {
+                    var newurl = window.location.protocol + "//" + window.location.host + window.location.pathname + window.location.search.replace(/[\?&](status|msg)=[^&]+/, '').replace(/^&/, '?');
+                    window.history.replaceState({ path: newurl }, '', newurl);
+                }
+            });
+        </script>
+    <?php endif; ?>
+
 </body>
 
 </html>
