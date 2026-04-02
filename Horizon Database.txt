@@ -9,6 +9,8 @@ CREATE TABLE users (
     middle_name VARCHAR(100),
     last_name VARCHAR(100) NOT NULL,
     contact_number VARCHAR(20) NOT NULL,
+    birth_date DATE,
+    sex VARCHAR(20),
     profile_picture LONGTEXT,
     is_verified TINYINT(1) NOT NULL DEFAULT 0,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -455,7 +457,7 @@ INSERT INTO roles (role_name) VALUES
 
 INSERT INTO users (
     username, email, password_hash, first_name, last_name,
-    contact_number, is_verified, is_active, created_at, updated_at
+    contact_number, birth_date, sex, is_verified, is_active, created_at, updated_at
 ) VALUES (
     'superadmin',
     'admin@horizon.com',
@@ -463,6 +465,8 @@ INSERT INTO users (
     'Super',
     'Admin',
     '00000000000',
+    '1990-01-01',
+    'Male',
     1,
     1,
     NOW(),

@@ -540,11 +540,11 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
         <main id="main-wrapper" class="flex-1 p-6 md:p-8 lg:p-10 w-full mx-auto pb-32 animate-fade-in">
             <header class="mb-12 flex flex-row justify-between items-end gap-6">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Admin
-                        <span class="text-primary opacity-60">Profile</span>
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">My
+                        <span class="text-primary">Profile</span>
                     </h2>
-                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60">
-                        Manage your account settings</p>
+                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-2 px-1">
+                        Identify & Security Settings</p>
                 </div>
                 <div class="flex flex-col items-end justify-center">
                     <p id="headerClock"
@@ -638,7 +638,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                 <div
                     class="flex-1 w-full bg-[#14121a]/50 backdrop-blur-md border border-white/5 rounded-3xl p-6 md:p-10 shadow-2xl transition-all">
                     <div class="flex items-center justify-between mb-8">
-                        <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Account Profile</h1>
+                        <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Profile Details</h1>
                         <div id="edit-indicator"
                             class="hidden px-4 py-1.5 rounded-lg bg-primary/20 text-primary text-[9px] font-black italic uppercase tracking-[0.2em] animate-pulse">
                             Editing Mode
@@ -1100,7 +1100,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                         }
                     }
                     if (img) img.src = e.target.result;
-                    
+
                     // Auto-trigger Edit Mode if not already in it
                     if (!document.body.classList.contains('edit-mode')) {
                         toggleEdit();
