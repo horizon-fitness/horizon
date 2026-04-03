@@ -39,15 +39,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     // New Fields
     $birth_date = trim($_POST['birth_date'] ?? '');
     $sex = trim($_POST['sex'] ?? '');
-    $address = trim($_POST['address'] ?? '');
-    $shift_schedule = trim($_POST['shift_schedule'] ?? '');
-
     $new_password = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
 
     $now = date('Y-m-d H:i:s');
+    $today = date('Y-m-d');
 
     try {
+        // --- Server-Side Validation ---
+        // 1. Name Validation (No numbers allowed)
+        if (preg_match('/[0-9]/', $first_name)) throw new Exception("First name cannot contain numbers.");
+        if (preg_match('/[0-9]/', $middle_name)) throw new Exception("Middle name cannot contain numbers.");
+        if (preg_match('/[0-9]/', $last_name)) throw new Exception("Last name cannot contain numbers.");
+
+        // 2. Phone Number Validation (Numbers only, 11 digits)
+        $raw_contact = str_replace('-', '', $contact_number);
+        if (!ctype_digit($raw_contact) || strlen($raw_contact) !== 11) {
+            throw new Exception("Contact number must be exactly 11 digits (e.g., 0912-345-6789).");
+        }
+
+        // 3. Birth Date Validation (No future dates)
+        if ($birth_date > $today) {
+            throw new Exception("Birth date cannot be a future date.");
+        }
+
+        // 4. Email Validation (Must be @gmail.com)
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !str_ends_with(strtolower($email), '@gmail.com')) {
+            throw new Exception("Email must be a valid @gmail.com address.");
+        }
         // 1. Verify Current Password First
         $stmt = $pdo->prepare("SELECT password_hash FROM users WHERE user_id = ?");
         $stmt->execute([$user_id]);
@@ -60,10 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $pdo->beginTransaction();
 
         // Fetch old values for audit
-        $stmtOld = $pdo->prepare("SELECT username, first_name, middle_name, last_name, email, contact_number, birth_date, sex, address, shift_schedule, profile_picture FROM users WHERE user_id = ?");
+        $stmtOld = $pdo->prepare("SELECT username, first_name, middle_name, last_name, email, contact_number, birth_date, sex, profile_picture FROM users WHERE user_id = ?");
         $stmtOld->execute([$user_id]);
         $old_values = $stmtOld->fetch(PDO::FETCH_ASSOC);
 
+        $remove_profile = isset($_POST['remove_profile_picture']) && $_POST['remove_profile_picture'] === '1';
         $profile_picture = convertFileToBase64('profile_picture');
 
         // Build Update Query
@@ -76,11 +96,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             "contact_number = ?",
             "birth_date = ?",
             "sex = ?",
-            "address = ?",
-            "shift_schedule = ?",
             "updated_at = ?"
         ];
-        $params = [$username, $first_name, $middle_name, $last_name, $email, $contact_number, $birth_date, $sex, $address, $shift_schedule, $now];
+        $params = [$username, $first_name, $middle_name, $last_name, $email, $contact_number, $birth_date, $sex, $now];
         $new_values = [
             'username' => $username,
             'first_name' => $first_name,
@@ -89,10 +107,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             'email' => $email,
             'contact_number' => $contact_number,
             'birth_date' => $birth_date,
-            'sex' => $sex,
-            'address' => $address,
-            'shift_schedule' => $shift_schedule
+            'sex' => $sex
         ];
+
+        if ($remove_profile) {
+            $updates[] = "profile_picture = NULL";
+            $new_values['profile_picture'] = 'REMOVED';
+        }
 
         if ($profile_picture) {
             $updates[] = "profile_picture = ?";
@@ -150,8 +171,6 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
 
 $sex = htmlspecialchars($user['sex'] ?? '');
 $birthDate = htmlspecialchars($user['birth_date'] ?? '');
-$address = htmlspecialchars($user['address'] ?? '');
-$shift = htmlspecialchars($user['shift_schedule'] ?? '');
 $role = "Superadmin"; // Hardcoded role for Superadmin profile
 
 ?>
@@ -402,10 +421,29 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        #profilePreviewImg {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            aspect-ratio: 1 / 1 !important;
+        }
+
         .edit-mode .edit-reveal {
             max-height: 1000px;
             opacity: 1;
             margin-top: 1.5rem;
+        }
+
+        /* Profile Picture Interaction restriction */
+        body:not(.edit-mode) #profile-label {
+            pointer-events: none !important;
+            opacity: 0 !important;
+            cursor: default !important;
+        }
+
+        .edit-mode #profile-label {
+            cursor: pointer !important;
         }
 
         select.profile-input option {
@@ -427,23 +465,61 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             animation: fadeIn 0.3s ease-in-out;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(5px);
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
             }
 
-            to {
-                opacity: 1;
-                transform: translateY(0);
+            25% {
+                transform: translateX(-5px);
             }
+
+            50% {
+                transform: translateX(5px);
+            }
+
+            75% {
+                transform: translateX(-5px);
+            }
+        }
+
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+            border-color: rgba(244, 63, 94, 0.4) !important;
+        }
+
+        /* Modal Overlay Shift with Sidebar (Aligned with tenant/staff.php) */
+        #custom-modal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 9, 13, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 20px;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-nav:hover~#custom-modal {
+            left: 300px;
+        }
+
+        #custom-modal.flex {
+            display: flex !important;
         }
     </style>
 </head>
 
 <body class="antialiased flex h-screen overflow-hidden">
 
-    <nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 z-50 flex flex-col no-scrollbar">
+    <nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 z-[150] flex flex-col no-scrollbar">
         <div class="px-7 py-5 mb-2 shrink-0">
             <div class="flex items-center gap-4">
                 <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
@@ -556,6 +632,32 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                 </div>
             </header>
 
+            <?php if ($success_msg): ?>
+                <div id="statusAlert"
+                    class="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-500 text-[11px] font-black uppercase italic mb-8 flex items-center justify-between group animate-fade-in">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-base">check_circle</span>
+                        <span><?= $success_msg ?></span>
+                    </div>
+                    <button onclick="document.getElementById('statusAlert').style.display='none'"
+                        class="size-6 flex items-center justify-center rounded-lg hover:bg-emerald-500/20 transition-all text-emerald-500/50 hover:text-emerald-500">
+                        <span class="material-symbols-outlined text-sm">close</span>
+                    </button>
+                </div>
+            <?php elseif ($error_msg): ?>
+                <div id="statusAlert"
+                    class="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-rose-500 text-[11px] font-black uppercase italic mb-8 flex items-center justify-between group animate-fade-in">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-base">warning</span>
+                        <span><?= $error_msg ?></span>
+                    </div>
+                    <button onclick="document.getElementById('statusAlert').style.display='none'"
+                        class="size-6 flex items-center justify-center rounded-lg hover:bg-rose-500/20 transition-all text-rose-500/50 hover:text-rose-500">
+                        <span class="material-symbols-outlined text-sm">close</span>
+                    </button>
+                </div>
+            <?php endif; ?>
+
             <div class="flex flex-col xl:flex-row gap-8 items-start justify-center">
                 <!-- Left Panel -->
                 <div class="w-full xl:w-72 shrink-0 flex flex-col gap-6">
@@ -567,28 +669,35 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                         <div class="relative z-10">
                             <div
                                 class="w-32 h-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden group">
-                                <div
+                                <div id="profile-container"
                                     class="w-full h-full rounded-[30px] bg-[#14121a] flex items-center justify-center overflow-hidden relative">
                                     <?php if (!empty($user['profile_picture'])): ?>
                                         <img id="profilePreviewImg" src="<?= $user['profile_picture'] ?>"
-                                            class="size-full object-cover transition-transform duration-700 group-hover:scale-110">
+                                            class="size-full aspect-square object-cover object-center transition-transform duration-700 group-hover:scale-110">
                                     <?php else: ?>
                                         <div id="profilePlaceholder"
                                             class="size-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-primary text-4xl font-black italic">
                                             <?= strtoupper($user['first_name'][0] . ($user['last_name'][0] ?? '')) ?>
                                         </div>
                                     <?php endif; ?>
-                                    <label
-                                        class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px]">
+
+                                    <!-- Edit Overlay -->
+                                    <label id="profile-label"
+                                        class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px] hidden">
                                         <div
                                             class="size-12 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300">
                                             <span class="material-symbols-rounded text-2xl">add_a_photo</span>
                                         </div>
-                                        <span
-                                            class="text-[10px] font-black uppercase tracking-[0.2em] text-white italic">Update</span>
                                         <input type="file" name="profile_picture" form="profile-form" class="hidden"
-                                            accept="image/*" onchange="previewProfileImage(this)">
+                                            id="profile-input-file" accept=".jpg,.jpeg,.png"
+                                            onchange="previewProfileImage(this)">
                                     </label>
+
+                                    <!-- Remove Photo Button -->
+                                    <button type="button" id="remove-photo-btn" onclick="removeProfilePhoto()"
+                                        class="absolute top-2.5 right-2.5 size-7 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center opacity-0 transition-all duration-300 hover:bg-rose-500 hover:text-white z-20 hidden backdrop-blur-md">
+                                        <span class="material-symbols-rounded text-base">delete</span>
+                                    </button>
                                 </div>
                             </div>
                             <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">
@@ -691,9 +800,14 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                         </h4>
                                         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                             <div class="space-y-2">
-                                                <label
-                                                    class="text-[9px] uppercase font-bold text-gray-600 tracking-widest">New
-                                                    Password</label>
+                                                <div class="flex items-center justify-between ml-1">
+                                                    <label
+                                                        class="text-[9px] uppercase font-bold text-gray-600 tracking-widest">New
+                                                        Password</label>
+                                                    <p id="strength-text"
+                                                        class="text-[9px] font-black uppercase tracking-widest min-h-[15px]">
+                                                    </p>
+                                                </div>
                                                 <div class="relative">
                                                     <input type="password" name="new_password" id="new_pass"
                                                         onkeyup="checkStrength(this.value)"
@@ -702,18 +816,47 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                                         disabled>
                                                     <button type="button"
                                                         onclick="togglePassword('new_pass', 'icon_new')"
-                                                        class="absolute right-4 top-3.5 text-gray-600 hover:text-white">
+                                                        class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white flex items-center justify-center">
                                                         <span class="material-symbols-rounded text-lg"
                                                             id="icon_new">visibility_off</span>
                                                     </button>
                                                 </div>
-                                                <div class="h-1 w-full bg-white/5 rounded-full mt-3 overflow-hidden">
+                                                <div class="h-1.5 w-full bg-white/5 rounded-full mt-3 overflow-hidden">
                                                     <div id="strength-bar"
-                                                        class="h-full w-0 transition-all duration-300"></div>
+                                                        class="h-full w-0 transition-all duration-500 bg-rose-500">
+                                                    </div>
                                                 </div>
-                                                <p id="strength-text"
-                                                    class="text-[9px] mt-1.5 text-right font-black uppercase tracking-widest min-h-[15px]">
-                                                </p>
+                                                <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
+                                                    <div id="req-length"
+                                                        class="flex items-center gap-2 text-gray-600 transition-all duration-300">
+                                                        <span
+                                                            class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
+                                                        <span class="text-[9px] font-black uppercase tracking-widest">8+
+                                                            Characters</span>
+                                                    </div>
+                                                    <div id="req-upper"
+                                                        class="flex items-center gap-2 text-gray-600 transition-all duration-300">
+                                                        <span
+                                                            class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
+                                                        <span
+                                                            class="text-[9px] font-black uppercase tracking-widest">Uppercase</span>
+                                                    </div>
+                                                    <div id="req-number"
+                                                        class="flex items-center gap-2 text-gray-600 transition-all duration-300">
+                                                        <span
+                                                            class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
+                                                        <span
+                                                            class="text-[9px] font-black uppercase tracking-widest">Number</span>
+                                                    </div>
+                                                    <div id="req-special"
+                                                        class="flex items-center gap-2 text-gray-600 transition-all duration-300">
+                                                        <span
+                                                            class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
+                                                        <span
+                                                            class="text-[9px] font-black uppercase tracking-widest">Special
+                                                            Char</span>
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <div class="space-y-2">
@@ -727,14 +870,11 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                                         disabled>
                                                     <button type="button"
                                                         onclick="togglePassword('confirm_pass', 'icon_confirm')"
-                                                        class="absolute right-4 top-3.5 text-gray-600 hover:text-white">
+                                                        class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white flex items-center justify-center">
                                                         <span class="material-symbols-rounded text-lg"
                                                             id="icon_confirm">visibility_off</span>
                                                     </button>
                                                 </div>
-                                                <p id="match-text"
-                                                    class="text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-rose-500 min-h-[15px]">
-                                                </p>
                                             </div>
                                         </div>
                                     </div>
@@ -804,7 +944,8 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                             <span class="material-symbols-rounded text-lg">cake</span>
                                         </span>
-                                        <input type="date" name="birth_date" value="<?= $birthDate ?>" disabled required
+                                        <input type="date" name="birth_date" id="birth_date" value="<?= $birthDate ?>" disabled required
+                                            max="<?= date('Y-m-d') ?>"
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold [color-scheme:dark]">
                                     </div>
                                 </div>
@@ -848,9 +989,9 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                             <span class="material-symbols-rounded text-lg">smartphone</span>
                                         </span>
-                                        <input type="text" name="contact_number"
+                                        <input type="text" name="contact_number" id="contact_number"
                                             value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" disabled
-                                            required
+                                            required maxlength="13" oninput="formatContactNumber(this)"
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                     </div>
                                 </div>
@@ -906,7 +1047,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                             placeholder="Password" disabled
                                             class="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-xs font-black italic text-white focus:border-primary/50 focus:outline-none transition-all pr-12 placeholder:text-gray-800 tracking-widest">
                                         <button type="button" onclick="togglePassword('current_pass', 'icon_curr')"
-                                            class="absolute right-4 top-2.5 text-gray-700 hover:text-white transition-colors">
+                                            class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white transition-colors flex items-center justify-center">
                                             <span class="material-symbols-rounded text-lg"
                                                 id="icon_curr">visibility_off</span>
                                         </button>
@@ -920,6 +1061,9 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                             </div>
                         </div>
 
+                        <!-- Hidden Inputs for Profile Picture Management -->
+                        <input type="hidden" name="remove_profile_picture" id="remove-profile-input" value="0">
+
                     </form>
                 </div>
             </div>
@@ -927,9 +1071,9 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
     </div>
 
     <!-- Custom Modal (Themed for Superadmin) -->
-    <div id="custom-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 hidden xl:pl-[110px]">
-        <div class="absolute inset-0 backdrop-blur-sm transition-opacity duration-300 opacity-0 bg-[#0a090d]/80"
-            id="modal-backdrop" onclick="closeModal()">
+    <div id="custom-modal" class="hidden">
+        <div class="absolute inset-0 transition-opacity duration-300 opacity-0 bg-[#0a090d]/80" id="modal-backdrop"
+            onclick="closeModal()">
         </div>
 
         <div class="relative z-10 bg-[#14121a] w-full max-w-sm rounded-[32px] shadow-2xl border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0"
@@ -1002,6 +1146,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                 }
             }
 
+            modal.classList.add('flex');
             modal.classList.remove('hidden');
 
             setTimeout(() => {
@@ -1021,6 +1166,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             content.classList.add('scale-90', 'opacity-0');
 
             setTimeout(() => {
+                modal.classList.remove('flex');
                 modal.classList.add('hidden');
             }, 300);
         }
@@ -1035,6 +1181,9 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             const editBtn = document.getElementById('edit-btn');
             const discardBtn = document.getElementById('discard-btn');
             const indicator = document.getElementById('edit-indicator');
+            const profileLabel = document.getElementById('profile-label');
+            const removeBtn = document.getElementById('remove-photo-btn');
+            const hasPhoto = !!document.getElementById('profilePreviewImg') && !document.getElementById('profilePreviewImg').classList.contains('hidden');
 
             document.body.classList.add('edit-mode');
 
@@ -1049,6 +1198,12 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             discardBtn.classList.remove('hidden');
             saveSection.classList.remove('hidden');
             indicator.classList.remove('hidden');
+            profileLabel.classList.remove('hidden');
+
+            if (hasPhoto) {
+                removeBtn.classList.remove('hidden');
+                setTimeout(() => removeBtn.classList.add('opacity-100'), 100);
+            }
 
             const firstInput = form.querySelector('input:not([disabled])');
             if (firstInput && firstInput.type !== 'hidden') firstInput.focus();
@@ -1061,8 +1216,13 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             const editBtn = document.getElementById('edit-btn');
             const discardBtn = document.getElementById('discard-btn');
             const indicator = document.getElementById('edit-indicator');
+            const removeInput = document.getElementById('remove-profile-input');
 
             document.body.classList.remove('edit-mode');
+
+            // Reset Profile logic
+            removeInput.value = "0";
+            restoreOriginalProfileUI();
 
             inputs.forEach(input => {
                 input.disabled = true;
@@ -1076,7 +1236,6 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             document.getElementById('current_pass').value = '';
             document.getElementById('strength-bar').style.width = '0';
             document.getElementById('strength-text').innerText = '';
-            document.getElementById('match-text').innerText = '';
 
             editBtn.classList.remove('hidden');
             discardBtn.classList.add('hidden');
@@ -1086,28 +1245,94 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
 
         function previewProfileImage(input) {
             if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+
+                if (!allowedTypes.includes(file.type)) {
+                    showModal('Invalid File Type', 'Only PNG and JPG images are allowed. Please pick a different file.', 'error');
+                    input.value = ''; // Reset the input
+                    return;
+                }
+
                 const reader = new FileReader();
                 reader.onload = function (e) {
+                    let container = document.getElementById('profile-container');
                     let img = document.getElementById('profilePreviewImg');
-                    if (!img) {
-                        const placeholder = document.getElementById('profilePlaceholder');
-                        if (placeholder) {
-                            img = document.createElement('img');
-                            img.id = 'profilePreviewImg';
-                            img.className = 'size-full object-cover transition-transform duration-700 group-hover:scale-110';
-                            placeholder.parentNode.insertBefore(img, placeholder);
-                            placeholder.remove();
-                        }
-                    }
-                    if (img) img.src = e.target.result;
+                    let placeholder = document.getElementById('profilePlaceholder');
+                    let removeBtn = document.getElementById('remove-photo-btn');
 
-                    // Auto-trigger Edit Mode if not already in it
-                    if (!document.body.classList.contains('edit-mode')) {
-                        toggleEdit();
+                    if (!img) {
+                        img = document.createElement('img');
+                        img.id = 'profilePreviewImg';
+                        img.className = 'size-full aspect-square object-cover object-center transition-transform duration-700 group-hover:scale-110';
+                        container.insertBefore(img, container.firstChild);
+                        if (placeholder) placeholder.classList.add('hidden');
+                    } else {
+                        img.classList.remove('hidden');
                     }
+
+                    img.src = e.target.result;
+                    removeBtn.classList.remove('hidden');
+                    setTimeout(() => removeBtn.classList.add('opacity-100'), 100);
+                    document.getElementById('remove-profile-input').value = "0";
                 }
-                reader.readAsDataURL(input.files[0]);
+                reader.readAsDataURL(file);
             }
+        }
+
+        const originalProfileHTML = document.getElementById('profile-container').innerHTML;
+
+        function restoreOriginalProfileUI() {
+            const container = document.getElementById('profile-container');
+            container.innerHTML = originalProfileHTML;
+
+            // Re-apply listeners/classes if they were lost during innerHTML reset
+            const removeBtn = document.getElementById('remove-photo-btn');
+            const profileLabel = document.getElementById('profile-label');
+
+            if (!document.body.classList.contains('edit-mode')) {
+                removeBtn.classList.add('hidden');
+                profileLabel.classList.add('hidden');
+            } else {
+                profileLabel.classList.remove('hidden');
+                if (document.getElementById('profilePreviewImg')) {
+                    removeBtn.classList.remove('hidden');
+                    removeBtn.classList.add('opacity-100');
+                }
+            }
+        }
+
+        function removeProfilePhoto() {
+            const img = document.getElementById('profilePreviewImg');
+            const placeholder = document.getElementById('profilePlaceholder');
+            const removeBtn = document.getElementById('remove-photo-btn');
+            const removeInput = document.getElementById('remove-profile-input');
+            const fileInput = document.getElementById('profile-input-file');
+
+            showModal(
+                "Remove Photo",
+                "Are you sure you want to remove your profile picture? This will revert to your initials placeholder.",
+                "confirm",
+                () => {
+                    if (img) img.classList.add('hidden');
+
+                    if (!placeholder) {
+                        // Create placeholder if it didn't exist before
+                        const newPlaceholder = document.createElement('div');
+                        newPlaceholder.id = 'profilePlaceholder';
+                        newPlaceholder.className = 'size-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-primary text-4xl font-black italic';
+                        newPlaceholder.innerText = "<?= strtoupper($user['first_name'][0] . ($user['last_name'][0] ?? '')) ?>";
+                        document.getElementById('profile-container').insertBefore(newPlaceholder, document.getElementById('profile-label'));
+                    } else {
+                        placeholder.classList.remove('hidden');
+                    }
+
+                    removeBtn.classList.add('hidden');
+                    removeBtn.classList.remove('opacity-100');
+                    removeInput.value = "1";
+                    if (fileInput) fileInput.value = ""; // Clear any staged upload
+                }
+            );
         }
 
         function togglePassword(inputId, iconId) {
@@ -1125,49 +1350,125 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
         function checkStrength(password) {
             const bar = document.getElementById('strength-bar');
             const text = document.getElementById('strength-text');
-
-            if (password.length === 0) {
-                bar.style.width = '0%';
-                bar.className = 'h-full transition-all duration-300';
-                text.innerText = '';
-                return;
-            }
+            const requirements = {
+                length: { el: document.getElementById('req-length'), met: password.length >= 8 },
+                upper: { el: document.getElementById('req-upper'), met: /[A-Z]/.test(password) },
+                number: { el: document.getElementById('req-number'), met: /[0-9]/.test(password) },
+                special: { el: document.getElementById('req-special'), met: /[^A-Za-z0-9]/.test(password) }
+            };
 
             let strength = 0;
-            if (password.length >= 8) strength += 25;
-            if (password.match(/[A-Z]/)) strength += 25;
-            if (password.match(/[0-9]/)) strength += 25;
-            if (password.match(/[^A-Za-z0-9]/)) strength += 25;
+            Object.values(requirements).forEach(req => {
+                const icon = req.el.querySelector('.material-symbols-rounded');
+                if (req.met) {
+                    strength += 25;
+                    req.el.classList.remove('text-gray-600');
+                    req.el.classList.add('text-emerald-400');
+                    icon.innerText = 'check_circle';
+                } else {
+                    req.el.classList.add('text-gray-600');
+                    req.el.classList.remove('text-emerald-400');
+                    icon.innerText = 'radio_button_unchecked';
+                }
+            });
 
             bar.style.width = strength + '%';
-            if (strength <= 25) { bar.className = 'h-full transition-all duration-300 bg-rose-500'; text.innerText = 'WEAK'; text.className = 'text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-rose-500 min-h-[15px]'; }
-            else if (strength <= 50) { bar.className = 'h-full transition-all duration-300 bg-amber-500'; text.innerText = 'FAIR'; text.className = 'text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-amber-500 min-h-[15px]'; }
-            else if (strength <= 75) { bar.className = 'h-full transition-all duration-300 bg-emerald-400'; text.innerText = 'GOOD'; text.className = 'text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-emerald-400 min-h-[15px]'; }
-            else { bar.className = 'h-full transition-all duration-300 bg-primary'; text.innerText = 'STRONG'; text.className = 'text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-primary min-h-[15px]'; }
+            if (password.length === 0) {
+                bar.className = 'h-full transition-all duration-300';
+                text.innerText = '';
+                bar.style.width = '0%';
+            } else if (strength <= 25) {
+                bar.className = 'h-full transition-all duration-500 bg-rose-500';
+                text.innerText = 'WEAK';
+                text.className = 'text-[9px] font-black uppercase tracking-widest text-rose-500 min-h-[15px]';
+            } else if (strength <= 75) {
+                bar.className = 'h-full transition-all duration-500 bg-amber-500';
+                text.innerText = (strength <= 50) ? 'FAIR' : 'GOOD';
+                text.className = 'text-[9px] font-black uppercase tracking-widest text-amber-500 min-h-[15px]';
+            } else {
+                bar.className = 'h-full transition-all duration-500 bg-emerald-400';
+                text.innerText = 'STRONG';
+                text.className = 'text-[9px] font-black uppercase tracking-widest text-emerald-400 min-h-[15px]';
+            }
+        }
+
+        function formatContactNumber(input) {
+            let val = input.value.replace(/\D/g, '');
+            if (val.length > 11) val = val.substring(0, 11);
+
+            let formatted = '';
+            if (val.length > 0) {
+                formatted += val.substring(0, 4);
+                if (val.length > 4) {
+                    formatted += '-' + val.substring(4, 7);
+                    if (val.length > 7) {
+                        formatted += '-' + val.substring(7, 11);
+                    }
+                }
+            }
+            input.value = formatted;
         }
 
         function validateAndSubmit(event) {
             event.preventDefault();
 
-            const newPass = document.getElementById('new_pass').value;
-            const confirmPass = document.getElementById('confirm_pass').value;
-            const matchText = document.getElementById('match-text');
+            const form = document.getElementById('profile-form');
+            const firstName = form.querySelector('[name="first_name"]').value.trim();
+            const middleName = form.querySelector('[name="middle_name"]').value.trim();
+            const lastName = form.querySelector('[name="last_name"]').value.trim();
+            const birthDate = form.querySelector('[name="birth_date"]').value;
+            const contactNumber = document.getElementById('contact_number').value.trim();
+            const email = form.querySelector('[name="email"]').value.trim().toLowerCase();
+            const currentPassField = document.getElementById('current_pass');
 
-            if (newPass.length > 0) {
-                if (newPass !== confirmPass) {
-                    matchText.innerText = "PASSWORDS DO NOT MATCH!";
-                    matchText.className = "text-[9px] mt-1.5 text-right font-black uppercase tracking-widest text-rose-500 min-h-[15px]";
+            // 1. Name Validation (No numbers)
+            const nameRegex = /^[a-zA-Z\s]*$/;
+            if (!nameRegex.test(firstName)) {
+                showModal("Invalid Name", "First name cannot contain numbers or special characters.", "error");
+                return false;
+            }
+            if (middleName && !nameRegex.test(middleName)) {
+                showModal("Invalid Name", "Middle name cannot contain numbers or special characters.", "error");
+                return false;
+            }
+            if (!nameRegex.test(lastName)) {
+                showModal("Invalid Name", "Last name cannot contain numbers or special characters.", "error");
+                return false;
+            }
 
-                    showModal('Password Mismatch', 'The new passwords you entered do not match. Please try again.', 'error');
-                    return false;
-                }
+            // 2. Contact Number Validation (11 digits check)
+            const rawContact = contactNumber.replace(/\D/g, '');
+            if (rawContact.length !== 11) {
+                showModal("Invalid Contact", "Phone number must be exactly 11 digits.", "error");
+                document.getElementById('contact_number').focus();
+                return false;
+            }
+
+            // 3. Date of Birth Validation (No future dates)
+            const today = new Date().toISOString().split('T')[0];
+            if (birthDate > today) {
+                showModal("Invalid Date", "Date of birth cannot be in the future.", "error");
+                return false;
+            }
+
+            // 4. Email Validation (@gmail.com)
+            if (!email.endsWith('@gmail.com')) {
+                showModal("Invalid Email", "Please use a valid @gmail.com email address.", "error");
+                return false;
+            }
+
+            if (currentPassField.value.trim() === "") {
+                currentPassField.focus();
+                currentPassField.classList.add('border-rose-500/50');
+                setTimeout(() => currentPassField.classList.remove('border-rose-500/50'), 2000);
+                return false;
             }
 
             showModal(
-                'Save Changes?',
-                'Are you sure you want to update your profile details? This action cannot be undone.',
-                'confirm',
-                function () {
+                "Confirm Changes",
+                "Are you sure you want to save these profile changes?",
+                "confirm",
+                () => {
                     document.getElementById('profile-form').submit();
                 }
             );
@@ -1180,23 +1481,47 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
         }, 1000);
     </script>
 
-    <?php if (isset($_GET['status']) && isset($_GET['msg'])): ?>
-        <script>
-            window.addEventListener('DOMContentLoaded', () => {
-                const status = "<?= htmlspecialchars($_GET['status']) ?>";
-                const msg = "<?= htmlspecialchars(urldecode($_GET['msg'])) ?>";
-                const title = status === 'success' ? 'Success' : 'Notice';
-                const type = status === 'success' ? 'success' : 'error';
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const alert = document.getElementById('statusAlert');
+            if (alert) {
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    alert.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
+                    alert.style.transform = 'translateY(-10px)';
+                    setTimeout(() => alert.style.display = 'none', 800);
+                }, 15000);
+            }
 
-                showModal(title, msg, type);
+            // Check if page reloaded with error to re-open edit mode
+            const urlParams = new URLSearchParams(window.location.search);
+            const status = urlParams.get('status');
+            const msg = urlParams.get('msg');
 
-                if (history.replaceState) {
-                    var newurl = window.location.protocol + "//" + window.location.host + window.location.pathname + window.location.search.replace(/[\?&](status|msg)=[^&]+/, '').replace(/^&/, '?');
-                    window.history.replaceState({ path: newurl }, '', newurl);
+            if (status === 'error') {
+                toggleEdit();
+                if (msg && msg.toLowerCase().includes('password')) {
+                    const passField = document.getElementById('current_pass');
+                    if (passField) {
+                        passField.classList.add('animate-shake');
+                        passField.focus();
+                        document.querySelector('.group\\/save').classList.add('animate-shake');
+                    }
                 }
-            });
-        </script>
-    <?php endif; ?>
+            }
+
+            if (history.replaceState) {
+                const newurl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({
+                    path: newurl
+                }, '', newurl);
+            }
+
+            // Initial format for contact number
+            const contactInput = document.getElementById('contact_number');
+            if (contactInput) formatContactNumber(contactInput);
+        });
+    </script>
 
 </body>
 
