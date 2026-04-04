@@ -212,9 +212,7 @@ $active_page = "settings";
             --secondary:
                 <?= $configs['secondary_color'] ?? '#a1a1aa' ?>
             ;
-            --card-blur:
-                <?= $configs['card_blur'] ?? '10' ?>
-                px;
+            --card-blur: 20px;
             --card-bg:
                 <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(var(--primary-rgb, 140, 43, 238), 0.05)' : ($configs['card_color'] ?? '#141216') ?>
             ;
@@ -767,7 +765,7 @@ $active_page = "settings";
                                 </label>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div class="grid grid-cols-1 gap-8">
                                 <div class="flex flex-col gap-3">
                                     <label
                                         class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Manual
@@ -781,19 +779,6 @@ $active_page = "settings";
                                         <span id="card_hex_display"
                                             class="text-[10px] font-black uppercase text-gray-400"><?= $configs['card_color'] ?? '#141216' ?></span>
                                     </div>
-                                </div>
-                                <div class="flex flex-col gap-3">
-                                    <div class="flex justify-between items-center px-1">
-                                        <label
-                                            class="text-[9px] font-black uppercase text-gray-500 tracking-widest">Glass
-                                            Blur Intensity</label>
-                                        <span id="blur_val_display"
-                                            class="text-[10px] font-black text-primary italic uppercase"><?= $configs['card_blur'] ?? '10' ?>
-                                            PX</span>
-                                    </div>
-                                    <input type="range" id="card_blur_input" name="card_blur" min="0" max="40" step="1"
-                                        oninput="updateLiveBranding()" value="<?= $configs['card_blur'] ?? '10' ?>"
-                                        class="w-full h-1.5 bg-white/5 rounded-lg appearance-none cursor-pointer accent-primary">
                                 </div>
                             </div>
                         </div>
@@ -1347,7 +1332,6 @@ $active_page = "settings";
 
             const autoCard = document.getElementById('auto_card_theme_input').checked;
             const cardColorInput = document.getElementById('card_color_input');
-            const cardBlurInput = document.getElementById('card_blur_input');
 
             // Update Sidebar Name
             if (nameInput) document.getElementById('sidebarSystemName').textContent = nameInput.value;
@@ -1356,6 +1340,7 @@ $active_page = "settings";
             document.documentElement.style.setProperty('--primary', themeInput.value);
             document.documentElement.style.setProperty('--background', bgInput.value);
             document.documentElement.style.setProperty('--secondary', secondaryInput.value);
+            document.documentElement.style.setProperty('--card-blur', '20px');
 
             // Update RGB Variable for Alpha Colors
             const rgb = hexToRgb(themeInput.value);
@@ -1369,11 +1354,34 @@ $active_page = "settings";
 
             if (autoCard) {
                 const primaryRgb = hexToRgb(themeInput.value);
-                document.documentElement.style.setProperty('--card-bg', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.05)`);
+                const bgRgb = hexToRgb(bgInput.value);
+                
+                // Calculate Luminance to determine if we need a light or dark base
+                const bgLuminance = bgRgb ? (0.299 * bgRgb.r + 0.587 * bgRgb.g + 0.114 * bgRgb.b) : 0;
+                const isLightBg = bgLuminance > 160;
+                
+                // Elite Glass Logic: Use a Neutral Base (White or Black) 
+                // and use the Primary Color for the Border and Shadow Glow
+                const baseColor = isLightBg ? '0, 0, 0, 0.05' : '255, 255, 255, 0.03';
+                const tintColor = `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.04)`;
+                
+                document.documentElement.style.setProperty('--card-bg', `linear-gradient(135deg, rgba(${baseColor}), ${tintColor})`);
+                document.documentElement.style.setProperty('--card-border', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.2)`);
+                
+                // Add a subtle primary glow to the cards
+                const cards = document.querySelectorAll('.glass-card');
+                cards.forEach(card => {
+                    card.style.boxShadow = `0 10px 30px rgba(0, 0, 0, 0.2), 0 0 15px rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.05)`;
+                });
+
                 cardColorInput.parentElement.parentElement.style.opacity = '0.4';
                 cardColorInput.parentElement.parentElement.style.pointerEvents = 'none';
             } else {
                 document.documentElement.style.setProperty('--card-bg', cardColorInput.value);
+                document.documentElement.style.setProperty('--card-border', 'rgba(255, 255, 255, 0.05)');
+                const cards = document.querySelectorAll('.glass-card');
+                cards.forEach(card => card.style.boxShadow = '');
+                
                 cardColorInput.parentElement.parentElement.style.opacity = '1';
                 cardColorInput.parentElement.parentElement.style.pointerEvents = 'auto';
             }

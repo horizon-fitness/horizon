@@ -71,7 +71,6 @@ INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES
 (1, 'bg_color', '#0a090d'),
 (1, 'card_color', '#141216'),
 (1, 'auto_card_theme', '1'),
-(1, 'card_blur', '10'),
 (1, 'font_family', 'Lexend');
 
 -- Global System Rules (User ID 0)
