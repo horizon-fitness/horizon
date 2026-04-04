@@ -203,19 +203,12 @@ $active_page = "settings";
     </script>
     <style>
         :root {
-            --primary:
-                <?= $configs['theme_color'] ?? '#8c2bee' ?>
-            ;
-            --background:
-                <?= $configs['bg_color'] ?? '#0a090d' ?>
-            ;
-            --secondary:
-                <?= $configs['secondary_color'] ?? '#a1a1aa' ?>
-            ;
+            --primary: <?= $configs['theme_color'] ?? '#8c2bee' ?>;
+            --background: <?= $configs['bg_color'] ?? '#0a090d' ?>;
+            --secondary: <?= $configs['secondary_color'] ?? '#a1a1aa' ?>;
+            --secondary-rgb: 161, 161, 170;
             --card-blur: 20px;
-            --card-bg:
-                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(var(--primary-rgb, 140, 43, 238), 0.05)' : ($configs['card_color'] ?? '#141216') ?>
-            ;
+            --card-bg: <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(var(--primary-rgb, 140, 43, 238), 0.05)' : ($configs['card_color'] ?? '#141216') ?>;
         }
 
         body {
@@ -226,9 +219,10 @@ $active_page = "settings";
 
         .glass-card {
             background: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border, rgba(255, 255, 255, 0.05));
             border-radius: 24px;
             backdrop-filter: blur(var(--card-blur));
+            box-shadow: var(--card-shadow, 0 10px 30px rgba(0, 0, 0, 0.2)), var(--card-glow, 0 0 0 transparent);
             transition: all 0.3s ease;
         }
 
@@ -507,11 +501,11 @@ $active_page = "settings";
             <div class="flex items-center gap-4">
                 <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
                     <?php if (!empty($configs['system_logo'])): ?>
-                        <img src="<?= htmlspecialchars($configs['system_logo']) ?>"
+                        <img src="<?= htmlspecialchars($configs['system_logo']) ?>" id="sidebarLogoPreview"
                             class="size-full object-contain rounded-xl">
                     <?php else: ?>
-                        <img src="../assests/horizon logo.png"
-                            class="size-full object-contain rounded-xl transition-transform duration-500 group-hover:scale-110"
+                        <img src="../assests/horizon logo.png" id="sidebarLogoPreview"
+                            class="size-full object-contain rounded-xl transition-transform duration-500 hover:scale-110"
                             alt="Horizon Logo">
                     <?php endif; ?>
                 </div>
@@ -614,7 +608,7 @@ $active_page = "settings";
                     <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">SYSTEM
                         <span class="text-primary">SETTINGS</span></h2>
                     <p
-                        class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60 uppercase">
+                        class="text-[--secondary] text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 uppercase">
                         Manage your system settings and look.</p>
                 </div>
                 <div class="flex items-end gap-8 text-right shrink-0">
@@ -675,7 +669,7 @@ $active_page = "settings";
                             </div>
                         </div>
                         <button type="button" onclick="resetToDefaults()"
-                            class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all group">
+                            class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[--secondary] hover:text-white hover:bg-white/10 transition-all group">
                             <span
                                 class="material-symbols-outlined text-sm group-hover:rotate-180 transition-transform duration-500">undo</span>
                             <span class="text-[9px] font-black uppercase tracking-wider">Reset</span>
@@ -786,13 +780,13 @@ $active_page = "settings";
                 </div>
                 <div class="glass-card p-8">
                     <div class="flex items-center gap-4 mb-8">
-                        <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-primary">gavel</span>
+                        <div class="size-10 rounded-xl bg-[--secondary]/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-[--secondary]">gavel</span>
                         </div>
                         <div>
                             <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Rules for Gyms
                             </h3>
-                            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-tight">Set global limits
+                            <p class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-tight">Set global limits
                                 for all accounts</p>
                         </div>
                     </div>
@@ -1245,9 +1239,10 @@ $active_page = "settings";
                 () => {
                     const defaults = {
                         'system_name_input': 'Horizon System',
-                        'theme_color_input': '#8c2bee',
-                        'secondary_color_input': '#a1a1aa',
-                        'bg_color_input': '#0a090d',
+                        'theme_color_input': '#8C2BEE',
+                        'secondary_color_input': '#A1A1AA',
+                        'bg_color_input': '#0A090D',
+                        'card_color_input': '#141216',
                         'font_family_input': 'Lexend'
                     };
 
@@ -1255,6 +1250,10 @@ $active_page = "settings";
                         const el = document.getElementById(id);
                         if (el) el.value = value;
                     }
+                    
+                    const autoSync = document.getElementById('auto_card_theme_input');
+                    if(autoSync) autoSync.checked = true;
+
                     updateLiveBranding();
                     toggleActionModal(false);
                 }
@@ -1284,32 +1283,24 @@ $active_page = "settings";
             document.getElementById('confirmIcon').textContent = icon === 'error' ? 'warning' : icon;
 
             const iconContainer = document.getElementById('confirmIcon').parentElement;
+            const confirmBtn = document.getElementById('confirmExecuteBtn');
+            
             if (isError) {
-                iconContainer.classList.remove('bg-primary/10');
                 iconContainer.classList.add('bg-rose-500/10');
-                document.getElementById('confirmIcon').classList.remove('text-primary');
+                iconContainer.classList.remove('bg-primary/10');
                 document.getElementById('confirmIcon').classList.add('text-rose-500');
+                document.getElementById('confirmIcon').classList.remove('text-primary');
+                
+                confirmBtn.textContent = "Okay, I'll fix it";
+                confirmBtn.onclick = () => toggleActionModal(false);
             } else {
                 iconContainer.classList.add('bg-primary/10');
                 iconContainer.classList.remove('bg-rose-500/10');
                 document.getElementById('confirmIcon').classList.add('text-primary');
                 document.getElementById('confirmIcon').classList.remove('text-rose-500');
-            }
-
-            const confirmBtn = document.getElementById('confirmExecuteBtn');
-            const newBtn = confirmBtn.cloneNode(true);
-            confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
-
-            if (isError) {
-                newBtn.textContent = "Okay, I'll fix it";
-                newBtn.classList.remove('bg-primary', 'hover:bg-primary/90', 'hover:bg-white', 'text-black');
-                newBtn.classList.add('bg-white/5', 'text-white/60', 'hover:bg-white/10', 'hover:text-white', 'border', 'border-white/5');
-                newBtn.addEventListener('click', () => toggleActionModal(false));
-            } else {
-                newBtn.textContent = "Confirm Action";
-                newBtn.classList.add('bg-primary', 'text-black', 'hover:bg-primary/90');
-                newBtn.classList.remove('bg-white/5', 'text-white/60', 'hover:bg-white/10', 'hover:text-white', 'border', 'border-white/5', 'hover:bg-white');
-                newBtn.addEventListener('click', onConfirm);
+                
+                confirmBtn.textContent = "Confirm Action";
+                confirmBtn.onclick = onConfirm;
             }
 
             toggleActionModal(true);
@@ -1330,75 +1321,72 @@ $active_page = "settings";
             const bgInput = document.getElementById('bg_color_input');
             const fontInput = document.getElementById('font_family_input');
 
-            const autoCard = document.getElementById('auto_card_theme_input').checked;
+            const autoCardInput = document.getElementById('auto_card_theme_input');
+            const autoCard = autoCardInput ? autoCardInput.checked : true;
             const cardColorInput = document.getElementById('card_color_input');
 
-            // Update Sidebar Name
-            if (nameInput) document.getElementById('sidebarSystemName').textContent = nameInput.value;
+            // Update Sidebar Name Live
+            if (nameInput) {
+                const sidebarName = document.getElementById('sidebarSystemName');
+                if (sidebarName) sidebarName.textContent = nameInput.value;
+            }
 
-            // Update CSS Variables
+            // Update CSS Core Variables
             document.documentElement.style.setProperty('--primary', themeInput.value);
             document.documentElement.style.setProperty('--background', bgInput.value);
             document.documentElement.style.setProperty('--secondary', secondaryInput.value);
-            document.documentElement.style.setProperty('--card-blur', '20px');
-
-            // Update RGB Variable for Alpha Colors
+            
+            // Generate RGB for Alpha transparency
             const rgb = hexToRgb(themeInput.value);
-            if (rgb) {
-                document.documentElement.style.setProperty('--primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
-            }
+            if (rgb) document.documentElement.style.setProperty('--primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
 
-            // Update Card Styling
-            document.documentElement.style.setProperty('--card-blur', cardBlurInput.value + 'px');
-            document.getElementById('blur_val_display').textContent = cardBlurInput.value + ' PX';
+            const secRgb = hexToRgb(secondaryInput.value);
+            if (secRgb) document.documentElement.style.setProperty('--secondary-rgb', `${secRgb.r}, ${secRgb.g}, ${secRgb.b}`);
 
             if (autoCard) {
-                const primaryRgb = hexToRgb(themeInput.value);
                 const bgRgb = hexToRgb(bgInput.value);
-                
-                // Calculate Luminance to determine if we need a light or dark base
                 const bgLuminance = bgRgb ? (0.299 * bgRgb.r + 0.587 * bgRgb.g + 0.114 * bgRgb.b) : 0;
                 const isLightBg = bgLuminance > 160;
                 
-                // Elite Glass Logic: Use a Neutral Base (White or Black) 
-                // and use the Primary Color for the Border and Shadow Glow
                 const baseColor = isLightBg ? '0, 0, 0, 0.05' : '255, 255, 255, 0.03';
-                const tintColor = `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.04)`;
+                const tintColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.04)`;
                 
                 document.documentElement.style.setProperty('--card-bg', `linear-gradient(135deg, rgba(${baseColor}), ${tintColor})`);
-                document.documentElement.style.setProperty('--card-border', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.2)`);
-                
-                // Add a subtle primary glow to the cards
-                const cards = document.querySelectorAll('.glass-card');
-                cards.forEach(card => {
-                    card.style.boxShadow = `0 10px 30px rgba(0, 0, 0, 0.2), 0 0 15px rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.05)`;
-                });
+                document.documentElement.style.setProperty('--card-border', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`);
+                document.documentElement.style.setProperty('--card-glow', `0 10px 30px rgba(0, 0, 0, 0.2), 0 0 15px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05)`);
 
-                cardColorInput.parentElement.parentElement.style.opacity = '0.4';
-                cardColorInput.parentElement.parentElement.style.pointerEvents = 'none';
-            } else {
-                document.documentElement.style.setProperty('--card-bg', cardColorInput.value);
-                document.documentElement.style.setProperty('--card-border', 'rgba(255, 255, 255, 0.05)');
-                const cards = document.querySelectorAll('.glass-card');
-                cards.forEach(card => card.style.boxShadow = '');
+                if(cardColorInput) {
+                    cardColorInput.parentElement.parentElement.style.opacity = '0.4';
+                    cardColorInput.parentElement.parentElement.style.pointerEvents = 'none';
+                }
+            } else if (cardColorInput) {
+                const hex = cardColorInput.value;
+                const hexDisplay = document.getElementById('card_hex_display');
+                if (hexDisplay) hexDisplay.textContent = hex.toUpperCase();
+                
+                document.documentElement.style.setProperty('--card-bg', hex + 'cc');
+                document.documentElement.style.setProperty('--card-border', 'rgba(255, 255, 255, 0.1)');
+                document.documentElement.style.setProperty('--card-glow', '0 10px 30px rgba(0, 0, 0, 0.3)');
                 
                 cardColorInput.parentElement.parentElement.style.opacity = '1';
                 cardColorInput.parentElement.parentElement.style.pointerEvents = 'auto';
             }
 
-            // Update Body Styles
+            // Update Body & Font
             document.body.style.fontFamily = `'${fontInput.value}', sans-serif`;
             document.body.style.backgroundColor = bgInput.value;
 
-            // Update Hex Displays
+            // Sync Hex Text
             if (document.getElementById('theme_hex_display')) document.getElementById('theme_hex_display').textContent = themeInput.value.toUpperCase();
             if (document.getElementById('secondary_hex_display')) document.getElementById('secondary_hex_display').textContent = secondaryInput.value.toUpperCase();
             if (document.getElementById('bg_hex_display')) document.getElementById('bg_hex_display').textContent = bgInput.value.toUpperCase();
-            if (document.getElementById('card_hex_display')) document.getElementById('card_hex_display').textContent = cardColorInput.value.toUpperCase();
         }
 
-        // Auto-hide success message after 15 seconds
+        // Auto-hide success message and initialize branding
         document.addEventListener('DOMContentLoaded', () => {
+            // Apply initial branding state
+            updateLiveBranding();
+
             const successAlert = document.getElementById('successAlert');
             if (successAlert) {
                 setTimeout(() => {
@@ -1407,13 +1395,16 @@ $active_page = "settings";
                     setTimeout(() => successAlert.remove(), 500);
                 }, 15000);
             }
+        });
 
-            // Re-open Superadmin Modal if there was an error creating an account
+        // Re-open Superadmin Modal if there was an error creating an account
+        document.addEventListener('DOMContentLoaded', () => {
             const errorMsg = "<?= addslashes($error_msg ?? '') ?>";
             if (errorMsg && errorMsg.includes('creating account')) {
                 toggleSuperadminModal(true);
             }
         });
+
         function hexToRgb(hex) {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
             return result ? {
