@@ -40,11 +40,8 @@ $stmtSeed = $pdo->prepare("INSERT IGNORE INTO system_settings (user_id, setting_
 $personal_defaults = [
     ['theme_color', '#8c2bee'],
     ['secondary_color', '#a1a1aa'],
-    ['bg_color', '#0a090d'],
-    ['card_color', '#141216'],
-    ['auto_card_theme', '1'],
-    ['card_blur', '10'],
-    ['font_family', 'Lexend']
+    ['text_color', '#d1d5db'],
+    ['bg_color', '#0a090d']
 ];
 foreach ($personal_defaults as $s)
     $stmtSeed->execute([$_SESSION['user_id'], $s[0], $s[1]]);
@@ -211,8 +208,11 @@ $active_page = "settings";
             --background:
                 <?= $configs['bg_color'] ?? '#0a090d' ?>
             ;
-            --secondary:
+            --highlight:
                 <?= $configs['secondary_color'] ?? '#a1a1aa' ?>
+            ;
+            --text-main:
+                <?= $configs['text_color'] ?? '#d1d5db' ?>
             ;
             --secondary-rgb: 161, 161, 170;
             --card-blur: 20px;
@@ -224,7 +224,7 @@ $active_page = "settings";
         body {
             font-family: '<?= $configs['font_family'] ?? 'Lexend' ?>', sans-serif;
             background-color: var(--background);
-            color: white;
+            color: var(--text-main);
         }
 
         .glass-card {
@@ -344,13 +344,32 @@ $active_page = "settings";
             font-size: 11px;
             font-weight: 800;
             letter-spacing: 0.05em;
-            color: #94a3b8;
+            color: var(--text-main);
             text-decoration: none;
+        }
+
+        .nav-link span.material-symbols-outlined {
+            color: var(--highlight);
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            opacity: 0.8; /* Subtle feedback instead of color change */
+        }
+
+        .nav-link:hover span.material-symbols-outlined {
+            /* No color change to match dashboard */
         }
 
         .active-nav {
             color: var(--primary) !important;
             position: relative;
+        }
+
+        .active-nav span.material-symbols-outlined {
+            color: var(--primary) !important;
+            opacity: 1 !important;
         }
 
         .active-nav::after {
@@ -602,9 +621,9 @@ $active_page = "settings";
                 <span class="material-symbols-outlined text-xl shrink-0">person</span>
                 <span class="nav-text">Profile</span>
             </a>
-            <a href="../logout.php" class="nav-link text-gray-400 hover:text-rose-500 transition-colors">
-                <span class="material-symbols-outlined text-xl shrink-0">logout</span>
-                <span class="nav-text">Sign Out</span>
+            <a href="../logout.php" class="nav-link hover:text-rose-500 transition-all group">
+                <span class="material-symbols-outlined text-xl shrink-0 group-hover:text-rose-500">logout</span>
+                <span class="nav-text group-hover:text-rose-500">Sign Out</span>
             </a>
         </div>
     </nav>
@@ -615,17 +634,18 @@ $active_page = "settings";
         <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
             <header class="mb-12 flex flex-row justify-between items-end gap-6">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">SYSTEM
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none">
+                        <span class="text-[--text-main] opacity-80">SYSTEM</span>
                         <span class="text-primary">SETTINGS</span>
                     </h2>
                     <p
-                        class="text-[--secondary] text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 uppercase">
+                        class="text-[--text-main] text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 uppercase">
                         Manage your system settings and look.</p>
                 </div>
                 <div class="flex items-end gap-8 text-right shrink-0">
                     <div class="flex flex-col items-end">
                         <p id="headerClock"
-                            class="text-gray-400 font-black italic text-2xl leading-none tracking-tighter uppercase transition-colors hover:text-white cursor-default">
+                            class="text-[--text-main] font-black italic text-2xl leading-none tracking-tighter uppercase transition-colors cursor-default">
                             00:00:00 AM</p>
                         <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
                             <?= date('l, M d, Y') ?>
@@ -650,179 +670,218 @@ $active_page = "settings";
                 <?php endif; ?>
 
                 <button type="button" onclick="confirmSaveConfigurations()"
-                    class="bg-white/5 hover:bg-primary/20 text-white px-8 h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-primary/30 flex items-center gap-3 active:scale-95 group shrink-0">
+                    class="bg-white/5 hover:bg-primary/20 px-8 h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-primary/30 flex items-center gap-3 active:scale-95 group shrink-0">
                     <span
-                        class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">save</span>
-                    Save Changes
+                        class="material-symbols-outlined text-[--highlight] group-hover:text-white text-lg group-hover:scale-110 transition-transform">save</span>
+                    <span class="text-[--text-main]">Save Changes</span>
                 </button>
 
                 <button type="button" onclick="toggleSuperadminModal(true)"
-                    class="bg-primary hover:bg-primary/90 text-black px-8 h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95 group shrink-0">
+                    class="bg-primary hover:bg-primary/90 px-8 h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95 group shrink-0">
                     <span
-                        class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">person_add</span>
-                    Create Superadmin
+                        class="material-symbols-outlined text-lg text-[--highlight] group-hover:scale-110 transition-transform">person_add</span>
+                    <span class="text-[--text-main]">Create Superadmin</span>
                 </button>
             </div>
 
             <form action="" method="POST" enctype="multipart/form-data" class="space-y-8">
-                <!-- Global Customization Section -->
-                <div class="glass-card p-8">
-                    <div class="flex items-center justify-between mb-8">
-                        <div class="flex items-center gap-4">
-                            <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                <span class="material-symbols-outlined text-primary">brush</span>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Global Customization Section -->
+                    <div class="glass-card p-8 h-full">
+                        <div class="flex items-center justify-between mb-8 text-primary">
+                            <div class="flex items-center gap-4">
+                                <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-primary">brush</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">System Appearance</h3>
+                                    <p class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight line-clamp-1">Brand identity & glassmorphism</p>
+                                </div>
                             </div>
-                            <div>
-                                <h3 class="text-sm font-black italic uppercase tracking-widest text-white">System
-                                    Appearance</h3>
-                                <p class="text-[10px] text-gray-500 font-bold uppercase tracking-tight">Your brand
-                                    identity and logo</p>
+                            <button type="button" onclick="resetToDefaults()"
+                                class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[--text-main] hover:text-white hover:bg-white/10 transition-all group shrink-0">
+                                <span
+                                    class="material-symbols-outlined text-sm group-hover:rotate-180 transition-transform duration-500">undo</span>
+                                <span class="text-[9px] font-black uppercase tracking-wider">Reset</span>
+                            </button>
+                        </div>
+
+                        <div class="space-y-8">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="flex flex-col gap-1.5">
+                                    <label
+                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">System
+                                        Name</label>
+                                    <input type="text" id="system_name_input" name="system_name" class="input-field"
+                                        value="<?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>"
+                                        readonly>
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <label
+                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Font
+                                        Style</label>
+                                    <select id="font_family_input" name="font_family" onchange="updateLiveBranding()"
+                                        class="input-field cursor-pointer">
+                                        <option value="Lexend" <?= ($configs['font_family'] ?? '') === 'Lexend' ? 'selected' : '' ?>>Lexend (Default)</option>
+                                        <option value="Inter" <?= ($configs['font_family'] ?? '') === 'Inter' ? 'selected' : '' ?>>Inter</option>
+                                        <option value="Outfit" <?= ($configs['font_family'] ?? '') === 'Outfit' ? 'selected' : '' ?>>Outfit</option>
+                                        <option value="Plus Jakarta Sans" <?= ($configs['font_family'] ?? '') === 'Plus Jakarta Sans' ? 'selected' : '' ?>>Plus Jakarta Sans</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-6">
+                                <div class="flex flex-col gap-1.5">
+                                    <label
+                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Main
+                                        Color</label>
+                                    <div
+                                        class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                        <input type="color" id="theme_color_input" name="theme_color"
+                                            oninput="updateLiveBranding()"
+                                            value="<?= htmlspecialchars($configs['theme_color'] ?? '#8c2bee') ?>"
+                                            class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                        <span id="theme_hex_display"
+                                            class="text-[10px] font-black uppercase text-gray-400"><?= $configs['theme_color'] ?? '#8C2BEE' ?></span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <label
+                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Icon
+                                        Color</label>
+                                    <div
+                                        class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                        <input type="color" id="secondary_color_input" name="secondary_color"
+                                            oninput="updateLiveBranding()"
+                                            value="<?= htmlspecialchars($configs['secondary_color'] ?? '#a1a1aa') ?>"
+                                            class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                        <span id="secondary_hex_display"
+                                            class="text-[10px] font-black uppercase text-gray-400"><?= $configs['secondary_color'] ?? '#A1A1AA' ?></span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <label
+                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Text
+                                        Color</label>
+                                    <div
+                                        class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                        <input type="color" id="text_color_input" name="text_color"
+                                            oninput="updateLiveBranding()"
+                                            value="<?= htmlspecialchars($configs['text_color'] ?? '#d1d5db') ?>"
+                                            class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                        <span id="text_hex_display"
+                                            class="text-[10px] font-black uppercase text-gray-400"><?= $configs['text_color'] ?? '#D1D5DB' ?></span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-1.5">
+                                    <label
+                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Background</label>
+                                    <div
+                                        class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                        <input type="color" id="bg_color_input" name="bg_color"
+                                            oninput="updateLiveBranding()"
+                                            value="<?= htmlspecialchars($configs['bg_color'] ?? '#0a090d') ?>"
+                                            class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                        <span id="bg_hex_display"
+                                            class="text-[10px] font-black uppercase text-gray-400"><?= $configs['bg_color'] ?? '#0A090D' ?></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card Appearance Section -->
+                            <div class="mt-6 pt-6 border-t border-white/5 space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Card
+                                        Appearance</h4>
+                                    <label class="flex items-center gap-3 cursor-pointer group">
+                                        <span
+                                            class="text-[8px] font-bold uppercase tracking-widest text-[--text-main] opacity-70 group-hover:text-primary transition-colors">Sync
+                                            Theme</span>
+                                        <div class="relative inline-flex items-center">
+                                            <input type="hidden" name="auto_card_theme" value="0">
+                                            <input type="checkbox" id="auto_card_theme_input" name="auto_card_theme"
+                                                value="1" onchange="updateLiveBranding()"
+                                                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'checked' : '' ?>
+                                                class="sr-only peer">
+                                            <div
+                                                class="w-10 h-5 bg-white/5 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/20 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary/30 peer-checked:after:bg-primary transition-all border border-white/5">
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-6">
+                                    <div class="flex flex-col gap-1.5">
+                                        <label
+                                            class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Surface
+                                            Color</label>
+                                        <div
+                                            class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                            <input type="color" id="card_color_input" name="card_color"
+                                                oninput="updateLiveBranding()"
+                                                value="<?= htmlspecialchars($configs['card_color'] ?? '#141216') ?>"
+                                                class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                            <span id="card_hex_display"
+                                                class="text-[10px] font-black uppercase text-gray-400"><?= $configs['card_color'] ?? '#141216' ?></span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <button type="button" onclick="resetToDefaults()"
-                            class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[--secondary] hover:text-white hover:bg-white/10 transition-all group">
-                            <span
-                                class="material-symbols-outlined text-sm group-hover:rotate-180 transition-transform duration-500">undo</span>
-                            <span class="text-[9px] font-black uppercase tracking-wider">Reset</span>
-                        </button>
                     </div>
 
-                    <div class="space-y-8">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Gym Rules Section -->
+                    <div class="glass-card p-8 h-full">
+                        <div class="flex items-center gap-4 mb-8">
+                            <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[--highlight]">gavel</span>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">
+                                    Rules for Gyms
+                                </h3>
+                                <p class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight">
+                                    Set global limits for all accounts</p>
+                            </div>
+                        </div>
+
+                        <div class="space-y-8">
                             <div class="flex flex-col gap-1.5">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">System
-                                    Name</label>
-                                <input type="text" id="system_name_input" name="system_name" class="input-field"
-                                    value="<?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>"
-                                    readonly>
+                                <label
+                                    class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Max
+                                    Staff
+                                    Count</label>
+                                <input type="number" name="max_staff" class="input-field"
+                                    value="<?= htmlspecialchars($configs['max_staff'] ?? '10') ?>">
                             </div>
                             <div class="flex flex-col gap-1.5">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Font
-                                    Style</label>
-                                <select id="font_family_input" name="font_family" onchange="updateLiveBranding()"
-                                    class="input-field cursor-pointer">
-                                    <option value="Lexend" <?= ($configs['font_family'] ?? '') === 'Lexend' ? 'selected' : '' ?>>Lexend (Default)</option>
-                                    <option value="Inter" <?= ($configs['font_family'] ?? '') === 'Inter' ? 'selected' : '' ?>>Inter</option>
-                                    <option value="Outfit" <?= ($configs['font_family'] ?? '') === 'Outfit' ? 'selected' : '' ?>>Outfit</option>
-                                    <option value="Plus Jakarta Sans" <?= ($configs['font_family'] ?? '') === 'Plus Jakarta Sans' ? 'selected' : '' ?>>Plus Jakarta Sans</option>
+                                <label
+                                    class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Wait
+                                    Time
+                                    (Days)</label>
+                                <input type="number" name="grace_period" class="input-field"
+                                    value="<?= htmlspecialchars($configs['grace_period'] ?? '7') ?>">
+                            </div>
+                            <div class="flex flex-col gap-1.5">
+                                <label
+                                    class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Account
+                                    Status</label>
+                                <select name="default_status" class="input-field cursor-pointer">
+                                    <option value="Pending" <?= ($configs['default_status'] ?? '') === 'Pending' ? 'selected' : '' ?>>Pending Approval</option>
+                                    <option value="Active" <?= ($configs['default_status'] ?? '') === 'Active' ? 'selected' : '' ?>>Auto-Approved</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div class="flex flex-col gap-1.5">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Main
-                                    Color</label>
-                                <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
-                                    <input type="color" id="theme_color_input" name="theme_color"
-                                        oninput="updateLiveBranding()"
-                                        value="<?= htmlspecialchars($configs['theme_color'] ?? '#8c2bee') ?>"
-                                        class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
-                                    <span id="theme_hex_display"
-                                        class="text-[10px] font-black uppercase text-gray-400"><?= $configs['theme_color'] ?? '#8C2BEE' ?></span>
-                                </div>
+                        <div class="mt-12 p-6 rounded-2xl bg-primary/5 border border-primary/10">
+                            <div class="flex items-center gap-3 mb-3">
+                                <span class="material-symbols-outlined text-primary text-base">info</span>
+                                <span class="text-[10px] font-black uppercase tracking-widest text-primary">Policy
+                                    info</span>
                             </div>
-                            <div class="flex flex-col gap-1.5">
-                                <label
-                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Highlight
-                                    Color</label>
-                                <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
-                                    <input type="color" id="secondary_color_input" name="secondary_color"
-                                        oninput="updateLiveBranding()"
-                                        value="<?= htmlspecialchars($configs['secondary_color'] ?? '#a1a1aa') ?>"
-                                        class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
-                                    <span id="secondary_hex_display"
-                                        class="text-[10px] font-black uppercase text-gray-400"><?= $configs['secondary_color'] ?? '#A1A1AA' ?></span>
-                                </div>
-                            </div>
-                            <div class="flex flex-col gap-1.5">
-                                <label
-                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Background
-                                    Color</label>
-                                <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
-                                    <input type="color" id="bg_color_input" name="bg_color"
-                                        oninput="updateLiveBranding()"
-                                        value="<?= htmlspecialchars($configs['bg_color'] ?? '#0a090d') ?>"
-                                        class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
-                                    <span id="bg_hex_display"
-                                        class="text-[10px] font-black uppercase text-gray-400"><?= $configs['bg_color'] ?? '#0A0D0D' ?></span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card Appearance Section -->
-                        <div class="mt-10 pt-10 border-t border-white/5 space-y-6">
-                            <div class="flex items-center justify-between">
-                                <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Card
-                                    Appearance</h4>
-                                <label class="flex items-center gap-3 cursor-pointer group">
-                                    <span
-                                        class="text-[9px] font-bold uppercase tracking-widest text-gray-500 group-hover:text-gray-300 transition-colors">Sync
-                                        with Theme</span>
-                                    <div class="relative inline-flex items-center">
-                                        <input type="hidden" name="auto_card_theme" value="0">
-                                        <input type="checkbox" id="auto_card_theme_input" name="auto_card_theme"
-                                            value="1" onchange="updateLiveBranding()" <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'checked' : '' ?> class="sr-only peer">
-                                        <div
-                                            class="w-11 h-6 bg-white/5 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-gray-500 peer-checked:after:bg-primary after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary/20">
-                                        </div>
-                                    </div>
-                                </label>
-                            </div>
-
-                            <div class="grid grid-cols-1 gap-8">
-                                <div class="flex flex-col gap-3">
-                                    <label
-                                        class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Manual
-                                        Surface Color</label>
-                                    <div
-                                        class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
-                                        <input type="color" id="card_color_input" name="card_color"
-                                            oninput="updateLiveBranding()"
-                                            value="<?= htmlspecialchars($configs['card_color'] ?? '#141216') ?>"
-                                            class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
-                                        <span id="card_hex_display"
-                                            class="text-[10px] font-black uppercase text-gray-400"><?= $configs['card_color'] ?? '#141216' ?></span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="glass-card p-8">
-                    <div class="flex items-center gap-4 mb-8">
-                        <div class="size-10 rounded-xl bg-[--secondary]/10 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-[--secondary]">gavel</span>
-                        </div>
-                        <div>
-                            <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Rules for Gyms
-                            </h3>
-                            <p class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-tight">Set
-                                global limits
-                                for all accounts</p>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Max Staff
-                                Count</label>
-                            <input type="number" name="max_staff" class="input-field"
-                                value="<?= htmlspecialchars($configs['max_staff'] ?? '10') ?>">
-                        </div>
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Wait Time
-                                (Days)</label>
-                            <input type="number" name="grace_period" class="input-field"
-                                value="<?= htmlspecialchars($configs['grace_period'] ?? '7') ?>">
-                        </div>
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Account
-                                Status</label>
-                            <select name="default_status" class="input-field cursor-pointer">
-                                <option value="Pending" <?= ($configs['default_status'] ?? '') === 'Pending' ? 'selected' : '' ?>>Pending Approval</option>
-                                <option value="Active" <?= ($configs['default_status'] ?? '') === 'Active' ? 'selected' : '' ?>>Auto-Approved</option>
-                            </select>
+                            <p class="text-[10px] text-[--text-main] opacity-60 leading-relaxed font-medium">These rules
+                                apply globally to ALL tenants in the system. Changes here affect account creation and
+                                staff limitations across the entire platform.</p>
                         </div>
                     </div>
                 </div>
@@ -836,7 +895,7 @@ $active_page = "settings";
     <div id="superadminModal" class="modal-overlay" onclick="if(event.target === this) toggleSuperadminModal(false)">
         <div class="glass-card w-full max-w-2xl p-0 relative overflow-hidden backdrop-blur-2xl">
             <button onclick="toggleSuperadminModal(false)"
-                class="absolute top-8 right-8 size-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all z-20 hover:scale-110 active:scale-95">
+                class="absolute top-8 right-8 size-10 rounded-xl bg-white/5 flex items-center justify-center text-[--secondary] hover:text-white transition-all z-20 hover:scale-110 active:scale-95">
                 <span class="material-symbols-outlined text-xl">close</span>
             </button>
 
@@ -846,9 +905,10 @@ $active_page = "settings";
                         <span class="material-symbols-outlined text-primary text-2xl">person_add</span>
                     </div>
                     <div>
-                        <h3 class="text-xl font-black italic uppercase tracking-tighter text-white">New <span
+                        <h3 class="text-xl font-black italic uppercase tracking-tighter">New <span
                                 class="text-primary">Superadmin</span></h3>
-                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Give admin access to
+                        <p class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-widest">Give
+                            admin access to
                             the system</p>
                     </div>
                 </div>
@@ -927,7 +987,7 @@ $active_page = "settings";
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="flex flex-col gap-1">
                                     <label
-                                        class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Password</label>
+                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Password</label>
                                     <div class="relative group/pass">
                                         <input type="password" name="new_password" id="new_password" required
                                             class="input-field w-full pr-12" placeholder="Min. 8 characters"
@@ -977,7 +1037,7 @@ $active_page = "settings";
                                 </div>
                                 <div class="flex flex-col gap-1">
                                     <label
-                                        class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Confirm
+                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Confirm
                                         Password</label>
                                     <div class="relative">
                                         <input type="password" name="confirm_new_password" id="confirm_new_password"
@@ -995,7 +1055,7 @@ $active_page = "settings";
 
                         <div class="flex justify-end gap-4 pt-10">
                             <button type="button" onclick="toggleSuperadminModal(false)"
-                                class="px-8 py-4 rounded-xl bg-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">Cancel</button>
+                                class="px-8 py-4 rounded-xl bg-white/5 text-[--secondary] text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">Cancel</button>
                             <button type="button" onclick="validateSuperadminForm(event)"
                                 class="px-10 py-4 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Create
                                 Account</button>
@@ -1015,7 +1075,8 @@ $active_page = "settings";
                 </div>
                 <div>
                     <h3 class="text-xl font-black italic uppercase tracking-tighter text-white">Review Details</h3>
-                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Confirm Information
+                    <p class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-widest">Confirm
+                        Information
                         Integrity</p>
                 </div>
             </div>
@@ -1027,7 +1088,7 @@ $active_page = "settings";
             </div>
             <div class="flex justify-end gap-4">
                 <button type="button" onclick="toggleReviewModal(false)"
-                    class="px-8 py-4 rounded-xl bg-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">Back
+                    class="px-8 py-4 rounded-xl bg-white/5 text-[--secondary] text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">Back
                     to Edit</button>
                 <button type="button" onclick="confirmAndSubmitSuperadmin()"
                     class="px-10 py-4 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Final
@@ -1045,11 +1106,12 @@ $active_page = "settings";
             <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter text-white mb-2">Confirm
                 Changes</h3>
             <p id="confirmMessage"
-                class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-10 leading-relaxed">Save these
+                class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-widest mb-10 leading-relaxed">
+                Save these
                 configurations to the system? This will update the appearance for all users immediately.</p>
             <div class="flex justify-center gap-4">
                 <button type="button" onclick="toggleActionModal(false)"
-                    class="px-8 py-3 rounded-xl bg-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
+                    class="px-8 py-3 rounded-xl bg-white/5 text-[--secondary] text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
                 <button id="confirmExecuteBtn" type="button"
                     class="px-10 py-3 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 hover:shadow-primary/30 transition-all shadow-lg shadow-primary/20">Confirm
                     Action</button>
@@ -1220,7 +1282,7 @@ $active_page = "settings";
                 const row = document.createElement('div');
                 row.className = 'flex justify-between items-center py-2 border-b border-white/5';
                 row.innerHTML = `
-                        <span class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">${label}</span>
+                        <span class="text-[9px] text-[--secondary] opacity-70 font-bold uppercase tracking-widest">${label}</span>
                         <span class="text-[10px] text-white font-black italic uppercase tracking-tighter">${value || 'N/A'}</span>
                     `;
                 container.appendChild(row);
@@ -1253,6 +1315,7 @@ $active_page = "settings";
                         'system_name_input': 'Horizon System',
                         'theme_color_input': '#8C2BEE',
                         'secondary_color_input': '#A1A1AA',
+                        'text_color_input': '#D1D5DB',
                         'bg_color_input': '#0A090D',
                         'card_color_input': '#141216',
                         'font_family_input': 'Lexend'
@@ -1330,6 +1393,7 @@ $active_page = "settings";
             const nameInput = document.getElementById('system_name_input');
             const themeInput = document.getElementById('theme_color_input');
             const secondaryInput = document.getElementById('secondary_color_input');
+            const textColorInput = document.getElementById('text_color_input');
             const bgInput = document.getElementById('bg_color_input');
             const fontInput = document.getElementById('font_family_input');
 
@@ -1343,10 +1407,25 @@ $active_page = "settings";
                 if (sidebarName) sidebarName.textContent = nameInput.value;
             }
 
+            // --- Auto-Contrast Logic (for Header Clock & Main Titles) ---
+            function ensureContrast(bg, fg) {
+                const bgRgb = hexToRgb(bg);
+                const bgLum = bgRgb ? (0.299 * bgRgb.r + 0.587 * bgRgb.g + 0.114 * bgRgb.b) : 0;
+                const fgRgb = hexToRgb(fg);
+                const fgLum = fgRgb ? (0.299 * fgRgb.r + 0.587 * fgRgb.g + 0.114 * fgRgb.b) : 0;
+
+                const diff = Math.abs(bgLum - fgLum);
+                if (diff < 80) { // Too close, adjust based on background
+                    return bgLum > 128 ? '#000000' : '#ffffff';
+                }
+                return fg;
+            }
+
             // Update CSS Core Variables
             document.documentElement.style.setProperty('--primary', themeInput.value);
             document.documentElement.style.setProperty('--background', bgInput.value);
-            document.documentElement.style.setProperty('--secondary', secondaryInput.value);
+            document.documentElement.style.setProperty('--highlight', secondaryInput.value);
+            document.documentElement.style.setProperty('--text-main', textColorInput.value);
 
             // Generate RGB for Alpha transparency
             const rgb = hexToRgb(themeInput.value);
@@ -1391,6 +1470,7 @@ $active_page = "settings";
             // Sync Hex Text
             if (document.getElementById('theme_hex_display')) document.getElementById('theme_hex_display').textContent = themeInput.value.toUpperCase();
             if (document.getElementById('secondary_hex_display')) document.getElementById('secondary_hex_display').textContent = secondaryInput.value.toUpperCase();
+            if (document.getElementById('text_hex_display')) document.getElementById('text_hex_display').textContent = textColorInput.value.toUpperCase();
             if (document.getElementById('bg_hex_display')) document.getElementById('bg_hex_display').textContent = bgInput.value.toUpperCase();
         }
 
