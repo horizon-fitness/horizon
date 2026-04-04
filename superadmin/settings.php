@@ -14,26 +14,29 @@ ini_set('display_errors', 1);
 
 // Initialize system_settings table if it doesn't exist
 $pdo->exec("
-    CREATE TABLE IF NOT EXISTS system_settings (
-        setting_key VARCHAR(50) PRIMARY KEY,
-        setting_value TEXT,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )
-");
+        CREATE TABLE IF NOT EXISTS system_settings (
+            setting_key VARCHAR(50) PRIMARY KEY,
+            setting_value TEXT,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+    ");
 
 // Seed default settings if empty
 $pdo->exec("
-    INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES 
-    ('max_staff', '10'),
-    ('grace_period', '7'),
-    ('default_status', 'Pending'),
-    ('system_name', 'Horizon System'),
-    ('theme_color', '#8c2bee'),
-    ('secondary_color', '#a1a1aa'),
-    ('bg_color', '#0a090d'),
-    ('font_family', 'Lexend'),
-    ('system_logo', '')
-");
+        INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES 
+        ('max_staff', '10'),
+        ('grace_period', '7'),
+        ('default_status', 'Pending'),
+        ('system_name', 'Horizon System'),
+        ('theme_color', '#8c2bee'),
+        ('secondary_color', '#a1a1aa'),
+        ('bg_color', '#0a090d'),
+        ('card_color', '#141216'),
+        ('auto_card_theme', '1'),
+        ('card_blur', '10'),
+        ('font_family', 'Lexend'),
+        ('system_logo', '')
+    ");
 
 // Fetch all settings
 $stmt = $pdo->query("SELECT setting_key, setting_value FROM system_settings");
@@ -79,9 +82,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_superadmin'])) {
         }
 
         // --- Server-Side Validation (Matching profile.php) ---
-        if (preg_match('/[0-9]/', $first_name)) throw new Exception("First name cannot contain numbers.");
-        if (!empty($middle_name) && preg_match('/[0-9]/', $middle_name)) throw new Exception("Middle name cannot contain numbers.");
-        if (preg_match('/[0-9]/', $last_name)) throw new Exception("Last name cannot contain numbers.");
+        if (preg_match('/[0-9]/', $first_name))
+            throw new Exception("First name cannot contain numbers.");
+        if (!empty($middle_name) && preg_match('/[0-9]/', $middle_name))
+            throw new Exception("Middle name cannot contain numbers.");
+        if (preg_match('/[0-9]/', $last_name))
+            throw new Exception("Last name cannot contain numbers.");
 
         $raw_contact = str_replace(['-', ' '], '', $contact_number);
         if (!ctype_digit($raw_contact) || strlen($raw_contact) !== 11) {
@@ -126,16 +132,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_superadmin'])) {
         // Send Email Notification
         $login_url = (isset($_SERVER['HTTPS']) ? "https://" : "http://") . $_SERVER['HTTP_HOST'] . dirname($_SERVER['PHP_SELF']) . "/../login.php";
         $email_content = "
-            <p>Hello <strong>$first_name $last_name</strong>,</p>
-            <p>Your Superadmin account for <strong>Horizon Systems</strong> has been created successfully. Below are your login credentials:</p>
-            <div style='background: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0;'>
-                <p style='margin: 0;'><strong>Username:</strong> $username</p>
-                <p style='margin: 0;'><strong>Password:</strong> $password</p>
-                <p style='margin: 10px 0 0 0;'><strong>Login URL:</strong> <a href='$login_url'>$login_url</a></p>
-            </div>
-            <p>Please log in and update your security settings once you have access.</p>
-            <p>Regards,<br>Horizon Management Team</p>";
-        
+                <p>Hello <strong>$first_name $last_name</strong>,</p>
+                <p>Your Superadmin account for <strong>Horizon Systems</strong> has been created successfully. Below are your login credentials:</p>
+                <div style='background: #f8f8f8; padding: 20px; border-radius: 8px; margin: 20px 0;'>
+                    <p style='margin: 0;'><strong>Username:</strong> $username</p>
+                    <p style='margin: 0;'><strong>Password:</strong> $password</p>
+                    <p style='margin: 10px 0 0 0;'><strong>Login URL:</strong> <a href='$login_url'>$login_url</a></p>
+                </div>
+                <p>Please log in and update your security settings once you have access.</p>
+                <p>Regards,<br>Horizon Management Team</p>";
+
         sendSystemEmail($email, "Welcome to Horizon Systems - Superadmin Access", getEmailTemplate("Account Created", $email_content));
 
     } catch (Exception $e) {
@@ -177,6 +183,12 @@ $active_page = "settings";
             --secondary:
                 <?= $configs['secondary_color'] ?? '#a1a1aa' ?>
             ;
+            --card-blur:
+                <?= $configs['card_blur'] ?? '10' ?>
+                px;
+            --card-bg:
+                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(var(--primary-rgb, 140, 43, 238), 0.05)' : ($configs['card_color'] ?? '#141216') ?>
+            ;
         }
 
         body {
@@ -186,9 +198,11 @@ $active_page = "settings";
         }
 
         .glass-card {
-            background: #14121a;
+            background: var(--card-bg);
             border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 24px;
+            backdrop-filter: blur(var(--card-blur));
+            transition: all 0.3s ease;
         }
 
         .sidebar-nav {
@@ -233,8 +247,10 @@ $active_page = "settings";
         }
 
         * {
-            -ms-overflow-style: none;  /* IE and Edge */
-            scrollbar-width: none;  /* Firefox */
+            -ms-overflow-style: none;
+            /* IE and Edge */
+            scrollbar-width: none;
+            /* Firefox */
         }
 
         .nav-text {
@@ -355,7 +371,8 @@ $active_page = "settings";
         .input-field:focus {
             border-color: var(--primary);
             outline: none;
-            background: rgba(var(--primary-rgb), 0.05); /* Requires RGB variable */
+            background: rgba(var(--primary-rgb), 0.05);
+            /* Requires RGB variable */
             box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.1);
         }
 
@@ -404,9 +421,9 @@ $active_page = "settings";
             display: flex !important;
         }
 
-        .sidebar-nav:hover ~ #superadminModal,
-        .sidebar-nav:hover ~ #superadminReviewModal,
-        .sidebar-nav:hover ~ #confirmActionModal {
+        .sidebar-nav:hover~#superadminModal,
+        .sidebar-nav:hover~#superadminReviewModal,
+        .sidebar-nav:hover~#confirmActionModal {
             left: 300px;
         }
 
@@ -414,12 +431,15 @@ $active_page = "settings";
         .modal-content-scroll {
             max-height: calc(90vh - 40px);
             overflow-y: auto;
-            -ms-overflow-style: none; /* IE and Edge */
-            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none;
+            /* IE and Edge */
+            scrollbar-width: none;
+            /* Firefox */
         }
 
         .modal-content-scroll::-webkit-scrollbar {
-            display: none; /* Chrome, Safari, and Opera */
+            display: none;
+            /* Chrome, Safari, and Opera */
         }
     </style>
     <script>
@@ -458,12 +478,14 @@ $active_page = "settings";
     <nav id="liveSidebar" class="sidebar-nav z-50 flex flex-col no-scrollbar">
         <div class="px-7 py-5 mb-2 shrink-0">
             <div class="flex items-center gap-4">
-                <div
-                    class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
                     <?php if (!empty($configs['system_logo'])): ?>
-                        <img src="<?= htmlspecialchars($configs['system_logo']) ?>" class="size-full object-contain rounded-xl">
+                        <img src="<?= htmlspecialchars($configs['system_logo']) ?>"
+                            class="size-full object-contain rounded-xl">
                     <?php else: ?>
-                        <img src="../assests/horizon logo.png" class="size-full object-contain rounded-xl transition-transform duration-500 group-hover:scale-110" alt="Horizon Logo">
+                        <img src="../assests/horizon logo.png"
+                            class="size-full object-contain rounded-xl transition-transform duration-500 group-hover:scale-110"
+                            alt="Horizon Logo">
                     <?php endif; ?>
                 </div>
                 <h1 id="sidebarSystemName"
@@ -562,12 +584,17 @@ $active_page = "settings";
         <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
             <header class="mb-12 flex flex-row justify-between items-end gap-6">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">SYSTEM <span class="text-primary">SETTINGS</span></h2>
-                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60 uppercase">Manage your system settings and look.</p>
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">SYSTEM
+                        <span class="text-primary">SETTINGS</span></h2>
+                    <p
+                        class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60 uppercase">
+                        Manage your system settings and look.</p>
                 </div>
                 <div class="flex items-end gap-8 text-right shrink-0">
                     <div class="flex flex-col items-end">
-                        <p id="headerClock" class="text-gray-400 font-black italic text-2xl leading-none tracking-tighter uppercase transition-colors hover:text-white cursor-default">00:00:00 AM</p>
+                        <p id="headerClock"
+                            class="text-gray-400 font-black italic text-2xl leading-none tracking-tighter uppercase transition-colors hover:text-white cursor-default">
+                            00:00:00 AM</p>
                         <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
                             <?= date('l, M d, Y') ?>
                         </p>
@@ -592,13 +619,15 @@ $active_page = "settings";
 
                 <button type="button" onclick="confirmSaveConfigurations()"
                     class="bg-white/5 hover:bg-primary/20 text-white px-8 h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-primary/30 flex items-center gap-3 active:scale-95 group shrink-0">
-                    <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">save</span>
+                    <span
+                        class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">save</span>
                     Save Changes
                 </button>
 
                 <button type="button" onclick="toggleSuperadminModal(true)"
                     class="bg-primary hover:bg-primary/90 text-black px-8 h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95 group shrink-0">
-                    <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">person_add</span>
+                    <span
+                        class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">person_add</span>
                     Create Superadmin
                 </button>
             </div>
@@ -631,8 +660,7 @@ $active_page = "settings";
                             <div class="flex flex-col gap-1.5">
                                 <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">System
                                     Name</label>
-                                <input type="text" id="system_name_input" name="system_name"
-                                    class="input-field"
+                                <input type="text" id="system_name_input" name="system_name" class="input-field"
                                     value="<?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>"
                                     readonly>
                             </div>
@@ -689,6 +717,57 @@ $active_page = "settings";
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Card Appearance Section -->
+                        <div class="mt-10 pt-10 border-t border-white/5 space-y-6">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Card
+                                    Appearance</h4>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <span
+                                        class="text-[9px] font-bold uppercase tracking-widest text-gray-500 group-hover:text-gray-300 transition-colors">Sync
+                                        with Theme</span>
+                                    <div class="relative inline-flex items-center">
+                                        <input type="hidden" name="auto_card_theme" value="0">
+                                        <input type="checkbox" id="auto_card_theme_input" name="auto_card_theme"
+                                            value="1" onchange="updateLiveBranding()" <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'checked' : '' ?> class="sr-only peer">
+                                        <div
+                                            class="w-11 h-6 bg-white/5 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-gray-500 peer-checked:after:bg-primary after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary/20">
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div class="flex flex-col gap-3">
+                                    <label
+                                        class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Manual
+                                        Surface Color</label>
+                                    <div
+                                        class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                        <input type="color" id="card_color_input" name="card_color"
+                                            oninput="updateLiveBranding()"
+                                            value="<?= htmlspecialchars($configs['card_color'] ?? '#141216') ?>"
+                                            class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                        <span id="card_hex_display"
+                                            class="text-[10px] font-black uppercase text-gray-400"><?= $configs['card_color'] ?? '#141216' ?></span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-3">
+                                    <div class="flex justify-between items-center px-1">
+                                        <label
+                                            class="text-[9px] font-black uppercase text-gray-500 tracking-widest">Glass
+                                            Blur Intensity</label>
+                                        <span id="blur_val_display"
+                                            class="text-[10px] font-black text-primary italic uppercase"><?= $configs['card_blur'] ?? '10' ?>
+                                            PX</span>
+                                    </div>
+                                    <input type="range" id="card_blur_input" name="card_blur" min="0" max="40" step="1"
+                                        oninput="updateLiveBranding()" value="<?= $configs['card_blur'] ?? '10' ?>"
+                                        class="w-full h-1.5 bg-white/5 rounded-lg appearance-none cursor-pointer accent-primary">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="glass-card p-8">
@@ -728,7 +807,7 @@ $active_page = "settings";
                     </div>
                 </div>
 
-<div class="pt-6"></div>
+                <div class="pt-6"></div>
             </form>
         </main>
     </div>
@@ -747,8 +826,10 @@ $active_page = "settings";
                         <span class="material-symbols-outlined text-primary text-2xl">person_add</span>
                     </div>
                     <div>
-                        <h3 class="text-xl font-black italic uppercase tracking-tighter text-white">New <span class="text-primary">Superadmin</span></h3>
-                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Give admin access to the system</p>
+                        <h3 class="text-xl font-black italic uppercase tracking-tighter text-white">New <span
+                                class="text-primary">Superadmin</span></h3>
+                        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Give admin access to
+                            the system</p>
                     </div>
                 </div>
 
@@ -757,41 +838,57 @@ $active_page = "settings";
                     <div class="space-y-8">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">First Name</label>
-                                <input type="text" name="new_first_name" id="new_first_name" required class="input-field" placeholder="John">
+                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">First
+                                    Name</label>
+                                <input type="text" name="new_first_name" id="new_first_name" required
+                                    class="input-field" placeholder="John">
                             </div>
                             <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Middle Name</label>
-                                <input type="text" name="new_middle_name" id="new_middle_name" class="input-field" placeholder="Optional">
+                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Middle
+                                    Name</label>
+                                <input type="text" name="new_middle_name" id="new_middle_name" class="input-field"
+                                    placeholder="Optional">
                             </div>
                             <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Last Name</label>
-                                <input type="text" name="new_last_name" id="new_last_name" required class="input-field" placeholder="Doe">
+                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Last
+                                    Name</label>
+                                <input type="text" name="new_last_name" id="new_last_name" required class="input-field"
+                                    placeholder="Doe">
                             </div>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Username</label>
-                                <input type="text" name="new_username" id="new_username" required class="input-field" placeholder="superadmin_dev">
+                                <label
+                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Username</label>
+                                <input type="text" name="new_username" id="new_username" required class="input-field"
+                                    placeholder="superadmin_dev">
                             </div>
                             <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Email Address</label>
-                                <input type="email" name="new_email" id="new_email" required class="input-field" placeholder="example@gmail.com">
+                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Email
+                                    Address</label>
+                                <input type="email" name="new_email" id="new_email" required class="input-field"
+                                    placeholder="example@gmail.com">
                             </div>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Contact Number</label>
-                                <input type="text" name="new_contact_number" id="new_contact_number" required class="input-field" placeholder="09XX-XXX-XXXX" oninput="formatContactNumber(this)">
+                                <label
+                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Contact
+                                    Number</label>
+                                <input type="text" name="new_contact_number" id="new_contact_number" required
+                                    class="input-field" placeholder="09XX-XXX-XXXX" oninput="formatContactNumber(this)">
                             </div>
                             <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Birth Date</label>
-                                <input type="date" name="new_birth_date" id="new_birth_date" required class="input-field" max="<?= date('Y-m-d') ?>">
+                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Birth
+                                    Date</label>
+                                <input type="date" name="new_birth_date" id="new_birth_date" required
+                                    class="input-field" max="<?= date('Y-m-d') ?>">
                             </div>
                             <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Sex</label>
+                                <label
+                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Sex</label>
                                 <select name="new_sex" id="new_sex" required class="input-field cursor-pointer">
                                     <option value="">Select Sex</option>
                                     <option value="Male">Male</option>
@@ -802,48 +899,74 @@ $active_page = "settings";
                         </div>
 
                         <div class="p-8 rounded-3xl bg-white/5 border border-white/5 space-y-6 mt-10 shadow-inner">
-                            <h4 class="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                            <h4
+                                class="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
                                 <span class="material-symbols-outlined text-base">security</span>
                                 Security Protocol
                             </h4>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="flex flex-col gap-1">
-                                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Password</label>
+                                    <label
+                                        class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Password</label>
                                     <div class="relative group/pass">
-                                        <input type="password" name="new_password" id="new_password" required class="input-field w-full pr-12" placeholder="Min. 8 characters" oninput="checkStrength(this.value)">
-                                        <button type="button" onclick="togglePassword('new_password', 'icon_new')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
-                                            <span class="material-symbols-outlined text-lg" id="icon_new">visibility_off</span>
+                                        <input type="password" name="new_password" id="new_password" required
+                                            class="input-field w-full pr-12" placeholder="Min. 8 characters"
+                                            oninput="checkStrength(this.value)">
+                                        <button type="button" onclick="togglePassword('new_password', 'icon_new')"
+                                            class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
+                                            <span class="material-symbols-outlined text-lg"
+                                                id="icon_new">visibility_off</span>
                                         </button>
                                     </div>
                                     <div class="h-1 w-full bg-white/5 rounded-full mt-2 overflow-hidden">
                                         <div id="strength-bar" class="h-full w-0 transition-all duration-300"></div>
                                     </div>
-                                    <p id="strength-text" class="text-[8px] font-black uppercase tracking-widest mt-1 min-h-[10px]"></p>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mt-3 transition-all duration-500">
-                                        <div id="req-length" class="flex items-center gap-2 text-gray-600 transition-colors">
-                                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
-                                            <span class="text-[8px] font-bold uppercase tracking-widest">Min. 8 characters</span>
+                                    <p id="strength-text"
+                                        class="text-[8px] font-black uppercase tracking-widest mt-1 min-h-[10px]"></p>
+                                    <div
+                                        class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mt-3 transition-all duration-500">
+                                        <div id="req-length"
+                                            class="flex items-center gap-2 text-gray-600 transition-colors">
+                                            <span
+                                                class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                                            <span class="text-[8px] font-bold uppercase tracking-widest">Min. 8
+                                                characters</span>
                                         </div>
-                                        <div id="req-upper" class="flex items-center gap-2 text-gray-600 transition-colors">
-                                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
-                                            <span class="text-[8px] font-bold uppercase tracking-widest">One Uppercase</span>
+                                        <div id="req-upper"
+                                            class="flex items-center gap-2 text-gray-600 transition-colors">
+                                            <span
+                                                class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                                            <span class="text-[8px] font-bold uppercase tracking-widest">One
+                                                Uppercase</span>
                                         </div>
-                                        <div id="req-number" class="flex items-center gap-2 text-gray-600 transition-colors">
-                                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
-                                            <span class="text-[8px] font-bold uppercase tracking-widest">One Number</span>
+                                        <div id="req-number"
+                                            class="flex items-center gap-2 text-gray-600 transition-colors">
+                                            <span
+                                                class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                                            <span class="text-[8px] font-bold uppercase tracking-widest">One
+                                                Number</span>
                                         </div>
-                                        <div id="req-special" class="flex items-center gap-2 text-gray-600 transition-colors">
-                                            <span class="material-symbols-outlined text-sm">radio_button_unchecked</span>
-                                            <span class="text-[8px] font-bold uppercase tracking-widest">One Special Character</span>
+                                        <div id="req-special"
+                                            class="flex items-center gap-2 text-gray-600 transition-colors">
+                                            <span
+                                                class="material-symbols-outlined text-sm">radio_button_unchecked</span>
+                                            <span class="text-[8px] font-bold uppercase tracking-widest">One Special
+                                                Character</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="flex flex-col gap-1">
-                                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Confirm Password</label>
+                                    <label
+                                        class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Confirm
+                                        Password</label>
                                     <div class="relative">
-                                        <input type="password" name="confirm_new_password" id="confirm_new_password" required class="input-field w-full pr-12" placeholder="Repeat password">
-                                        <button type="button" onclick="togglePassword('confirm_new_password', 'icon_confirm')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
-                                            <span class="material-symbols-outlined text-lg" id="icon_confirm">visibility_off</span>
+                                        <input type="password" name="confirm_new_password" id="confirm_new_password"
+                                            required class="input-field w-full pr-12" placeholder="Repeat password">
+                                        <button type="button"
+                                            onclick="togglePassword('confirm_new_password', 'icon_confirm')"
+                                            class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
+                                            <span class="material-symbols-outlined text-lg"
+                                                id="icon_confirm">visibility_off</span>
                                         </button>
                                     </div>
                                 </div>
@@ -851,8 +974,11 @@ $active_page = "settings";
                         </div>
 
                         <div class="flex justify-end gap-4 pt-10">
-                            <button type="button" onclick="toggleSuperadminModal(false)" class="px-8 py-4 rounded-xl bg-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">Cancel</button>
-                            <button type="button" onclick="validateSuperadminForm(event)" class="px-10 py-4 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Create Account</button>
+                            <button type="button" onclick="toggleSuperadminModal(false)"
+                                class="px-8 py-4 rounded-xl bg-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">Cancel</button>
+                            <button type="button" onclick="validateSuperadminForm(event)"
+                                class="px-10 py-4 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Create
+                                Account</button>
                         </div>
                     </div>
                 </form>
@@ -869,17 +995,23 @@ $active_page = "settings";
                 </div>
                 <div>
                     <h3 class="text-xl font-black italic uppercase tracking-tighter text-white">Review Details</h3>
-                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Confirm Information Integrity</p>
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Confirm Information
+                        Integrity</p>
                 </div>
             </div>
             <div class="space-y-4 mb-10" id="reviewDetailsContainer"></div>
             <div class="p-6 rounded-2xl bg-primary/5 border border-primary/10 mb-10 flex items-start gap-4">
                 <span class="material-symbols-outlined text-primary text-lg">info</span>
-                <p class="text-[10px] text-gray-400 font-medium leading-relaxed">Confirming these details will create the account and automatically send an email with login credentials to the recipient.</p>
+                <p class="text-[10px] text-gray-400 font-medium leading-relaxed">Confirming these details will create
+                    the account and automatically send an email with login credentials to the recipient.</p>
             </div>
             <div class="flex justify-end gap-4">
-                <button type="button" onclick="toggleReviewModal(false)" class="px-8 py-4 rounded-xl bg-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">Back to Edit</button>
-                <button type="button" onclick="confirmAndSubmitSuperadmin()" class="px-10 py-4 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Final Confirm</button>
+                <button type="button" onclick="toggleReviewModal(false)"
+                    class="px-8 py-4 rounded-xl bg-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">Back
+                    to Edit</button>
+                <button type="button" onclick="confirmAndSubmitSuperadmin()"
+                    class="px-10 py-4 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Final
+                    Confirm</button>
             </div>
         </div>
     </div>
@@ -890,11 +1022,17 @@ $active_page = "settings";
             <div class="size-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
                 <span id="confirmIcon" class="material-symbols-outlined text-primary text-3xl">warning</span>
             </div>
-            <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter text-white mb-2">Confirm Changes</h3>
-            <p id="confirmMessage" class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-10 leading-relaxed">Save these configurations to the system? This will update the appearance for all users immediately.</p>
+            <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter text-white mb-2">Confirm
+                Changes</h3>
+            <p id="confirmMessage"
+                class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-10 leading-relaxed">Save these
+                configurations to the system? This will update the appearance for all users immediately.</p>
             <div class="flex justify-center gap-4">
-                <button type="button" onclick="toggleActionModal(false)" class="px-8 py-3 rounded-xl bg-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
-                <button id="confirmExecuteBtn" type="button" class="px-10 py-3 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 hover:shadow-primary/30 transition-all shadow-lg shadow-primary/20">Confirm Action</button>
+                <button type="button" onclick="toggleActionModal(false)"
+                    class="px-8 py-3 rounded-xl bg-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
+                <button id="confirmExecuteBtn" type="button"
+                    class="px-10 py-3 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 hover:shadow-primary/30 transition-all shadow-lg shadow-primary/20">Confirm
+                    Action</button>
             </div>
         </div>
     </div>
@@ -940,7 +1078,7 @@ $active_page = "settings";
         function checkStrength(password) {
             const bar = document.getElementById('strength-bar');
             const text = document.getElementById('strength-text');
-            
+
             const requirements = {
                 length: { el: document.getElementById('req-length'), met: password.length >= 8 },
                 upper: { el: document.getElementById('req-upper'), met: /[A-Z]/.test(password) },
@@ -964,7 +1102,7 @@ $active_page = "settings";
             });
 
             bar.style.width = strength + '%';
-            
+
             if (strength === 0) {
                 bar.className = 'h-full transition-all duration-300';
                 text.innerText = '';
@@ -1062,9 +1200,9 @@ $active_page = "settings";
                 const row = document.createElement('div');
                 row.className = 'flex justify-between items-center py-2 border-b border-white/5';
                 row.innerHTML = `
-                    <span class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">${label}</span>
-                    <span class="text-[10px] text-white font-black italic uppercase tracking-tighter">${value || 'N/A'}</span>
-                `;
+                        <span class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">${label}</span>
+                        <span class="text-[10px] text-white font-black italic uppercase tracking-tighter">${value || 'N/A'}</span>
+                    `;
                 container.appendChild(row);
             }
         }
@@ -1130,7 +1268,7 @@ $active_page = "settings";
             document.getElementById('confirmTitle').textContent = title;
             document.getElementById('confirmMessage').textContent = message;
             document.getElementById('confirmIcon').textContent = icon === 'error' ? 'warning' : icon;
-            
+
             const iconContainer = document.getElementById('confirmIcon').parentElement;
             if (isError) {
                 iconContainer.classList.remove('bg-primary/10');
@@ -1178,6 +1316,10 @@ $active_page = "settings";
             const bgInput = document.getElementById('bg_color_input');
             const fontInput = document.getElementById('font_family_input');
 
+            const autoCard = document.getElementById('auto_card_theme_input').checked;
+            const cardColorInput = document.getElementById('card_color_input');
+            const cardBlurInput = document.getElementById('card_blur_input');
+
             // Update Sidebar Name
             if (nameInput) document.getElementById('sidebarSystemName').textContent = nameInput.value;
 
@@ -1192,6 +1334,21 @@ $active_page = "settings";
                 document.documentElement.style.setProperty('--primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
             }
 
+            // Update Card Styling
+            document.documentElement.style.setProperty('--card-blur', cardBlurInput.value + 'px');
+            document.getElementById('blur_val_display').textContent = cardBlurInput.value + ' PX';
+
+            if (autoCard) {
+                const primaryRgb = hexToRgb(themeInput.value);
+                document.documentElement.style.setProperty('--card-bg', `rgba(${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}, 0.05)`);
+                cardColorInput.parentElement.parentElement.style.opacity = '0.4';
+                cardColorInput.parentElement.parentElement.style.pointerEvents = 'none';
+            } else {
+                document.documentElement.style.setProperty('--card-bg', cardColorInput.value);
+                cardColorInput.parentElement.parentElement.style.opacity = '1';
+                cardColorInput.parentElement.parentElement.style.pointerEvents = 'auto';
+            }
+
             // Update Body Styles
             document.body.style.fontFamily = `'${fontInput.value}', sans-serif`;
             document.body.style.backgroundColor = bgInput.value;
@@ -1200,6 +1357,7 @@ $active_page = "settings";
             if (document.getElementById('theme_hex_display')) document.getElementById('theme_hex_display').textContent = themeInput.value.toUpperCase();
             if (document.getElementById('secondary_hex_display')) document.getElementById('secondary_hex_display').textContent = secondaryInput.value.toUpperCase();
             if (document.getElementById('bg_hex_display')) document.getElementById('bg_hex_display').textContent = bgInput.value.toUpperCase();
+            if (document.getElementById('card_hex_display')) document.getElementById('card_hex_display').textContent = cardColorInput.value.toUpperCase();
         }
 
         // Auto-hide success message after 15 seconds

@@ -62,6 +62,20 @@ CREATE TABLE system_settings (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+INSERT INTO system_settings (setting_key, setting_value) VALUES 
+('max_staff', '10'),
+('grace_period', '7'),
+('default_status', 'Pending'),
+('system_name', 'Horizon System'),
+('theme_color', '#8c2bee'),
+('secondary_color', '#a1a1aa'),
+('bg_color', '#0a090d'),
+('card_color', '#141216'),
+('auto_card_theme', '1'),
+('card_blur', '10'),
+('font_family', 'Lexend'),
+('system_logo', '');
+
 CREATE TABLE system_alerts (
     alert_id INT AUTO_INCREMENT PRIMARY KEY,
     type VARCHAR(50) NOT NULL,
