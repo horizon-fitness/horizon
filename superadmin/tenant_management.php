@@ -78,9 +78,11 @@ $total_members_count = $stmtTotalMembers->fetchColumn();
 
 // Fetch Pending Applications
 $stmtPending = $pdo->query("
-    SELECT a.*, u.first_name, u.last_name, u.email 
+    SELECT a.*, u.first_name, u.last_name, u.email,
+           ad.file_path as gym_logo
     FROM gym_owner_applications a 
     JOIN users u ON a.user_id = u.user_id 
+    LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = 'Gym Logo'
     WHERE a.application_status = 'Pending'
     ORDER BY a.submitted_at DESC
 ");
@@ -542,18 +544,18 @@ $deactivated_count = count($deactivated_tenants);
                 Active & Suspended
                 <div id="tabIndicator-registered" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-100"></div>
             </button>
-            <button onclick="switchTab('pending')" id="tabBtn-pending" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100">
+            <button onclick="switchTab('pending')" id="tabBtn-pending" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100 <?= ($pending_count > 0) ? 'mr-4' : '' ?>">
                 Pending Apps
                 <div id="tabIndicator-pending" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0"></div>
                 <?php if ($pending_count > 0): ?>
-                    <span class="absolute -top-1 -right-4 size-4 bg-amber-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-amber-500/20"><?= $pending_count ?></span>
+                    <span class="absolute -top-1 -right-6 size-4 bg-amber-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-amber-500/20"><?= $pending_count ?></span>
                 <?php endif; ?>
             </button>
-            <button onclick="switchTab('deactivated')" id="tabBtn-deactivated" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100">
+            <button onclick="switchTab('deactivated')" id="tabBtn-deactivated" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100 <?= ($deactivated_count > 0) ? 'mr-4' : '' ?>">
                 Deactivated
                 <div id="tabIndicator-deactivated" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0"></div>
                 <?php if ($deactivated_count > 0): ?>
-                    <span class="absolute -top-1 -right-4 size-4 bg-red-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-red-500/20"><?= $deactivated_count ?></span>
+                    <span class="absolute -top-1 -right-6 size-4 bg-red-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-red-500/20"><?= $deactivated_count ?></span>
                 <?php endif; ?>
             </button>
         </div>
@@ -582,12 +584,16 @@ $deactivated_count = count($deactivated_tenants);
                             <tr class="hover:bg-white/5 transition-all">
                                 <td class="px-8 py-5">
                                     <div class="flex items-center gap-3">
-                                        <div class="size-10 rounded-lg bg-amber-500/10 flex items-center justify-center font-black text-amber-500 text-sm border border-amber-500/20">
-                                            <?= strtoupper(substr($app['gym_name'], 0, 2)) ?>
+                                        <div class="size-10 rounded-lg bg-amber-500/10 flex items-center justify-center overflow-hidden border border-amber-500/20 shadow-inner shrink-0">
+                                            <?php if (!empty($app['gym_logo'])): ?>
+                                                <img src="<?= $app['gym_logo'] ?>" class="size-full object-contain transition-transform hover:scale-110">
+                                            <?php else: ?>
+                                                <span class="text-amber-500 font-black text-sm"><?= strtoupper(substr($app['gym_name'], 0, 2)) ?></span>
+                                            <?php endif; ?>
                                         </div>
                                         <div>
                                             <p class="text-sm font-bold italic"><?= htmlspecialchars($app['gym_name']) ?></p>
-                                            <p class="text-[10px] text-[--text-main] opacity-50 uppercase tracking-wider font-bold"><?= htmlspecialchars($app['business_type']) ?></p>
+                                            <p class="text-[10px] text-[--text-main] opacity-50 uppercase tracking-wider font-bold"><?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? '')) ?></p>
                                         </div>
                                     </div>
                                 </td>
