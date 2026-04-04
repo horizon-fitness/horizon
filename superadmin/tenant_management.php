@@ -120,7 +120,7 @@ foreach ($tenants as $t) {
 $deactivated_count = count($deactivated_tenants);
 ?>
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html class="dark no-scrollbar" lang="en">
 
 <head>
     <meta charset="utf-8" />
@@ -383,11 +383,13 @@ $deactivated_count = count($deactivated_tenants);
             border-radius: 24px;
         }
 
-        .no-scrollbar::-webkit-scrollbar {
+        .no-scrollbar::-webkit-scrollbar,
+        *::-webkit-scrollbar {
             display: none;
         }
 
-        .no-scrollbar {
+        .no-scrollbar,
+        * {
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
@@ -443,7 +445,7 @@ $deactivated_count = count($deactivated_tenants);
     </script>
 </head>
 
-<body class="antialiased flex flex-row min-h-screen">
+<body class="antialiased flex flex-row min-h-screen no-scrollbar">
 
     <nav class="sidebar-nav h-screen sticky top-0 z-50 shrink-0 flex flex-col no-scrollbar">
         <div class="px-7 py-5 mb-2 shrink-0">
@@ -548,7 +550,7 @@ $deactivated_count = count($deactivated_tenants);
         </div>
     </nav>
 
-    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
         <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
 
             <header class="mb-10 flex flex-row justify-between items-end gap-6">
@@ -691,7 +693,7 @@ $deactivated_count = count($deactivated_tenants);
                                 Pending Gym Applications
                             </h4>
                         </div>
-                        <div class="overflow-x-auto">
+                        <div class="overflow-x-auto no-scrollbar">
                             <table class="w-full text-left">
                                 <thead>
                                     <tr
@@ -787,7 +789,7 @@ $deactivated_count = count($deactivated_tenants);
                     <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
                         <h4 class="font-black italic uppercase text-sm tracking-tighter">Registered Gyms</h4>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
                                 <tr
@@ -968,7 +970,7 @@ $deactivated_count = count($deactivated_tenants);
                             Deactivated Gym Accounts
                         </h4>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
                                 <tr
@@ -1065,7 +1067,7 @@ $deactivated_count = count($deactivated_tenants);
                                 Rejected Applications
                             </h4>
                         </div>
-                        <div class="overflow-x-auto">
+                        <div class="overflow-x-auto no-scrollbar">
                             <table class="w-full text-left">
                                 <thead>
                                     <tr class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
