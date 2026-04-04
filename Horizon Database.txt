@@ -56,6 +56,9 @@ CREATE TABLE service_catalog (
     default_description TEXT NOT NULL
 );
 
+-- System Configurations & Branding
+-- user_id 0 = Global System Rules (Affects all gyms)
+-- user_id > 0 = Personal Dashboard Branding (Per Superadmin)
 CREATE TABLE system_settings (
     user_id INT NOT NULL,
     setting_key VARCHAR(50) NOT NULL,
@@ -64,20 +67,21 @@ CREATE TABLE system_settings (
     PRIMARY KEY (user_id, setting_key)
 );
 
--- Personal Branding (User ID 1)
+-- Initial Branding Setup (User ID 1 - Default Superadmin)
 INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
-(1, 'theme_color', '#8c2bee'),
-(1, 'secondary_color', '#a1a1aa'),
-(1, 'bg_color', '#0a090d'),
-(1, 'card_color', '#141216'),
-(1, 'auto_card_theme', '1'),
-(1, 'font_family', 'Lexend');
+(1, 'theme_color', '#8c2bee'),      -- [Main Color] Titles, primary buttons & accents
+(1, 'secondary_color', '#a1a1aa'),  -- [Icon Color] Sidebar icons & system symbols
+(1, 'text_color', '#d1d5db'),       -- [Text Color] All typography & nav labels
+(1, 'bg_color', '#0a090d'),         -- [Background] Main system canvas color
+(1, 'card_color', '#141216'),       -- [Surface Color] Manual card surface tint
+(1, 'auto_card_theme', '1'),        -- [Sync Toggle] 1=Sync with Theme, 0=Manual
+(1, 'font_family', 'Lexend');       -- [Typography] Global font selection
 
--- Global System Rules (User ID 0)
+-- Global System Policies (User ID 0)
 INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
-(0, 'max_staff', '10'),
-(0, 'grace_period', '7'),
-(0, 'default_status', 'Pending'),
+(0, 'max_staff', '10'),             -- Max staff allowed per gym account
+(0, 'grace_period', '7'),           -- Days to wait before account suspension
+(0, 'default_status', 'Pending'),    -- Default status for new gym signups
 (0, 'system_name', 'Horizon System'),
 (0, 'system_logo', '');
 
