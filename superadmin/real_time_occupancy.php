@@ -484,8 +484,37 @@ try {
         let currentLayout = 'grid';
         let currentPage = 1;
         let rowsPerPage = 9; // Default for Grid (3x3)
-        const gymData = <?= json_encode($gyms) ?>;
-        const totalGyms = gymData.length;
+        const allGymData = <?= json_encode($gyms) ?>;
+        let gymData = [...allGymData];
+        let totalGyms = gymData.length;
+
+        function handleLiveFilter() {
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+            
+            gymData = allGymData.filter(gym => {
+                const matchesSearch = gym.name.toLowerCase().includes(searchQuery);
+                const matchesStatus = statusFilter === 'all' || gym.status === statusFilter;
+                return matchesSearch && matchesStatus;
+            });
+            
+            totalGyms = gymData.length;
+            currentPage = 1;
+            renderPagination();
+            updateVisibility();
+            
+            // Show/Hide Empty State
+            const emptyState = document.querySelector('.dashed-container');
+            if (totalGyms === 0) {
+                emptyState?.classList.remove('hidden');
+                document.getElementById('layoutGrid').classList.add('hidden');
+                document.getElementById('layoutTable').classList.add('hidden');
+                document.getElementById('paginationContainer').classList.add('hidden');
+            } else {
+                emptyState?.classList.add('hidden');
+                switchLayout(currentLayout); // Re-trigger current layout visibility
+            }
+        }
 
         function openFacilityModal(gymId) {
             const gym = gymData.find(g => g.gym_id == gymId);
@@ -501,33 +530,63 @@ try {
             const pBar = document.getElementById('modalProgressBar');
             pBar.style.width = rate + '%';
             
-            const statusIcon = document.getElementById('modalStatusIcon');
-            const safeMsg = document.getElementById('modalSafeMessage');
-
             if (gym.status === 'Full') {
                 pBar.className = 'h-full rounded-full bg-red-500 transition-all duration-1000 shadow-lg shadow-red-500/20';
-                statusIcon.textContent = 'warning';
-                statusIcon.className = 'material-symbols-outlined text-2xl text-red-500';
-                safeMsg.textContent = 'CRITICAL: Facility is at peak capacity. Entry should be restricted until slots become available.';
-                safeMsg.className = 'text-xs font-bold text-red-400 italic';
             } else if (gym.status === 'Moderate') {
                 pBar.className = 'h-full rounded-full bg-amber-500 transition-all duration-1000 shadow-lg shadow-amber-500/20';
-                statusIcon.textContent = 'pending';
-                statusIcon.className = 'material-symbols-outlined text-2xl text-amber-500';
-                safeMsg.textContent = 'CAUTION: Occupancy is rising. Facility is nearing high capacity levels (40-79%).';
-                safeMsg.className = 'text-xs font-bold text-amber-400 italic';
             } else {
                 pBar.className = 'h-full rounded-full bg-primary transition-all duration-1000 shadow-lg shadow-primary/20';
-                statusIcon.textContent = 'verified';
-                statusIcon.className = 'material-symbols-outlined text-2xl text-primary';
-                safeMsg.textContent = 'System currently confirms this facility is operating within safe occupancy limits.';
-                safeMsg.className = 'text-xs font-bold text-emerald-400 italic';
             }
 
             const modal = document.getElementById('facilityModal');
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             document.body.classList.add('overflow-hidden');
+            toggleLogs(false); // Default to overview
+        }
+
+        function toggleLogs(showLogs) {
+            const overview = document.getElementById('modalOverviewSection');
+            const logs = document.getElementById('modalLogsSection');
+            const logsContainer = document.getElementById('logsContainer');
+
+            if (showLogs) {
+                overview.classList.add('hidden');
+                logs.classList.remove('hidden');
+                logs.classList.add('flex');
+                
+                // Populate Mock Logs
+                const events = ['User Registered Access', 'Standard Member Entry', 'Staff Override Scan', 'Trial Pass Admission', 'Guest Check-out'];
+                const types = ['entry', 'entry', 'entry', 'entry', 'exit'];
+                let html = '';
+                
+                for(let i=0; i<6; i++) {
+                    const isEntry = Math.random() > 0.3;
+                    const time = new Date(Date.now() - (i * 180000)).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    const color = isEntry ? 'emerald' : 'rose';
+                    const icon = isEntry ? 'login' : 'logout';
+                    
+                    html += `
+                        <div class="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-between group hover:bg-white/[0.04] transition-all">
+                            <div class="flex items-center gap-3">
+                                <div class="size-8 rounded-lg bg-${color}-500/10 flex items-center justify-center text-${color}-500 border border-${color}-500/20 shadow-lg shadow-${color}-500/10">
+                                    <span class="material-symbols-outlined text-sm">${icon}</span>
+                                </div>
+                                <div>
+                                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-80 leading-none">${isEntry ? 'FACILITY ENTRY' : 'FACILITY EXIT'}</p>
+                                    <p class="text-[8px] text-[--text-main] opacity-30 font-bold uppercase mt-1">ID: HSZ-00${Math.floor(Math.random()*900)+100} • ${events[Math.floor(Math.random()*events.length)]}</p>
+                                </div>
+                            </div>
+                            <span class="text-[9px] font-black text-primary italic opacity-60">${time}</span>
+                        </div>
+                    `;
+                }
+                logsContainer.innerHTML = html;
+            } else {
+                overview.classList.remove('hidden');
+                logs.classList.add('hidden');
+                logs.classList.remove('flex');
+            }
         }
 
         function closeFacilityModal() {
@@ -604,28 +663,29 @@ try {
         }
 
         function updateVisibility() {
-            const items = document.querySelectorAll('.gym-item');
             const start = (currentPage - 1) * rowsPerPage;
             const end = start + rowsPerPage;
 
             // Update Label
-            document.getElementById('startIndex').textContent = start + 1;
+            document.getElementById('startIndex').textContent = totalGyms > 0 ? start + 1 : 0;
             document.getElementById('endIndex').textContent = Math.min(end, totalGyms);
             document.getElementById('totalEntries').textContent = totalGyms;
 
             // Hide/Show items based on global index across both layouts
-            // Note: PHP rendered both layouts with gym-item class.
-            // We need to only handle the ACTIVE layout's items for counting but hiding both is fine.
             const gridItems = document.querySelectorAll('#layoutGrid .gym-item');
             const tableItems = document.querySelectorAll('#layoutTable .gym-item');
 
-            gridItems.forEach((item, index) => {
-                if (index >= start && index < end) item.classList.remove('hidden');
+            // We need to map the filtered gymData to the DOM elements
+            // This assumes the DOM order matches the initial PHP order
+            const visibleIds = gymData.slice(start, end).map(g => g.gym_id.toString());
+
+            gridItems.forEach((item) => {
+                if (visibleIds.includes(item.dataset.id)) item.classList.remove('hidden');
                 else item.classList.add('hidden');
             });
 
-            tableItems.forEach((item, index) => {
-                if (index >= start && index < end) item.classList.remove('hidden');
+            tableItems.forEach((item) => {
+                if (visibleIds.includes(item.dataset.id)) item.classList.remove('hidden');
                 else item.classList.add('hidden');
             });
         }
@@ -768,7 +828,8 @@ try {
             <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Search Gym</label>
             <div class="relative group">
                 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary transition-transform group-hover:scale-110">search</span>
-                <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" 
+                <input type="text" id="searchInput" name="search" value="<?= htmlspecialchars($search) ?>" 
+                       oninput="handleLiveFilter()"
                        placeholder="Gym Name or Tenant Code..." 
                        class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary focus:bg-white/[0.08] outline-none placeholder:text-white/20">
             </div>
@@ -776,7 +837,9 @@ try {
 
         <div class="w-[180px]">
             <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Occupancy Status</label>
-            <select name="occupancy_status" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 pr-10 text-xs font-bold transition-all focus:border-primary outline-none text-primary">
+            <select id="statusFilter" name="occupancy_status" 
+                    onchange="handleLiveFilter()"
+                    class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 pr-10 text-xs font-bold transition-all focus:border-primary outline-none text-primary">
                 <option value="all" <?= $occupancy_status === 'all' ? 'selected' : '' ?> style="background-color: #1a1820; color: #fff;">All Status</option>
                 <option value="Low" <?= $occupancy_status === 'Low' ? 'selected' : '' ?> style="background-color: #1a1820; color: #10b981;">Low (< 40%)</option>
                 <option value="Moderate" <?= $occupancy_status === 'Moderate' ? 'selected' : '' ?> style="background-color: #1a1820; color: #f59e0b;">Moderate (40-79%)</option>
@@ -938,46 +1001,57 @@ try {
                 </button>
             </div>
 
-            <div class="grid grid-cols-1 gap-6 mb-8">
-                <div class="p-6 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-between">
-                    <div>
-                        <p class="text-[10px] font-black uppercase text-primary tracking-widest mb-1 opacity-60 italic">Live Capacity</p>
-                        <h5 class="text-3xl font-black italic text-[--text-main]"><span id="modalCurrentCount">0</span> <span class="text-xs text-[--text-main] opacity-30">/ <span id="modalMaxCapacity">0</span></span></h5>
-                    </div>
-                    <div class="size-16 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center relative shadow-lg shadow-primary/10">
-                        <span id="modalStatusIcon" class="material-symbols-outlined text-2xl text-primary">groups</span>
-                    </div>
-                </div>
-
-                <div class="relative pt-1 px-1">
-                    <div class="flex mb-3 items-center justify-between">
+            <div id="modalOverviewSection">
+                <div class="grid grid-cols-1 gap-6 mb-8">
+                    <div class="p-6 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center">
                         <div>
-                            <span class="text-[10px] font-black uppercase text-[--text-main] opacity-40 italic tracking-widest">Occupancy Progress</span>
-                        </div>
-                        <div class="text-right">
-                            <span id="modalRate" class="text-sm font-black italic text-primary">0%</span>
+                            <p class="text-[10px] font-black uppercase text-primary tracking-widest mb-1 opacity-60 italic">Live Capacity</p>
+                            <h5 class="text-3xl font-black italic text-[--text-main]"><span id="modalCurrentCount">0</span> <span class="text-xs text-[--text-main] opacity-30">/ <span id="modalMaxCapacity">0</span></span></h5>
                         </div>
                     </div>
-                    <div class="overflow-hidden h-3 mb-2 text-xs flex rounded-full bg-white/5 border border-white/5 p-0.5">
-                        <div id="modalProgressBar" style="width:0%" class="h-full rounded-full transition-all duration-1000"></div>
+
+                    <div class="relative pt-1 px-1">
+                        <div class="flex mb-3 items-center justify-between">
+                            <div>
+                                <span class="text-[10px] font-black uppercase text-[--text-main] opacity-40 italic tracking-widest">Occupancy Progress</span>
+                            </div>
+                            <div class="text-right">
+                                <span id="modalRate" class="text-sm font-black italic text-primary">0%</span>
+                            </div>
+                        </div>
+                        <div class="overflow-hidden h-3 mb-2 text-xs flex rounded-full bg-white/5 border border-white/5 p-0.5">
+                            <div id="modalProgressBar" style="width:0%" class="h-full rounded-full transition-all duration-1000"></div>
+                        </div>
                     </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button onclick="closeFacilityModal()" class="flex-1 py-4 px-6 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase text-[--text-main] opacity-60 hover:bg-white/10 hover:opacity-100 transition-all tracking-widest">Close Dashboard</button>
+                    <button onclick="toggleLogs(true)" class="flex-1 py-4 px-6 rounded-xl bg-primary text-white shadow-lg shadow-primary/20 hover:scale-[1.05] active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">assignment</span>
+                        Detailed Logs
+                    </button>
                 </div>
             </div>
 
-            <div class="p-6 rounded-2xl bg-white/[0.03] border border-white/5 mb-8">
-                <div class="flex items-center gap-3 mb-4">
-                    <span class="material-symbols-outlined text-primary text-sm">verified_user</span>
-                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 tracking-widest italic leading-none">Facility Safety Protocol</p>
+            <!-- --- DETAILED LOGS VIEW (HIDDEN) --- -->
+            <div id="modalLogsSection" class="hidden flex-col h-full">
+                <div class="flex items-center justify-between mb-4 px-1">
+                    <p class="text-[10px] font-black uppercase text-primary tracking-widest italic opacity-60">Facility Live Stream</p>
+                    <span class="text-[8px] font-bold text-[--text-main] opacity-20 uppercase tracking-tighter">Updating Chronologically</span>
                 </div>
-                <p id="modalSafeMessage" class="text-xs font-bold text-[--text-main] opacity-40 italic">System currently confirms this facility is operating within safe occupancy limits.</p>
-            </div>
+                
+                <div class="flex-1 space-y-3 mb-8 max-h-[280px] overflow-y-auto pr-2 no-scrollbar" id="logsContainer">
+                    <!-- Logs populated via JS -->
+                </div>
 
-            <div class="flex gap-4">
-                <button onclick="closeFacilityModal()" class="flex-1 py-4 px-6 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase text-[--text-main] opacity-60 hover:bg-white/10 hover:opacity-100 transition-all tracking-widest">Close Dashboard</button>
-                <button class="flex-1 py-4 px-6 rounded-xl bg-primary text-white shadow-lg shadow-primary/20 hover:scale-[1.05] active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
-                    <span class="material-symbols-outlined text-sm">analytics</span>
-                    Detailed Logs
-                </button>
+                <div class="flex gap-4 mt-auto">
+                    <button onclick="toggleLogs(false)" class="flex-1 py-4 px-6 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase text-[--text-main] opacity-60 hover:bg-white/10 hover:opacity-100 transition-all tracking-widest flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined text-sm">arrow_back</span>
+                        Back to Summary
+                    </button>
+                    <button onclick="closeFacilityModal()" class="flex-1 py-4 px-6 rounded-xl bg-white/5 border border-white/10 text-[10px] font-black uppercase text-rose-500 hover:bg-rose-500/10 transition-all tracking-widest">Exit Monitoring</button>
+                </div>
             </div>
         </div>
     </div>
