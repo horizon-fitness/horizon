@@ -12,8 +12,8 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-    // Migration: Update system_settings to include user_id if it doesn't exist
-    $pdo->exec("
+// Migration: Update system_settings to include user_id if it doesn't exist
+$pdo->exec("
         CREATE TABLE IF NOT EXISTS system_settings (
             user_id INT NOT NULL,
             setting_key VARCHAR(50) NOT NULL,
@@ -23,53 +23,55 @@ ini_set('display_errors', 1);
         )
     ");
 
-    // Check if we need to migrate from the old schema (where setting_key was the only PK)
-    $res = $pdo->query("SHOW COLUMNS FROM system_settings LIKE 'user_id'");
-    if (!$res->fetch()) {
-        $pdo->exec("ALTER TABLE system_settings ADD COLUMN user_id INT NOT NULL DEFAULT 1 FIRST");
-        $pdo->exec("ALTER TABLE system_settings DROP PRIMARY KEY, ADD PRIMARY KEY (user_id, setting_key)");
-    }
+// Check if we need to migrate from the old schema (where setting_key was the only PK)
+$res = $pdo->query("SHOW COLUMNS FROM system_settings LIKE 'user_id'");
+if (!$res->fetch()) {
+    $pdo->exec("ALTER TABLE system_settings ADD COLUMN user_id INT NOT NULL DEFAULT 1 FIRST");
+    $pdo->exec("ALTER TABLE system_settings DROP PRIMARY KEY, ADD PRIMARY KEY (user_id, setting_key)");
+}
 
-    // Define Settings Scopes
-    $global_keys = ['max_staff', 'grace_period', 'default_status', 'system_name', 'system_logo'];
+// Define Settings Scopes
+$global_keys = ['max_staff', 'grace_period', 'default_status', 'system_name', 'system_logo'];
 
-    // Seed default settings for the CURRENT Superadmin (Personal) if missing
-    $stmtSeed = $pdo->prepare("INSERT IGNORE INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?)");
-    
-    // Personal Defaults
-    $personal_defaults = [
-        ['theme_color', '#8c2bee'],
-        ['secondary_color', '#a1a1aa'],
-        ['bg_color', '#0a090d'],
-        ['card_color', '#141216'],
-        ['auto_card_theme', '1'],
-        ['card_blur', '10'],
-        ['font_family', 'Lexend']
-    ];
-    foreach ($personal_defaults as $s) $stmtSeed->execute([$_SESSION['user_id'], $s[0], $s[1]]);
+// Seed default settings for the CURRENT Superadmin (Personal) if missing
+$stmtSeed = $pdo->prepare("INSERT IGNORE INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?)");
 
-    // Global Defaults (Rules & Brand)
-    $global_defaults = [
-        ['max_staff', '10'],
-        ['grace_period', '7'],
-        ['default_status', 'Pending'],
-        ['system_name', 'Horizon System'],
-        ['system_logo', '']
-    ];
-    foreach ($global_defaults as $s) $stmtSeed->execute([0, $s[0], $s[1]]);
+// Personal Defaults
+$personal_defaults = [
+    ['theme_color', '#8c2bee'],
+    ['secondary_color', '#a1a1aa'],
+    ['bg_color', '#0a090d'],
+    ['card_color', '#141216'],
+    ['auto_card_theme', '1'],
+    ['card_blur', '10'],
+    ['font_family', 'Lexend']
+];
+foreach ($personal_defaults as $s)
+    $stmtSeed->execute([$_SESSION['user_id'], $s[0], $s[1]]);
 
-    // Fetch and Merge Settings
-    // 1. Fetch Global Settings
-    $stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
-    $global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+// Global Defaults (Rules & Brand)
+$global_defaults = [
+    ['max_staff', '10'],
+    ['grace_period', '7'],
+    ['default_status', 'Pending'],
+    ['system_name', 'Horizon System'],
+    ['system_logo', '']
+];
+foreach ($global_defaults as $s)
+    $stmtSeed->execute([0, $s[0], $s[1]]);
 
-    // 2. Fetch User-Specific Settings
-    $stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
-    $stmtUser->execute([$_SESSION['user_id']]);
-    $user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+// Fetch and Merge Settings
+// 1. Fetch Global Settings
+$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
 
-    // 3. Merge (User settings take precedence for overlapping keys if any)
-    $configs = array_merge($global_configs, $user_configs);
+// 2. Fetch User-Specific Settings
+$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtUser->execute([$_SESSION['user_id']]);
+$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 3. Merge (User settings take precedence for overlapping keys if any)
+$configs = array_merge($global_configs, $user_configs);
 
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
@@ -203,12 +205,20 @@ $active_page = "settings";
     </script>
     <style>
         :root {
-            --primary: <?= $configs['theme_color'] ?? '#8c2bee' ?>;
-            --background: <?= $configs['bg_color'] ?? '#0a090d' ?>;
-            --secondary: <?= $configs['secondary_color'] ?? '#a1a1aa' ?>;
+            --primary:
+                <?= $configs['theme_color'] ?? '#8c2bee' ?>
+            ;
+            --background:
+                <?= $configs['bg_color'] ?? '#0a090d' ?>
+            ;
+            --secondary:
+                <?= $configs['secondary_color'] ?? '#a1a1aa' ?>
+            ;
             --secondary-rgb: 161, 161, 170;
             --card-blur: 20px;
-            --card-bg: <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(var(--primary-rgb, 140, 43, 238), 0.05)' : ($configs['card_color'] ?? '#141216') ?>;
+            --card-bg:
+                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(var(--primary-rgb, 140, 43, 238), 0.05)' : ($configs['card_color'] ?? '#141216') ?>
+            ;
         }
 
         body {
@@ -606,7 +616,8 @@ $active_page = "settings";
             <header class="mb-12 flex flex-row justify-between items-end gap-6">
                 <div>
                     <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">SYSTEM
-                        <span class="text-primary">SETTINGS</span></h2>
+                        <span class="text-primary">SETTINGS</span>
+                    </h2>
                     <p
                         class="text-[--secondary] text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 uppercase">
                         Manage your system settings and look.</p>
@@ -786,7 +797,8 @@ $active_page = "settings";
                         <div>
                             <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Rules for Gyms
                             </h3>
-                            <p class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-tight">Set global limits
+                            <p class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-tight">Set
+                                global limits
                                 for all accounts</p>
                         </div>
                     </div>
@@ -1250,9 +1262,9 @@ $active_page = "settings";
                         const el = document.getElementById(id);
                         if (el) el.value = value;
                     }
-                    
+
                     const autoSync = document.getElementById('auto_card_theme_input');
-                    if(autoSync) autoSync.checked = true;
+                    if (autoSync) autoSync.checked = true;
 
                     updateLiveBranding();
                     toggleActionModal(false);
@@ -1284,13 +1296,13 @@ $active_page = "settings";
 
             const iconContainer = document.getElementById('confirmIcon').parentElement;
             const confirmBtn = document.getElementById('confirmExecuteBtn');
-            
+
             if (isError) {
                 iconContainer.classList.add('bg-rose-500/10');
                 iconContainer.classList.remove('bg-primary/10');
                 document.getElementById('confirmIcon').classList.add('text-rose-500');
                 document.getElementById('confirmIcon').classList.remove('text-primary');
-                
+
                 confirmBtn.textContent = "Okay, I'll fix it";
                 confirmBtn.onclick = () => toggleActionModal(false);
             } else {
@@ -1298,7 +1310,7 @@ $active_page = "settings";
                 iconContainer.classList.remove('bg-rose-500/10');
                 document.getElementById('confirmIcon').classList.add('text-primary');
                 document.getElementById('confirmIcon').classList.remove('text-rose-500');
-                
+
                 confirmBtn.textContent = "Confirm Action";
                 confirmBtn.onclick = onConfirm;
             }
@@ -1335,7 +1347,7 @@ $active_page = "settings";
             document.documentElement.style.setProperty('--primary', themeInput.value);
             document.documentElement.style.setProperty('--background', bgInput.value);
             document.documentElement.style.setProperty('--secondary', secondaryInput.value);
-            
+
             // Generate RGB for Alpha transparency
             const rgb = hexToRgb(themeInput.value);
             if (rgb) document.documentElement.style.setProperty('--primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
@@ -1347,15 +1359,15 @@ $active_page = "settings";
                 const bgRgb = hexToRgb(bgInput.value);
                 const bgLuminance = bgRgb ? (0.299 * bgRgb.r + 0.587 * bgRgb.g + 0.114 * bgRgb.b) : 0;
                 const isLightBg = bgLuminance > 160;
-                
+
                 const baseColor = isLightBg ? '0, 0, 0, 0.05' : '255, 255, 255, 0.03';
                 const tintColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.04)`;
-                
+
                 document.documentElement.style.setProperty('--card-bg', `linear-gradient(135deg, rgba(${baseColor}), ${tintColor})`);
                 document.documentElement.style.setProperty('--card-border', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`);
                 document.documentElement.style.setProperty('--card-glow', `0 10px 30px rgba(0, 0, 0, 0.2), 0 0 15px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05)`);
 
-                if(cardColorInput) {
+                if (cardColorInput) {
                     cardColorInput.parentElement.parentElement.style.opacity = '0.4';
                     cardColorInput.parentElement.parentElement.style.pointerEvents = 'none';
                 }
@@ -1363,11 +1375,11 @@ $active_page = "settings";
                 const hex = cardColorInput.value;
                 const hexDisplay = document.getElementById('card_hex_display');
                 if (hexDisplay) hexDisplay.textContent = hex.toUpperCase();
-                
+
                 document.documentElement.style.setProperty('--card-bg', hex + 'cc');
                 document.documentElement.style.setProperty('--card-border', 'rgba(255, 255, 255, 0.1)');
                 document.documentElement.style.setProperty('--card-glow', '0 10px 30px rgba(0, 0, 0, 0.3)');
-                
+
                 cardColorInput.parentElement.parentElement.style.opacity = '1';
                 cardColorInput.parentElement.parentElement.style.pointerEvents = 'auto';
             }
