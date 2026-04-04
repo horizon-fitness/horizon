@@ -477,14 +477,18 @@ if ($is_ajax): ?>
             <div class="flex gap-3 pt-6 border-t border-white/5">
                 <form method="POST" action="action/process_application.php" class="flex-1">
                     <input type="hidden" name="application_id" value="<?= $app_id ?>">
-                    <button type="submit" name="action" value="approve"
+                    <input type="hidden" name="action" value="">
+                    <button type="button"
+                        onclick="confirmAction(this.form, 'approve', 'Approve Application', 'Are you sure you want to approve this gym? They will be granted system access immediately.')"
                         class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all">
                         Approve Now
                     </button>
                 </form>
                 <form method="POST" action="action/process_application.php" class="flex-1">
                     <input type="hidden" name="application_id" value="<?= $app_id ?>">
-                    <button type="submit" name="action" value="reject"
+                    <input type="hidden" name="action" value="">
+                    <button type="button"
+                        onclick="confirmAction(this.form, 'reject', 'Reject Application', 'Are you sure you want to reject this application? This will archive the request in the Rejected History tab.')"
                         class="w-full py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-widest transition-all">
                         Reject
                     </button>

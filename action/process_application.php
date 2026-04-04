@@ -153,21 +153,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
         }
     } elseif ($action === 'reject') {
         try {
-            $stmtUpdate = $pdo->prepare("UPDATE gym_owner_applications SET application_status = 'Rejected', reviewed_by = ?, reviewed_at = ? WHERE application_id = ?");
-            $stmtUpdate->execute([$admin_id, $now, $app_id]);
-            
-            // Fetch gym name for alert
-            $stmtApp = $pdo->prepare("SELECT gym_name FROM gym_owner_applications WHERE application_id = ?");
-            $stmtApp->execute([$app_id]);
-            $gym_name = $stmtApp->fetchColumn();
+            $pdo->beginTransaction();
 
-            // Generate System Alert for Rejection
-            $alertMsg = "Gym Application Rejected: " . ($gym_name ?: 'Unknown');
+            // 1. Fetch application details (user_id and gym_name)
+            $stmtApp = $pdo->prepare("SELECT user_id, gym_name, email FROM gym_owner_applications WHERE application_id = ?");
+            $stmtApp->execute([$app_id]);
+            $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
+
+            if (!$app) {
+                throw new Exception("Application record not found.");
+            }
+
+            // 2. Update gym_owner_applications status and "free up" Gym Email
+            $newGymEmail = $app['email'] . "_rej_" . $app_id;
+            $stmtUpdateApp = $pdo->prepare("UPDATE gym_owner_applications SET application_status = 'Rejected', email = ?, reviewed_by = ?, reviewed_at = ? WHERE application_id = ?");
+            $stmtUpdateApp->execute([$newGymEmail, $admin_id, $now, $app_id]);
+
+            // 3. "Free up" Owner Username and Email in the users table
+            $stmtUserOrig = $pdo->prepare("SELECT username, email FROM users WHERE user_id = ?");
+            $stmtUserOrig->execute([$app['user_id']]);
+            $userOrig = $stmtUserOrig->fetch(PDO::FETCH_ASSOC);
+
+            if ($userOrig) {
+                $newUsername = $userOrig['username'] . "_rej_" . $app_id;
+                $newOwnerEmail = $userOrig['email'] . "_rej_" . $app_id;
+                
+                $stmtUpdateUser = $pdo->prepare("UPDATE users SET username = ?, email = ? WHERE user_id = ?");
+                $stmtUpdateUser->execute([$newUsername, $newOwnerEmail, $app['user_id']]);
+            }
+
+            // 4. Generate System Alert for Rejection
+            $alertMsg = "Gym Application Rejected: " . ($app['gym_name'] ?: 'Unknown');
             $stmtAlert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Application Rejected', 'System', ?, 'High', 'Unread', ?)");
             $stmtAlert->execute([$alertMsg, $now]);
 
-            $_SESSION['success_msg'] = "Application rejected successfully.";
+            $pdo->commit();
+            $_SESSION['success_msg'] = "Application rejected successfully. Credentials are now available for reuse.";
         } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             $_SESSION['error_msg'] = "Failed to reject: " . $e->getMessage();
         }
     }

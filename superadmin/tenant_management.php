@@ -88,10 +88,22 @@ $stmtPending = $pdo->query("
 ");
 $pending_apps = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
 
+$rejected_stmt = $pdo->query("
+    SELECT a.*, u.first_name, u.last_name, u.email,
+           ad.file_path as gym_logo
+    FROM gym_owner_applications a 
+    JOIN users u ON a.user_id = u.user_id 
+    LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = 'Gym Logo'
+    WHERE a.application_status = 'Rejected'
+    ORDER BY a.reviewed_at DESC
+");
+$rejected_apps = $rejected_stmt->fetchAll(PDO::FETCH_ASSOC);
+
 $total_tenants = count($tenants);
 $active_count = 0;
 $suspended_count = 0;
 $pending_count = count($pending_apps);
+$rejected_count = count($rejected_apps);
 $active_tenants = [];
 $deactivated_tenants = [];
 foreach ($tenants as $t) {
@@ -656,6 +668,17 @@ $deactivated_count = count($deactivated_tenants);
                             class="absolute -top-1 -right-6 size-4 bg-red-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-red-500/20"><?= $deactivated_count ?></span>
                     <?php endif; ?>
                 </button>
+                <button onclick="switchTab('rejected')" id="tabBtn-rejected"
+                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100 <?= ($rejected_count > 0) ? 'mr-4' : '' ?>">
+                    Rejected History
+                    <div id="tabIndicator-rejected"
+                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0">
+                    </div>
+                    <?php if ($rejected_count > 0): ?>
+                        <span
+                            class="absolute -top-1 -right-6 size-4 bg-gray-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-gray-500/20"><?= $rejected_count ?></span>
+                    <?php endif; ?>
+                </button>
             </div>
 
             <div id="section-pending" class="hidden">
@@ -679,7 +702,7 @@ $deactivated_count = count($deactivated_tenants);
                                         <th class="px-8 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-white/5">
+                                <tbody id="pendingTableBody" class="divide-y divide-white/5">
                                     <?php foreach ($pending_apps as $app): ?>
                                         <tr class="hover:bg-white/5 transition-all">
                                             <td class="px-8 py-5">
@@ -744,6 +767,11 @@ $deactivated_count = count($deactivated_tenants);
                             </table>
                         </div>
                     </div>
+                    <!-- Pagination Container for Pending -->
+                    <div id="pagination-pending" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
+                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                        <div class="flex gap-2 controls-container"></div>
+                    </div>
                 <?php else: ?>
                     <div class="glass-card p-12 text-center border border-white/5 bg-white/5 rounded-[32px]">
                         <span
@@ -771,7 +799,7 @@ $deactivated_count = count($deactivated_tenants);
                                     <th class="px-8 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-white/5">
+                            <tbody id="registeredTableBody" class="divide-y divide-white/5">
                                 <?php if (empty($active_tenants)): ?>
                                     <tr>
                                         <td colspan="5"
@@ -923,22 +951,10 @@ $deactivated_count = count($deactivated_tenants);
                             </tbody>
                         </table>
                     </div>
-                    <div class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center">
-                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest">
-                            Showing <?= count($active_tenants) ?> of <?= $active_count + $suspended_count ?> gyms</p>
-                        <div class="flex gap-2">
-                            <button
-                                class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] opacity-50 hover:opacity-100 transition-all disabled:opacity-20"
-                                disabled>
-                                <span class="material-symbols-outlined text-sm">chevron_left</span>
-                            </button>
-                            <button
-                                class="size-8 rounded-lg bg-primary flex items-center justify-center text-white transition-all font-black text-[10px]">1</button>
-                            <button
-                                class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] opacity-50 hover:opacity-100 transition-all">
-                                <span class="material-symbols-outlined text-sm">chevron_right</span>
-                            </button>
-                        </div>
+                    <!-- Pagination Container for Registered -->
+                    <div id="pagination-registered" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
+                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                        <div class="flex gap-2 controls-container"></div>
                     </div>
                 </div>
             </div>
@@ -963,7 +979,7 @@ $deactivated_count = count($deactivated_tenants);
                                     <th class="px-8 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-white/5">
+                            <tbody id="deactivatedTableBody" class="divide-y divide-white/5">
                                 <?php if (empty($deactivated_tenants)): ?>
                                     <tr>
                                         <td colspan="4"
@@ -1032,19 +1048,88 @@ $deactivated_count = count($deactivated_tenants);
                             </tbody>
                         </table>
                     </div>
-                    <div class="px-8 py-4 border-t border-white/5 bg-white/[0.02]">
-                        <p
-                            class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest italic">
-                            Total Deactivated: <?= $deactivated_count ?></p>
+                    <!-- Pagination Container for Deactivated -->
+                    <div id="pagination-deactivated" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
+                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                        <div class="flex gap-2 controls-container"></div>
                     </div>
                 </div>
+            </div>
+
+            <div id="section-rejected" class="hidden">
+                <?php if (!empty($rejected_apps)): ?>
+                    <div class="glass-card overflow-hidden mb-10 border border-white/5">
+                        <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
+                            <h4 class="font-black italic uppercase text-sm tracking-tighter opacity-50 flex items-center gap-2">
+                                <span class="material-symbols-outlined">history</span>
+                                Rejected Applications
+                            </h4>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
+                                        <th class="px-8 py-4">Gym Name</th>
+                                        <th class="px-8 py-4">Applicant</th>
+                                        <th class="px-8 py-4">Rejected Date</th>
+                                        <th class="px-8 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rejectedTableBody" class="divide-y divide-white/5">
+                                    <?php foreach ($rejected_apps as $app): ?>
+                                        <tr class="hover:bg-white/5 transition-all">
+                                            <td class="px-8 py-5">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="size-10 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0 grayscale opacity-40">
+                                                        <?php if (!empty($app['gym_logo'])): ?>
+                                                            <img src="<?= $app['gym_logo'] ?>" class="size-full object-contain">
+                                                        <?php else: ?>
+                                                            <span class="text-gray-500 font-black text-sm"><?= strtoupper(substr($app['gym_name'], 0, 2)) ?></span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-sm font-bold italic text-gray-500"><?= htmlspecialchars($app['gym_name']) ?></p>
+                                                        <p class="text-[10px] text-[--text-main] opacity-40 uppercase tracking-wider font-bold"><?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? '')) ?></p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-8 py-5">
+                                                <p class="text-xs font-medium text-gray-500"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
+                                                <p class="text-[10px] text-[--text-main] opacity-40"><?= htmlspecialchars($app['email']) ?></p>
+                                            </td>
+                                            <td class="px-8 py-5 text-xs font-medium text-gray-600 italic">
+                                                <?= date('M d, Y', strtotime($app['reviewed_at'])) ?>
+                                            </td>
+                                            <td class="px-8 py-5 text-right">
+                                                <button onclick="openApplicationModal(<?= $app['application_id'] ?>)"
+                                                    class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                                    <span class="material-symbols-outlined text-sm">visibility</span> Details
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- Pagination Container for Rejected -->
+                    <div id="pagination-rejected" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
+                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                        <div class="flex gap-2 controls-container"></div>
+                    </div>
+                <?php else: ?>
+                    <div class="glass-card p-12 text-center border border-white/5 bg-white/5 rounded-[32px]">
+                        <span class="material-symbols-outlined text-4xl text-[--text-main] opacity-40 mb-4 uppercase">history_toggle_off</span>
+                        <p class="text-xs font-black uppercase text-[--text-main] opacity-40 tracking-widest italic">No rejected applications in history.</p>
+                    </div>
+                <?php endif; ?>
             </div>
         </main>
     </div>
 
     <script>
         function switchTab(tabId) {
-            const sections = ['pending', 'registered', 'deactivated'];
+            const sections = ['pending', 'registered', 'deactivated', 'rejected'];
 
             sections.forEach(s => {
                 const section = document.getElementById(`section-${s}`);
@@ -1071,10 +1156,86 @@ $deactivated_count = count($deactivated_tenants);
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const tab = urlParams.get('tab');
-            if (tab && ['pending', 'registered', 'deactivated'].includes(tab)) {
+            if (tab && ['pending', 'registered', 'deactivated', 'rejected'].includes(tab)) {
                 switchTab(tab);
             }
+
+            // Initialize Pagination for all tables
+            initTablePagination('pendingTableBody', 'pagination-pending', 10);
+            initTablePagination('registeredTableBody', 'pagination-registered', 10);
+            initTablePagination('deactivatedTableBody', 'pagination-deactivated', 10);
+            initTablePagination('rejectedTableBody', 'pagination-rejected', 10);
         });
+
+        /**
+         * Horizon Table Pagination Engine
+         * Implements a clean 10-row limit per page with smooth transitions
+         */
+        function initTablePagination(tbodyId, paginationId, rowsPerPage) {
+            const tbody = document.getElementById(tbodyId);
+            const paginationContainer = document.getElementById(paginationId);
+            if (!tbody || !paginationContainer) return;
+
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination)'));
+            const totalRows = rows.length;
+            if (totalRows <= rowsPerPage) {
+                // Not enough rows for pagination, remain hidden
+                return;
+            }
+
+            // Show pagination container
+            paginationContainer.classList.remove('hidden');
+            const totalPages = Math.ceil(totalRows / rowsPerPage);
+            let currentPage = 1;
+
+            const statusText = paginationContainer.querySelector('.status-text');
+            const controlsContainer = paginationContainer.querySelector('.controls-container');
+
+            function render() {
+                // Show/Hide rows
+                const start = (currentPage - 1) * rowsPerPage;
+                const end = start + rowsPerPage;
+
+                rows.forEach((row, index) => {
+                    if (index >= start && index < end) {
+                        row.classList.remove('hidden');
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                });
+
+                // Update Status Text
+                statusText.textContent = `Showing ${Math.min(end, totalRows)} of ${totalRows} entries`;
+
+                // Render Controls
+                controlsContainer.innerHTML = '';
+                
+                // Prev Button
+                const prevBtn = document.createElement('button');
+                prevBtn.className = `size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] transition-all ${currentPage === 1 ? 'opacity-20 pointer-events-none' : 'opacity-50 hover:opacity-100 hover:bg-white/10'}`;
+                prevBtn.innerHTML = '<span class="material-symbols-outlined text-sm">chevron_left</span>';
+                prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; render(); } };
+                controlsContainer.appendChild(prevBtn);
+
+                // Page Numbers (Simplistic approach, show all if small, or current window)
+                for (let i = 1; i <= totalPages; i++) {
+                    const pageBtn = document.createElement('button');
+                    pageBtn.className = `size-8 rounded-lg font-black text-[10px] transition-all ${i === currentPage ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/5 text-[--text-main] opacity-50 hover:opacity-100 hover:bg-white/10'}`;
+                    pageBtn.textContent = i;
+                    pageBtn.onclick = () => { currentPage = i; render(); };
+                    controlsContainer.appendChild(pageBtn);
+                }
+
+                // Next Button
+                const nextBtn = document.createElement('button');
+                nextBtn.className = `size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] transition-all ${currentPage === totalPages ? 'opacity-20 pointer-events-none' : 'opacity-50 hover:opacity-100 hover:bg-white/10'}`;
+                nextBtn.innerHTML = '<span class="material-symbols-outlined text-sm">chevron_right</span>';
+                nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; render(); } };
+                controlsContainer.appendChild(nextBtn);
+            }
+
+            render();
+        }
     </script>
 
     <div id="confirmModal" class="fixed inset-0 z-[150] hidden items-center justify-center p-4 overflow-hidden">
