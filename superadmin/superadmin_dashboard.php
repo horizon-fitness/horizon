@@ -11,6 +11,37 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 $page_title = "Super Admin Dashboard";
 $active_page = "dashboard";
 
+// 4-Color Elite Branding System: Fetching & Merging Settings
+// Hex to RGB helper for dynamic transparency
+if (!function_exists('hexToRgb')) {
+    function hexToRgb($hex)
+    {
+        $hex = str_replace("#", "", $hex);
+        if (strlen($hex) == 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+        } else {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        }
+        return "$r, $g, $b";
+    }
+}
+
+// 1. Fetch Global Settings (user_id = 0)
+$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 2. Fetch User-Specific Settings (Personal Branding)
+$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtUser->execute([$_SESSION['user_id']]);
+$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 3. Merge (User settings take precedence for overlapping keys)
+$brand = array_merge($global_configs, $user_configs);
+
 // Application messages handled via session
 $success_msg = $_SESSION['success_msg'] ?? '';
 $error_msg = $_SESSION['error_msg'] ?? '';
@@ -140,20 +171,58 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "var(--primary)",
+                        "background": "var(--background)",
+                        "highlight": "var(--highlight)",
+                        "text-main": "var(--text-main)",
+                        "surface-dark": "#14121a",
+                        "border-subtle": "rgba(255,255,255,0.05)"
+                    }
+                }
+            }
         }
     </script>
     <style>
+        :root {
+            --primary:
+                <?= $brand['theme_color'] ?? '#8c2bee' ?>
+            ;
+            --primary-rgb:
+                <?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>
+            ;
+            --highlight:
+                <?= $brand['secondary_color'] ?? '#a1a1aa' ?>
+            ;
+            --text-main:
+                <?= $brand['text_color'] ?? '#d1d5db' ?>
+            ;
+            --background:
+                <?= $brand['bg_color'] ?? '#0a090d' ?>
+            ;
+
+            /* Glassmorphism Engine */
+            --card-blur: 20px;
+            --card-bg:
+                <?= ($brand['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($brand['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($brand['card_color'] ?? '#141216') ?>
+            ;
+        }
+
         body {
-            font-family: 'Lexend', sans-serif;
-            background-color: #0a090d;
-            color: white;
+            font-family: '<?= $brand['font_family'] ?? 'Lexend' ?>', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
         }
 
         .glass-card {
-            background: #14121a;
+            background: var(--card-bg);
             border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 24px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
         }
 
         .sidebar-nav {
@@ -167,6 +236,8 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
             top: 0;
             bottom: 0;
             z-index: 50;
+            background: var(--background);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .sidebar-nav:hover {
@@ -269,13 +340,29 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
             font-size: 11px;
             font-weight: 800;
             letter-spacing: 0.05em;
-            color: #94a3b8;
+            color: var(--text-main);
             text-decoration: none;
         }
 
+        .nav-link span.material-symbols-outlined {
+            color: var(--highlight);
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            opacity: 0.8;
+            transform: scale(1.02);
+        }
+
         .active-nav {
-            color: #8c2bee !important;
+            color: var(--primary) !important;
             position: relative;
+        }
+
+        .active-nav span.material-symbols-outlined {
+            color: var(--primary) !important;
+            opacity: 1 !important;
         }
 
         .active-nav::after {
@@ -286,7 +373,7 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
             transform: translateY(-50%);
             width: 4px;
             height: 24px;
-            background: #8c2bee;
+            background: var(--primary);
             border-radius: 4px 0 0 4px;
             opacity: 0;
             transition: opacity 0.3s ease;
@@ -366,13 +453,22 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
 
 <body class="antialiased flex h-screen overflow-hidden">
 
-    <nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 z-50 flex flex-col no-scrollbar">
+    <nav class="sidebar-nav z-50 flex flex-col no-scrollbar">
         <div class="px-7 py-5 mb-2 shrink-0">
             <div class="flex items-center gap-4">
-                <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
-                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                    <?php if (!empty($brand['system_logo'])): ?>
+                        <img src="<?= htmlspecialchars($brand['system_logo']) ?>" id="sidebarLogoPreview"
+                            class="size-full object-contain rounded-xl">
+                    <?php else: ?>
+                        <img src="../assests/horizon logo.png" id="sidebarLogoPreview"
+                            class="size-full object-contain rounded-xl transition-transform duration-500 hover:scale-110"
+                            alt="Horizon Logo">
+                    <?php endif; ?>
                 </div>
-                <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+                <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">
+                    <?= htmlspecialchars($brand['system_name'] ?? 'Horizon System') ?>
+                </h1>
             </div>
         </div>
 
@@ -462,9 +558,9 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
                 <span class="nav-text">Profile</span>
             </a>
             <a href="../logout.php"
-                class="nav-link text-gray-400 hover:text-rose-500 transition-colors">
-                <span class="material-symbols-outlined text-xl shrink-0">logout</span>
-                <span class="nav-text">Sign Out</span>
+                class="nav-link !text-gray-400 hover:!text-rose-500 transition-colors group">
+                <span class="material-symbols-outlined text-xl shrink-0 group-hover:!text-rose-500">logout</span>
+                <span class="nav-text group-hover:!text-rose-500">Sign Out</span>
             </a>
         </div>
     </nav>
@@ -473,14 +569,17 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
         <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
             <header class="mb-10 flex flex-row justify-between items-end gap-6">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">System
-                        <span class="text-primary">Overview</span></h2>
-                    <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Super Admin Control Center
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">
+                        <span class="text-[--text-main] opacity-80">System</span>
+                        <span class="text-primary">Overview</span>
+                    </h2>
+                    <p class="text-[--text-main] opacity-60 text-xs font-bold uppercase tracking-widest mt-2 px-1">
+                        Super Admin Control Center
                     </p>
                 </div>
                 <div class="flex flex-col items-end justify-center">
                     <p id="headerClock"
-                        class="text-white font-black italic text-2xl leading-none transition-colors hover:text-primary font-black italic uppercase tracking-tighter">
+                        class="text-[--text-main] font-black italic text-2xl leading-none transition-colors hover:text-primary uppercase tracking-tighter">
                         00:00:00 AM</p>
                     <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
                         <?= date('l, M d, Y') ?></p>
@@ -504,10 +603,10 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
             <?php endif; ?>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                <a href="tenant_management.php" class="glass-card p-8 status-card-green relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                <a href="recent_transaction.php" class="glass-card p-8 status-card-green relative overflow-hidden group block hover:scale-[1.02] transition-all">
                     <span
                         class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">payments</span>
-                    <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Global Revenue</p>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Global Revenue</p>
                     <h3 class="text-2xl font-black italic uppercase">₱<?= number_format($total_revenue, 2) ?></h3>
                     <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Across All Tenants</p>
                 </a>
@@ -515,7 +614,7 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
                 <a href="tenant_management.php" class="glass-card p-8 status-card-yellow relative overflow-hidden group block hover:scale-[1.02] transition-all">
                     <span
                         class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">business</span>
-                    <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">Total Tenants</p>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total Tenants</p>
                     <h3 class="text-2xl font-black italic uppercase"><?= $gym_stats['total'] ?> Gyms</h3>
                     <div class="flex gap-3 mt-2">
                         <p class="text-emerald-500 text-[9px] font-black uppercase tracking-tighter">
@@ -528,12 +627,12 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
                 <a href="tenant_management.php" class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5 block hover:scale-[1.02] transition-all">
                     <span
                         class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">groups</span>
-                    <p class="text-[10px] font-black uppercase text-gray-400 mb-2 tracking-widest">User Directory</p>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">User Directory</p>
                     <h3 class="text-2xl font-black italic uppercase"><?= number_format($user_stats['total']) ?></h3>
                     <div class="flex gap-3 mt-2">
                         <p class="text-primary text-[9px] font-black uppercase tracking-tighter">
                             <?= number_format($user_stats['active_users']) ?> Active</p>
-                        <p class="text-gray-500 text-[9px] font-black uppercase tracking-tighter">
+                        <p class="text-[--text-main] opacity-50 text-[9px] font-black uppercase tracking-tighter">
                             <?= number_format($user_stats['inactive_users']) ?> Inactive</p>
                     </div>
                 </a>
@@ -551,9 +650,8 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
                 <div class="glass-card p-8">
                     <div class="flex justify-between items-center mb-6">
                         <div>
-                            <h3 class="text-sm font-black italic uppercase tracking-widest">Daily System Activity</h3>
-                            <p class="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-wider">Events across
-                                last 7 days</p>
+                            <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Daily System Activity</h3>
+                            <p class="text-[9px] text-[--text-main] opacity-50 font-bold uppercase mt-1 tracking-wider">Events across last 7 days</p>
                         </div>
                     </div>
                     <div class="h-[300px] w-full">
@@ -563,9 +661,8 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
                 <div class="glass-card p-8">
                     <div class="flex justify-between items-center mb-6">
                         <div>
-                            <h3 class="text-sm font-black italic uppercase tracking-widest">Monthly Growth Trend</h3>
-                            <p class="text-[9px] text-gray-500 font-bold uppercase mt-1 tracking-wider">Event volume
-                                over 6 months</p>
+                            <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Monthly Growth Trend</h3>
+                            <p class="text-[9px] text-[--text-main] opacity-50 font-bold uppercase mt-1 tracking-wider">Event volume over 6 months</p>
                         </div>
                     </div>
                     <div class="h-[300px] w-full">
@@ -586,11 +683,11 @@ $active_alerts_count = $stmtActiveAlerts->fetchColumn();
                             label: 'Activity Count',
                             data: <?= json_encode(array_map(function ($d) {
                                 return (int) $d['count']; }, $daily_activity)) ?>,
-                            backgroundColor: 'rgba(140, 43, 238, 0.2)',
-                            borderColor: '#8c2bee',
+                            backgroundColor: 'rgba(<?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>, 0.2)',
+                            borderColor: '<?= $brand['theme_color'] ?? '#8c2bee' ?>',
                             borderWidth: 2,
                             borderRadius: 8,
-                            hoverBackgroundColor: '#8c2bee'
+                            hoverBackgroundColor: '<?= $brand['theme_color'] ?? '#8c2bee' ?>'
                         }]
                     },
                     options: {
