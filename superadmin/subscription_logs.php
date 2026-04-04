@@ -1,6 +1,7 @@
-<?php 
+<?php
 session_start();
 require_once '../db.php';
+require_once '../includes/mailer.php';
 
 // Security Check: Only Superadmin can access
 if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmin') {
@@ -8,35 +9,180 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
     exit;
 }
 
+// --- HANDLE POST ACTIONS (Approve/Reject) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['subscription_id'])) {
+    $sub_id = $_POST['subscription_id'];
+    $action = $_POST['action'];
+    $admin_id = $_SESSION['user_id'];
+
+    try {
+        // Fetch Subscriber Data for Email
+        $stmtData = $pdo->prepare("
+            SELECT cs.*, g.gym_name, u.email as owner_email, wp.plan_name 
+            FROM client_subscriptions cs
+            JOIN gyms g ON cs.gym_id = g.gym_id
+            JOIN users u ON g.owner_user_id = u.user_id
+            JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+            WHERE cs.subscription_id = ?
+        ");
+        $stmtData->execute([$sub_id]);
+        $subData = $stmtData->fetch();
+
+        if (!$subData) throw new Exception("Subscription records not found for ID: $sub_id");
+
+        $pdo->beginTransaction();
+
+        $email_sent = false;
+        if ($action === 'approve_payment') {
+            // Update subscription to Paid and Active
+            $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Paid', subscription_status = 'Active' WHERE subscription_id = ?");
+            $stmt->execute([$sub_id]);
+            $msg = "Approved payment for Subscription #$sub_id (" . $subData['gym_name'] . ")";
+
+            // Prepare Email
+            $subject = "Payment Confirmed - Your " . $subData['plan_name'] . " is now Active!";
+            $content = "
+                <p>Hello,</p>
+                <p>We are pleased to inform you that your payment for <strong>" . htmlspecialchars($subData['gym_name']) . "</strong> has been approved.</p>
+                <p>Your <strong>" . htmlspecialchars($subData['plan_name']) . "</strong> subscription is now active. You and your members can now enjoy all the premium features and management tools provided by the Horizon System.</p>
+                <div style='margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px;'>
+                    <p style='margin: 0; font-size: 14px;'><strong>Plan:</strong> " . htmlspecialchars($subData['plan_name']) . "</p>
+                    <p style='margin: 5px 0 0; font-size: 14px;'><strong>Status:</strong> Active</p>
+                </div>
+                <p>Thank you for choosing Horizon!</p>
+            ";
+            $email_sent = sendSystemEmail($subData['owner_email'], $subject, getEmailTemplate("Payment Approved", $content));
+
+        } elseif ($action === 'reject_payment') {
+            // Update subscription to Rejected and Inactive
+            $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Rejected', subscription_status = 'Inactive' WHERE subscription_id = ?");
+            $stmt->execute([$sub_id]);
+            $msg = "Rejected payment for Subscription #$sub_id (" . $subData['gym_name'] . ")";
+
+            // Prepare Email
+            $subject = "Update regarding your subscription payment for " . $subData['gym_name'];
+            $content = "
+                <p>Hello,</p>
+                <p>We are writing to inform you that your recent payment for the <strong>" . htmlspecialchars($subData['plan_name']) . "</strong> subscription for <strong>" . htmlspecialchars($subData['gym_name']) . "</strong> has been rejected.</p>
+                <p>As a result, your subscription status has been set to <strong>Inactive</strong>. Please verify your payment details or contact our support team if you believe this is an error.</p>
+                <div style='margin: 30px 0; padding: 20px; background: #fff5f5; border-radius: 8px;'>
+                    <p style='margin: 0; font-size: 14px; color: #c53030;'><strong>Next Steps:</strong> Check your payment information in your portal and resubmit, or contact support at horizonfitnesscorp@gmail.com.</p>
+                </div>
+            ";
+            $email_sent = sendSystemEmail($subData['owner_email'], $subject, getEmailTemplate("Payment Rejected", $content));
+        }
+
+        // Log the action with Email status
+        $audit_msg = $msg . ($email_sent ? " (Email Sent Successfully)" : " (Email Failed to Send)");
+        $stmtAudit = $pdo->prepare("INSERT INTO audit_logs (user_id, action_type, table_name, record_id, details, created_at) VALUES (?, 'Update', 'client_subscriptions', ?, ?, NOW())");
+        $stmtAudit->execute([$admin_id, $sub_id, $audit_msg]);
+
+        $pdo->commit();
+        $_SESSION['success_msg'] = "Action successful: $msg" . (!$email_sent ? " (Email failed, but status updated)" : "");
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $_SESSION['error_msg'] = "Error: " . $e->getMessage();
+    }
+    header("Location: subscription_logs.php");
+    exit;
+}
+
 $page_title = "Subscription Logs";
 $active_page = "subscriptions";
 
-// Fetch Subscription Logs with Gym and Plan details
-$stmtLogs = $pdo->query("
+// --- FILTER INPUTS ---
+$search = $_GET['search'] ?? '';
+$sub_status = $_GET['sub_status'] ?? 'all';
+$pay_status = $_GET['pay_status'] ?? 'all';
+$date_from = $_GET['date_from'] ?? date('Y-m-01');
+$date_to = $_GET['date_to'] ?? date('Y-m-d');
+
+// 4-Color Elite Branding System: Fetching & Merging Settings
+if (!function_exists('hexToRgb')) {
+// ... existing hexToRgb ...
+    function hexToRgb($hex)
+    {
+        $hex = str_replace("#", "", $hex);
+        if (strlen($hex) == 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+        } else {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        }
+        return "$r, $g, $b";
+    }
+}
+
+// 1. Fetch Global Settings (user_id = 0)
+$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 2. Fetch User-Specific Settings (Personal Branding)
+$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtUser->execute([$_SESSION['user_id']]);
+$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 3. Merge (User settings take precedence)
+$brand = array_merge($global_configs, $user_configs);
+
+// --- FETCH LOGS WITH FILTERS ---
+$query = "
     SELECT cs.*, 
            g.gym_name, g.tenant_code,
            wp.plan_name, wp.price as plan_price, wp.billing_cycle
     FROM client_subscriptions cs
     JOIN gyms g ON cs.gym_id = g.gym_id
     JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
-    ORDER BY cs.created_at DESC
-");
+    WHERE cs.created_at BETWEEN :start AND :end
+";
+
+$params = [
+    'start' => $date_from . ' 00:00:00',
+    'end' => $date_to . ' 23:59:59'
+];
+
+if ($sub_status !== 'all') {
+    $query .= " AND cs.subscription_status = :sub_status";
+    $params['sub_status'] = $sub_status;
+}
+
+if ($pay_status !== 'all') {
+    $query .= " AND cs.payment_status = :pay_status";
+    $params['pay_status'] = $pay_status;
+}
+
+if (!empty($search)) {
+    $query .= " AND (g.gym_name LIKE :s1 OR g.tenant_code LIKE :s2)";
+    $params['s1'] = "%$search%";
+    $params['s2'] = "%$search%";
+}
+
+$query .= " ORDER BY cs.created_at DESC";
+$stmtLogs = $pdo->prepare($query);
+$stmtLogs->execute($params);
 $logs = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
+
+// Separate Categories for Tabs
+$pending_logs = array_filter($logs, fn($l) => $l['payment_status'] === 'Pending');
+$recent_date = date('Y-m-d', strtotime('-7 days'));
+$recent_logs = array_filter($logs, fn($l) => $l['start_date'] >= $recent_date && $l['payment_status'] !== 'Pending');
+$history_logs = array_filter($logs, fn($l) => $l['payment_status'] !== 'Pending');
 
 // Metrics
 $total_subs = count($logs);
 $active_subs = 0;
 $expired_subs = 0;
-$pending_payment = 0;
-
+$pending_payment = count($pending_logs);
 foreach ($logs as $log) {
     if ($log['subscription_status'] === 'Active') $active_subs++;
     if ($log['subscription_status'] === 'Expired') $expired_subs++;
-    if ($log['payment_status'] === 'Pending') $pending_payment++;
 }
 ?>
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html class="dark no-scrollbar" lang="en">
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title><?= $page_title ?> | Horizon System</title>
@@ -46,38 +192,86 @@ foreach ($logs as $log) {
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+            theme: { 
+                extend: { 
+                    colors: { 
+                        "primary": "var(--primary)", 
+                        "background": "var(--background)", 
+                        "highlight": "var(--highlight)",
+                        "text-main": "var(--text-main)",
+                        "surface-dark": "#14121a", 
+                        "border-subtle": "rgba(255,255,255,0.05)"
+                    }
+                }
+            }
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        :root {
+            --primary: <?= $brand['theme_color'] ?? '#8c2bee' ?>;
+            --primary-rgb: <?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>;
+            --highlight: <?= $brand['secondary_color'] ?? '#a1a1aa' ?>;
+            --text-main: <?= $brand['text_color'] ?? '#d1d5db' ?>;
+            --background: <?= $brand['bg_color'] ?? '#0a090d' ?>;
+
+            /* Glassmorphism Engine */
+            --card-blur: 20px;
+            --card-bg: <?= ($brand['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($brand['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($brand['card_color'] ?? '#141216') ?>;
+        }
+
+        body { 
+            font-family: '<?= $brand['font_family'] ?? 'Lexend' ?>', sans-serif; 
+            background-color: var(--background); 
+            color: var(--text-main); 
+        }
+
+        .glass-card { 
+            background: var(--card-bg); 
+            border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 24px; 
+            backdrop-filter: blur(var(--card-blur));
+        }
+
+        /* Dark Mode Date Picker Support */
+        input[type="date"] {
+            color-scheme: dark;
+        }
         
-        /* Sidebar Hover Logic - ADJUSTED WIDTHS */
+        /* Unified Sidebar Width Variable Scoping */
+        :root {
+            --sidebar-width: 110px;
+        }
+
         .sidebar-nav {
-            width: 110px; /* Increased slightly from 100px */
+            width: var(--sidebar-width);
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
+            background: var(--background);
+            border-right: 1px solid rgba(255,255,255,0.05);
+            z-index: 250;
         }
         .sidebar-nav:hover {
-            width: 300px; /* Increased from 280px for better text fit */
+            --sidebar-width: 300px;
         }
         .nav-text {
-            opacity: 0;
+            opacity: 0 !important;
+            visibility: hidden !important;
             transform: translateX(-15px);
             transition: all 0.3s ease-in-out;
             white-space: nowrap;
             pointer-events: none;
         }
         .sidebar-nav:hover .nav-text {
-            opacity: 1;
+            opacity: 1 !important;
+            visibility: visible !important;
             transform: translateX(0);
             pointer-events: auto;
         }
 
         .nav-section-header {
             max-height: 0;
-            opacity: 0;
+            opacity: 0 !important;
+            visibility: hidden !important;
             overflow: hidden;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             margin: 0 !important;
@@ -85,25 +279,48 @@ foreach ($logs as $log) {
         }
         .sidebar-nav:hover .nav-section-header {
             max-height: 20px;
-            opacity: 1;
+            opacity: 1 !important;
+            visibility: visible !important;
             margin-bottom: 0.5rem !important;
             pointer-events: auto;
         }
-        /* Override for Overview which is the first section */
-        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0.75rem !important; }
-        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
+        /* Adjusted for zero-gap between sections on hover */
+        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0.25rem !important; }
+        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 0.5rem !important; }
 
         .sidebar-content {
-            gap: 2px; /* Much tighter base gap */
+            gap: 2px;
             transition: all 0.3s ease-in-out;
+            padding-bottom: 8rem;
         }
         .sidebar-nav:hover .sidebar-content {
-            gap: 4px; /* Slightly more space on hover for readability */
+            gap: 4px;
         }
-        /* End Sidebar Hover Logic */
 
-        .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
-        .active-nav { color: #8c2bee !important; position: relative; }
+        .nav-link { 
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 38px;
+            transition: all 0.2s; 
+            white-space: nowrap; 
+            font-size: 11px; 
+            font-weight: 800; 
+            letter-spacing: 0.05em; 
+            color: var(--text-main);
+            text-decoration: none;
+        }
+        .nav-link span.material-symbols-outlined {
+            color: var(--highlight);
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+        .nav-link:hover {
+            opacity: 0.8;
+            transform: scale(1.02);
+        }
+        .active-nav { color: var(--primary) !important; position: relative; }
+        .active-nav span.material-symbols-outlined { color: var(--primary) !important; opacity: 1 !important; }
         .active-nav::after { 
             content: ''; 
             position: absolute; 
@@ -111,10 +328,13 @@ foreach ($logs as $log) {
             top: 50%;
             transform: translateY(-50%);
             width: 4px; 
-            height: 20px; 
-            background: #8c2bee; 
-            border-radius: 99px; 
+            height: 24px; 
+            background: var(--primary); 
+            border-radius: 4px 0 0 4px; 
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
+        .sidebar-nav:hover .active-nav::after { opacity: 1; }
         
         @media (max-width: 1023px) {
             .active-nav::after { display: none; }
@@ -127,212 +347,667 @@ foreach ($logs as $log) {
         .status-card-red { border: 1px solid #ef4444; background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(20,18,26,1) 100%); }
         .dashed-container { border: 2px dashed rgba(255,255,255,0.1); border-radius: 24px; }
         
+        /* 1. Global Invisible Scroll System (CSS Reset) */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 2. Sidebar-Aware Responsive Modal (Target Style: tenant_management.php) */
+        #adminActionModal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px; /* Collapsed Sidebar Width */
+            z-index: 200;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(10, 9, 13, 0.8);
+            backdrop-filter: blur(20px);
+            display: none; /* Controlled via JS */
+        }
+
+        #adminActionModal.flex-important {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 3. Sync Shift with Sidebar expansion */
+        .sidebar-nav:hover ~ #adminActionModal {
+            left: 300px; /* Expanded Sidebar Width */
+        }
+
+        /* Responsive Mobile Breakpoint */
+        @media (max-width: 1023px) {
+            #adminActionModal {
+                left: 0 !important;
+            }
+        }
     </style>
     <script>
         function updateHeaderClock() {
             const now = new Date();
-            const clockEl = document.getElementById('headerClock');
-            if (clockEl) {
-                clockEl.textContent = now.toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit', 
-                    second: '2-digit' 
-                });
-            }
+            const time = now.toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            document.getElementById('headerClock').textContent = time;
         }
         setInterval(updateHeaderClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateHeaderClock);
+        window.addEventListener('DOMContentLoaded', () => {
+            updateHeaderClock();
+            
+            // --- 2. Initialize Pagination for all Tables ---
+            initPagination('recentTableBody', 'pagination-recent', 10);
+            initPagination('pendingTableBody', 'pagination-pending', 10);
+            initPagination('historyTableBody', 'pagination-history', 10);
+        });
+
+        function switchTab(tabId) {
+            // Sections
+            const sections = ['section-recent', 'section-pending', 'section-history'];
+            sections.forEach(s => {
+                const el = document.getElementById(s);
+                if (el) el.classList.add('hidden');
+            });
+            const activeSection = document.getElementById('section-' + tabId);
+            if (activeSection) activeSection.classList.remove('hidden');
+
+            // Buttons & Indicators
+            const tabs = ['recent', 'pending', 'history'];
+            tabs.forEach(t => {
+                const btn = document.getElementById('tabBtn-' + t);
+                const indicator = document.getElementById('tabIndicator-' + t);
+                
+                if (btn) {
+                    btn.classList.remove('text-primary');
+                    btn.classList.add('text-[--text-main]', 'opacity-50');
+                }
+                if (indicator) indicator.classList.replace('opacity-100', 'opacity-0');
+            });
+
+            const activeBtn = document.getElementById('tabBtn-' + tabId);
+            const activeIndicator = document.getElementById('tabIndicator-' + tabId);
+            if (activeBtn) {
+                activeBtn.classList.add('text-primary');
+                activeBtn.classList.remove('text-[--text-main]', 'opacity-50');
+            }
+            if (activeIndicator) activeIndicator.classList.replace('opacity-0', 'opacity-100');
+        }
+
+        function confirmAdminAction(form, title, message) {
+            const modal = document.getElementById('adminActionModal');
+            if(!modal) return;
+            
+            modal.querySelector('#modalTitle').textContent = title;
+            modal.querySelector('#modalMessage').textContent = message;
+            
+            modal.classList.add('flex-important');
+            
+            const confirmBtn = modal.querySelector('#confirm-btn');
+            confirmBtn.onclick = () => {
+                form.submit();
+                modal.classList.remove('flex-important');
+            };
+        }
+        
+        function closeModal() {
+            document.getElementById('adminActionModal').classList.remove('flex-important');
+        }
     </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
-    <div class="mb-4 shrink-0"> 
-        <div class="flex items-center gap-4 mb-4"> 
-            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+<nav class="sidebar-nav h-screen sticky top-0 z-50 shrink-0 flex flex-col no-scrollbar">
+    <div class="px-7 py-5 mb-2 shrink-0">
+        <div class="flex items-center gap-4">
+            <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($brand['system_logo'])): ?>
+                    <img src="<?= htmlspecialchars($brand['system_logo']) ?>" class="size-full object-contain rounded-xl">
+                <?php else: ?>
+                    <img src="../assests/horizon logo.png" class="size-full object-contain rounded-xl transition-transform duration-500 hover:scale-110" alt="Horizon Logo">
+                <?php endif; ?>
             </div>
-            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">
+                <?= htmlspecialchars($brand['system_name'] ?? 'Horizon System') ?>
+            </h1>
         </div>
     </div>
     
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
-        <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
+    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pb-4">
+        <div class="nav-section-header px-7 mb-2">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span>
         </div>
-        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="superadmin_dashboard.php" class="nav-link <?= ($active_page == 'dashboard') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
         </a>
         
-        <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
+        <div class="nav-section-header px-7 mb-2 mt-4">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span>
         </div>
-        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="tenant_management.php" class="nav-link <?= ($active_page == 'tenants') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">business</span> 
             <span class="nav-text">Tenant Management</span>
         </a>
 
-        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="subscription_logs.php" class="nav-link <?= ($active_page == 'subscriptions') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
             <span class="nav-text">Subscription Logs</span>
         </a>
 
-        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="real_time_occupancy.php" class="nav-link <?= ($active_page == 'occupancy') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span> 
             <span class="nav-text">Real-Time Occupancy</span>
         </a>
 
-        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="recent_transaction.php" class="nav-link <?= ($active_page == 'transactions') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
             <span class="nav-text">Recent Transactions</span>
         </a>
 
-        <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System</span>
+        <div class="nav-section-header px-7 mb-2 mt-4">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">System</span>
         </div>
-        <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="system_alerts.php" class="nav-link <?= ($active_page == 'alerts') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
             <span class="nav-text">System Alerts</span>
         </a>
 
-        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="system_reports.php" class="nav-link <?= ($active_page == 'reports') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
             <span class="nav-text">Reports</span>
         </a>
 
-        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="sales_report.php" class="nav-link <?= ($active_page == 'sales_report') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">monitoring</span> 
             <span class="nav-text">Sales Reports</span>
         </a>
 
-        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="audit_logs.php" class="nav-link <?= ($active_page == 'audit_logs') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">assignment</span> 
             <span class="nav-text">Audit Logs</span>
         </a>
 
-        <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="backup.php" class="nav-link <?= ($active_page == 'backup') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
             <span class="nav-text">Backup</span>
         </a>
     </div>
 
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-2 shrink-0">
-        <div class="nav-section-header px-0 mb-0">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
+    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
+        <div class="nav-section-header px-7 mb-0">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span>
         </div>
-        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="settings.php" class="nav-link <?= ($active_page == 'settings') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
             <span class="nav-text">Settings</span>
         </a>
-        <a href="profile.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="profile.php" class="nav-link <?= ($active_page == 'profile') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">person</span> 
             <span class="nav-text">Profile</span>
         </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
-            <span class="nav-link nav-text">Sign Out</span>
+        <a href="../logout.php" class="nav-link !text-gray-400 hover:!text-rose-500 transition-all group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0 group-hover:!text-rose-500">logout</span>
+            <span class="nav-text group-hover:!text-rose-500">Sign Out</span>
         </a>
     </div>
 </nav>
 
-<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+<div class="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
         <header class="mb-10 flex flex-row justify-between items-end gap-6">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Subscription <span class="text-primary">Logs</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Monitor Tenant Subscription Histories</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none">
+                    <span class="text-[--text-main] opacity-80">Subscription</span>
+                    <span class="text-primary">Logs</span>
+                </h2>
+                <p class="text-[--text-main] opacity-60 text-xs font-bold uppercase tracking-widest mt-2 px-1">Monitor Tenant Subscription Histories</p>
             </div>
             <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
+                <p id="headerClock" class="text-[--text-main] font-black italic text-2xl leading-none transition-colors hover:text-primary uppercase tracking-tighter mb-2">00:00:00 AM</p>
+                <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-            <div class="glass-card p-6 border border-white/5 bg-white/5 flex items-center gap-4">
-                <div class="size-12 rounded-full bg-white/10 flex items-center justify-center text-white"><span class="material-symbols-outlined">receipt_long</span></div>
-                <div><p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Total Logs</p><h3 class="text-2xl font-black italic uppercase"><?= $total_subs ?></h3></div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="glass-card p-8 relative overflow-hidden group">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">receipt_long</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total Logs</p>
+                <h3 class="text-2xl font-black italic uppercase"><?= $total_subs ?></h3>
+                <p class="text-[--text-main] opacity-40 text-[9px] font-black uppercase mt-2 tracking-tighter italic">History Archive</p>
             </div>
-            <div class="glass-card p-6 border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-4">
-                <div class="size-12 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500"><span class="material-symbols-outlined">check_circle</span></div>
-                <div><p class="text-[10px] font-black uppercase text-emerald-500/70 tracking-widest">Active Plans</p><h3 class="text-2xl font-black italic uppercase text-emerald-400"><?= $active_subs ?></h3></div>
+            <div class="glass-card p-8 status-card-green relative overflow-hidden group">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-emerald-500 group-hover:scale-110 transition-transform">check_circle</span>
+                <p class="text-[10px] font-black uppercase text-emerald-500/70 mb-2 tracking-widest">Active Plans</p>
+                <h3 class="text-2xl font-black italic uppercase text-emerald-400"><?= $active_subs ?></h3>
+                <p class="text-emerald-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Current Active</p>
             </div>
-            <div class="glass-card p-6 border border-amber-500/20 bg-amber-500/5 flex items-center gap-4">
-                <div class="size-12 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500"><span class="material-symbols-outlined">pending_actions</span></div>
-                <div><p class="text-[10px] font-black uppercase text-amber-500/70 tracking-widest">Pending Payment</p><h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_payment ?></h3></div>
+            <div class="glass-card p-8 status-card-yellow relative overflow-hidden group">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-amber-500 group-hover:scale-110 transition-transform">pending_actions</span>
+                <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending Payment</p>
+                <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_payment ?></h3>
+                <p class="text-amber-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Awaiting Action</p>
             </div>
-            <div class="glass-card p-6 border border-red-500/20 bg-red-500/5 flex items-center gap-4">
-                <div class="size-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-500"><span class="material-symbols-outlined">event_busy</span></div>
-                <div><p class="text-[10px] font-black uppercase text-red-500/70 tracking-widest">Expired</p><h3 class="text-2xl font-black italic uppercase text-red-400"><?= $expired_subs ?></h3></div>
+            <div class="glass-card p-8 status-card-red relative overflow-hidden group">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-red-500 group-hover:scale-110 transition-transform">event_busy</span>
+                <p class="text-[10px] font-black uppercase text-red-500/70 mb-2 tracking-widest">Expired</p>
+                <h3 class="text-2xl font-black italic uppercase text-red-400"><?= $expired_subs ?></h3>
+                <p class="text-red-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Lapsed Plans</p>
+            </div>
+        </div>
+        
+        <!-- DYNAMIC FILTERS (Restored & Corrected Position) -->
+        <div class="glass-card p-6 mb-8 border-white/5 shadow-2xl relative overflow-hidden">
+            <form method="GET" class="flex flex-wrap items-end gap-6 relative z-10">
+                <div class="flex-1 min-w-[280px]">
+                    <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Search Identifier</label>
+                    <div class="relative group">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary transition-transform group-hover:scale-110">search</span>
+                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" 
+                               placeholder="Gym Name or Tenant Code..." 
+                               class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary focus:bg-white/[0.08] outline-none placeholder:text-white/20">
+                    </div>
+                </div>
+
+                <div class="w-[180px]">
+                    <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Sub Status</label>
+                    <select name="sub_status" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none">
+                        <option value="all" <?= $sub_status === 'all' ? 'selected' : '' ?>>All Status</option>
+                        <option value="Active" <?= $sub_status === 'Active' ? 'selected' : '' ?>>Active Only</option>
+                        <option value="Expired" <?= $sub_status === 'Expired' ? 'selected' : '' ?>>Expired Only</option>
+                    </select>
+                </div>
+
+                <div class="w-[180px]">
+                    <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Payment Status</label>
+                    <select name="pay_status" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none text-amber-400">
+                        <option value="all" <?= $pay_status === 'all' ? 'selected' : '' ?> class="text-white">All Payments</option>
+                        <option value="Paid" <?= $pay_status === 'Paid' ? 'selected' : '' ?> class="text-emerald-400">Paid</option>
+                        <option value="Pending" <?= $pay_status === 'Pending' ? 'selected' : '' ?> class="text-amber-400">Pending</option>
+                        <option value="Rejected" <?= $pay_status === 'Rejected' ? 'selected' : '' ?> class="text-rose-400">Rejected</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-4">
+                    <div class="w-[150px]">
+                        <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">From</label>
+                        <input type="date" name="date_from" value="<?= $date_from ?>" 
+                               class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none">
+                    </div>
+                    <div class="w-[150px]">
+                        <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">To</label>
+                        <input type="date" name="date_to" value="<?= $date_to ?>" 
+                               class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none">
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button type="submit" class="p-3 rounded-xl bg-primary text-white shadow-lg shadow-primary/20 hover:scale-[1.05] active:scale-95 transition-all flex items-center justify-center">
+                        <span class="material-symbols-outlined text-sm">filter_alt</span>
+                    </button>
+                    <a href="subscription_logs.php" class="p-3 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center">
+                        <span class="material-symbols-outlined text-sm">refresh</span>
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Layout Tabs (Tenant Style) -->
+        <div class="flex items-center gap-8 mb-8 border-b border-white/5 px-2">
+            <button onclick="switchTab('recent')" id="tabBtn-recent"
+                class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-primary">
+                Recent Logs
+                <div id="tabIndicator-recent"
+                    class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-100">
+                </div>
+            </button>
+            <button onclick="switchTab('pending')" id="tabBtn-pending"
+                class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100 <?= ($pending_payment > 0) ? 'mr-4' : '' ?>">
+                Pending Payments
+                <div id="tabIndicator-pending"
+                    class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0">
+                </div>
+                <?php if ($pending_payment > 0): ?>
+                    <span
+                        class="absolute -top-1 -right-6 size-4 bg-amber-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-amber-500/20 animate-bounce"><?= $pending_payment ?></span>
+                <?php endif; ?>
+            </button>
+            <button onclick="switchTab('history')" id="tabBtn-history"
+                class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100">
+                All History
+                <div id="tabIndicator-history"
+                    class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0">
+                </div>
+            </button>
+        </div>
+
+        <!-- RECENT ACTIVTY -->
+        <div id="section-recent">
+            <div class="glass-card overflow-hidden">
+                <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
+                    <h4 class="font-black italic uppercase text-sm tracking-tighter">Recent Logs (Last 7 Days)</h4>
+                </div>
+                <div class="overflow-x-auto no-scrollbar">
+                    <table class="w-full text-left border-separate border-spacing-0">
+                        <thead>
+                            <tr class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-[0.2em]">
+                                <th class="px-8 py-4 border-b border-white/5">Gym & Plan</th>
+                                <th class="px-8 py-4 border-b border-white/5">Start Date</th>
+                                <th class="px-8 py-4 border-b border-white/5">Subscription Status</th>
+                                <th class="px-8 py-4 border-b border-white/5">Payment Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentTableBody" class="divide-y divide-white/5">
+                            <?php if (empty($recent_logs)): ?>
+                                <tr class="no-pagination">
+                                    <td colspan="4" class="px-8 py-20 text-center">
+                                        <div class="opacity-20 mb-4 flex justify-center">
+                                            <span class="material-symbols-outlined text-6xl">history</span>
+                                        </div>
+                                        <p class="text-xs font-bold uppercase tracking-widest opacity-40">No recent activity found</p>
+                                    </td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($recent_logs as $log): ?>
+                                    <tr class="hover:bg-white/5 transition-all">
+                                        <td class="px-8 py-5">
+                                            <div class="flex items-center gap-4">
+                                                <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+                                                    <span class="material-symbols-outlined text-primary text-xl">fitness_center</span>
+                                                </div>
+                                                <div>
+                                                    <p class="text-sm font-black italic uppercase leading-none mb-1"><?= htmlspecialchars($log['gym_name']) ?></p>
+                                                    <p class="text-[--text-main] opacity-40 text-[10px] uppercase font-black italic"><?= htmlspecialchars($log['plan_name']) ?> (₱<?= number_format($log['plan_price'], 0) ?>)</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-8 py-5 text-xs font-black uppercase italic opacity-60">
+                                            <?= date('M d, Y', strtotime($log['start_date'])) ?>
+                                        </td>
+                                        <td class="px-8 py-5">
+                                            <?php 
+                                            $subClass = match($log['subscription_status']) {
+                                                'Active' => 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                                                'Expired' => 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+                                                default => 'bg-white/5 text-gray-400 border-white/10'
+                                            };
+                                            ?>
+                                            <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border <?= $subClass ?>">
+                                                <?= $log['subscription_status'] ?>
+                                            </span>
+                                        </td>
+                                        <td class="px-8 py-5">
+                                            <?php 
+                                            $payClass = match($log['payment_status']) {
+                                                'Paid' => 'bg-emerald-500 text-emerald-100',
+                                                'Pending' => 'bg-amber-500 text-amber-100',
+                                                'Rejected' => 'bg-rose-500 text-rose-100',
+                                                default => 'bg-gray-500 text-gray-100'
+                                            };
+                                            ?>
+                                            <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest <?= $payClass ?>">
+                                                <?= $log['payment_status'] ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination Container for Recent -->
+                <div id="pagination-recent" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden transition-all duration-300">
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                    <div class="flex gap-2 controls-container"></div>
+                </div>
             </div>
         </div>
 
-        <div class="glass-card overflow-hidden">
-            <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                <h4 class="font-black italic uppercase text-sm tracking-tighter text-white">All Subscription History</h4>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left">
-                    <thead>
-                        <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
-                            <th class="px-8 py-4">Gym / Tenant Code</th>
-                            <th class="px-8 py-4">Plan Details</th>
-                            <th class="px-8 py-4">Duration</th>
-                            <th class="px-8 py-4">Sub Status</th>
-                            <th class="px-8 py-4 text-right">Payment</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-white/5">
-                        <?php if (empty($logs)): ?>
-                            <tr><td colspan="5" class="px-8 py-8 text-center text-xs font-bold text-gray-500 italic uppercase">No subscription records found.</td></tr>
-                        <?php else: ?>
-                            <?php foreach ($logs as $log): ?>
-                                <tr class="hover:bg-white/5 transition-all">
-                                    <td class="px-8 py-5">
-                                        <p class="text-sm font-bold italic"><?= htmlspecialchars($log['gym_name']) ?></p>
-                                        <p class="text-[10px] text-primary uppercase tracking-wider font-bold">Code: <?= htmlspecialchars($log['tenant_code']) ?></p>
-                                    </td>
-                                    <td class="px-8 py-5">
-                                        <p class="text-xs font-medium text-white"><?= htmlspecialchars($log['plan_name']) ?></p>
-                                        <p class="text-[10px] text-gray-500">₱<?= number_format($log['plan_price'], 2) ?> / <?= $log['billing_cycle'] ?></p>
-                                    </td>
-                                    <td class="px-8 py-5 text-[10px] font-bold text-gray-400">
-                                        <?= date('M d, Y', strtotime($log['start_date'])) ?> to<br>
-                                        <?= $log['end_date'] ? date('M d, Y', strtotime($log['end_date'])) : 'Ongoing' ?>
-                                    </td>
-                                    <td class="px-8 py-5">
-                                        <?php if ($log['subscription_status'] === 'Active'): ?>
-                                            <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase italic">Active</span>
-                                        <?php elseif ($log['subscription_status'] === 'Expired'): ?>
-                                            <span class="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-black uppercase italic">Expired</span>
-                                        <?php else: ?>
-                                            <span class="px-3 py-1 rounded-full bg-gray-500/10 border border-gray-500/20 text-[9px] text-gray-400 font-black uppercase italic font-black uppercase italic"><?= htmlspecialchars($log['subscription_status']) ?></span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="px-8 py-5 text-right">
-                                        <?php if ($log['payment_status'] === 'Paid'): ?>
-                                            <div class="flex items-center justify-end gap-2 text-emerald-400">
-                                                <span class="material-symbols-outlined text-sm">verified</span>
-                                                <span class="text-[10px] font-black uppercase italic">Paid</span>
-                                            </div>
-                                        <?php else: ?>
-                                            <div class="flex items-center justify-end gap-2 text-amber-400">
-                                                <span class="material-symbols-outlined text-sm">pending</span>
-                                                <span class="text-[10px] font-black uppercase italic"><?= htmlspecialchars($log['payment_status']) ?></span>
-                                            </div>
-                                        <?php endif; ?>
+        <!-- PENDING PAYMENTS SECTION -->
+        <div id="section-pending" class="hidden">
+            <div class="glass-card overflow-hidden border border-amber-500/10 shadow-lg shadow-amber-500/5">
+                <div class="px-8 py-6 border-b border-amber-500/10 bg-amber-500/5 flex justify-between items-center">
+                    <h4 class="font-black italic uppercase text-sm tracking-tighter text-amber-400 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-xl">pending_actions</span>
+                        Awaiting Payment Approval
+                    </h4>
+                </div>
+                <div class="overflow-x-auto no-scrollbar">
+                    <table class="w-full text-left border-separate border-spacing-0">
+                        <thead>
+                            <tr class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-[0.2em]">
+                                <th class="px-8 py-4 border-b border-white/5 font-black uppercase">Gym & Plan</th>
+                                <th class="px-8 py-4 border-b border-white/5 font-black uppercase">Start Date</th>
+                                <th class="px-8 py-4 border-b border-white/5 font-black uppercase text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pendingTableBody" class="divide-y divide-white/5">
+                            <?php if (empty($pending_logs)): ?>
+                                <tr class="no-pagination">
+                                    <td colspan="3" class="px-8 py-20 text-center">
+                                        <div class="opacity-20 mb-4 text-emerald-400 flex justify-center">
+                                            <span class="material-symbols-outlined text-6xl">verified</span>
+                                        </div>
+                                        <p class="text-xs font-bold uppercase tracking-widest opacity-40">All payments processed!</p>
                                     </td>
                                 </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                            <?php else: ?>
+                                <?php foreach ($pending_logs as $log): ?>
+                                    <tr class="hover:bg-white/5 transition-all">
+                                        <td class="px-8 py-5">
+                                            <div class="flex items-center gap-4">
+                                                <div class="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0 border border-amber-500/20">
+                                                    <span class="material-symbols-outlined text-amber-500 text-xl">payments</span>
+                                                </div>
+                                                <div>
+                                                    <p class="text-sm font-black italic uppercase leading-none mb-1 text-white"><?= htmlspecialchars($log['gym_name']) ?></p>
+                                                    <p class="text-[--text-main] opacity-40 text-[10px] uppercase font-black italic"><?= htmlspecialchars($log['plan_name']) ?> (₱<?= number_format($log['plan_price'], 0) ?>)</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-8 py-5 text-xs font-black uppercase italic opacity-60">
+                                            <?= date('M d, Y', strtotime($log['start_date'])) ?>
+                                        </td>
+                                        <td class="px-8 py-5 text-right">
+                                            <div class="inline-flex gap-2">
+                                                <form method="POST" class="confirm-form">
+                                                    <input type="hidden" name="subscription_id" value="<?= $log['subscription_id'] ?>">
+                                                    <input type="hidden" name="action" value="approve_payment">
+                                                    <button type="button" 
+                                                            onclick="confirmAdminAction(this.form, 'Approve Payment', 'Are you sure you want to approve this payment? This will activate the gym\'s premium subscription.')"
+                                                            class="size-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 border border-emerald-500/20 hover:border-emerald-500 text-emerald-500 hover:text-white transition-all flex items-center justify-center shadow-lg shadow-emerald-500/5 group relative">
+                                                        <span class="material-symbols-outlined text-sm">check</span>
+                                                        <span class="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#141216] text-[8px] font-black uppercase tracking-widest text-emerald-400 rounded-lg border border-emerald-500/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Approve</span>
+                                                    </button>
+                                                </form>
+                                                <form method="POST" class="confirm-form">
+                                                    <input type="hidden" name="subscription_id" value="<?= $log['subscription_id'] ?>">
+                                                    <input type="hidden" name="action" value="reject_payment">
+                                                    <button type="button" 
+                                                            onclick="confirmAdminAction(this.form, 'Reject Payment', 'Are you sure you want to reject this payment? This will set the subscription to Inactive.')"
+                                                            class="size-8 rounded-lg bg-rose-500/10 hover:bg-rose-500 border border-rose-500/20 hover:border-rose-500 text-rose-500 hover:text-white transition-all flex items-center justify-center shadow-lg shadow-rose-500/5 group relative">
+                                                        <span class="material-symbols-outlined text-sm">close</span>
+                                                        <span class="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#141216] text-[8px] font-black uppercase tracking-widest text-rose-400 rounded-lg border border-rose-500/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Reject</span>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination Container for Pending -->
+                <div id="pagination-pending" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden transition-all duration-300">
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                    <div class="flex gap-2 controls-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FULL HISTORY SECTION -->
+        <div id="section-history" class="hidden">
+            <div class="glass-card overflow-hidden">
+                <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
+                    <h4 class="font-black italic uppercase text-sm tracking-tighter">Enterprise Audit History</h4>
+                </div>
+                <div class="overflow-x-auto no-scrollbar">
+                    <table class="w-full text-left border-separate border-spacing-0">
+                        <thead>
+                            <tr class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-[0.2em]">
+                                <th class="px-8 py-4 border-b border-white/5">Gym & Plan</th>
+                                <th class="px-8 py-4 border-b border-white/5">Transaction Date</th>
+                                <th class="px-8 py-4 border-b border-white/5">Status</th>
+                                <th class="px-8 py-4 border-b border-white/5">Payment</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody" class="divide-y divide-white/5">
+                            <?php if (empty($history_logs)): ?>
+                                <tr class="no-pagination">
+                                    <td colspan="4" class="px-8 py-20 text-center">
+                                        <div class="opacity-20 mb-4 flex justify-center text-primary">
+                                            <span class="material-symbols-outlined text-6xl italic">manage_search</span>
+                                        </div>
+                                        <p class="text-xs font-black italic uppercase tracking-widest opacity-40">No subscription history found</p>
+                                    </td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($history_logs as $log): ?>
+                                    <tr class="hover:bg-white/5 transition-all">
+                                        <td class="px-8 py-5">
+                                            <div class="flex items-center gap-4">
+                                                <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10 opacity-60">
+                                                    <span class="material-symbols-outlined text-md">receipt</span>
+                                                </div>
+                                                <div>
+                                                    <p class="text-xs font-bold italic uppercase leading-none mb-1 text-white"><?= htmlspecialchars($log['gym_name']) ?></p>
+                                                    <p class="text-[--text-main] opacity-40 text-[9px] uppercase font-black italic"><?= htmlspecialchars($log['plan_name']) ?></p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-8 py-5 text-[10px] font-black uppercase italic opacity-40">
+                                            <?= date('M d, Y', strtotime($log['start_date'])) ?>
+                                        </td>
+                                        <td class="px-8 py-5 text-[10px] font-black uppercase italic">
+                                            <?php 
+                                            $subClass = match($log['subscription_status']) {
+                                                'Active' => 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                                                'Expired' => 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+                                                default => 'bg-white/5 text-gray-400 border-white/10'
+                                            };
+                                            ?>
+                                            <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border <?= $subClass ?>">
+                                                <?= $log['subscription_status'] ?>
+                                            </span>
+                                        </td>
+                                        <td class="px-8 py-5">
+                                            <span class="text-[10px] font-black uppercase tracking-tighter <?= $log['payment_status'] === 'Paid' ? 'text-emerald-400' : ($log['payment_status'] === 'Rejected' ? 'text-rose-400' : 'text-amber-400') ?>">
+                                                <?= $log['payment_status'] ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination Container for History -->
+                <div id="pagination-history" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden transition-all duration-300">
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                    <div class="flex gap-2 controls-container"></div>
+                </div>
             </div>
         </div>
     </main>
 </div>
+
+<script>
+    function initPagination(tableBodyId, paginationId, rowsPerPage) {
+        const tableBody = document.getElementById(tableBodyId);
+        const paginationContainer = document.getElementById(paginationId);
+        if (!tableBody || !paginationContainer) return;
+
+        // Skip rows that should not be paginated (e.g., empty state messages)
+        const allRows = Array.from(tableBody.querySelectorAll('tr'));
+        const rows = allRows.filter(tr => !tr.classList.contains('no-pagination'));
+        const totalRows = rows.length;
+
+        if (totalRows <= rowsPerPage) {
+            paginationContainer.classList.add('hidden');
+            allRows.forEach(row => row.classList.remove('hidden'));
+            return;
+        }
+
+        paginationContainer.classList.remove('hidden');
+        const totalPages = Math.ceil(totalRows / rowsPerPage);
+        let currentPage = 1;
+
+        const statusText = paginationContainer.querySelector('.status-text');
+        const controlsContainer = paginationContainer.querySelector('.controls-container');
+
+        function render() {
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+
+            rows.forEach((row, index) => {
+                row.classList.toggle('hidden', index < start || index >= end);
+            });
+
+            const entriesCount = Math.min(end, totalRows);
+            statusText.textContent = `Showing ${start + 1} to ${entriesCount} of ${totalRows} entries`;
+            controlsContainer.innerHTML = '';
+            
+            // Prev Button
+            const prevBtn = document.createElement('button');
+            prevBtn.className = `size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] transition-all ${currentPage === 1 ? 'opacity-20 pointer-events-none' : 'opacity-40 hover:opacity-100 hover:bg-white/10 active:scale-90'}`;
+            prevBtn.innerHTML = '<span class="material-symbols-outlined text-sm">chevron_left</span>';
+            prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; render(); } };
+            controlsContainer.appendChild(prevBtn);
+
+            // Page Numbers (Smart Pagination)
+            let startPage = Math.max(1, currentPage - 1);
+            let endPage = Math.min(totalPages, startPage + 2);
+            if (endPage === totalPages) startPage = Math.max(1, endPage - 2);
+
+            for (let i = startPage; i <= endPage; i++) {
+                const pageBtn = document.createElement('button');
+                pageBtn.className = `size-8 rounded-lg font-black text-[10px] transition-all ${i === currentPage ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/5 text-[--text-main] opacity-40 hover:opacity-100 hover:bg-white/10 active:scale-95'}`;
+                pageBtn.textContent = i;
+                pageBtn.onclick = () => { currentPage = i; render(); };
+                controlsContainer.appendChild(pageBtn);
+            }
+
+            // Next Button
+            const nextBtn = document.createElement('button');
+            nextBtn.className = `size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] transition-all ${currentPage === totalPages ? 'opacity-20 pointer-events-none' : 'opacity-40 hover:opacity-100 hover:bg-white/10 active:scale-90'}`;
+            nextBtn.innerHTML = '<span class="material-symbols-outlined text-sm">chevron_right</span>';
+            nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; render(); } };
+            controlsContainer.appendChild(nextBtn);
+        }
+
+        render();
+    }
+</script>
+
+<!-- 4. Sidebar-Aware Modal UI Skeleton (Targeting Requirement) -->
+<div id="adminActionModal" class="p-4 overflow-y-auto">
+    <div class="glass-card max-w-md w-full p-8 border-primary/20 shadow-2xl shadow-primary/10 mx-auto">
+        <h3 id="modalTitle" class="text-xl font-black italic uppercase italic text-white mb-2 leading-none">Confirm Action</h3>
+        <p id="modalMessage" class="text-[10px] text-[--text-main] opacity-60 font-bold uppercase tracking-widest leading-relaxed mb-10">Are you sure you want to proceed with this administrative task?</p>
+        
+        <div class="flex gap-4">
+            <button onclick="closeModal()" 
+                    class="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all border border-white/5">
+                Cancel
+            </button>
+            <button id="confirm-btn" 
+                    class="flex-1 py-3 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
+                Confirm Proceed
+            </button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
