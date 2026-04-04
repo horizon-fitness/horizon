@@ -85,25 +85,13 @@
         align-items: center;
         background: #0d0c12;
         overscroll-behavior: contain;
-        scrollbar-width: thin;
-        scrollbar-color: var(--primary) transparent;
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE 10+ */
     }
     
-    /* Elegant Minimalist Scrollbar (Webkit) */
+    /* Hide scrollbar for Chrome, Safari and Opera */
     .viewer-body::-webkit-scrollbar {
-        width: 8px;
-    }
-    .viewer-body::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    .viewer-body::-webkit-scrollbar-thumb {
-        background: rgba(255,255,255,0.05);
-        border: 2px solid #0d0c12;
-        border-radius: 10px;
-    }
-    .viewer-body::-webkit-scrollbar-thumb:hover {
-        background: var(--primary);
-        border: 2px solid #0d0c12;
+        display: none;
     }
 
     .viewer-inner-content {
