@@ -12,6 +12,22 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Hex to RGB helper for dynamic transparency
+function hexToRgb($hex)
+{
+    $hex = str_replace("#", "", $hex);
+    if (strlen($hex) == 3) {
+        $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+        $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+        $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+    } else {
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+    }
+    return "$r, $g, $b";
+}
+
 // Migration: Update system_settings to include user_id if it doesn't exist
 $pdo->exec("
         CREATE TABLE IF NOT EXISTS system_settings (
@@ -205,6 +221,9 @@ $active_page = "settings";
             --primary:
                 <?= $configs['theme_color'] ?? '#8c2bee' ?>
             ;
+            --primary-rgb:
+                <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>
+            ;
             --background:
                 <?= $configs['bg_color'] ?? '#0a090d' ?>
             ;
@@ -217,7 +236,7 @@ $active_page = "settings";
             --secondary-rgb: 161, 161, 170;
             --card-blur: 20px;
             --card-bg:
-                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(var(--primary-rgb, 140, 43, 238), 0.05)' : ($configs['card_color'] ?? '#141216') ?>
+                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#141216') ?>
             ;
         }
 
@@ -355,7 +374,8 @@ $active_page = "settings";
         }
 
         .nav-link:hover {
-            opacity: 0.8; /* Subtle feedback instead of color change */
+            opacity: 0.8;
+            /* Subtle feedback instead of color change */
         }
 
         .nav-link:hover span.material-symbols-outlined {
@@ -694,8 +714,11 @@ $active_page = "settings";
                                     <span class="material-symbols-outlined text-primary">brush</span>
                                 </div>
                                 <div>
-                                    <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">System Appearance</h3>
-                                    <p class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight line-clamp-1">Brand identity & glassmorphism</p>
+                                    <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">System
+                                        Appearance</h3>
+                                    <p
+                                        class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight line-clamp-1">
+                                        Brand identity & glassmorphism</p>
                                 </div>
                             </div>
                             <button type="button" onclick="resetToDefaults()"
@@ -1389,114 +1412,7 @@ $active_page = "settings";
             }
         }
 
-        function updateLiveBranding() {
-            const nameInput = document.getElementById('system_name_input');
-            const themeInput = document.getElementById('theme_color_input');
-            const secondaryInput = document.getElementById('secondary_color_input');
-            const textColorInput = document.getElementById('text_color_input');
-            const bgInput = document.getElementById('bg_color_input');
-            const fontInput = document.getElementById('font_family_input');
-
-            const autoCardInput = document.getElementById('auto_card_theme_input');
-            const autoCard = autoCardInput ? autoCardInput.checked : true;
-            const cardColorInput = document.getElementById('card_color_input');
-
-            // Update Sidebar Name Live
-            if (nameInput) {
-                const sidebarName = document.getElementById('sidebarSystemName');
-                if (sidebarName) sidebarName.textContent = nameInput.value;
-            }
-
-            // --- Auto-Contrast Logic (for Header Clock & Main Titles) ---
-            function ensureContrast(bg, fg) {
-                const bgRgb = hexToRgb(bg);
-                const bgLum = bgRgb ? (0.299 * bgRgb.r + 0.587 * bgRgb.g + 0.114 * bgRgb.b) : 0;
-                const fgRgb = hexToRgb(fg);
-                const fgLum = fgRgb ? (0.299 * fgRgb.r + 0.587 * fgRgb.g + 0.114 * fgRgb.b) : 0;
-
-                const diff = Math.abs(bgLum - fgLum);
-                if (diff < 80) { // Too close, adjust based on background
-                    return bgLum > 128 ? '#000000' : '#ffffff';
-                }
-                return fg;
-            }
-
-            // Update CSS Core Variables
-            document.documentElement.style.setProperty('--primary', themeInput.value);
-            document.documentElement.style.setProperty('--background', bgInput.value);
-            document.documentElement.style.setProperty('--highlight', secondaryInput.value);
-            document.documentElement.style.setProperty('--text-main', textColorInput.value);
-
-            // Generate RGB for Alpha transparency
-            const rgb = hexToRgb(themeInput.value);
-            if (rgb) document.documentElement.style.setProperty('--primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
-
-            const secRgb = hexToRgb(secondaryInput.value);
-            if (secRgb) document.documentElement.style.setProperty('--secondary-rgb', `${secRgb.r}, ${secRgb.g}, ${secRgb.b}`);
-
-            if (autoCard) {
-                const bgRgb = hexToRgb(bgInput.value);
-                const bgLuminance = bgRgb ? (0.299 * bgRgb.r + 0.587 * bgRgb.g + 0.114 * bgRgb.b) : 0;
-                const isLightBg = bgLuminance > 160;
-
-                const baseColor = isLightBg ? '0, 0, 0, 0.05' : '255, 255, 255, 0.03';
-                const tintColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.04)`;
-
-                document.documentElement.style.setProperty('--card-bg', `linear-gradient(135deg, rgba(${baseColor}), ${tintColor})`);
-                document.documentElement.style.setProperty('--card-border', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`);
-                document.documentElement.style.setProperty('--card-glow', `0 10px 30px rgba(0, 0, 0, 0.2), 0 0 15px rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05)`);
-
-                if (cardColorInput) {
-                    cardColorInput.parentElement.parentElement.style.opacity = '0.4';
-                    cardColorInput.parentElement.parentElement.style.pointerEvents = 'none';
-                }
-            } else if (cardColorInput) {
-                const hex = cardColorInput.value;
-                const hexDisplay = document.getElementById('card_hex_display');
-                if (hexDisplay) hexDisplay.textContent = hex.toUpperCase();
-
-                document.documentElement.style.setProperty('--card-bg', hex + 'cc');
-                document.documentElement.style.setProperty('--card-border', 'rgba(255, 255, 255, 0.1)');
-                document.documentElement.style.setProperty('--card-glow', '0 10px 30px rgba(0, 0, 0, 0.3)');
-
-                cardColorInput.parentElement.parentElement.style.opacity = '1';
-                cardColorInput.parentElement.parentElement.style.pointerEvents = 'auto';
-            }
-
-            // Update Body & Font
-            document.body.style.fontFamily = `'${fontInput.value}', sans-serif`;
-            document.body.style.backgroundColor = bgInput.value;
-
-            // Sync Hex Text
-            if (document.getElementById('theme_hex_display')) document.getElementById('theme_hex_display').textContent = themeInput.value.toUpperCase();
-            if (document.getElementById('secondary_hex_display')) document.getElementById('secondary_hex_display').textContent = secondaryInput.value.toUpperCase();
-            if (document.getElementById('text_hex_display')) document.getElementById('text_hex_display').textContent = textColorInput.value.toUpperCase();
-            if (document.getElementById('bg_hex_display')) document.getElementById('bg_hex_display').textContent = bgInput.value.toUpperCase();
-        }
-
-        // Auto-hide success message and initialize branding
-        document.addEventListener('DOMContentLoaded', () => {
-            // Apply initial branding state
-            updateLiveBranding();
-
-            const successAlert = document.getElementById('successAlert');
-            if (successAlert) {
-                setTimeout(() => {
-                    successAlert.style.opacity = '0';
-                    successAlert.style.transform = 'translateY(-10px)';
-                    setTimeout(() => successAlert.remove(), 500);
-                }, 15000);
-            }
-        });
-
-        // Re-open Superadmin Modal if there was an error creating an account
-        document.addEventListener('DOMContentLoaded', () => {
-            const errorMsg = "<?= addslashes($error_msg ?? '') ?>";
-            if (errorMsg && errorMsg.includes('creating account')) {
-                toggleSuperadminModal(true);
-            }
-        });
-
+        // --- Live Branding Engine ---
         function hexToRgb(hex) {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
             return result ? {
@@ -1506,14 +1422,112 @@ $active_page = "settings";
             } : null;
         }
 
-        // Initialize RGB variable on load
-        document.addEventListener('DOMContentLoaded', () => {
-            const themeColor = "<?= $configs['theme_color'] ?? '#8c2bee' ?>";
-            const rgb = hexToRgb(themeColor);
+        function updateLiveBranding() {
+            const root = document.documentElement;
+            // Fetch All Branding Inputs
+            const themeInput = document.getElementById('theme_color_input');
+            const secondaryInput = document.getElementById('secondary_color_input');
+            const textColorInput = document.getElementById('text_color_input');
+            const bgInput = document.getElementById('bg_color_input');
+            const fontInput = document.getElementById('font_family_input');
+            const nameInput = document.getElementById('system_name_input');
+            const isAutoCard = document.getElementById('auto_card_theme_input').checked;
+            const cardColorInput = document.getElementById('card_color_input');
+
+            if (!themeInput || !secondaryInput || !textColorInput || !bgInput) return;
+
+            // 1. Update Core CSS Variables
+            root.style.setProperty('--primary', themeInput.value);
+            root.style.setProperty('--highlight', secondaryInput.value);
+            root.style.setProperty('--text-main', textColorInput.value);
+            root.style.setProperty('--background', bgInput.value);
+            document.body.style.fontFamily = `'${fontInput.value}', sans-serif`;
+
+            // 2. Update Sidebar & Clock Live
+            const sidebarName = document.getElementById('sidebarSystemName');
+            if (sidebarName && nameInput) sidebarName.textContent = nameInput.value;
+
+            const headerClock = document.getElementById('headerClock');
+            if (headerClock) headerClock.style.color = textColorInput.value;
+
+            // 3. Generate RGB for Dynamic Transparency (Glassmorphism)
+            const rgb = hexToRgb(themeInput.value);
             if (rgb) {
-                document.documentElement.style.setProperty('--primary-rgb', `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+                const rgbVal = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+                root.style.setProperty('--primary-rgb', rgbVal);
+
+                // 4. Card Sync Logic (Auto vs Manual)
+                if (isAutoCard) {
+                    const autoCardColor = `rgba(${rgbVal}, 0.05)`;
+                    root.style.setProperty('--card-bg', autoCardColor);
+                    
+                    // In Auto mode, we update the manual color picker to show current theme
+                    if (cardColorInput) {
+                        cardColorInput.value = themeInput.value;
+                        document.getElementById('card_hex_display').innerText = themeInput.value.toUpperCase();
+                        cardColorInput.parentElement.parentElement.style.opacity = '0.4';
+                        cardColorInput.parentElement.parentElement.style.pointerEvents = 'none';
+                    }
+                } else if (cardColorInput) {
+                    root.style.setProperty('--card-bg', cardColorInput.value);
+                    document.getElementById('card_hex_display').innerText = cardColorInput.value.toUpperCase();
+                    cardColorInput.parentElement.parentElement.style.opacity = '1';
+                    cardColorInput.parentElement.parentElement.style.pointerEvents = 'auto';
+                }
+            }
+
+            // 5. Update Hex Display Labels
+            document.getElementById('theme_hex_display').innerText = themeInput.value.toUpperCase();
+            document.getElementById('secondary_hex_display').innerText = secondaryInput.value.toUpperCase();
+            document.getElementById('text_hex_display').innerText = textColorInput.value.toUpperCase();
+            document.getElementById('bg_hex_display').innerText = bgInput.value.toUpperCase();
+        }
+
+        // --- Initialization & Lifecycle ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Apply initial branding state
+            updateLiveBranding();
+
+            // Auto-hide success alerts
+            const successAlert = document.getElementById('successAlert');
+            if (successAlert) {
+                setTimeout(() => {
+                    successAlert.style.opacity = '0';
+                    successAlert.style.transform = 'translateY(-10px)';
+                    setTimeout(() => successAlert.remove(), 500);
+                }, 10000);
+            }
+
+            // Error handling for Superadmin Creation
+            const errorMsg = "<?= addslashes($error_msg ?? '') ?>";
+            if (errorMsg && errorMsg.includes('creating account')) {
+                toggleSuperadminModal(true);
             }
         });
+
+        function resetToDefaults() {
+            showActionModal(
+                'Reset Branding',
+                'Restore theme and colors to system defaults? This will erase your current customizations.',
+                'undo',
+                () => {
+                    document.getElementById('theme_color_input').value = '#8c2bee';
+                    document.getElementById('secondary_color_input').value = '#a1a1aa';
+                    document.getElementById('text_color_input').value = '#d1d5db';
+                    document.getElementById('bg_color_input').value = '#0a090d';
+                    document.getElementById('font_family_input').value = 'Lexend';
+                    
+                    const isAutoInput = document.getElementById('auto_card_theme_input');
+                    if (isAutoInput) isAutoInput.checked = true;
+
+                    updateLiveBranding();
+                    toggleActionModal(false);
+                }
+            );
+        }
+    </script>
+</body>
+</html>
     </script>
 </body>
 

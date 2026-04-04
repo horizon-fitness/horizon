@@ -26,6 +26,22 @@ function convertFileToBase64($fileInputName)
     return null;
 }
 
+// Hex to RGB helper for dynamic transparency
+function hexToRgb($hex)
+{
+    $hex = str_replace("#", "", $hex);
+    if (strlen($hex) == 3) {
+        $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+        $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+        $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+    } else {
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+    }
+    return "$r, $g, $b";
+}
+
 // Handle Profile & Password Update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_profile') {
     $current_password = $_POST['current_password'] ?? '';
@@ -48,9 +64,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     try {
         // --- Server-Side Validation ---
         // 1. Name Validation (No numbers allowed)
-        if (preg_match('/[0-9]/', $first_name)) throw new Exception("First name cannot contain numbers.");
-        if (preg_match('/[0-9]/', $middle_name)) throw new Exception("Middle name cannot contain numbers.");
-        if (preg_match('/[0-9]/', $last_name)) throw new Exception("Last name cannot contain numbers.");
+        if (preg_match('/[0-9]/', $first_name))
+            throw new Exception("First name cannot contain numbers.");
+        if (preg_match('/[0-9]/', $middle_name))
+            throw new Exception("Middle name cannot contain numbers.");
+        if (preg_match('/[0-9]/', $last_name))
+            throw new Exception("Last name cannot contain numbers.");
 
         // 2. Phone Number Validation (Numbers only, 11 digits)
         $raw_contact = str_replace('-', '', $contact_number);
@@ -164,6 +183,19 @@ $user = $stmt->fetch(PDO::FETCH_ASSOC);
 $page_title = "My Profile";
 $active_page = "profile";
 
+// Fetch Branding & Customization Settings
+// 1. Fetch Global Settings (user_id = 0)
+$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 2. Fetch User-Specific Settings (Personal Branding)
+$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtUser->execute([$_SESSION['user_id']]);
+$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 3. Merge (User settings take precedence for overlapping keys)
+$configs = array_merge($global_configs, $user_configs);
+
 // Data Preparation for the template
 $joined = isset($user['created_at']) ? date("F Y", strtotime($user['created_at'])) : 'N/A';
 $status = "Active";
@@ -172,7 +204,6 @@ $statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20';
 $sex = htmlspecialchars($user['sex'] ?? '');
 $birthDate = htmlspecialchars($user['birth_date'] ?? '');
 $role = "Superadmin"; // Hardcoded role for Superadmin profile
-
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -195,14 +226,57 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "primary-hover": "#7724cc", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "var(--primary)",
+                        "background": "var(--background)",
+                        "highlight": "var(--highlight)",
+                        "text-main": "var(--text-main)",
+                        "surface-dark": "#14121a",
+                        "border-subtle": "rgba(255,255,255,0.05)"
+                    }
+                }
+            }
         }
     </script>
     <style>
+        :root {
+            --primary:
+                <?= $configs['theme_color'] ?? '#8c2bee' ?>
+            ;
+            --primary-rgb:
+                <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>
+            ;
+            --highlight:
+                <?= $configs['secondary_color'] ?? '#a1a1aa' ?>
+            ;
+            --text-main:
+                <?= $configs['text_color'] ?? '#d1d5db' ?>
+            ;
+            --background:
+                <?= $configs['bg_color'] ?? '#0a090d' ?>
+            ;
+
+            /* Glassmorphism Engine */
+            --card-blur: <?= $configs['card_blur'] ?? '20px' ?>;
+            --card-bg:
+                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#141216') ?>
+            ;
+        }
+
         body {
-            font-family: 'Lexend', sans-serif;
-            background-color: #0a090d;
-            color: white;
+            font-family: '<?= $configs['font_family'] ?? 'Lexend' ?>', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border, rgba(255, 255, 255, 0.05));
+            backdrop-filter: blur(var(--card-blur));
+            box-shadow: var(--card-shadow, 0 10px 30px rgba(0, 0, 0, 0.2)), var(--card-glow, 0 0 0 transparent);
+            transition: all 0.3s ease;
         }
 
         .sidebar-nav {
@@ -248,12 +322,12 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
         }
 
         .sidebar-scroll-container::-webkit-scrollbar-thumb {
-            background: rgba(140, 43, 238, 0.1);
+            background: rgba(var(--primary-rgb, 140, 43, 238), 0.1);
             border-radius: 10px;
         }
 
         .sidebar-nav:hover .sidebar-scroll-container::-webkit-scrollbar-thumb {
-            background: rgba(140, 43, 238, 0.4);
+            background: rgba(var(--primary-rgb, 140, 43, 238), 0.4);
         }
 
         .nav-text {
@@ -311,18 +385,32 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             align-items: center;
             gap: 16px;
             padding: 10px 38px;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             white-space: nowrap;
             font-size: 11px;
             font-weight: 800;
             letter-spacing: 0.05em;
-            color: #94a3b8;
+            color: var(--text-main);
             text-decoration: none;
         }
 
+        .nav-link span.material-symbols-outlined {
+            color: var(--highlight);
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            opacity: 0.7;
+            transform: scale(1.02);
+        }
+
         .active-nav {
-            color: #8c2bee !important;
+            color: var(--primary) !important;
             position: relative;
+        }
+
+        .active-nav span.material-symbols-outlined {
+            color: var(--primary) !important;
         }
 
         .active-nav::after {
@@ -333,7 +421,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             transform: translateY(-50%);
             width: 4px;
             height: 24px;
-            background: #8c2bee;
+            background: var(--primary);
             border-radius: 4px 0 0 4px;
             opacity: 0;
             transition: opacity 0.3s ease;
@@ -362,7 +450,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
         .profile-input {
             background-color: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #e5e7eb;
+            color: var(--text-main);
             transition: all 0.3s ease;
         }
 
@@ -384,9 +472,9 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
 
         .profile-input:not(:disabled):focus {
             background-color: rgba(255, 255, 255, 0.05);
-            border-color: #8c2bee;
+            border-color: var(--primary);
             outline: none;
-            box-shadow: 0 0 0 1px rgba(140, 43, 238, 0.1);
+            box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 140, 43, 238), 0.1);
         }
 
         .profile-input.has-icon:not(:disabled),
@@ -408,7 +496,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: #8c2bee;
+            color: var(--primary);
             margin-bottom: 1.5rem;
             padding-bottom: 0.5rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -519,13 +607,23 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
 
 <body class="antialiased flex h-screen overflow-hidden">
 
-    <nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 z-[150] flex flex-col no-scrollbar">
+    <nav class="sidebar-nav bg-[--background] border-r border-white/5 z-[150] flex flex-col no-scrollbar">
         <div class="px-7 py-5 mb-2 shrink-0">
             <div class="flex items-center gap-4">
-                <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
-                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                    <?php if (!empty($configs['system_logo'])): ?>
+                        <img src="<?= htmlspecialchars($configs['system_logo']) ?>" id="sidebarLogoPreview"
+                            class="size-full object-contain rounded-xl">
+                    <?php else: ?>
+                        <img src="../assests/horizon logo.png" id="sidebarLogoPreview"
+                            class="size-full object-contain rounded-xl transition-transform duration-500 hover:scale-110"
+                            alt="Horizon Logo">
+                    <?php endif; ?>
                 </div>
-                <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+                <h1 id="sidebarSystemName"
+                    class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">
+                    <?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>
+                </h1>
             </div>
         </div>
 
@@ -605,9 +703,9 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                 <span class="material-symbols-outlined text-xl shrink-0">person</span>
                 <span class="nav-text">Profile</span>
             </a>
-            <a href="../logout.php" class="nav-link text-gray-400 hover:text-rose-500 transition-colors">
-                <span class="material-symbols-outlined text-xl shrink-0">logout</span>
-                <span class="nav-text">Sign Out</span>
+            <a href="../logout.php" class="nav-link !text-gray-400 hover:!text-rose-500 transition-colors group">
+                <span class="material-symbols-outlined text-xl shrink-0 group-hover:!text-rose-500">logout</span>
+                <span class="nav-text group-hover:!text-rose-500">Sign Out</span>
             </a>
         </div>
     </nav>
@@ -616,7 +714,8 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
         <main id="main-wrapper" class="flex-1 p-6 md:p-8 lg:p-10 w-full mx-auto pb-32 animate-fade-in">
             <header class="mb-12 flex flex-row justify-between items-end gap-6">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">My
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none">
+                        <span class="text-[--text-main]">My</span>
                         <span class="text-primary">Profile</span>
                     </h2>
                     <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-2 px-1">
@@ -662,7 +761,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                 <!-- Left Panel -->
                 <div class="w-full xl:w-72 shrink-0 flex flex-col gap-6">
                     <div
-                        class="relative overflow-hidden rounded-3xl bg-[#14121a] border border-white/5 shadow-2xl p-8 text-center group">
+                        class="relative overflow-hidden rounded-3xl bg-[--card-bg] backdrop-blur-[--card-blur] border border-white/5 shadow-2xl p-8 text-center group">
                         <div
                             class="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none transition-transform group-hover:scale-110">
                         </div>
@@ -670,7 +769,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                             <div
                                 class="w-32 h-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden group">
                                 <div id="profile-container"
-                                    class="w-full h-full rounded-[30px] bg-[#14121a] flex items-center justify-center overflow-hidden relative">
+                                    class="w-full h-full rounded-[30px] bg-black/20 flex items-center justify-center overflow-hidden relative">
                                     <?php if (!empty($user['profile_picture'])): ?>
                                         <img id="profilePreviewImg" src="<?= $user['profile_picture'] ?>"
                                             class="size-full aspect-square object-cover object-center transition-transform duration-700 group-hover:scale-110">
@@ -723,7 +822,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                     </div>
 
                     <button id="edit-btn" onclick="toggleEdit()"
-                        class="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 text-white text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group">
+                        class="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 text-[--text-main] text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group">
                         <span
                             class="material-symbols-rounded group-hover:text-primary transition-colors">edit_square</span>
                         <span>Edit Profile</span>
@@ -744,8 +843,8 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                 </div>
 
                 <!-- Right Panel Form -->
-                <div
-                    class="flex-1 w-full bg-[#14121a]/50 backdrop-blur-md border border-white/5 rounded-3xl p-6 md:p-10 shadow-2xl transition-all">
+                <div id="profile-summary-container"
+                    class="glass-card rounded-[40px] p-8 relative overflow-hidden group">
                     <div class="flex items-center justify-between mb-8">
                         <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Profile Details</h1>
                         <div id="edit-indicator"
@@ -764,7 +863,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Username</label>
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Username</label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
@@ -778,7 +877,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
 
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Administrator
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Administrator
                                         Role</label>
                                     <div class="relative group">
                                         <span
@@ -802,7 +901,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                             <div class="space-y-2">
                                                 <div class="flex items-center justify-between ml-1">
                                                     <label
-                                                        class="text-[9px] uppercase font-bold text-gray-600 tracking-widest">New
+                                                        class="text-[9px] uppercase font-bold text-[--text-main]/60 tracking-widest">New
                                                         Password</label>
                                                     <p id="strength-text"
                                                         class="text-[9px] font-black uppercase tracking-widest min-h-[15px]">
@@ -812,7 +911,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                                     <input type="password" name="new_password" id="new_pass"
                                                         onkeyup="checkStrength(this.value)"
                                                         placeholder="Leave blank to keep current"
-                                                        class="w-full bg-[#0a090d] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary focus:outline-none transition-all placeholder:text-gray-800"
+                                                        class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/30"
                                                         disabled>
                                                     <button type="button"
                                                         onclick="togglePassword('new_pass', 'icon_new')"
@@ -828,28 +927,28 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                                 </div>
                                                 <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
                                                     <div id="req-length"
-                                                        class="flex items-center gap-2 text-gray-600 transition-all duration-300">
+                                                        class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
                                                         <span
                                                             class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
                                                         <span class="text-[9px] font-black uppercase tracking-widest">8+
                                                             Characters</span>
                                                     </div>
                                                     <div id="req-upper"
-                                                        class="flex items-center gap-2 text-gray-600 transition-all duration-300">
+                                                        class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
                                                         <span
                                                             class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
                                                         <span
                                                             class="text-[9px] font-black uppercase tracking-widest">Uppercase</span>
                                                     </div>
                                                     <div id="req-number"
-                                                        class="flex items-center gap-2 text-gray-600 transition-all duration-300">
+                                                        class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
                                                         <span
                                                             class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
                                                         <span
                                                             class="text-[9px] font-black uppercase tracking-widest">Number</span>
                                                     </div>
                                                     <div id="req-special"
-                                                        class="flex items-center gap-2 text-gray-600 transition-all duration-300">
+                                                        class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
                                                         <span
                                                             class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
                                                         <span
@@ -860,13 +959,16 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                             </div>
 
                                             <div class="space-y-2">
-                                                <label
-                                                    class="text-[9px] uppercase font-bold text-gray-600 tracking-widest">Confirm
-                                                    New Password</label>
+                                                <div class="flex items-center justify-between ml-1">
+                                                    <label
+                                                        class="text-[9px] uppercase font-bold text-[--text-main]/60 tracking-widest">Confirm
+                                                        New Password</label>
+                                                    <p class="text-[9px] min-h-[15px]"></p> <!-- Alignment Spacer -->
+                                                </div>
                                                 <div class="relative">
                                                     <input type="password" name="confirm_password" id="confirm_pass"
                                                         placeholder="Re-enter new password"
-                                                        class="w-full bg-[#0a090d] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-white focus:border-primary focus:outline-none transition-all placeholder:text-gray-800"
+                                                        class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/30"
                                                         disabled>
                                                     <button type="button"
                                                         onclick="togglePassword('confirm_pass', 'icon_confirm')"
@@ -888,7 +990,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">First
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">First
                                         Name</label>
                                     <div class="relative group">
                                         <span
@@ -903,7 +1005,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
 
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Middle
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Middle
                                         Name</label>
                                     <div class="relative group">
                                         <span
@@ -918,7 +1020,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
 
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Last
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Last
                                         Name</label>
                                     <div class="relative group">
                                         <span
@@ -937,22 +1039,22 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
 
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Date
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Date
                                         of Birth</label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                             <span class="material-symbols-rounded text-lg">cake</span>
                                         </span>
-                                        <input type="date" name="birth_date" id="birth_date" value="<?= $birthDate ?>" disabled required
-                                            max="<?= date('Y-m-d') ?>"
+                                        <input type="date" name="birth_date" id="birth_date" value="<?= $birthDate ?>"
+                                            disabled required max="<?= date('Y-m-d') ?>"
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold [color-scheme:dark]">
                                     </div>
                                 </div>
 
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Sex</label>
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Sex</label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
@@ -982,7 +1084,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Contact
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Contact
                                         No.</label>
                                     <div class="relative group">
                                         <span
@@ -998,7 +1100,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
 
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-gray-600 tracking-widest ml-1">Email</label>
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Email</label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
@@ -1021,7 +1123,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                         <!-- Bottom Save Section -->
                         <div id="save-section" class="hidden border-t border-white/5 pt-10 mt-6 animate-fade-in">
                             <div
-                                class="bg-[#1a1824] border border-primary/20 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save">
+                                class="bg-[--card-bg] border border-primary/20 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save">
                                 <div
                                     class="absolute inset-0 bg-primary/5 opacity-0 group-hover/save:opacity-100 transition-opacity">
                                 </div>
@@ -1035,7 +1137,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                         <h4 class="text-sm font-black italic uppercase tracking-tighter text-white">
                                             Confirm Changes</h4>
                                         <p
-                                            class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-1 opacity-80">
+                                            class="text-[9px] font-bold text-[--text-main]/50 uppercase tracking-widest mt-1 opacity-80">
                                             Enter current password to save changes.</p>
                                     </div>
                                 </div>
@@ -1045,7 +1147,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                     <div class="relative w-full sm:w-44 group/input">
                                         <input type="password" name="current_password" id="current_pass" required
                                             placeholder="Password" disabled
-                                            class="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-xs font-black italic text-white focus:border-primary/50 focus:outline-none transition-all pr-12 placeholder:text-gray-800 tracking-widest">
+                                            class="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-xs font-black italic text-[--text-main] focus:border-primary/50 focus:outline-none transition-all pr-12 placeholder:text-[--text-main]/30 tracking-widest">
                                         <button type="button" onclick="togglePassword('current_pass', 'icon_curr')"
                                             class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white transition-colors flex items-center justify-center">
                                             <span class="material-symbols-rounded text-lg"
@@ -1076,7 +1178,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             onclick="closeModal()">
         </div>
 
-        <div class="relative z-10 bg-[#14121a] w-full max-w-sm rounded-[32px] shadow-2xl border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0"
+        <div class="relative z-10 bg-[--background] w-full max-w-sm rounded-[32px] shadow-2xl border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0"
             id="modal-content">
             <div class="p-8 text-center">
                 <div class="w-20 h-20 rounded-[24px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10"
@@ -1362,11 +1464,11 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                 const icon = req.el.querySelector('.material-symbols-rounded');
                 if (req.met) {
                     strength += 25;
-                    req.el.classList.remove('text-gray-600');
+                    req.el.classList.remove('text-[--text-main]/50');
                     req.el.classList.add('text-emerald-400');
                     icon.innerText = 'check_circle';
                 } else {
-                    req.el.classList.add('text-gray-600');
+                    req.el.classList.add('text-[--text-main]/50');
                     req.el.classList.remove('text-emerald-400');
                     icon.innerText = 'radio_button_unchecked';
                 }
