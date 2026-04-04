@@ -36,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['owner_email'] ?? ''; 
     $contact_number = $_POST['owner_contact'] ?? ''; 
     $username = $_POST['username'] ?? '';
+    $owner_dob = $_POST['owner_dob'] ?? '';
+    $owner_sex = $_POST['owner_sex'] ?? '';
     $password = $_POST['password'] ?? '';
     $password_hash = password_hash($password, PASSWORD_BCRYPT);
     $current_date = date('Y-m-d H:i:s');
@@ -97,8 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // 1. Insert into `users` table
-        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?)");
-        $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $contact_number, $current_date, $current_date]);
+        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, birth_date, sex, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?)");
+        $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $contact_number, $owner_dob, $owner_sex, $current_date, $current_date]);
         $user_id = $pdo->lastInsertId();
 
         // 2. Insert into `gym_addresses` table

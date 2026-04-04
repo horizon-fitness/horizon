@@ -161,6 +161,21 @@ unset($_SESSION['application_data']);
                         </div>
                     </div>
 
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Date of Birth</label>
+                            <input type="date" name="owner_dob" required max="<?php echo date('Y-m-d'); ?>" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Sex</label>
+                            <select name="owner_sex" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none cursor-pointer appearance-none">
+                                <option value="">Select Sex</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="space-y-1.5 mb-5">
                         <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Username (For Login)</label>
                         <input type="text" name="username" required placeholder="e.g. juan_owner2026" autocomplete="username" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
