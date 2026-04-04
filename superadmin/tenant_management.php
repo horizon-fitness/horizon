@@ -381,6 +381,11 @@ $deactivated_count = count($deactivated_tenants);
         }
 
         /* Sidebar-Aware Modal Logic */
+        #global-image-viewer.active {
+        display: flex;
+        opacity: 1;
+        pointer-events: auto !important;
+    }
         #applicationModal {
             position: fixed;
             top: 0;
@@ -778,10 +783,13 @@ $deactivated_count = count($deactivated_tenants);
                                         <tr class="hover:bg-white/5 transition-all">
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-3">
-                                                    <div
-                                                        class="size-16 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0">
+                                                        <?php 
+                                                        $logo_src = !empty($t['logo_path']) ? ((strpos($t['logo_path'], 'data:image') === 0) ? $t['logo_path'] : '../' . $t['logo_path']) : '';
+                                                        ?>
+                                                        <div
+                                                        class="size-16 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0 cursor-zoom-in modal-img-preview"
+                                                        data-src="<?= $logo_src ?>" data-title="<?= htmlspecialchars($t['gym_name']) ?>">
                                                         <?php if (!empty($t['logo_path'])):
-                                                            $logo_src = (strpos($t['logo_path'], 'data:image') === 0) ? $t['logo_path'] : '../' . $t['logo_path'];
                                                             ?>
                                                             <img src="<?= $logo_src ?>"
                                                                 class="size-full object-contain transition-transform hover:scale-110">
@@ -967,12 +975,15 @@ $deactivated_count = count($deactivated_tenants);
                                         <tr class="hover:bg-white/5 transition-all">
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-3">
-                                                    <div
-                                                        class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 grayscale">
+                                                        <?php 
+                                                        $logo_src = !empty($t['logo_path']) ? ((strpos($t['logo_path'], 'data:image') === 0) ? $t['logo_path'] : '../' . $t['logo_path']) : '';
+                                                        ?>
+                                                        <div
+                                                        class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 grayscale cursor-zoom-in modal-img-preview"
+                                                        data-src="<?= $logo_src ?>" data-title="<?= htmlspecialchars($t['gym_name']) ?>">
                                                         <?php if (!empty($t['logo_path'])):
-                                                            $logo_src = (strpos($t['logo_path'], 'data:image') === 0) ? $t['logo_path'] : '../' . $t['logo_path'];
                                                             ?>
-                                                            <img src="<?= $logo_src ?>" class="size-full object-contain opacity-50">
+                                                            <img src="<?= $logo_src ?>" class="size-full object-contain opacity-50 transition-transform hover:scale-110">
                                                         <?php else: ?>
                                                             <span
                                                                 class="text-[--text-main] opacity-50 font-black text-xs"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
@@ -1099,12 +1110,16 @@ $deactivated_count = count($deactivated_tenants);
         class="hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none transition-all duration-500">
         <div class="bg-background/40 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto"
             id="modalBackdrop"></div>
-        <div class="relative w-full max-w-5xl bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[40px] overflow-hidden flex flex-col max-h-[90vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto no-scrollbar"
+        <div class="relative w-full max-w-5xl bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[40px] overflow-hidden flex flex-col min-h-[500px] max-h-[90vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto no-scrollbar"
             id="modalContainer">
             <div id="modalLoading"
-                class="absolute inset-0 flex flex-col items-center justify-center bg-surface-dark/80 backdrop-blur-md z-10 transition-opacity duration-300">
-                <div class="size-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
-                <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] italic">Loading Details...</p>
+                class="absolute inset-0 flex flex-col items-center justify-center bg-[#0d0c12]/90 backdrop-blur-2xl z-10 transition-opacity duration-300">
+                <div class="size-16 relative flex items-center justify-center mb-8">
+                    <div class="absolute inset-0 border-[1px] border-primary/10 rounded-full"></div>
+                    <div class="absolute inset-0 border-[1px] border-t-primary rounded-full animate-spin"></div>
+                    <span class="material-symbols-outlined text-primary/30 text-2xl">database</span>
+                </div>
+                <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] italic animate-pulse">Synchronizing Data...</p>
             </div>
             <div id="modalContent"
                 class="flex-1 p-8 md:p-10 opacity-0 transition-opacity duration-500 overflow-y-auto no-scrollbar"></div>
@@ -1186,8 +1201,8 @@ $deactivated_count = count($deactivated_tenants);
                         setTimeout(() => {
                             loading.classList.add('hidden');
                             content.classList.replace('opacity-0', 'opacity-100');
-                        }, 300);
-                    }, 500);
+                        }, 200);
+                    }, 100);
                 })
                 .catch(error => {
                     closeApplicationModal();

@@ -27,11 +27,13 @@
     #global-image-viewer.active {
         display: flex;
         opacity: 1;
+        pointer-events: auto !important;
     }
     .viewer-content {
-        width: 100%;
-        max-width: 900px;
-        max-height: 85vh;
+        width: fit-content;
+        min-width: 450px;
+        max-width: 95vw;
+        max-height: 90vh;
         position: relative;
         transform: scale(0.98);
         transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -63,7 +65,7 @@
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.2em;
-        color: #8c2bee;
+        color: var(--primary);
         margin-bottom: 4px;
     }
     .viewer-subtitle {
@@ -76,25 +78,63 @@
     }
     .viewer-body {
         flex: 1;
-        overflow: auto;
-        padding: 32px;
+        overflow-y: auto;
+        padding: 40px;
         display: flex;
-        justify-content: center;
+        flex-direction: column;
         align-items: center;
         background: #0d0c12;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: var(--primary) transparent;
     }
-    .viewer-body::-webkit-scrollbar { display: none; }
+    
+    /* Elegant Minimalist Scrollbar (Webkit) */
+    .viewer-body::-webkit-scrollbar {
+        width: 8px;
+    }
+    .viewer-body::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .viewer-body::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.05);
+        border: 2px solid #0d0c12;
+        border-radius: 10px;
+    }
+    .viewer-body::-webkit-scrollbar-thumb:hover {
+        background: var(--primary);
+        border: 2px solid #0d0c12;
+    }
+
+    .viewer-inner-content {
+        width: 100%;
+        max-width: 100%;
+        margin-top: auto;
+        margin-bottom: auto; /* Centering with scrollable support */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 40px;
+        padding-bottom: 60px; /* Generous bottom margin */
+    }
 
     .viewer-img {
         max-width: 100%;
+        max-height: 80vh; /* Keep label in view by default if possible */
+        width: auto;
         height: auto;
-        border-radius: 20px;
+        border-radius: 24px;
         box-shadow: 0 40px 80px rgba(0,0,0,0.5);
         border: 1px solid rgba(255,255,255,0.1);
         transition: transform 0.3s;
+        object-fit: contain;
     }
+
+    .viewer-footer-label {
+        width: fit-content;
+        min-width: 300px;
+    }
+
     .viewer-close {
         width: 44px;
         height: 44px;
@@ -130,11 +170,11 @@
             </button>
         </div>
         <div class="viewer-body">
-            <div class="flex flex-col items-center gap-6 w-full">
+            <div class="viewer-inner-content">
                 <img id="viewer-main-img" src="" alt="View Large" class="viewer-img">
-                <div id="viewer-footer-label" class="bg-white/5 px-6 py-3 rounded-2xl border border-white/5 backdrop-blur-md opacity-0 transition-opacity duration-500">
-                    <p class="text-[10px] font-black uppercase text-primary tracking-[0.2em] mb-1">Authenticated Document</p>
-                    <p id="viewer-document-name" class="text-sm font-black italic uppercase text-white text-center">Document Name</p>
+                <div id="viewer-footer-label" class="viewer-footer-label bg-primary/5 px-8 py-4 rounded-3xl border border-primary/20 backdrop-blur-xl opacity-0 transition-opacity duration-500 shadow-xl shadow-primary/5">
+                    <p class="text-[10px] font-black uppercase text-primary tracking-[0.2em] mb-1.5 text-center italic">Authenticated Document</p>
+                    <p id="viewer-document-name" class="text-sm font-black italic uppercase text-white text-center tracking-tight">Document Name</p>
                 </div>
             </div>
         </div>

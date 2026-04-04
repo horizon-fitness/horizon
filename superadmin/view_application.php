@@ -18,10 +18,11 @@ $app_id = (int)$_GET['id'];
 // Fetch detailed application data
 $stmt = $pdo->prepare("
     SELECT a.*, 
-           u.first_name, u.middle_name, u.last_name, u.email as owner_email, u.contact_number as owner_contact,
+           u.user_id as applicant_id, u.first_name, u.middle_name, u.last_name, u.email as owner_email, 
+           u.contact_number as owner_contact, u.birth_date, u.sex,
            ad.address_line, ad.barangay, ad.city, ad.province, ad.region,
            r.first_name as reviewer_first, r.last_name as reviewer_last,
-           g.gym_id -- Get gym ID if it exists
+           g.gym_id 
     FROM gym_owner_applications a
     JOIN users u ON a.user_id = u.user_id
     JOIN gym_addresses ad ON a.address_id = ad.address_id
@@ -35,6 +36,17 @@ $app = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$app) {
     die("Application not found.");
 }
+
+// Fetch Latest Web Subscription (Horizon)
+$stmtSub = $pdo->prepare("
+    SELECT cs.*, wp.plan_name, wp.price, wp.billing_cycle
+    FROM client_subscriptions cs
+    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+    WHERE cs.owner_user_id = ? 
+    ORDER BY cs.created_at DESC LIMIT 1
+");
+$stmtSub->execute([$app['applicant_id']]);
+$subscription = $stmtSub->fetch(PDO::FETCH_ASSOC);
 
 // 4. Fetch Documents
 $stmtDocs = $pdo->prepare("SELECT * FROM application_documents WHERE application_id = ?");
@@ -161,6 +173,19 @@ if ($is_ajax): ?>
                         <p class="text-sm font-bold text-white tracking-tight"><?= htmlspecialchars($app['owner_email']) ?></p>
                         <p class="text-[11px] text-gray-400 mt-1.5 font-medium tracking-tight"><?= htmlspecialchars($app['owner_contact']) ?></p>
                     </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm">
+                            <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Birth Date</p>
+                            <p class="text-sm font-bold text-white tracking-tight italic"><?= $app['birth_date'] ? date('M d, Y', strtotime($app['birth_date'])) : '---' ?></p>
+                        </div>
+                        <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm">
+                            <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Sex</p>
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[14px] text-primary"><?= strtolower($app['sex'] ?? '') === 'male' ? 'male' : 'female' ?></span>
+                                <p class="text-sm font-bold text-white tracking-tight uppercase italic"><?= htmlspecialchars($app['sex'] ?: '---') ?></p>
+                            </div>
+                        </div>
+                    </div>
                     <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Identity Verification</p>
                         <div class="flex items-center gap-2.5">
@@ -177,38 +202,74 @@ if ($is_ajax): ?>
                 <div class="grid grid-cols-1 gap-4">
                     <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Legal Entity / Type</p>
-                        <p class="text-sm font-bold text-white tracking-tight"><?= htmlspecialchars($app['business_name']) ?></p>
-                        <p class="text-[11px] text-primary mt-1.5 font-black uppercase italic tracking-wider"><?= formatLabel($app['business_type'], $friendlyNames) ?></p>
+                        <p class="text-sm font-bold text-white tracking-tight italic"><?= htmlspecialchars($app['business_name']) ?></p>
+                        <p class="text-[11px] text-primary mt-1.5 font-black uppercase tracking-wider italic"><?= formatLabel($app['business_type'], $friendlyNames) ?></p>
                     </div>
                     <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Facility Address</p>
                         <p class="text-sm font-bold text-white leading-relaxed tracking-tight">
                             <?= htmlspecialchars($app['address_line']) ?><br>
-                            <span class="text-[11px] text-gray-400 font-medium italic">
+                            <span class="text-[11px] text-gray-400 font-medium italic mt-1">
                                 <?= htmlspecialchars($app['barangay'] . ', ' . $app['city'] . ', ' . $app['province'] . ', ' . $app['region']) ?>
                             </span>
                         </p>
                     </div>
-                    <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm">
-                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Gym Contact / Email</p>
-                        <p class="text-sm font-bold text-white tracking-tight"><?= htmlspecialchars($app['email']) ?></p>
-                        <p class="text-[11px] text-gray-400 mt-1.5 font-medium tracking-tight"><?= htmlspecialchars($app['contact_number']) ?></p>
-                    </div>
-                    <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm">
-                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Tax / Registration</p>
-                        <div class="flex justify-between items-center pr-2">
-                            <div>
-                                <p class="text-[8px] text-gray-500 uppercase font-black tracking-widest">TIN</p>
-                                <p class="text-xs font-bold text-white"><?= htmlspecialchars($app['bir_number']) ?></p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-[8px] text-gray-500 uppercase font-black tracking-widest">BP No.</p>
-                                <p class="text-xs font-bold text-white"><?= htmlspecialchars($app['business_permit_no']) ?></p>
-                            </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm">
+                            <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">TIN</p>
+                            <p class="text-sm font-bold text-white"><?= htmlspecialchars($app['bir_number']) ?></p>
+                        </div>
+                        <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5 shadow-sm text-right">
+                            <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">BP Number</p>
+                            <p class="text-sm font-bold text-white"><?= htmlspecialchars($app['business_permit_no']) ?></p>
                         </div>
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- NEW: Web Subscription Details -->
+        <div class="bg-primary/5 border border-primary/20 backdrop-blur-xl rounded-[32px] p-8 shadow-2xl shadow-primary/10 mb-8 mt-2">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="size-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+                    <span class="material-symbols-outlined text-white text-xl">workspace_premium</span>
+                </div>
+                <div>
+                    <h4 class="text-[11px] font-black uppercase text-primary tracking-[0.2em] italic">Horizon Web Subscription</h4>
+                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Platform Plan Details</p>
+                </div>
+                <?php if ($subscription): ?>
+                    <span class="ml-auto px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-500 font-black uppercase italic tracking-widest shadow-inner"><?= htmlspecialchars($subscription['subscription_status']) ?></span>
+                <?php else: ?>
+                    <span class="ml-auto px-4 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] text-red-500 font-black uppercase italic tracking-widest">No Active Subscription</span>
+                <?php endif; ?>
+            </div>
+
+            <?php if ($subscription): ?>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Selected Plan</p>
+                        <p class="text-sm font-extrabold text-white tracking-tight uppercase italic text-primary"><?= htmlspecialchars($subscription['plan_name']) ?></p>
+                    </div>
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Plan Price</p>
+                        <p class="text-sm font-extrabold text-white tracking-tight italic">₱<?= number_format($subscription['price'], 2) ?></p>
+                    </div>
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Billing Cycle</p>
+                        <p class="text-sm font-extrabold text-white tracking-tight uppercase italic"><?= htmlspecialchars($subscription['billing_cycle']) ?></p>
+                    </div>
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Payment</p>
+                        <p class="text-sm font-extrabold <?= strtolower($subscription['payment_status']) === 'paid' ? 'text-emerald-500' : 'text-amber-500' ?> tracking-tight uppercase italic italic"><?= htmlspecialchars($subscription['payment_status']) ?></p>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="bg-white/[0.02] p-8 rounded-3xl border border-white/5 border-dashed flex flex-col items-center justify-center text-center">
+                    <span class="material-symbols-outlined text-4xl text-gray-700 mb-2">payments</span>
+                    <p class="text-xs font-bold text-gray-500 uppercase tracking-widest italic">Awaiting subscription choice upon approval</p>
+                </div>
+            <?php endif; ?>
         </div>
 
         <!-- Financial & Facility Section -->
@@ -565,19 +626,28 @@ endif;
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
             <!-- Owner Information -->
             <div class="glass-card p-8">
-                <h3 class="text-sm font-black italic uppercase tracking-widest mb-6 text-primary border-b border-white/5 pb-4">Owner Profile</h3>
-                <div class="space-y-4">
+                <div class="grid grid-cols-1 gap-6">
                     <div>
-                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Full Name</p>
-                        <p class="text-sm font-bold"><?= htmlspecialchars($app['first_name'] . ' ' . $app['middle_name'] . ' ' . $app['last_name']) ?></p>
+                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1.5 italic">Full Name</p>
+                        <p class="text-sm font-bold text-white"><?= htmlspecialchars($app['first_name'] . ' ' . $app['middle_name'] . ' ' . $app['last_name']) ?></p>
                     </div>
                     <div>
-                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Email Address</p>
-                        <p class="text-sm font-bold"><?= htmlspecialchars($app['owner_email']) ?></p>
+                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1.5 italic">Email & Contact</p>
+                        <p class="text-sm font-bold text-white"><?= htmlspecialchars($app['owner_email']) ?></p>
+                        <p class="text-[11px] text-primary font-black uppercase italic mt-1"><?= htmlspecialchars($app['owner_contact']) ?></p>
                     </div>
-                    <div>
-                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Contact Number</p>
-                        <p class="text-sm font-bold"><?= htmlspecialchars($app['owner_contact']) ?></p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1.5 italic">Birth Date</p>
+                            <p class="text-sm font-bold text-white italic tracking-tight"><?= $app['birth_date'] ? date('M d, Y', strtotime($app['birth_date'])) : '---' ?></p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1.5 italic">Sex / Gender</p>
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary text-sm tracking-tight"><?= strtolower($app['sex'] ?? '') === 'male' ? 'male' : 'female' ?></span>
+                                <p class="text-sm font-bold text-white italic uppercase tracking-tighter"><?= htmlspecialchars($app['sex'] ?: '---') ?></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -664,9 +734,58 @@ endif;
             </div>
         </div>
 
-        <?php if ($subscription): ?>
-        <!-- Subscription Info (Kept unchanged) -->
-        <?php endif; ?>
+        <!-- Horizon Web Subscription -->
+        <div class="bg-primary/5 border border-primary/20 backdrop-blur-2xl rounded-[40px] p-10 mb-10 shadow-3xl shadow-primary/10 relative overflow-hidden group">
+            <div class="absolute -right-20 -top-20 size-64 bg-primary/10 blur-[100px] group-hover:bg-primary/20 transition-all rounded-full duration-1000"></div>
+            
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-8 relative z-10">
+                <div class="flex items-center gap-6">
+                    <div class="size-16 rounded-[24px] bg-primary flex items-center justify-center shadow-2xl shadow-primary/30">
+                        <span class="material-symbols-outlined text-white text-3xl">workspace_premium</span>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-black italic uppercase italic tracking-tighter text-white">Platform Plan</h3>
+                        <p class="text-xs font-bold text-primary uppercase tracking-[0.2em] mt-1">Horizon Management Suite</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:items-end gap-3">
+                    <?php if ($subscription): ?>
+                        <div class="flex items-center gap-4">
+                            <span class="px-5 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-500 font-extrabold uppercase italic tracking-widest shadow-inner">Status: <?= htmlspecialchars($subscription['subscription_status']) ?></span>
+                            <span class="px-5 py-2 rounded-2xl bg-white/5 border border-white/10 text-xs text-white font-extrabold uppercase italic tracking-widest italic"><?= htmlspecialchars($subscription['payment_status']) ?></span>
+                        </div>
+                    <?php else: ?>
+                        <span class="px-5 py-2 rounded-2xl bg-red-500/10 border border-red-500/20 text-xs text-red-500 font-extrabold uppercase italic tracking-widest italic">Awaiting Plan Selection</span>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <?php if ($subscription): ?>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12 relative z-10">
+                    <div class="bg-white/[0.03] p-8 rounded-[32px] border border-white/10 backdrop-blur-md">
+                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2 italic">Applied Package</p>
+                        <p class="text-xl font-black text-white italic uppercase italic"><?= htmlspecialchars($subscription['plan_name']) ?></p>
+                        <p class="text-[10px] text-primary font-black uppercase mt-1 italic tracking-widest"><?= htmlspecialchars($subscription['billing_cycle']) ?></p>
+                    </div>
+                    <div class="bg-white/[0.03] p-8 rounded-[32px] border border-white/10 backdrop-blur-md">
+                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2 italic">Subscription Fee</p>
+                        <p class="text-xl font-black text-white italic tracking-tight italic">₱<?= number_format($subscription['price'], 2) ?></p>
+                        <p class="text-[10px] text-gray-500 font-black uppercase mt-1 italic tracking-widest italic">Total Platform Fee</p>
+                    </div>
+                    <div class="bg-white/[0.03] p-8 rounded-[32px] border border-white/10 backdrop-blur-md">
+                        <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-2 italic">Activation Info</p>
+                        <p class="text-xl font-black text-white italic tracking-tight italic"><?= date('M d, Y', strtotime($subscription['start_date'])) ?></p>
+                        <p class="text-[10px] text-gray-500 font-black uppercase mt-1 italic tracking-widest italic">Contract Commencement</p>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="mt-12 bg-white/[0.02] p-12 rounded-[40px] border-2 border-dashed border-white/5 flex flex-col items-center justify-center text-center italic relative z-10">
+                    <span class="material-symbols-outlined text-5xl text-gray-700 mb-4 transition-transform group-hover:scale-110">credit_card</span>
+                    <p class="text-sm font-bold text-gray-500 uppercase tracking-widest italic">No matching client subscription found for this user.</p>
+                </div>
+            <?php endif; ?>
+        </div>
 
         <!-- Compliance Section (Kept unchanged but improved layout) -->
         <div class="glass-card p-8 mb-10">
