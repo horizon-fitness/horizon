@@ -3,16 +3,26 @@
     #global-image-viewer {
         display: none;
         position: fixed;
-        inset: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: var(--sidebar-width, 0) !important;
         z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        opacity: 0;
+        transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+        pointer-events: none;
+    }
+    #imageBackdrop {
+        position: absolute;
+        inset: 0;
         background: rgba(10, 9, 13, 0.75);
         backdrop-filter: blur(25px) saturate(200%);
         -webkit-backdrop-filter: blur(25px) saturate(200%);
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
-        opacity: 0;
-        transition: opacity 0.3s ease;
+        z-index: -1;
+        pointer-events: auto;
     }
     #global-image-viewer.active {
         display: flex;
@@ -20,13 +30,13 @@
     }
     .viewer-content {
         width: 100%;
-        max-width: 1200px;
-        max-height: 95vh;
+        max-width: 900px;
+        max-height: 85vh;
         position: relative;
         transform: scale(0.98);
         transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
         background: #14121a;
-        border-radius: 32px;
+        border-radius: 40px;
         border: 1px solid rgba(255,255,255,0.1);
         display: flex;
         flex-direction: column;
@@ -72,12 +82,10 @@
         justify-content: center;
         align-items: center;
         background: #0d0c12;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
     }
-    /* Custom Scrollbar for Viewer */
-    .viewer-body::-webkit-scrollbar { width: 8px; }
-    .viewer-body::-webkit-scrollbar-track { background: transparent; }
-    .viewer-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-    .viewer-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+    .viewer-body::-webkit-scrollbar { display: none; }
 
     .viewer-img {
         max-width: 100%;
@@ -110,7 +118,8 @@
 </style>
 
 <div id="global-image-viewer" onclick="closeImageViewer()">
-    <div class="viewer-content" onclick="event.stopPropagation()">
+    <div id="imageBackdrop"></div>
+    <div class="viewer-content shadow-2xl" onclick="event.stopPropagation()">
         <div class="viewer-header">
             <div class="viewer-title-group">
                 <span class="viewer-main-title">Document Verification</span>

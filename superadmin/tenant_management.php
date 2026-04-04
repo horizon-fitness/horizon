@@ -11,6 +11,37 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 $page_title = "Tenant Management";
 $active_page = "tenants"; 
 
+// 4-Color Elite Branding System: Fetching & Merging Settings
+// Hex to RGB helper for dynamic transparency
+if (!function_exists('hexToRgb')) {
+    function hexToRgb($hex)
+    {
+        $hex = str_replace("#", "", $hex);
+        if (strlen($hex) == 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+        } else {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        }
+        return "$r, $g, $b";
+    }
+}
+
+// 1. Fetch Global Settings (user_id = 0)
+$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 2. Fetch User-Specific Settings (Personal Branding)
+$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtUser->execute([$_SESSION['user_id']]);
+$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 3. Merge (User settings take precedence for overlapping keys)
+$brand = array_merge($global_configs, $user_configs);
+
 $stmtTenants = $pdo->query("
     SELECT g.*, 
            u.first_name, u.last_name, u.email as owner_email,
@@ -85,47 +116,107 @@ $deactivated_count = count($deactivated_tenants);
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "var(--primary)",
+                        "background": "var(--background)",
+                        "highlight": "var(--highlight)",
+                        "text-main": "var(--text-main)",
+                        "surface-dark": "#14121a",
+                        "border-subtle": "rgba(255,255,255,0.05)"
+                    }
+                }
+            }
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        :root {
+            --primary:
+                <?= $brand['theme_color'] ?? '#8c2bee' ?>
+            ;
+            --primary-rgb:
+                <?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>
+            ;
+            --highlight:
+                <?= $brand['secondary_color'] ?? '#a1a1aa' ?>
+            ;
+            --text-main:
+                <?= $brand['text_color'] ?? '#d1d5db' ?>
+            ;
+            --background:
+                <?= $brand['bg_color'] ?? '#0a090d' ?>
+            ;
+
+            /* Glassmorphism Engine */
+            --card-blur: 20px;
+            --card-bg:
+                <?= ($brand['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($brand['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($brand['card_color'] ?? '#141216') ?>
+            ;
+        }
+
+        body {
+            font-family: '<?= $brand['font_family'] ?? 'Lexend' ?>', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
         
-        /* Sidebar Hover Logic - ADJUSTED WIDTHS */
-        :root { --sidebar-width: 110px; }
         .sidebar-nav {
             width: var(--sidebar-width);
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
+            background: var(--background);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 250; 
         }
-        .sidebar-nav:hover {
-            --sidebar-width: 300px;
-        }
-        #applicationModal, #modalBackdrop {
+
+        /* Unified Sidebar/Modal Width Variable Scoping */
+        :root { --sidebar-width: 110px; }
+        .sidebar-nav:hover { --sidebar-width: 300px; }
+        .sidebar-nav:hover ~ #applicationModal { --sidebar-width: 300px; }
+
+        #applicationModal {
             left: var(--sidebar-width) !important;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden; /* Prevent blur bleed */
+        }
+        #modalBackdrop {
+            position: absolute;
+            inset: 0;
+            z-index: -1;
         }
         #applicationModal {
             padding-left: 5rem; /* Significant breathing room (80px) from the nav */
             padding-right: 5rem;
         }
         .nav-text {
-            opacity: 0;
+            opacity: 0 !important;
+            visibility: hidden !important;
             transform: translateX(-15px);
             transition: all 0.3s ease-in-out;
             white-space: nowrap;
             pointer-events: none;
         }
         .sidebar-nav:hover .nav-text {
-            opacity: 1;
+            opacity: 1 !important;
+            visibility: visible !important;
             transform: translateX(0);
             pointer-events: auto;
         }
 
         .nav-section-header {
             max-height: 0;
-            opacity: 0;
+            opacity: 0 !important;
+            visibility: hidden !important;
             overflow: hidden;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             margin: 0 !important;
@@ -133,7 +224,8 @@ $deactivated_count = count($deactivated_tenants);
         }
         .sidebar-nav:hover .nav-section-header {
             max-height: 20px;
-            opacity: 1;
+            opacity: 1 !important;
+            visibility: visible !important;
             margin-bottom: 0.5rem !important;
             pointer-events: auto;
         }
@@ -151,18 +243,56 @@ $deactivated_count = count($deactivated_tenants);
         }
         /* End Sidebar Hover Logic */
 
-        .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
-        .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { 
-            content: ''; 
-            position: absolute; 
-            right: 0px; 
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 38px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            color: var(--text-main);
+            text-decoration: none;
+        }
+
+        .nav-link span.material-symbols-outlined {
+            color: var(--highlight);
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            opacity: 0.8;
+            transform: scale(1.02);
+        }
+
+        .active-nav {
+            color: var(--primary) !important;
+            position: relative;
+        }
+
+        .active-nav span.material-symbols-outlined {
+            color: var(--primary) !important;
+            opacity: 1 !important;
+        }
+        .active-nav::after {
+            content: '';
+            position: absolute;
+            right: 0px;
             top: 50%;
             transform: translateY(-50%);
-            width: 4px; 
-            height: 20px; 
-            background: #8c2bee; 
-            border-radius: 99px; 
+            width: 4px;
+            height: 24px;
+            background: var(--primary);
+            border-radius: 4px 0 0 4px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar-nav:hover .active-nav::after {
+            opacity: 1;
         }
         
         @media (max-width: 1023px) {
@@ -178,6 +308,33 @@ $deactivated_count = count($deactivated_tenants);
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Sidebar-Aware Modal Logic */
+        #applicationModal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
+            z-index: 200;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #applicationModal.flex-important {
+            display: flex !important;
+        }
+
+        .sidebar-nav:hover ~ #applicationModal {
+            left: 300px;
+        }
+
+        .sidebar-nav:hover ~ #global-image-viewer {
+            --sidebar-width: 300px;
+        }
+
+        @media (max-width: 1023px) {
+            #applicationModal { left: 0 !important; }
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -197,92 +354,101 @@ $deactivated_count = count($deactivated_tenants);
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
-    <div class="mb-4 shrink-0"> 
-        <div class="flex items-center gap-4 mb-4"> 
-            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+<nav class="sidebar-nav h-screen sticky top-0 z-50 shrink-0 flex flex-col no-scrollbar">
+    <div class="px-7 py-5 mb-2 shrink-0"> 
+        <div class="flex items-center gap-4"> 
+            <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($brand['system_logo'])): ?>
+                    <img src="<?= htmlspecialchars($brand['system_logo']) ?>" id="sidebarLogoPreview"
+                        class="size-full object-contain rounded-xl">
+                <?php else: ?>
+                    <img src="../assests/horizon logo.png" id="sidebarLogoPreview"
+                        class="size-full object-contain rounded-xl transition-transform duration-500 hover:scale-110"
+                        alt="Horizon Logo">
+                <?php endif; ?>
             </div>
-            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">
+                <?= htmlspecialchars($brand['system_name'] ?? 'Horizon System') ?>
+            </h1>
         </div>
     </div>
     
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
-        <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
+    <div class="flex-1 overflow-y-auto sidebar-scroll-container no-scrollbar space-y-1 pb-4">
+        <div class="nav-section-header px-7 mb-2">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span>
         </div>
-        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="superadmin_dashboard.php" class="nav-link <?= ($active_page == 'dashboard') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
         </a>
         
-        <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
+        <div class="nav-section-header px-7 mb-2 mt-4">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span>
         </div>
-        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="tenant_management.php" class="nav-link <?= ($active_page == 'tenants') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">business</span> 
             <span class="nav-text">Tenant Management</span>
         </a>
 
-        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="subscription_logs.php" class="nav-link <?= ($active_page == 'subscriptions') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
             <span class="nav-text">Subscription Logs</span>
         </a>
 
-        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="real_time_occupancy.php" class="nav-link <?= ($active_page == 'occupancy') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span> 
             <span class="nav-text">Real-Time Occupancy</span>
         </a>
 
-        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="recent_transaction.php" class="nav-link <?= ($active_page == 'transactions') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
             <span class="nav-text">Recent Transactions</span>
         </a>
 
-        <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System</span>
+        <div class="nav-section-header px-7 mb-2 mt-4">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">System</span>
         </div>
-        <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="system_alerts.php" class="nav-link <?= ($active_page == 'alerts') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
             <span class="nav-text">System Alerts</span>
         </a>
 
-        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="system_reports.php" class="nav-link <?= ($active_page == 'reports') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
             <span class="nav-text">Reports</span>
         </a>
 
-        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="sales_report.php" class="nav-link <?= ($active_page == 'sales_report') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">monitoring</span> 
             <span class="nav-text">Sales Reports</span>
         </a>
 
-        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="audit_logs.php" class="nav-link <?= ($active_page == 'audit_logs') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">assignment</span> 
             <span class="nav-text">Audit Logs</span>
         </a>
 
-        <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="backup.php" class="nav-link <?= ($active_page == 'backup') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
             <span class="nav-text">Backup</span>
         </a>
     </div>
 
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-2 shrink-0">
-        <div class="nav-section-header px-0 mb-0">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
+    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
+        <div class="nav-section-header px-7 mb-0">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span>
         </div>
-        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="settings.php" class="nav-link <?= ($active_page == 'settings') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
             <span class="nav-text">Settings</span>
         </a>
-        <a href="profile.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="profile.php" class="nav-link <?= ($active_page == 'profile') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">person</span> 
             <span class="nav-text">Profile</span>
         </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
-            <span class="nav-link nav-text">Sign Out</span>
+        <a href="../logout.php" class="nav-link !text-gray-400 hover:!text-rose-500 transition-colors group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0 group-hover:!text-rose-500">logout</span>
+            <span class="nav-text group-hover:!text-rose-500">Sign Out</span>
         </a>
     </div>
 </nav>
@@ -292,13 +458,18 @@ $deactivated_count = count($deactivated_tenants);
 
         <header class="mb-10 flex flex-row justify-between items-end gap-6">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white">Tenant <span class="text-primary">Management</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Manage Gym Accounts & Subscriptions</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none">
+                    <span class="text-[--text-main] opacity-80">Tenant</span>
+                    <span class="text-primary">Management</span>
+                </h2>
+                <p class="text-[--text-main] opacity-60 text-xs font-bold uppercase tracking-widest mt-2 px-1">
+                    Manage Gym Accounts & Subscriptions
+                </p>
             </div>
             
             <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
+                <p id="headerClock" class="text-[--text-main] font-black italic text-2xl leading-none transition-colors hover:text-primary uppercase tracking-tighter mb-2">00:00:00 AM</p>
+                <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
@@ -319,16 +490,16 @@ $deactivated_count = count($deactivated_tenants);
         <?php endif; ?>
 
         <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-10">
-            <div class="glass-card p-6 border border-white/5 bg-white/5 flex items-center gap-4">
+            <div class="glass-card p-6 flex items-center gap-4">
                 <div class="size-12 rounded-full bg-white/10 flex items-center justify-center text-white">
                     <span class="material-symbols-outlined text-2xl">domain</span>
                 </div>
                 <div>
-                    <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest">Total Tenants</p>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 tracking-widest">Total Tenants</p>
                     <h3 class="text-2xl font-black italic uppercase"><?= $total_tenants ?></h3>
                 </div>
             </div>
-            <div class="glass-card p-6 border border-emerald-500/20 bg-emerald-500/5 flex items-center gap-4">
+            <div class="glass-card p-6 status-card-green flex items-center gap-4">
                 <div class="size-12 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
                     <span class="material-symbols-outlined text-2xl">check_circle</span>
                 </div>
@@ -337,7 +508,7 @@ $deactivated_count = count($deactivated_tenants);
                     <h3 class="text-2xl font-black italic uppercase text-emerald-400"><?= $active_count ?></h3>
                 </div>
             </div>
-            <div class="glass-card p-6 border border-primary/20 bg-primary/5 flex items-center gap-4">
+            <div class="glass-card p-6 flex items-center gap-4 border-primary/20 bg-primary/5">
                 <div class="size-12 rounded-full bg-primary/20 flex items-center justify-center text-primary">
                     <span class="material-symbols-outlined text-2xl">groups</span>
                 </div>
@@ -346,7 +517,7 @@ $deactivated_count = count($deactivated_tenants);
                     <h3 class="text-2xl font-black italic uppercase text-primary"><?= number_format($total_members_count) ?></h3>
                 </div>
             </div>
-            <div class="glass-card p-6 border border-amber-500/20 bg-amber-500/5 flex items-center gap-4">
+            <div class="glass-card p-6 status-card-yellow flex items-center gap-4">
                 <div class="size-12 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500">
                     <span class="material-symbols-outlined text-2xl">pending_actions</span>
                 </div>
@@ -355,7 +526,7 @@ $deactivated_count = count($deactivated_tenants);
                     <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_count ?></h3>
                 </div>
             </div>
-            <div class="glass-card p-6 border border-red-500/20 bg-red-500/5 flex items-center gap-4">
+            <div class="glass-card p-6 status-card-red flex items-center gap-4">
                 <div class="size-12 rounded-full bg-red-500/20 flex items-center justify-center text-red-500">
                     <span class="material-symbols-outlined text-2xl">pause_circle</span>
                 </div>
@@ -371,14 +542,14 @@ $deactivated_count = count($deactivated_tenants);
                 Active & Suspended
                 <div id="tabIndicator-registered" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-100"></div>
             </button>
-            <button onclick="switchTab('pending')" id="tabBtn-pending" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-gray-500 hover:text-white">
+            <button onclick="switchTab('pending')" id="tabBtn-pending" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100">
                 Pending Apps
                 <div id="tabIndicator-pending" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0"></div>
                 <?php if ($pending_count > 0): ?>
                     <span class="absolute -top-1 -right-4 size-4 bg-amber-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-amber-500/20"><?= $pending_count ?></span>
                 <?php endif; ?>
             </button>
-            <button onclick="switchTab('deactivated')" id="tabBtn-deactivated" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-gray-500 hover:text-white">
+            <button onclick="switchTab('deactivated')" id="tabBtn-deactivated" class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100">
                 Deactivated
                 <div id="tabIndicator-deactivated" class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0"></div>
                 <?php if ($deactivated_count > 0): ?>
@@ -399,7 +570,7 @@ $deactivated_count = count($deactivated_tenants);
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                        <tr class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
                             <th class="px-8 py-4">Gym Name</th>
                             <th class="px-8 py-4">Applicant</th>
                             <th class="px-8 py-4">Applied Date</th>
@@ -416,20 +587,20 @@ $deactivated_count = count($deactivated_tenants);
                                         </div>
                                         <div>
                                             <p class="text-sm font-bold italic"><?= htmlspecialchars($app['gym_name']) ?></p>
-                                            <p class="text-[10px] text-gray-500 uppercase tracking-wider font-bold"><?= htmlspecialchars($app['business_type']) ?></p>
+                                            <p class="text-[10px] text-[--text-main] opacity-50 uppercase tracking-wider font-bold"><?= htmlspecialchars($app['business_type']) ?></p>
                                         </div>
                                     </div>
                                 </td>
                                 <td class="px-8 py-5">
                                     <p class="text-xs font-medium text-white"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
-                                    <p class="text-[10px] text-gray-500"><?= htmlspecialchars($app['email']) ?></p>
+                                    <p class="text-[10px] text-[--text-main] opacity-50"><?= htmlspecialchars($app['email']) ?></p>
                                 </td>
                                 <td class="px-8 py-5 text-xs font-medium text-gray-400">
                                     <?= date('M d, Y h:i A', strtotime($app['submitted_at'])) ?>
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     <div class="inline-flex gap-2">
-                                        <button onclick="openApplicationModal(<?= $app['application_id'] ?>)" class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
+                                        <button onclick="openApplicationModal(<?= $app['application_id'] ?>)" class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
                                             <span class="material-symbols-outlined text-sm">visibility</span> View
                                         </button>
                                         <form method="POST" action="../action/process_application.php" class="inline-flex gap-2">
@@ -452,8 +623,8 @@ $deactivated_count = count($deactivated_tenants);
         </div>
         <?php else: ?>
             <div class="glass-card p-12 text-center border border-white/5 bg-white/5 rounded-[32px]">
-                <span class="material-symbols-outlined text-4xl text-gray-600 mb-4 uppercase">check_circle</span>
-                <p class="text-xs font-black uppercase text-gray-500 tracking-widest">All caught up! No pending applications.</p>
+                <span class="material-symbols-outlined text-4xl text-[--text-main] opacity-60 mb-4 uppercase">check_circle</span>
+                <p class="text-xs font-black uppercase text-[--text-main] opacity-50 tracking-widest">All caught up! No pending applications.</p>
             </div>
         <?php endif; ?>
         </div>
@@ -466,7 +637,7 @@ $deactivated_count = count($deactivated_tenants);
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                        <tr class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
                             <th class="px-8 py-4">Gym Identity</th>
                             <th class="px-8 py-4">Owner Contact</th>
                             <th class="px-8 py-4">Plan & Status</th>
@@ -477,7 +648,7 @@ $deactivated_count = count($deactivated_tenants);
                     <tbody class="divide-y divide-white/5">
                         <?php if (empty($active_tenants)): ?>
                             <tr>
-                                <td colspan="5" class="px-8 py-8 text-center text-xs font-bold text-gray-500 italic uppercase">No active/suspended tenants found.</td>
+                                <td colspan="5" class="px-8 py-8 text-center text-xs font-bold text-[--text-main] opacity-50 italic uppercase">No active/suspended tenants found.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($active_tenants as $t): ?>
@@ -501,11 +672,11 @@ $deactivated_count = count($deactivated_tenants);
                                     </td>
                                     <td class="px-8 py-5">
                                         <p class="text-xs font-medium text-white"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
-                                        <p class="text-[10px] text-gray-500"><?= htmlspecialchars($t['owner_email']) ?></p>
+                                        <p class="text-[10px] text-[--text-main] opacity-50"><?= htmlspecialchars($t['owner_email']) ?></p>
                                     </td>
                                     <td class="px-8 py-5">
                                         <div class="flex flex-col gap-1.5">
-                                            <p class="text-[10px] font-black uppercase text-gray-400 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
+                                            <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
                                             <?php 
                                                 $sub = $t['sub_status'] ?? 'None';
                                                 if ($sub === 'Active'):
@@ -547,7 +718,7 @@ $deactivated_count = count($deactivated_tenants);
                                     <td class="px-8 py-5 text-right">
                                         <div class="inline-flex gap-2">
                                             <?php if ($t['application_id']): ?>
-                                                <button onclick="openApplicationModal(<?= $t['application_id'] ?>)" title="View Application Details" class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-gray-400 flex items-center justify-center transition-colors">
+                                                <button onclick="openApplicationModal(<?= $t['application_id'] ?>)" title="View Application Details" class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 flex items-center justify-center transition-colors">
                                                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                                                 </button>
                                             <?php endif; ?>
@@ -583,13 +754,13 @@ $deactivated_count = count($deactivated_tenants);
                 </table>
             </div>
             <div class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center">
-                <p class="text-[10px] font-black uppercase text-gray-600 tracking-widest">Showing <?= count($active_tenants) ?> of <?= $active_count + $suspended_count ?> gyms</p>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest">Showing <?= count($active_tenants) ?> of <?= $active_count + $suspended_count ?> gyms</p>
                 <div class="flex gap-2">
-                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all disabled:opacity-20" disabled>
+                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] opacity-50 hover:opacity-100 transition-all disabled:opacity-20" disabled>
                         <span class="material-symbols-outlined text-sm">chevron_left</span>
                     </button>
                     <button class="size-8 rounded-lg bg-primary flex items-center justify-center text-white transition-all font-black text-[10px]">1</button>
-                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all">
+                    <button class="size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] opacity-50 hover:opacity-100 transition-all">
                         <span class="material-symbols-outlined text-sm">chevron_right</span>
                     </button>
                 </div>
@@ -608,7 +779,7 @@ $deactivated_count = count($deactivated_tenants);
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead>
-                            <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                            <tr class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
                                 <th class="px-8 py-4">Gym Identity</th>
                                 <th class="px-8 py-4">Owner Contact</th>
                                 <th class="px-8 py-4">Status Info</th>
@@ -618,7 +789,7 @@ $deactivated_count = count($deactivated_tenants);
                         <tbody class="divide-y divide-white/5">
                             <?php if (empty($deactivated_tenants)): ?>
                                 <tr>
-                                    <td colspan="4" class="px-8 py-12 text-center text-xs font-bold text-gray-500 italic uppercase">No deactivated gyms found.</td>
+                                    <td colspan="4" class="px-8 py-12 text-center text-xs font-bold text-[--text-main] opacity-50 italic uppercase">No deactivated gyms found.</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($deactivated_tenants as $t): ?>
@@ -631,25 +802,25 @@ $deactivated_count = count($deactivated_tenants);
                                                     ?>
                                                         <img src="<?= $logo_src ?>" class="size-full object-contain opacity-50">
                                                     <?php else: ?>
-                                                        <span class="text-gray-500 font-black text-xs"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
+                                                        <span class="text-[--text-main] opacity-50 font-black text-xs"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
                                                     <?php endif; ?>
                                                 </div>
                                                 <div>
-                                                    <p class="text-sm font-bold italic text-gray-400"><?= htmlspecialchars($t['gym_name']) ?></p>
-                                                    <p class="text-[10px] text-gray-600 uppercase tracking-wider font-bold"><?= htmlspecialchars($t['tenant_code']) ?></p>
+                                                    <p class="text-sm font-bold italic text-[--text-main] opacity-40"><?= htmlspecialchars($t['gym_name']) ?></p>
+                                                    <p class="text-[10px] text-[--text-main] opacity-60 uppercase tracking-wider font-bold"><?= htmlspecialchars($t['tenant_code']) ?></p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td class="px-8 py-5">
-                                            <p class="text-xs font-medium text-gray-400"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
-                                            <p class="text-[10px] text-gray-600"><?= htmlspecialchars($t['owner_email']) ?></p>
+                                            <p class="text-xs font-medium text-[--text-main] opacity-40"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
+                                            <p class="text-[10px] text-[--text-main] opacity-60"><?= htmlspecialchars($t['owner_email']) ?></p>
                                         </td>
                                         <td class="px-8 py-5">
                                             <div class="flex items-center gap-2 text-red-500/50">
                                                 <span class="material-symbols-outlined text-sm">block</span>
                                                 <span class="text-[9px] font-black uppercase italic tracking-wider">Deactivated Account</span>
                                             </div>
-                                            <p class="text-[9px] text-gray-600 mt-1 italic leading-tight">All login access for this tenant and its staff is revoked.</p>
+                                            <p class="text-[9px] text-[--text-main] opacity-60 mt-1 italic leading-tight">All login access for this tenant and its staff is revoked.</p>
                                         </td>
                                         <td class="px-8 py-5 text-right">
                                             <form method="POST" action="../action/process_tenant.php">
@@ -667,7 +838,7 @@ $deactivated_count = count($deactivated_tenants);
                     </table>
                 </div>
                 <div class="px-8 py-4 border-t border-white/5 bg-white/[0.02]">
-                    <p class="text-[10px] font-black uppercase text-gray-600 tracking-widest italic">Total Deactivated: <?= $deactivated_count ?></p>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest italic">Total Deactivated: <?= $deactivated_count ?></p>
                 </div>
             </div>
         </div>
@@ -686,12 +857,12 @@ $deactivated_count = count($deactivated_tenants);
             if (s === tabId) {
                 section.classList.remove('hidden');
                 btn.classList.add('text-primary');
-                btn.classList.remove('text-gray-500');
+                btn.classList.remove('opacity-50');
                 indicator.classList.remove('opacity-0');
                 indicator.classList.add('opacity-100');
             } else {
                 section.classList.add('hidden');
-                btn.classList.add('text-gray-500');
+                btn.classList.add('opacity-50');
                 btn.classList.remove('text-primary');
                 indicator.classList.remove('opacity-100');
                 indicator.classList.add('opacity-0');
@@ -710,17 +881,17 @@ $deactivated_count = count($deactivated_tenants);
 </script>
 
 <div id="confirmModal" class="fixed inset-0 z-[150] hidden items-center justify-center p-4 overflow-hidden">
-    <div id="confirmBackdrop" onclick="closeConfirmModal()" class="fixed inset-0 bg-background-dark/60 backdrop-blur-sm transition-opacity duration-300 opacity-0"></div>
-    <div id="confirmContainer" class="relative w-full max-w-md bg-surface-dark border border-white/10 shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0">
-        <div class="p-8 text-center text-white">
+    <div id="confirmBackdrop" onclick="closeConfirmModal()" class="fixed inset-0 bg-background/60 backdrop-blur-sm transition-opacity duration-300 opacity-0"></div>
+    <div id="confirmContainer" class="relative w-full max-w-md bg-transparent backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0">
+        <div class="p-8 text-center text-[--text-main]">
             <div class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
                 <span class="material-symbols-outlined text-3xl text-primary">contact_support</span>
             </div>
             <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter mb-2 italic">Confirm Action</h3>
-            <p id="confirmMessage" class="text-gray-400 text-xs font-medium leading-relaxed mb-8"></p>
+            <p id="confirmMessage" class="text-[--text-main] opacity-50 text-xs font-medium leading-relaxed mb-8"></p>
             
             <div class="flex gap-3">
-                <button onclick="closeConfirmModal()" class="flex-1 py-3 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest transition-all text-gray-400">
+                <button onclick="closeConfirmModal()" class="flex-1 py-3 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest transition-all text-[--text-main] opacity-40 hover:opacity-100">
                     Cancel
                 </button>
                 <button onclick="executeConfirmedAction()" class="flex-1 py-3 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
@@ -731,9 +902,9 @@ $deactivated_count = count($deactivated_tenants);
     </div>
 </div>
 
-<div id="applicationModal" class="fixed inset-y-0 right-0 z-[100] hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none">
-    <div class="fixed inset-y-0 right-0 bg-background-dark/40 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto" id="modalBackdrop"></div>
-    <div class="relative w-full max-w-4xl bg-surface-dark/80 backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden flex flex-col max-h-[90vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto" id="modalContainer">
+<div id="applicationModal" class="hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none transition-all duration-500">
+    <div class="bg-background/40 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto" id="modalBackdrop"></div>
+    <div class="relative w-full max-w-5xl bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[40px] overflow-hidden flex flex-col max-h-[90vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto no-scrollbar" id="modalContainer">
         <div id="modalLoading" class="absolute inset-0 flex flex-col items-center justify-center bg-surface-dark/80 backdrop-blur-md z-10 transition-opacity duration-300">
             <div class="size-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4"></div>
             <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] italic">Loading Details...</p>
@@ -757,7 +928,7 @@ $deactivated_count = count($deactivated_tenants);
         document.getElementById('confirmMessage').textContent = message;
         
         const modal = document.getElementById('confirmModal');
-        modal.classList.replace('hidden', 'flex');
+        modal.classList.replace('hidden', 'flex-important');
         setTimeout(() => {
             document.getElementById('confirmBackdrop').classList.replace('opacity-0', 'opacity-100');
             document.getElementById('confirmContainer').classList.replace('scale-95', 'scale-100');
@@ -775,7 +946,7 @@ $deactivated_count = count($deactivated_tenants);
         container.classList.replace('opacity-100', 'opacity-0');
         
         setTimeout(() => {
-            modal.classList.replace('flex', 'hidden');
+            modal.classList.replace('flex-important', 'hidden');
             pendingForm = null;
         }, 300);
     }
@@ -797,7 +968,7 @@ $deactivated_count = count($deactivated_tenants);
         const content = document.getElementById('modalContent');
         const loading = document.getElementById('modalLoading');
 
-        modal.classList.replace('hidden', 'flex');
+        modal.classList.replace('hidden', 'flex-important');
         setTimeout(() => {
             backdrop.classList.replace('opacity-0', 'opacity-100');
             container.classList.replace('scale-95', 'scale-100');
@@ -837,7 +1008,7 @@ $deactivated_count = count($deactivated_tenants);
         container.classList.replace('opacity-100', 'opacity-0');
 
         setTimeout(() => {
-            modal.classList.replace('flex', 'hidden');
+            modal.classList.replace('flex-important', 'hidden');
             content.classList.replace('opacity-100', 'opacity-0');
             content.innerHTML = ''; 
         }, 500);

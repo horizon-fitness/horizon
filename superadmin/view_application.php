@@ -110,7 +110,7 @@ $active_page = "tenants";
 
 if ($is_ajax): ?>
     <!-- AJAX Modal Content Only -->
-    <div class="space-y-8 max-h-[80vh] overflow-y-auto px-1 pr-3 custom-scrollbar">
+    <div class="space-y-8 max-h-[80vh] overflow-y-auto px-1 pr-3 no-scrollbar max-w-full overflow-x-hidden">
         <header class="flex justify-between items-start border-b border-white/5 pb-6">
             <div class="flex items-center gap-5">
                 <?php 
