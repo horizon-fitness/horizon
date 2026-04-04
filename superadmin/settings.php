@@ -12,46 +12,75 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Initialize system_settings table if it doesn't exist
-$pdo->exec("
+    // Migration: Update system_settings to include user_id if it doesn't exist
+    $pdo->exec("
         CREATE TABLE IF NOT EXISTS system_settings (
-            setting_key VARCHAR(50) PRIMARY KEY,
+            user_id INT NOT NULL,
+            setting_key VARCHAR(50) NOT NULL,
             setting_value TEXT,
-            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, setting_key)
         )
     ");
 
-// Seed default settings if empty
-$pdo->exec("
-        INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES 
-        ('max_staff', '10'),
-        ('grace_period', '7'),
-        ('default_status', 'Pending'),
-        ('system_name', 'Horizon System'),
-        ('theme_color', '#8c2bee'),
-        ('secondary_color', '#a1a1aa'),
-        ('bg_color', '#0a090d'),
-        ('card_color', '#141216'),
-        ('auto_card_theme', '1'),
-        ('card_blur', '10'),
-        ('font_family', 'Lexend'),
-        ('system_logo', '')
-    ");
+    // Check if we need to migrate from the old schema (where setting_key was the only PK)
+    $res = $pdo->query("SHOW COLUMNS FROM system_settings LIKE 'user_id'");
+    if (!$res->fetch()) {
+        $pdo->exec("ALTER TABLE system_settings ADD COLUMN user_id INT NOT NULL DEFAULT 1 FIRST");
+        $pdo->exec("ALTER TABLE system_settings DROP PRIMARY KEY, ADD PRIMARY KEY (user_id, setting_key)");
+    }
 
-// Fetch all settings
-$stmt = $pdo->query("SELECT setting_key, setting_value FROM system_settings");
-$configs = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+    // Define Settings Scopes
+    $global_keys = ['max_staff', 'grace_period', 'default_status', 'system_name', 'system_logo'];
+
+    // Seed default settings for the CURRENT Superadmin (Personal) if missing
+    $stmtSeed = $pdo->prepare("INSERT IGNORE INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?)");
+    
+    // Personal Defaults
+    $personal_defaults = [
+        ['theme_color', '#8c2bee'],
+        ['secondary_color', '#a1a1aa'],
+        ['bg_color', '#0a090d'],
+        ['card_color', '#141216'],
+        ['auto_card_theme', '1'],
+        ['card_blur', '10'],
+        ['font_family', 'Lexend']
+    ];
+    foreach ($personal_defaults as $s) $stmtSeed->execute([$_SESSION['user_id'], $s[0], $s[1]]);
+
+    // Global Defaults (Rules & Brand)
+    $global_defaults = [
+        ['max_staff', '10'],
+        ['grace_period', '7'],
+        ['default_status', 'Pending'],
+        ['system_name', 'Horizon System'],
+        ['system_logo', '']
+    ];
+    foreach ($global_defaults as $s) $stmtSeed->execute([0, $s[0], $s[1]]);
+
+    // Fetch and Merge Settings
+    // 1. Fetch Global Settings
+    $stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+    $global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    // 2. Fetch User-Specific Settings
+    $stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+    $stmtUser->execute([$_SESSION['user_id']]);
+    $user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    // 3. Merge (User settings take precedence for overlapping keys if any)
+    $configs = array_merge($global_configs, $user_configs);
 
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     unset($_POST['save_settings']);
-
-    $stmtUpdate = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+    $stmtUpdate = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
 
     try {
         $pdo->beginTransaction();
         foreach ($_POST as $key => $value) {
-            $stmtUpdate->execute([$key, $value]);
+            $scope_id = in_array($key, $global_keys) ? 0 : $_SESSION['user_id'];
+            $stmtUpdate->execute([$scope_id, $key, $value]);
             $configs[$key] = $value;
         }
         $pdo->commit();

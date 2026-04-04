@@ -57,24 +57,30 @@ CREATE TABLE service_catalog (
 );
 
 CREATE TABLE system_settings (
-    setting_key VARCHAR(50) PRIMARY KEY,
+    user_id INT NOT NULL,
+    setting_key VARCHAR(50) NOT NULL,
     setting_value TEXT,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, setting_key)
 );
 
-INSERT INTO system_settings (setting_key, setting_value) VALUES 
-('max_staff', '10'),
-('grace_period', '7'),
-('default_status', 'Pending'),
-('system_name', 'Horizon System'),
-('theme_color', '#8c2bee'),
-('secondary_color', '#a1a1aa'),
-('bg_color', '#0a090d'),
-('card_color', '#141216'),
-('auto_card_theme', '1'),
-('card_blur', '10'),
-('font_family', 'Lexend'),
-('system_logo', '');
+-- Personal Branding (User ID 1)
+INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
+(1, 'theme_color', '#8c2bee'),
+(1, 'secondary_color', '#a1a1aa'),
+(1, 'bg_color', '#0a090d'),
+(1, 'card_color', '#141216'),
+(1, 'auto_card_theme', '1'),
+(1, 'card_blur', '10'),
+(1, 'font_family', 'Lexend');
+
+-- Global System Rules (User ID 0)
+INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
+(0, 'max_staff', '10'),
+(0, 'grace_period', '7'),
+(0, 'default_status', 'Pending'),
+(0, 'system_name', 'Horizon System'),
+(0, 'system_logo', '');
 
 CREATE TABLE system_alerts (
     alert_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -448,19 +454,6 @@ CREATE TABLE audit_logs (
     created_at DATETIME NOT NULL
 );
 
-CREATE TABLE feedback (
-    feedback_id INT AUTO_INCREMENT PRIMARY KEY,
-    member_id INT NOT NULL,
-    gym_id INT NOT NULL,
-    coach_id INT,
-    rating DECIMAL(3,2) NOT NULL,
-    category VARCHAR(50) NOT NULL,
-    comment TEXT NOT NULL,
-    is_anonymous TINYINT(1) NOT NULL DEFAULT 0,
-    is_visible TINYINT(1) NOT NULL DEFAULT 1,
-    admin_reply TEXT,
-    created_at DATETIME NOT NULL
-);
 
 INSERT INTO roles (role_name) VALUES
 ('Superadmin'),
