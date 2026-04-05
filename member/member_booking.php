@@ -51,11 +51,9 @@
             if (method === 'GCash') {
                 gcashDiv.classList.remove('hidden');
                 document.getElementById('ref_input').required = true; 
-                document.getElementById('proof_input').required = true; 
             } else {
                 gcashDiv.classList.add('hidden');
                 document.getElementById('ref_input').required = false; 
-                document.getElementById('proof_input').required = false; 
             }
         }
 
@@ -272,10 +270,6 @@
                         <p class="text-[9px] text-gray-400 mt-1">HERDOZA FITNESS</p>
                     </div>
                     <input type="text" name="reference_number" id="ref_input" placeholder="GCash Reference No." class="w-full bg-background-dark border-white/5 rounded-xl p-4 text-white text-sm outline-none focus:ring-1 focus:ring-primary">
-                    <div>
-                        <label class="text-[9px] font-black uppercase text-gray-500 ml-1 mb-1 block">Proof Screenshot</label>
-                        <input type="file" name="payment_proof" id="proof_input" accept="image/*" class="w-full bg-background-dark border-white/5 rounded-xl p-2 text-white text-xs">
-                    </div>
                 </div>
                 <button type="submit" name="submit_booking" class="w-full bg-primary py-4 rounded-2xl font-black uppercase italic tracking-widest shadow-lg hover:scale-[1.02] transition-transform text-white">Book & Pay Now</button>
                 <button type="button" onclick="closeBookingModal()" class="w-full text-gray-500 uppercase font-black text-[9px] tracking-widest mt-2 hover:text-white transition-colors">Cancel</button>

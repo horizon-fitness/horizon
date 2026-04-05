@@ -50,16 +50,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmtSub->execute([$member_id, $plan_id, $start_date, $end_date, $sessions, $now, $now]);
         $subscription_id = $pdo->lastInsertId();
 
-        // 4. Handle Proof of Payment (Mocking file upload for now)
+        // 4. (DEPRECATED) Handle Proof of Payment (Removed for PayMongo)
         $proof_path = null;
-        if (isset($_FILES['proof_of_payment']) && $_FILES['proof_of_payment']['error'] === UPLOAD_ERR_OK) {
-            $proof_path = 'uploads/proofs/' . time() . '_' . $_FILES['proof_of_payment']['name'];
-            // In a real environment, you'd move_uploaded_file here.
-        }
 
-        // 5. Insert Payment Record
-        $stmtPay = $pdo->prepare("INSERT INTO payments (member_id, gym_id, subscription_id, amount, payment_method, payment_type, reference_number, receipt_image, payment_status, payment_date, created_at) VALUES (?, ?, ?, ?, ?, 'Subscription', ?, ?, 'Pending', ?, ?)");
-        $stmtPay->execute([$member_id, $gym_id, $subscription_id, $amount, $payment_method, $reference_number, $proof_path, date('Y-m-d'), $now]);
+        // 5. Insert Payment Record (Removed receipt_image for PayMongo)
+        $stmtPay = $pdo->prepare("INSERT INTO payments (member_id, gym_id, subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at) VALUES (?, ?, ?, ?, ?, 'Subscription', ?, 'Pending', ?, ?)");
+        $stmtPay->execute([$member_id, $gym_id, $subscription_id, $amount, $payment_method, $reference_number, date('Y-m-d'), $now]);
         $payment_id = $pdo->lastInsertId();
 
         // 6. Audit Log

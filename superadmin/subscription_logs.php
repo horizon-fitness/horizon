@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
             JOIN gyms g ON cs.gym_id = g.gym_id
             JOIN users u ON g.owner_user_id = u.user_id
             JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
-            WHERE cs.subscription_id = ?
+            WHERE cs.client_subscription_id = ?
         ");
         $stmtData->execute([$sub_id]);
         $subData = $stmtData->fetch();
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
         $email_sent = false;
         if ($action === 'approve_payment') {
             // Update subscription to Paid and Active
-            $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Paid', subscription_status = 'Active' WHERE subscription_id = ?");
+            $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Paid', subscription_status = 'Active' WHERE client_subscription_id = ?");
             $stmt->execute([$sub_id]);
 
             // Sync with payments table
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
 
         } elseif ($action === 'reject_payment') {
             // Update subscription to Rejected and Inactive
-            $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Rejected', subscription_status = 'Inactive' WHERE subscription_id = ?");
+            $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Rejected', subscription_status = 'Inactive' WHERE client_subscription_id = ?");
             $stmt->execute([$sub_id]);
 
             // Sync with payments table (linking to client_subscription_id)

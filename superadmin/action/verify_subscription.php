@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             JOIN gyms g ON cs.gym_id = g.gym_id
             JOIN users u ON g.owner_user_id = u.user_id
             JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
-            WHERE cs.subscription_id = ?
+            WHERE cs.client_subscription_id = ?
         ");
         $stmtData->execute([$subscription_id]);
         $subData = $stmtData->fetch();
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtPay->execute([$user_id, $now, $payment_id]);
 
             // 2. Update Subscription Status to 'Active' and Payment Status to 'Paid'
-            $stmtSub = $pdo->prepare("UPDATE client_subscriptions SET subscription_status = 'Active', payment_status = 'Paid', updated_at = ? WHERE subscription_id = ?");
+            $stmtSub = $pdo->prepare("UPDATE client_subscriptions SET subscription_status = 'Active', payment_status = 'Paid', updated_at = ? WHERE client_subscription_id = ?");
             $stmtSub->execute([$now, $subscription_id]);
 
             // Prepare Approval Email
