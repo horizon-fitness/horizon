@@ -50,19 +50,19 @@ $user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
 $configs = array_merge($global_configs, $user_configs);
 
 // 0. Financial Overview Calculations (Global)
-$stmtTotal = $pdo->query("SELECT SUM(amount) FROM payments WHERE LOWER(payment_status) IN ('paid', 'success', 'completed')");
+$stmtTotal = $pdo->query("SELECT SUM(amount) FROM payments WHERE LOWER(payment_status) IN (CAST('paid' AS CHAR CHARACTER SET latin1), CAST('success' AS CHAR CHARACTER SET latin1), CAST('completed' AS CHAR CHARACTER SET latin1))");
 $total_revenue = $stmtTotal->fetchColumn() ?: 0.00;
 
-$stmtPending = $pdo->query("SELECT SUM(amount), COUNT(*) FROM payments WHERE LOWER(payment_status) = 'pending'");
+$stmtPending = $pdo->query("SELECT SUM(amount), COUNT(*) FROM payments WHERE LOWER(payment_status) = CAST('pending' AS CHAR CHARACTER SET latin1)");
 $pending_data = $stmtPending->fetch(PDO::FETCH_NUM);
 $pending_revenue = $pending_data[0] ?: 0.00;
 $pending_count = $pending_data[1] ?: 0;
 
-$stmtToday = $pdo->query("SELECT SUM(amount) FROM payments WHERE DATE(created_at) = CURDATE() AND LOWER(payment_status) IN ('paid', 'success', 'completed')");
+$stmtToday = $pdo->query("SELECT SUM(amount) FROM payments WHERE DATE(created_at) = CURDATE() AND LOWER(payment_status) IN (CAST('paid' AS CHAR CHARACTER SET latin1), CAST('success' AS CHAR CHARACTER SET latin1), CAST('completed' AS CHAR CHARACTER SET latin1))");
 $today_revenue = $stmtToday->fetchColumn() ?: 0.00;
 
 // Count tenants with "Pending" or "Failed" transactions
-$stmtUnpaid = $pdo->query("SELECT COUNT(DISTINCT gym_id) FROM payments WHERE LOWER(payment_status) IN ('pending', 'failed')");
+$stmtUnpaid = $pdo->query("SELECT COUNT(DISTINCT gym_id) FROM payments WHERE LOWER(payment_status) IN (CAST('pending' AS CHAR CHARACTER SET latin1), CAST('failed' AS CHAR CHARACTER SET latin1))");
 $unpaid_tenant_count = $stmtUnpaid->fetchColumn();
 
 // Fetch Tenants for Filter Dropdown

@@ -63,9 +63,20 @@ if (!$verification_success && !isset($error)) {
 
 // 2. Database Insertion Logic
 if ($verification_success) {
+    // Determine the most accurate Reference Number
+    $reference_to_save = $session_id; // Default
+
+    if ($verification_method === "PayMongo API" && isset($attributes['payments'][0]['id'])) {
+        // Use the actual Payment ID (e.g., pay_...) from PayMongo
+        $reference_to_save = $attributes['payments'][0]['id'];
+    } elseif ($session_id === '{CHECKOUT_SESSION_ID}') {
+        // Generate a unique fallback reference since the gateway ID was displaced
+        $reference_to_save = 'REF-' . strtoupper(substr(md5(time() . $get_user_id), 0, 10));
+    }
+
     // Check if already processed to prevent duplicates
     $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM payments WHERE reference_number = ?");
-    $stmtCheck->execute([$session_id]);
+    $stmtCheck->execute([$reference_to_save]);
     
     if ($stmtCheck->fetchColumn() > 0) {
         header("Location: tenant_dashboard.php");
@@ -92,13 +103,13 @@ if ($verification_success) {
             $client_subscription_id = $pdo->lastInsertId();
 
             // 2. Record Payment (Status: Pending)
-            $remarks = ($verification_method === "Signature Fallback") ? "Verified via fallback signature due to gateway ID displacement." : "Verified via PayMongo API.";
+            $remarks = ($verification_method === "Signature Fallback") ? "Verified via fallback signature due to gateway ID displacement. Original Session: $session_id" : "Verified via PayMongo API. Session: $session_id";
             $stmtPay = $pdo->prepare("INSERT INTO payments (gym_id, client_subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at, remarks) VALUES (?, ?, ?, 'PayMongo Checkout', 'Subscription', ?, 'Pending', ?, ?, ?)");
             $stmtPay->execute([
                 $gym_id, 
                 $client_subscription_id, 
                 $plan['price'], 
-                $session_id, 
+                $reference_to_save, 
                 date('Y-m-d'), 
                 $now,
                 $remarks

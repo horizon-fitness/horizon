@@ -38,6 +38,12 @@ if ($plansCheck == 0) {
 // Fetch Plans
 $plans = $pdo->query("SELECT * FROM website_plans WHERE is_active = 1")->fetchAll();
 
+// Check for recent rejection to show notice
+$stmtRecent = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? ORDER BY created_at DESC LIMIT 1");
+$stmtRecent->execute([$gym_id]);
+$recent_sub = $stmtRecent->fetch();
+$show_rejection_notice = ($recent_sub && $recent_sub['payment_status'] === 'Rejected');
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
     require_once '../includes/paymongo-helper.php';
     $plan_id = (int)$_POST['plan_id'];
@@ -203,6 +209,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             <h1 class="text-4xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">Select your <span class="text-primary">Growth Plan</span></h1>
             <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Unlock your gym's full administrative potential</p>
             
+            <?php if ($show_rejection_notice): ?>
+                <div class="mt-8 max-w-2xl mx-auto p-6 rounded-2xl bg-red-500/10 border border-red-500/20 text-left relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-6xl text-red-500">cancel</span>
+                    </div>
+                    <div class="flex items-start gap-4">
+                        <div class="size-10 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0 border border-red-500/30">
+                            <span class="material-symbols-outlined text-red-500">error</span>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-black uppercase text-red-500 mb-1 tracking-tighter">Previous Payment Rejected</h4>
+                            <p class="text-[10px] text-gray-400 font-bold leading-relaxed uppercase tracking-widest">Your last subscription attempt was not verified by the administrator. Please re-submit your payment or contact <span class="text-white">horizonfitnesscorp@gmail.com</span> for details.</p>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <?php if (isset($error)): ?>
                 <div class="mt-6 max-w-md mx-auto p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-bold flex items-center justify-center gap-3">
                     <span class="material-symbols-outlined">error</span> <?= htmlspecialchars($error) ?>

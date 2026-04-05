@@ -42,14 +42,15 @@ try {
     $brand = array_merge($global_configs, $user_configs);
 
     // Activity Analytics
-    $stmtRev = $pdo->query("SELECT SUM(amount) FROM payments WHERE payment_status = 'Completed'");
+    $stmtRev = $pdo->query("SELECT SUM(amount) FROM payments WHERE payment_status = CAST('Completed' AS CHAR CHARACTER SET latin1)");
     $total_revenue = ($stmtRev) ? ($stmtRev->fetchColumn() ?: 0.00) : 0.00;
 
-    $stmtGyms = $pdo->query("SELECT COUNT(*) as total, SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active, SUM(CASE WHEN status = 'Suspended' THEN 1 ELSE 0 END) as suspended FROM gyms");
+    $stmtGyms = $pdo->query("SELECT COUNT(*) as total, SUM(CASE WHEN status = CAST('Active' AS CHAR CHARACTER SET latin1) THEN 1 ELSE 0 END) as active, SUM(CASE WHEN status = CAST('Suspended' AS CHAR CHARACTER SET latin1) THEN 1 ELSE 0 END) as suspended FROM gyms");
     $gym_stats = ($stmtGyms) ? $stmtGyms->fetch(PDO::FETCH_ASSOC) : ['total'=>0, 'active'=>0, 'suspended'=>0];
 
     $stmtUsers = $pdo->query("SELECT COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_users FROM users");
     $user_stats = ($stmtUsers) ? $stmtUsers->fetch(PDO::FETCH_ASSOC) : ['total'=>0, 'active_users'=>0];
+    $user_stats['inactive_users'] = $user_stats['total'] - $user_stats['active_users'];
 
     $stmtPending = $pdo->query("SELECT COUNT(*) FROM gym_owner_applications WHERE application_status = 'Pending'");
     $pending_apps_count = ($stmtPending) ? $stmtPending->fetchColumn() : 0;
@@ -85,14 +86,14 @@ try {
     $nowStr = date('Y-m-d H:i:s');
     $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
 
-    $stmtExpiring = $pdo->prepare("SELECT cs.*, g.gym_name FROM client_subscriptions cs JOIN gyms g ON cs.gym_id = g.gym_id WHERE cs.end_date <= ? AND cs.subscription_status = 'Active'");
+    $stmtExpiring = $pdo->prepare("SELECT cs.*, g.gym_name FROM client_subscriptions cs JOIN gyms g ON cs.gym_id = g.gym_id WHERE cs.end_date <= ? AND cs.subscription_status = CAST('Active' AS CHAR CHARACTER SET latin1)");
     $stmtExpiring->execute([$sevenDaysLater]);
     $expiringSubs = $stmtExpiring->fetchAll(PDO::FETCH_ASSOC);
     foreach ($expiringSubs as $sub) {
         $daysLeft = round((strtotime($sub['end_date']) - strtotime(date('Y-m-d'))) / 86400);
         $msg = "Subscription for " . $sub['gym_name'] . " expires in " . $daysLeft . " days (Ends: " . $sub['end_date'] . ")";
         // FIX: Cast to latin1 to match the database column collation on InfinityFree
-        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != 'Resolved'");
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != CAST('Resolved' AS CHAR CHARACTER SET latin1)");
         $stmtCheck->execute([$msg]);
         if ($stmtCheck->fetchColumn() == 0) {
             $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Subscription Expiry', 'Billing', ?, 'Medium', 'Unread', ?)");
@@ -100,13 +101,13 @@ try {
         }
     }
 
-    $stmtPendingPayments = $pdo->query("SELECT p.*, u.first_name, u.last_name FROM payments p LEFT JOIN members m ON p.member_id = m.member_id LEFT JOIN users u ON m.user_id = u.user_id WHERE p.payment_status = 'Pending'");
+    $stmtPendingPayments = $pdo->query("SELECT p.*, u.first_name, u.last_name FROM payments p LEFT JOIN members m ON p.member_id = m.member_id LEFT JOIN users u ON m.user_id = u.user_id WHERE p.payment_status = CAST('Pending' AS CHAR CHARACTER SET latin1)");
     if ($stmtPendingPayments) {
         foreach ($stmtPendingPayments->fetchAll(PDO::FETCH_ASSOC) as $payment) {
             $payer = ($payment['first_name'] ?? '') ? $payment['first_name'] . ' ' . $payment['last_name'] : 'Tenant/Guest';
             $msg = "New payment of Php" . number_format($payment['amount'] ?? 0, 2) . " from " . $payer . " requires verification. (Ref: " . ($payment['reference_number'] ?? 'N/A') . ")";
             // CAST to latin1 to match InfinityFree DB collation
-            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != 'Resolved'");
+            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != CAST('Resolved' AS CHAR CHARACTER SET latin1)");
             $stmtCheck->execute([$msg]);
             if ($stmtCheck->fetchColumn() == 0) {
                 $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Payment Verification', 'Finance', ?, 'Medium', 'Unread', ?)");

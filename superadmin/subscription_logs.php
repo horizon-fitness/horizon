@@ -63,23 +63,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
             $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Rejected', subscription_status = 'Inactive' WHERE subscription_id = ?");
             $stmt->execute([$sub_id]);
 
-            // Sync with payments table
+            // Sync with payments table (linking to client_subscription_id)
             $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Rejected' WHERE client_subscription_id = ?");
             $stmtPay->execute([$sub_id]);
 
-            $msg = "Rejected payment for Subscription #$sub_id (" . $subData['gym_name'] . ")";
+            $msg = "Rejected subscription payment for #" . $sub_id . " (" . $subData['gym_name'] . ")";
 
-            // Prepare Email
-            $subject = "Update regarding your subscription payment for " . $subData['gym_name'];
+            // Prepare High-Impact Rejection Email
+            $subject = "Subscription Payment Rejected - Action Required for " . $subData['gym_name'];
             $content = "
                 <p>Hello,</p>
-                <p>We are writing to inform you that your recent payment for the <strong>" . htmlspecialchars($subData['plan_name']) . "</strong> subscription for <strong>" . htmlspecialchars($subData['gym_name']) . "</strong> has been rejected.</p>
-                <p>As a result, your subscription status has been set to <strong>Inactive</strong>. Please verify your payment details or contact our support team if you believe this is an error.</p>
-                <div style='margin: 30px 0; padding: 20px; background: #fff5f5; border-radius: 8px;'>
-                    <p style='margin: 0; font-size: 14px; color: #c53030;'><strong>Next Steps:</strong> Check your payment information in your portal and resubmit, or contact support at horizonfitnesscorp@gmail.com.</p>
+                <p>We are writing to professionally inform you that your recent payment for the <strong>" . htmlspecialchars($subData['plan_name']) . "</strong> plan for <strong>" . htmlspecialchars($subData['gym_name']) . "</strong> was not verified and has been <strong>Rejected</strong>.</p>
+                
+                <div style='margin: 30px 0; padding: 25px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 12px; border-left: 5px solid #f56565;'>
+                    <h3 style='margin: 0 0 10px; color: #c53030; font-size: 16px;'>Why was this rejected?</h3>
+                    <p style='margin: 0; font-size: 14px; color: #742a2a;'>Common reasons include invalid proof of payment, transaction mismatch, or an expired checkout session. Your current subscription has been set to <strong>Inactive</strong>.</p>
                 </div>
+
+                <h4 style='margin: 0 0 10px; color: #333;'>Next Steps:</h4>
+                <ol style='color: #555; padding-left: 20px;'>
+                    <li>Log in to your Horizon Partner Portal.</li>
+                    <li>Navigate to the 'Subscription Plan' section.</li>
+                    <li>Select your desired plan again and ensure payment completion via PayMongo.</li>
+                    <li>If you believe this was an error, please contact support immediately with your reference number.</li>
+                </ol>
+
+                <p style='margin-top: 30px;'>Thank you for your cooperation.</p>
             ";
-            $email_sent = sendSystemEmail($subData['owner_email'], $subject, getEmailTemplate("Payment Rejected", $content));
+            $email_sent = sendSystemEmail($subData['owner_email'], $subject, getEmailTemplate("Payment Verification Failed", $content));
         }
 
         // Log the action with Email status
@@ -89,12 +100,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
 
         $pdo->commit();
         $_SESSION['success_msg'] = "Action successful: $msg" . (!$email_sent ? " (Email failed, but status updated)" : "");
+        header("Location: subscription_logs.php?tab=pending");
+        exit;
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $_SESSION['error_msg'] = "Error: " . $e->getMessage();
+        header("Location: subscription_logs.php?tab=pending");
+        exit;
     }
-    header("Location: subscription_logs.php");
-    exit;
 }
 
 $page_title = "Subscription Logs";
@@ -410,6 +423,13 @@ foreach ($logs as $log) {
             initPagination('recentTableBody', 'pagination-recent', 10);
             initPagination('pendingTableBody', 'pagination-pending', 10);
             initPagination('historyTableBody', 'pagination-history', 10);
+
+            // --- 3. Handle Tab Persistence from URL ---
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeTab = urlParams.get('tab');
+            if (activeTab) {
+                switchTab(activeTab);
+            }
         });
 
         function switchTab(tabId) {
@@ -605,6 +625,22 @@ foreach ($logs as $log) {
                 <p class="text-red-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Lapsed Plans</p>
             </div>
         </div>
+
+        <?php if (isset($_SESSION['success_msg'])): ?>
+            <div class="mb-8 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-4 animate-fadeIn">
+                <span class="material-symbols-outlined text-emerald-500">check_circle</span>
+                <p class="text-xs font-black uppercase tracking-widest text-emerald-400"><?= $_SESSION['success_msg'] ?></p>
+                <?php unset($_SESSION['success_msg']); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['error_msg'])): ?>
+            <div class="mb-8 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-4 animate-fadeIn">
+                <span class="material-symbols-outlined text-rose-500">error</span>
+                <p class="text-xs font-black uppercase tracking-widest text-rose-400"><?= $_SESSION['error_msg'] ?></p>
+                <?php unset($_SESSION['error_msg']); ?>
+            </div>
+        <?php endif; ?>
         
         <!-- DYNAMIC FILTERS (Restored & Corrected Position) -->
         <div class="glass-card p-6 mb-8 border-white/5 shadow-2xl relative overflow-hidden">
@@ -933,6 +969,29 @@ foreach ($logs as $log) {
 </div>
 
 <script>
+    function confirmAdminAction(form, title, message) {
+        const modal = document.getElementById('adminActionModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const confirmBtn = document.getElementById('confirm-btn');
+
+        modalTitle.textContent = title;
+        modalMessage.textContent = message;
+        
+        // Show Modal
+        modal.classList.add('flex-important');
+
+        // Setup Confirm Button with ONE-TIME click
+        confirmBtn.onclick = function() {
+            form.submit();
+            closeModal();
+        };
+    }
+
+    function closeModal() {
+        document.getElementById('adminActionModal').classList.remove('flex-important');
+    }
+
     function initPagination(tableBodyId, paginationId, rowsPerPage) {
         const tableBody = document.getElementById(tableBodyId);
         const paginationContainer = document.getElementById(paginationId);

@@ -67,7 +67,7 @@ $stmtTenants = $pdo->query("
         FROM members 
         GROUP BY gym_id
     ) m ON g.gym_id = m.gym_id
-    WHERE g.status IN ('Active', 'Suspended', 'Deleted', 'Deactivated')
+    WHERE g.status IN (CAST('Active' AS CHAR CHARACTER SET latin1), CAST('Suspended' AS CHAR CHARACTER SET latin1), CAST('Deleted' AS CHAR CHARACTER SET latin1), CAST('Deactivated' AS CHAR CHARACTER SET latin1))
     ORDER BY g.created_at DESC
 ");
 $tenants = $stmtTenants->fetchAll(PDO::FETCH_ASSOC);
@@ -82,8 +82,8 @@ $stmtPending = $pdo->query("
            ad.file_path as gym_logo
     FROM gym_owner_applications a 
     JOIN users u ON a.user_id = u.user_id 
-    LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = 'Gym Logo'
-    WHERE a.application_status = 'Pending'
+    LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = CAST('Gym Logo' AS CHAR CHARACTER SET latin1)
+    WHERE a.application_status = CAST('Pending' AS CHAR CHARACTER SET latin1)
     ORDER BY a.submitted_at DESC
 ");
 $pending_apps = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
@@ -93,8 +93,8 @@ $rejected_stmt = $pdo->query("
            ad.file_path as gym_logo
     FROM gym_owner_applications a 
     JOIN users u ON a.user_id = u.user_id 
-    LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = 'Gym Logo'
-    WHERE a.application_status = 'Rejected'
+    LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = CAST('Gym Logo' AS CHAR CHARACTER SET latin1)
+    WHERE a.application_status = CAST('Rejected' AS CHAR CHARACTER SET latin1)
     ORDER BY a.reviewed_at DESC
 ");
 $rejected_apps = $rejected_stmt->fetchAll(PDO::FETCH_ASSOC);
