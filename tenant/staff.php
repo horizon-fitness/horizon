@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../db.php';
+require_once '../includes/mailer.php';
 
 // Security Check
 if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'tenant') {
@@ -41,7 +42,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (empty($password) || $password !== $confirm_pass) {
         $error = "Passwords do not match or are empty!";
     } else {
-        $username = strtolower($fname . '.' . $lname . rand(10, 99));
+        $username = trim($_POST['username'] ?? '');
+
+        // 1. Check if Username Already Exists (Unique Identifier)
+        $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
+        $stmtCheck->execute([$username]);
+        if ($stmtCheck->fetch()) {
+            $error = "The username '$username' is already taken. Please choose another.";
+        } else {
         $pass_hash = password_hash($password, PASSWORD_DEFAULT);
 
         try {
@@ -52,19 +60,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $stmtUser->execute([$username, $email, $pass_hash, $fname, $lname, $contact]);
             $new_user_id = $pdo->lastInsertId();
 
-            // 2. Insert into Staff
+            // 2. Insert into user_roles (REQUIRED for login functionality)
+            $role_name = (strtolower($role) === 'coach') ? 'Coach' : 'Staff';
+            $stmtRoleLookup = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
+            $stmtRoleLookup->execute([$role_name]);
+            $role_row = $stmtRoleLookup->fetch();
+            
+            if (!$role_row) {
+                $stmtAddRole = $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)");
+                $stmtAddRole->execute([$role_name]);
+                $role_id = $pdo->lastInsertId();
+            } else {
+                $role_id = $role_row['role_id'];
+            }
+
+            $stmtUserRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', NOW())");
+            $stmtUserRole->execute([$new_user_id, $role_id, $gym_id]);
+
+            // 3. Insert into Staff
             $stmtStaffAdd = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_DATE, 'Active', NOW(), NOW())");
             $stmtStaffAdd->execute([$new_user_id, $gym_id, $role, $employment]);
 
             $pdo->commit();
+
+            // Send Welcome Email
+            $subject = "Welcome to " . ($gym['gym_name'] ?? 'Horizon') . "!";
+            $login_url = "https://" . $_SERVER['HTTP_HOST'] . "/login.php"; 
+            $content = "
+                <p>Hello <strong>" . htmlspecialchars($fname) . "</strong>,</p>
+                <p>Welcome to the <strong>" . htmlspecialchars($gym['gym_name'] ?? 'Horizon') . "</strong> team! Your staff account has been successfully created.</p>
+                <div style='background: #f8f8f8; padding: 20px; border-radius: 10px; margin: 20px 0;'>
+                    <p style='margin: 0;'><strong>Username:</strong> " . htmlspecialchars($username) . "</p>
+                    <p style='margin: 5px 0 0 0;'><strong>Password:</strong> " . htmlspecialchars($password) . "</p>
+                </div>
+                <p>You can access the portal here: <a href='$login_url'>$login_url</a></p>
+                <p>Please change your password after your first login for security.</p>
+            ";
+            sendSystemEmail($email, $subject, getEmailTemplate("Welcome to the Team!", $content));
+
             header("Location: staff.php?success=1");
             exit;
         } catch (Exception $e) {
             $pdo->rollBack();
             $error = "Error adding staff: " . $e->getMessage();
         }
-        }
     }
+}
+}
 }
 
 // Fetch Gym Details
@@ -817,6 +859,11 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
                         <input type="text" name="last_name" required placeholder="e.g. Doe" class="filter-input w-full">
                     </div>
                 </div>
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Username</label>
+                    <input type="text" name="username" required placeholder="e.g. jdoe2024"
+                        class="filter-input w-full">
+                </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="flex flex-col gap-1.5">
                         <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Email
@@ -860,11 +907,9 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
                     <div class="flex flex-col gap-1.5">
                         <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Assigned
                             Role</label>
-                        <select name="role" class="filter-input w-full">
-                            <option value="Coach">Coach</option>
-                            <option value="Admin">Admin</option>
-                            <option value="Receptionist">Receptionist</option>
-                            <option value="Manager">Manager</option>
+                        <select name="role" class="filter-input w-full uppercase font-black italic">
+                            <option value="Staff">Staff Member</option>
+                            <option value="Coach">Coach / Trainer</option>
                         </select>
                     </div>
                     <div class="flex flex-col gap-1.5">

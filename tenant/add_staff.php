@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../db.php';
+require_once '../includes/mailer.php';
 
 // Security Check
 $role = strtolower($_SESSION['role'] ?? '');
@@ -39,13 +40,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Essential fields are required.";
     } else {
         try {
-            // Check if username or email exists
-            $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? OR email = ?");
-            $stmtCheck->execute([$username, $email]);
-            if ($stmtCheck->rowCount() > 0) {
-                $error = "Username or Email already exists.";
+            // 1. Check if Username Already Exists
+            $stmtCheckU = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
+            $stmtCheckU->execute([$username]);
+            if ($stmtCheckU->fetch()) {
+                $error = "The username '$username' is already taken. Please choose another.";
             } else {
-                $pdo->beginTransaction();
+                // 2. Check if Email Already Exists
+                $stmtCheckE = $pdo->prepare("SELECT user_id FROM users WHERE email = ? LIMIT 1");
+                $stmtCheckE->execute([$email]);
+                if ($stmtCheckE->fetch()) {
+                    $error = "The email '$email' is already registered with another account.";
+                } else {
+                    $pdo->beginTransaction();
 
                 // Hash password (auto-gen if empty)
                 if (empty($password)) {
@@ -85,8 +92,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmtStaff->execute([$new_user_id, $gym_id, $staff_role, $employment_type, $now, $now]);
                 }
 
-                $pdo->commit();
-                $success = "Staff member $first_name ($role_name) added successfully! Default password: $password";
+                    $pdo->commit();
+
+                    // Send Welcome Email
+                    $subject = "Welcome to " . ($gym['gym_name'] ?? 'Horizon') . "!";
+                    $login_url = "https://" . $_SERVER['HTTP_HOST'] . "/login.php"; 
+                    $content = "
+                        <p>Hello <strong>" . htmlspecialchars($first_name) . "</strong>,</p>
+                        <p>Welcome to the <strong>" . htmlspecialchars($gym['gym_name'] ?? 'Horizon') . "</strong> team! Your staff account has been successfully created.</p>
+                        <div style='background: #f8f8f8; padding: 20px; border-radius: 10px; margin: 20px 0;'>
+                            <p style='margin: 0;'><strong>Username:</strong> " . htmlspecialchars($username) . "</p>
+                            <p style='margin: 5px 0 0 0;'><strong>Password:</strong> " . htmlspecialchars($password) . "</p>
+                        </div>
+                        <p>You can access the portal here: <a href='$login_url'>$login_url</a></p>
+                        <p>Please change your password after your first login for security.</p>
+                    ";
+                    sendSystemEmail($email, $subject, getEmailTemplate("Welcome to the Team!", $content));
+
+                    $success = "Staff member $first_name added successfully! Access username: $username";
+                }
             }
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -180,8 +204,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; transition: all 0.2s; }
+        .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; transition: all 0.2s; font-size: 13px; font-weight: 500; }
         .input-field:focus { border-color: #8c2bee; outline: none; box-shadow: 0 0 0 2px rgba(140, 43, 238, 0.2); }
+
+        /* Power User Features */
+        .pass-container { position: relative; }
+        .view-toggle { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #64748b; font-size: 18px !important; transition: all 0.3s ease; }
+        .view-toggle:hover { color: white; }
+        .strength-bar { height: 4px; border-radius: 2px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); width: 0; margin-top: 8px; }
+        .strength-weak { background: #f43f5e; width: 33%; }
+        .strength-medium { background: #fbbf24; width: 66%; }
+        .strength-strong { background: #10b981; width: 100%; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden">
@@ -294,6 +327,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         setInterval(updateTopClock, 1000);
 
+        function togglePass(id, el) {
+            const input = document.getElementById(id);
+            if (input.type === 'password') {
+                input.type = 'text';
+                el.textContent = 'visibility_off';
+            } else {
+                input.type = 'password';
+                el.textContent = 'visibility';
+            }
+        }
+
+        function checkPassStrength(pass) {
+            const indicator = document.getElementById('strength-indicator');
+            if (!indicator) return;
+            let strength = 0;
+            if (pass.length > 5) strength++;
+            if (pass.length > 8) strength++;
+            if (/[0-9]/.test(pass) && /[a-z]/.test(pass) && /[A-Z]/.test(pass)) strength++;
+            if (/[^A-Za-z0-9]/.test(pass)) strength++;
+
+            indicator.className = 'strength-bar';
+            if (pass.length === 0) return;
+            if (strength <= 1) indicator.classList.add('strength-weak');
+            else if (strength === 2) indicator.classList.add('strength-medium');
+            else if (strength >= 3) indicator.classList.add('strength-strong');
+        }
+
         window.addEventListener('DOMContentLoaded', updateTopClock);
 
     </script>
@@ -337,7 +397,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div class="space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2">Identity Info</h4>
+                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2 flex items-center gap-2 italic">
+                    <span class="material-symbols-outlined text-[14px]">assignment_ind</span> Identity Information
+                </h4>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">First Name</label>
@@ -359,7 +421,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
 
             <div class="space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2">Account Authority</h4>
+                <h4 class="text-[10px] font-black uppercase text-primary tracking-widest border-b border-white/5 pb-2 flex items-center gap-2 italic">
+                    <span class="material-symbols-outlined text-[14px]">admin_panel_settings</span> Account Authority
+                </h4>
                 <div>
                     <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">System Username</label>
                     <input type="text" name="username" required class="input-field">
@@ -367,9 +431,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Assigned Role</label>
-                        <select name="staff_role" class="input-field">
-                            <option value="Staff">Staff</option>
-                            <option value="Coach">Coach</option>
+                        <select name="staff_role" class="input-field uppercase font-bold italic tracking-wider">
+                            <option value="Staff">Staff Member</option>
+                            <option value="Coach">Coach / Trainer</option>
                         </select>
                     </div>
                     <div>
@@ -381,8 +445,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
                 <div>
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Password (Optional - will auto-gen if empty)</label>
-                    <input type="password" name="password" class="input-field" placeholder="Leave empty for auto-gen">
+                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 block">Set Master Password (Optional - defaults to [first_name]123)</label>
+                    <div class="pass-container">
+                        <input type="password" id="staff_pass" name="password" oninput="checkPassStrength(this.value)" class="input-field pr-12" placeholder="Leave empty for auto-gen">
+                        <span class="material-symbols-outlined view-toggle" onclick="togglePass('staff_pass', this)">visibility</span>
+                    </div>
+                    <div class="w-full bg-white/5 h-1 rounded-full mt-2 overflow-hidden">
+                        <div id="strength-indicator" class="strength-bar"></div>
+                    </div>
                 </div>
             </div>
 
