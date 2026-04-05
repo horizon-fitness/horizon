@@ -24,8 +24,8 @@ $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1")
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
-// Fetch Coach ID
-$stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
+// Fetch Coach ID (from staff table)
+$stmtCoach = $pdo->prepare("SELECT staff_id as coach_id FROM staff WHERE user_id = ? AND gym_id = ? AND staff_role = 'Coach' LIMIT 1");
 $stmtCoach->execute([$user_id, $gym_id]);
 $coach = $stmtCoach->fetch();
 $coach_id = $coach ? $coach['coach_id'] : 0;
@@ -48,7 +48,7 @@ if (isset($_GET['ajax_user_id'])) {
         FROM users u 
         JOIN members m ON u.user_id = m.user_id 
         JOIN bookings b ON m.member_id = b.member_id
-        WHERE u.user_id = ? AND m.gym_id = ? AND b.coach_id = ?
+        WHERE u.user_id = ? AND m.gym_id = ? AND b.coach_id = ? AND b.booking_status IN ('Approved', 'Pending')
         LIMIT 1
     ");
     $stmt->execute([$target_uid, $gym_id, $coach_id]);
@@ -200,7 +200,7 @@ $sql = "
     FROM members m
     JOIN users u ON m.user_id = u.user_id
     JOIN bookings b ON m.member_id = b.member_id
-    WHERE " . implode(" AND ", $where_clauses) . "
+    WHERE b.booking_status IN ('Approved', 'Pending') AND " . implode(" AND ", $where_clauses) . "
     $order_sql
 ";
 

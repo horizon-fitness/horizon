@@ -49,17 +49,28 @@ if (!empty($date_to)) {
 }
 
 if (!empty($status)) {
-    $sql_parts[] = "b.status = :status";
+    $sql_parts[] = "b.booking_status = :status";
     $sql_params[':status'] = $status;
 }
 
 $where_clause = "WHERE " . implode(' AND ', $sql_parts);
 
 $sql = "
-    SELECT b.*, u.first_name, u.last_name, u.username 
+    SELECT 
+        b.*, 
+        u.first_name, u.last_name, u.username,
+        COALESCE(gs.custom_service_name, sc.service_name, 'Unlimited Gym Use') as resolved_service,
+        CASE 
+            WHEN b.coach_id IS NULL THEN 'Self-Training'
+            ELSE CONCAT(tu.first_name, ' ', tu.last_name)
+        END as resolved_trainer
     FROM bookings b 
     JOIN members m ON b.member_id = m.member_id 
     JOIN users u ON m.user_id = u.user_id 
+    LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
+    LEFT JOIN service_catalog sc ON gs.catalog_service_id = sc.catalog_service_id
+    LEFT JOIN staff s ON b.coach_id = s.staff_id
+    LEFT JOIN users tu ON s.user_id = tu.user_id
     $where_clause 
     ORDER BY b.booking_date DESC, b.start_time DESC
 ";
@@ -81,11 +92,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // 1. Get Context for Email
         $stmtCtx = $pdo->prepare("
-            SELECT u.email, u.first_name, b.booking_date, b.start_time, b.service, g.gym_name
+            SELECT 
+                u.email, u.first_name, b.booking_date, b.start_time, g.gym_name,
+                COALESCE(gs.custom_service_name, sc.service_name, 'Personal Training') as resolved_service
             FROM bookings b
             JOIN members m ON b.member_id = m.member_id
             JOIN users u ON m.user_id = u.user_id
             JOIN gyms g ON m.gym_id = g.gym_id
+            LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
+            LEFT JOIN service_catalog sc ON gs.catalog_service_id = sc.catalog_service_id
             WHERE b.booking_id = ?
             LIMIT 1
         ");
@@ -101,9 +116,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // 3. Send Email
             if ($ctx && !empty($ctx['email'])) {
                 $subject = "Booking Confirmed - See you at " . htmlspecialchars($ctx['gym_name']) . "!";
+                $srv = $ctx['resolved_service'] ?? 'Session';
                 $content = "
                     <p>Hello " . htmlspecialchars($ctx['first_name']) . ",</p>
-                    <p>Your session for <strong>" . htmlspecialchars($ctx['service']) . "</strong> on <strong>" . date('M d, Y', strtotime($ctx['booking_date'])) . "</strong> at <strong>" . htmlspecialchars($ctx['start_time']) . "</strong> has been <strong>APPROVED</strong>.</p>
+                    <p>Your session for <strong>" . htmlspecialchars($srv) . "</strong> on <strong>" . date('M d, Y', strtotime($ctx['booking_date'])) . "</strong> at <strong>" . htmlspecialchars($ctx['start_time']) . "</strong> has been <strong>APPROVED</strong>.</p>
                     <p>We look forward to seeing you at " . htmlspecialchars($ctx['gym_name']) . "!</p>
                     <p>Thank you for choosing Horizon!</p>
                 ";
@@ -129,11 +145,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $booking_id = (int)$_POST['reject_id'];
         
         $stmtCtx = $pdo->prepare("
-            SELECT u.email, u.first_name, b.service, g.gym_name
+            SELECT 
+                u.email, u.first_name, g.gym_name,
+                COALESCE(gs.custom_service_name, sc.service_name, 'Personal Training') as resolved_service
             FROM bookings b
             JOIN members m ON b.member_id = m.member_id
             JOIN users u ON m.user_id = u.user_id
             JOIN gyms g ON m.gym_id = g.gym_id
+            LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
+            LEFT JOIN service_catalog sc ON gs.catalog_service_id = sc.catalog_service_id
             WHERE b.booking_id = ?
             LIMIT 1
         ");
@@ -142,16 +162,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $pdo->beginTransaction();
         try {
-            // 1. Update Booking Status to 'Cancelled'
-            $stmtUB = $pdo->prepare("UPDATE bookings SET booking_status = 'Cancelled', cancellation_reason = 'Rejected by Staff', updated_at = ? WHERE booking_id = ?");
+            // 1. Update Booking Status to 'Rejected'
+            $stmtUB = $pdo->prepare("UPDATE bookings SET booking_status = 'Rejected', cancellation_reason = 'Rejected by Staff', updated_at = ? WHERE booking_id = ?");
             $stmtUB->execute([$now, $booking_id]);
             
             // 2. Send Email
             if ($ctx && !empty($ctx['email'])) {
                 $subject = "Booking Update - " . htmlspecialchars($ctx['gym_name']);
+                $srv = $ctx['resolved_service'] ?? 'Session';
                 $content = "
                     <p>Hello " . htmlspecialchars($ctx['first_name']) . ",</p>
-                    <p>We regret to inform you that your booking for <strong>" . htmlspecialchars($ctx['service']) . "</strong> at " . htmlspecialchars($ctx['gym_name']) . " has been <strong>DECLINED</strong> by the staff.</p>
+                    <p>We regret to inform you that your booking for <strong>" . htmlspecialchars($srv) . "</strong> at " . htmlspecialchars($ctx['gym_name']) . " has been <strong>DECLINED</strong> by the staff.</p>
                     <p>Please contact the gym or book another slot if this was in error.</p>
                     <p>Thank you for your understanding.</p>
                 ";
@@ -608,7 +629,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <option value="">All Status</option>
                             <option value="Confirmed" <?= ($status === 'Confirmed') ? 'selected' : '' ?>>Confirmed</option>
                             <option value="Pending" <?= ($status === 'Pending') ? 'selected' : '' ?>>Pending</option>
-                            <option value="Cancelled" <?= ($status === 'Cancelled') ? 'selected' : '' ?>>Cancelled</option>
+                            <option value="Rejected" <?= ($status === 'Rejected') ? 'selected' : '' ?>>Rejected</option>
                         </select>
                     </div>
 
@@ -662,9 +683,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-8 py-6">
-                                <p class="text-xs font-black italic text-white uppercase"><?= htmlspecialchars($appt['service'] ?? 'Session') ?></p>
-                                <p class="text-[10px] font-black text-primary tracking-widest uppercase mt-0.5"><?= htmlspecialchars($appt['trainer'] ?? 'Personal Trainer') ?></p>
+                             <td class="px-8 py-6">
+                                <?php 
+                                    $srv_label = $appt['resolved_service'] ?? 'Gym Session';
+                                    if ($appt['coach_id'] && (stripos($srv_label, 'Gym Use') !== false || empty($srv_label))) {
+                                        $srv_label = "Personal Training";
+                                    }
+                                ?>
+                                <p class="text-xs font-black italic text-white uppercase"><?= htmlspecialchars($srv_label) ?></p>
+                                <p class="text-[10px] font-black text-primary tracking-widest uppercase mt-0.5"><?= htmlspecialchars($appt['resolved_trainer'] ?? 'Personal Trainer') ?></p>
                             </td>
                             <td class="px-8 py-6">
                                 <div class="space-y-0.5 text-left">
@@ -674,8 +701,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </td>
                             <td class="px-8 py-6 text-center">
                                 <?php 
-                                    $st = $appt['status'] ?? 'Pending';
-                                    $col = $st === 'Confirmed' ? 'emerald' : ($st === 'Cancelled' ? 'red' : 'amber');
+                                    $st = $appt['booking_status'] ?? 'Pending';
+                                    $col = $st === 'Confirmed' ? 'emerald' : ($st === 'Rejected' ? 'red' : ($st === 'Cancelled' ? 'red' : 'amber'));
                                 ?>
                                 <span class="status-badge bg-<?= $col ?>-500/10 border border-<?= $col ?>-500/20 text-<?= $col ?>-500"><?= $st ?></span>
                             </td>

@@ -24,8 +24,8 @@ $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1")
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
-// Fetch Coach ID
-$stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
+// Fetch Coach ID (from staff table)
+$stmtCoach = $pdo->prepare("SELECT staff_id as coach_id FROM staff WHERE user_id = ? AND gym_id = ? AND staff_role = 'Coach' LIMIT 1");
 $stmtCoach->execute([$user_id, $gym_id]);
 $coach = $stmtCoach->fetch();
 $coach_id = $coach ? $coach['coach_id'] : 0;
@@ -41,7 +41,7 @@ if ($coach_id > 0) {
     // 0. Handle Booking Actions (Approve/Reject)
     if (isset($_GET['action']) && isset($_GET['booking_id'])) {
         $target_id = (int) $_GET['booking_id'];
-        $status_map = ['approve' => 'Confirmed', 'reject' => 'Cancelled'];
+        $status_map = ['approve' => 'Approved', 'reject' => 'Rejected'];
         if (isset($status_map[$_GET['action']])) {
             $updateStmt = $pdo->prepare("UPDATE bookings SET booking_status = ? WHERE booking_id = ? AND coach_id = ?");
             $updateStmt->execute([$status_map[$_GET['action']], $target_id, $coach_id]);
@@ -50,8 +50,8 @@ if ($coach_id > 0) {
         }
     }
 
-    // 1. Confirmed bookings for today
-    $stmtToday = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date = ? AND booking_status = 'Confirmed'");
+    // 1. Approved bookings for today
+    $stmtToday = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date = ? AND booking_status = 'Approved'");
     $stmtToday->execute([$coach_id, $today]);
     $today_count = $stmtToday->fetchColumn();
 
@@ -79,14 +79,14 @@ if ($coach_id > 0) {
     $stmtMembers->execute([$coach_id]);
     $total_members_coached = $stmtMembers->fetchColumn();
 
-    // 5. Upcoming sessions (confirmed, from tomorrow onwards)
-    $stmtUpcoming = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date > ? AND booking_status = 'Confirmed'");
+    // 5. Upcoming sessions (approved, from tomorrow onwards)
+    $stmtUpcoming = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date > ? AND booking_status = 'Approved'");
     $stmtUpcoming->execute([$coach_id, $today]);
     $upcoming_sessions = $stmtUpcoming->fetchColumn();
 }
 $pending_bookings = $pending_bookings ?? [];
 
-// Fetch Today's Schedule (Confirmed Only)
+// Fetch Today's Schedule (Approved Only)
 $schedule_result = [];
 if ($coach_id > 0) {
     $stmtSched = $pdo->prepare("
@@ -95,7 +95,7 @@ if ($coach_id > 0) {
         JOIN members m ON b.member_id = m.member_id
         JOIN users u ON m.user_id = u.user_id
         LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
-        WHERE b.coach_id = ? AND b.booking_date = ? AND b.booking_status = 'Confirmed'
+        WHERE b.coach_id = ? AND b.booking_date = ? AND b.booking_status = 'Approved'
         ORDER BY b.start_time ASC
     ");
     $stmtSched->execute([$coach_id, $today]);
@@ -110,13 +110,13 @@ if ($current_page < 1)
 $offset = ($current_page - 1) * $limit;
 
 // Fetch Total Count for Pagination
-$total_confirmed = 0;
+$total_approved = 0;
 if ($coach_id > 0) {
-    $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date = ? AND booking_status = 'Confirmed'");
+    $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date = ? AND booking_status = 'Approved'");
     $stmtCount->execute([$coach_id, $today]);
-    $total_confirmed = $stmtCount->fetchColumn();
+    $total_approved = $stmtCount->fetchColumn();
 }
-$total_pages = ceil($total_confirmed / $limit);
+$total_pages = ceil($total_approved / $limit);
 
 // Re-fetch Paginated Schedule
 if ($coach_id > 0) {
@@ -126,7 +126,7 @@ if ($coach_id > 0) {
         JOIN members m ON b.member_id = m.member_id
         JOIN users u ON m.user_id = u.user_id
         LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
-        WHERE b.coach_id = ? AND b.booking_date = ? AND b.booking_status = 'Confirmed'
+        WHERE b.coach_id = ? AND b.booking_date = ? AND b.booking_status = 'Approved'
         ORDER BY b.start_time ASC
         LIMIT $limit OFFSET $offset
     ");
@@ -523,7 +523,7 @@ if ($coach_id > 0) {
                                             <td class="px-5 py-4 text-right">
                                                 <div class="flex justify-end gap-2">
                                                     <a href="?action=approve&booking_id=<?= $pb['booking_id'] ?>"
-                                                        class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-lg shadow-primary/10">
+                                                        class="size-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all shadow-lg shadow-emerald-500/10">
                                                         <span class="material-symbols-outlined text-sm">check</span>
                                                     </a>
                                                     <a href="?action=reject&booking_id=<?= $pb['booking_id'] ?>"

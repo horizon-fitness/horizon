@@ -35,7 +35,7 @@ $search = $_GET['search'] ?? '';
 // --- CALCULATE LIFETIME REVENUE (No date filter) ---
 $lifetime_total = 0;
 try {
-    $stmtLifetime = $pdo->prepare("SELECT SUM(amount) as total FROM payments WHERE payment_status = 'Approved' AND gym_id = ?");
+    $stmtLifetime = $pdo->prepare("SELECT SUM(amount) as total FROM payments WHERE payment_status IN ('Approved', 'Paid', 'Verified', 'Completed') AND gym_id = ? AND client_subscription_id IS NULL");
     $stmtLifetime->execute([$gym_id]);
     $lifetime_total = $stmtLifetime->fetch()['total'] ?? 0;
 } catch (Exception $e) {
@@ -44,7 +44,7 @@ try {
 // --- CALCULATE FILTERED REVENUE (For table total) ---
 $filtered_total = 0;
 try {
-    $stmtFiltered = $pdo->prepare("SELECT SUM(amount) as total FROM payments WHERE payment_status = 'Approved' AND gym_id = ? AND created_at BETWEEN ? AND ?");
+    $stmtFiltered = $pdo->prepare("SELECT SUM(amount) as total FROM payments WHERE payment_status IN ('Approved', 'Paid', 'Verified', 'Completed') AND gym_id = ? AND client_subscription_id IS NULL AND created_at BETWEEN ? AND ?");
     $stmtFiltered->execute([$gym_id, $start_date . ' 00:00:00', $end_date . ' 23:59:59']);
     $filtered_total = $stmtFiltered->fetch()['total'] ?? 0;
 } catch (Exception $e) {
@@ -61,13 +61,13 @@ try {
                            CASE 
                              WHEN p.subscription_id IS NOT NULL THEN 'Subscription'
                              WHEN p.booking_id IS NOT NULL THEN 'Booking'
-                             WHEN p.client_subscription_id IS NOT NULL THEN 'Plan Payment'
                              ELSE 'Other' 
                            END as transaction_type
                     FROM payments p 
                     LEFT JOIN members m ON p.member_id = m.member_id
                     LEFT JOIN users u ON m.user_id = u.user_id 
                     WHERE (p.gym_id = ? OR p.member_id IN (SELECT member_id FROM members WHERE gym_id = ?))
+                    AND p.client_subscription_id IS NULL
                     AND p.created_at BETWEEN ? AND ?
                     AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.username LIKE ? OR p.reference_number LIKE ?)
                     ORDER BY p.created_at DESC";
@@ -708,11 +708,18 @@ $active_page = "admin_report";
                                                 </td>
                                                 <td class="px-6 py-5 text-right">
                                                     <?php
-                                                    $ps = $row['payment_status'];
-                                                    $ps_color = ($ps == 'Approved' || $ps == 'Paid') ? 'emerald' : (($ps == 'Pending') ? 'amber' : 'rose');
+                                                    $ps = strtoupper($row['payment_status'] ?? 'PENDING');
+                                                    $ps_text = $ps;
+                                                    $ps_color = "rose";
+                                                    if ($ps === 'APPROVED' || $ps === 'PAID' || $ps === 'VERIFIED' || $ps === 'COMPLETED') {
+                                                        $ps_text = "APPROVED";
+                                                        $ps_color = "emerald";
+                                                    } elseif ($ps === 'PENDING') {
+                                                        $ps_color = "amber";
+                                                    }
                                                     ?>
                                                     <span
-                                                        class="px-3 py-1 rounded-full bg-<?= $ps_color ?>-500/10 border border-<?= $ps_color ?>-500/20 text-[9px] text-<?= $ps_color ?>-500 font-extrabold uppercase italic"><?= $ps ?></span>
+                                                        class="px-3 py-1 rounded-full bg-<?= $ps_color ?>-500/10 border border-<?= $ps_color ?>-500/20 text-[9px] text-<?= $ps_color ?>-500 font-extrabold uppercase italic"><?= $ps_text ?></span>
                                                 </td>
                                             <?php elseif ($tab === 'membership'): ?>
                                                 <td class="px-6 py-5">

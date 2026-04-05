@@ -34,9 +34,12 @@ try {
             b.booking_date as date, 
             b.start_time as time, 
             '60 mins' as duration,
-            COALESCE(gs.custom_service_name, sc.service_name, 'Unlimited Gym Use') as service, 
             CASE 
-                WHEN COALESCE(gs.custom_service_name, sc.service_name, '') LIKE '%Unlimited Gym Use%' OR b.gym_service_id IS NULL THEN 'Self'
+                WHEN b.coach_id IS NOT NULL AND (COALESCE(gs.custom_service_name, sc.service_name, '') = '' OR COALESCE(gs.custom_service_name, sc.service_name, '') LIKE '%Gym Use%') THEN 'Personal Training'
+                ELSE COALESCE(gs.custom_service_name, sc.service_name, 'Unlimited Gym Use')
+            END as service, 
+            CASE 
+                WHEN b.coach_id IS NULL THEN 'Self'
                 ELSE CONCAT(u.first_name, ' ', u.last_name)
             END as trainer,
             b.booking_status as status,

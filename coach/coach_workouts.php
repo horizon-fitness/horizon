@@ -25,8 +25,8 @@ $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1")
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
-// Fetch Coach ID
-$stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
+// Fetch Coach ID (from staff table)
+$stmtCoach = $pdo->prepare("SELECT staff_id as coach_id FROM staff WHERE user_id = ? AND gym_id = ? AND staff_role = 'Coach' LIMIT 1");
 $stmtCoach->execute([$coach_user_id, $gym_id]);
 $coach = $stmtCoach->fetch();
 $coach_id = $coach ? $coach['coach_id'] : 0;

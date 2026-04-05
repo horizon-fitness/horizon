@@ -24,8 +24,8 @@ $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1")
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
-// Fetch Coach ID
-$stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
+// Fetch Coach ID (from staff table)
+$stmtCoach = $pdo->prepare("SELECT staff_id as coach_id FROM staff WHERE user_id = ? AND gym_id = ? AND staff_role = 'Coach' LIMIT 1");
 $stmtCoach->execute([$user_id, $gym_id]);
 $coach = $stmtCoach->fetch();
 $coach_id = $coach ? $coach['coach_id'] : 0;
@@ -101,7 +101,7 @@ if ($coach_id > 0) {
     $pending_count = $stmtPending->fetchColumn();
 }
 
-// Fetch Confirmed Bookings for Daily View
+// Fetch Approved Bookings for Daily View
 $all_bookings = [];
 if ($coach_id > 0) {
     $stmtBookings = $pdo->prepare("
@@ -109,7 +109,7 @@ if ($coach_id > 0) {
         FROM bookings b
         JOIN members m ON b.member_id = m.member_id
         JOIN users u ON m.user_id = u.user_id
-        WHERE b.coach_id = ? AND b.booking_status IN ('Confirmed', 'Pending')
+        WHERE b.coach_id = ? AND b.booking_status IN ('Approved', 'Pending')
     ");
     $stmtBookings->execute([$coach_id]);
     $fetched_bookings = $stmtBookings->fetchAll();
@@ -777,12 +777,12 @@ if ($coach_id > 0) {
                                             ?>
                                             <?php if ($found_booking): 
                                                 $is_pending = ($found_booking['status'] === 'Pending');
-                                                $accent_color = $is_pending ? 'amber-500' : 'primary';
-                                                $bg_color = $is_pending ? 'bg-amber-500/10' : 'bg-primary/20';
-                                                $border_color = $is_pending ? 'border-amber-500/30' : 'border-primary/30';
-                                                $text_color = $is_pending ? 'text-amber-500' : 'text-primary';
+                                                $accent_color = $is_pending ? 'amber-500' : 'emerald-500';
+                                                $bg_color = $is_pending ? 'bg-amber-500/10' : 'bg-emerald-500/10';
+                                                $border_color = $is_pending ? 'border-amber-500/30' : 'border-emerald-500/30';
+                                                $text_color = $is_pending ? 'text-amber-500' : 'text-emerald-500';
                                                 $icon = $is_pending ? 'timer' : 'verified';
-                                                $status_label = $is_pending ? 'Pending Request' : 'Confirmed Training';
+                                                $status_label = $is_pending ? 'Pending Request' : 'Approved Training';
                                             ?>
                                                 <div
                                                     class="booked-slot-box flex items-center <?= $bg_color ?> border <?= $border_color ?> p-6 rounded-[24px] shadow-2xl animate-slide-up group relative overflow-hidden">
