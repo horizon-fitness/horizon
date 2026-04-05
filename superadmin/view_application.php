@@ -682,6 +682,31 @@ endif;
             background: #14121a;
             border-radius: 10px;
         }
+        /* Sidebar-Aware Modal Logic */
+        #confirmModal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
+            z-index: 350;
+            /* Higher than navigation */
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .flex-important {
+            display: flex !important;
+        }
+
+        .sidebar-nav:hover~#confirmModal {
+            left: 300px;
+        }
+
+        @media (max-width: 1023px) {
+            #confirmModal {
+                left: 0 !important;
+            }
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -1170,19 +1195,90 @@ endif;
         <div class="flex flex-col sm:flex-row gap-4">
             <form method="POST" action="action/process_application.php" class="flex-1">
                 <input type="hidden" name="application_id" value="<?= $app_id ?>">
-                <button type="submit" name="action" value="approve"
+                <input type="hidden" name="action" value="">
+                <button type="button"
+                    onclick="confirmAction(this.form, 'approve', 'Approve Application', 'Are you sure you want to approve this gym? They will be granted system access immediately.')"
                     class="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black italic uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined">verified</span> Approve Application
                 </button>
             </form>
             <form method="POST" action="action/process_application.php" class="flex-1">
                 <input type="hidden" name="application_id" value="<?= $app_id ?>">
-                <button type="submit" name="action" value="reject"
+                <input type="hidden" name="action" value="">
+                <button type="button"
+                    onclick="confirmAction(this.form, 'reject', 'Reject Application', 'Are you sure you want to reject this application? This will archive the request in the Rejected History tab.')"
                     class="w-full py-4 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 font-black italic uppercase tracking-widest transition-all flex items-center justify-center gap-2">
                     <span class="material-symbols-outlined">cancel</span> Reject
                 </button>
             </form>
         </div>
+
+        <div id="confirmModal" class="fixed inset-0 z-[400] hidden items-center justify-center p-4 overflow-hidden">
+            <div id="confirmBackdrop" onclick="closeConfirmModal()"
+                class="absolute inset-0 bg-black/40 backdrop-blur-xl transition-opacity duration-300 opacity-0"></div>
+            <div id="confirmContainer"
+                class="relative w-full max-w-md bg-zinc-900/90 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0">
+                <div class="p-8 text-center text-white">
+                    <div
+                        class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
+                        <span class="material-symbols-outlined text-3xl text-primary">contact_support</span>
+                    </div>
+                    <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter mb-2 italic">Confirm Action</h3>
+                    <p id="confirmMessage" class="text-gray-400 text-xs font-medium leading-relaxed mb-8"></p>
+
+                    <div class="flex gap-3">
+                        <button onclick="closeConfirmModal()"
+                            class="flex-1 py-3 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest transition-all text-gray-400 hover:text-white">
+                            Cancel
+                        </button>
+                        <button onclick="executeConfirmedAction()"
+                            class="flex-1 py-3 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let pendingForm = null;
+
+            function confirmAction(form, actionValue, title, message) {
+                pendingForm = form;
+                let actionInput = form.querySelector('input[name="action"]');
+                if (actionInput) actionInput.value = actionValue;
+
+                document.getElementById('confirmTitle').textContent = title;
+                document.getElementById('confirmMessage').textContent = message;
+
+                const modal = document.getElementById('confirmModal');
+                modal.classList.replace('hidden', 'flex-important');
+                setTimeout(() => {
+                    document.getElementById('confirmBackdrop').classList.replace('opacity-0', 'opacity-100');
+                    document.getElementById('confirmContainer').classList.replace('scale-95', 'scale-100');
+                    document.getElementById('confirmContainer').classList.replace('opacity-0', 'opacity-100');
+                }, 10);
+            }
+
+            function closeConfirmModal() {
+                const modal = document.getElementById('confirmModal');
+                const backdrop = document.getElementById('confirmBackdrop');
+                const container = document.getElementById('confirmContainer');
+
+                backdrop.classList.replace('opacity-100', 'opacity-0');
+                container.classList.replace('scale-100', 'scale-95');
+                container.classList.replace('opacity-100', 'opacity-0');
+
+                setTimeout(() => {
+                    modal.classList.replace('flex-important', 'hidden');
+                    pendingForm = null;
+                }, 300);
+            }
+
+            function executeConfirmedAction() {
+                if (pendingForm) pendingForm.submit();
+            }
+        </script>
     <?php else: ?>
         <div class="glass-card p-6 border-white/10 bg-white/5 flex items-center justify-between">
             <div>

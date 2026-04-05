@@ -396,10 +396,11 @@ $deactivated_count = count($deactivated_tenants);
 
         /* Sidebar-Aware Modal Logic */
         #global-image-viewer.active {
-        display: flex;
-        opacity: 1;
-        pointer-events: auto !important;
-    }
+            display: flex;
+            opacity: 1;
+            pointer-events: auto !important;
+        }
+
         #applicationModal {
             position: fixed;
             top: 0;
@@ -410,11 +411,22 @@ $deactivated_count = count($deactivated_tenants);
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        #applicationModal.flex-important {
+        #confirmModal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
+            z-index: 300;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .flex-important {
             display: flex !important;
         }
 
-        .sidebar-nav:hover~#applicationModal {
+        .sidebar-nav:hover~#applicationModal,
+        .sidebar-nav:hover~#confirmModal {
             left: 300px;
         }
 
@@ -423,7 +435,9 @@ $deactivated_count = count($deactivated_tenants);
         }
 
         @media (max-width: 1023px) {
-            #applicationModal {
+
+            #applicationModal,
+            #confirmModal {
                 left: 0 !important;
             }
         }
@@ -1242,7 +1256,7 @@ $deactivated_count = count($deactivated_tenants);
 
     <div id="confirmModal" class="fixed inset-0 z-[150] hidden items-center justify-center p-4 overflow-hidden">
         <div id="confirmBackdrop" onclick="closeConfirmModal()"
-            class="fixed inset-0 bg-background/60 backdrop-blur-sm transition-opacity duration-300 opacity-0"></div>
+            class="absolute inset-0 bg-black/40 backdrop-blur-xl transition-opacity duration-300 opacity-0"></div>
         <div id="confirmContainer"
             class="relative w-full max-w-md bg-transparent backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0">
             <div class="p-8 text-center text-[--text-main]">
