@@ -48,7 +48,7 @@ if (isset($_GET['ajax_user_id'])) {
         FROM users u 
         JOIN members m ON u.user_id = m.user_id 
         JOIN bookings b ON m.member_id = b.member_id
-        WHERE u.user_id = ? AND m.gym_id = ? AND b.coach_id = ? AND b.booking_status IN ('Approved', 'Pending')
+        WHERE u.user_id = ? AND m.gym_id = ? AND b.coach_id = ? AND b.booking_status IN ('Approved', 'Pending', 'Confirmed', 'Completed')
         LIMIT 1
     ");
     $stmt->execute([$target_uid, $gym_id, $coach_id]);
@@ -200,7 +200,7 @@ $sql = "
     FROM members m
     JOIN users u ON m.user_id = u.user_id
     JOIN bookings b ON m.member_id = b.member_id
-    WHERE b.booking_status IN ('Approved', 'Pending') AND " . implode(" AND ", $where_clauses) . "
+    WHERE b.booking_status IN ('Approved', 'Pending', 'Confirmed', 'Completed') AND " . implode(" AND ", $where_clauses) . "
     $order_sql
 ";
 
@@ -388,8 +388,6 @@ $active_page = "members";
         <a href="coach_dashboard.php" class="nav-link <?= ($active_page == 'dashboard') ? 'active-nav' : 'text-gray-400 hover:text-white' ?>"><span class="material-symbols-outlined text-xl shrink-0">grid_view</span><span class="nav-text">Dashboard</span></a>
         <a href="coach_schedule.php" class="nav-link <?= ($active_page == 'schedule') ? 'active-nav' : 'text-gray-400 hover:text-white' ?>"><span class="material-symbols-outlined text-xl shrink-0">edit_calendar</span><span class="nav-text">Schedule</span></a>
         <a href="coach_members.php" class="nav-link <?= ($active_page == 'members') ? 'active-nav' : 'text-gray-400 hover:text-white' ?>"><span class="material-symbols-outlined text-xl shrink-0">groups</span><span class="nav-text">My Members</span></a>
-        <div class="nav-section-header px-[38px] mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Training</span></div>
-        <a href="coach_workouts.php" class="nav-link <?= ($active_page == 'workouts') ? 'active-nav' : 'text-gray-400 hover:text-white' ?>"><span class="material-symbols-outlined text-xl shrink-0">fitness_center</span><span class="nav-text">Workouts</span></a>
     </nav>
 
     <div class="mt-auto pt-6 border-t border-white/5 flex flex-col gap-1 shrink-0 pb-8 uppercase">

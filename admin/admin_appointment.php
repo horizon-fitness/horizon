@@ -378,22 +378,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         /* Modal Elite Positioning - Sidebar-Aware */
-        .modal-backdrop {
+        #confirmationModal, #detailModal {
             position: fixed;
             top: 0;
             right: 0;
             bottom: 0;
             left: 110px;
+            z-index: 200;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .side-nav:hover ~ #confirmationModal, .side-nav:hover ~ #detailModal {
+            left: 300px;
+        }
+
+        .modal-backdrop {
+            position: absolute;
+            inset: 0;
             background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(12px);
             opacity: 0;
             visibility: hidden;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 200;
-        }
-
-        .side-nav:hover ~ .modal-backdrop {
-            left: 300px;
+            z-index: -1;
         }
 
         .modal-backdrop.active {
@@ -407,28 +417,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: #14121a;
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 32px;
-            position: fixed;
-            top: 50%;
-            left: calc(110px + (100% - 110px) / 2);
-            transform: translate(-50%, -40%) scale(0.95);
+            transform: scale(0.95);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 0;
             visibility: hidden;
-            z-index: 201;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
 
-        .side-nav:hover ~ .modal-container {
-            left: calc(300px + (100% - 300px) / 2);
+        #detailModal .modal-container {
+            max-width: 512px;
         }
 
-        .modal-backdrop.active ~ .modal-container {
+        #confirmationModal.active .modal-container, #detailModal.active .modal-container {
             opacity: 1;
             visibility: visible;
-            transform: translate(-50%, -50%) scale(1);
+            transform: scale(1);
         }
 
-        .flex-modal {
+        .flex-important {
             display: flex !important;
         }
 
@@ -486,13 +492,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 confirmBtn.className = 'flex-1 bg-rose-500 hover:bg-rose-600 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all';
             }
 
-            modal.classList.add('active', 'flex-modal');
+            modal.classList.add('active', 'flex-important');
             backdrop.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
 
         function closeModal() {
-            document.getElementById('confirmationModal').classList.remove('active', 'flex-modal');
+            document.getElementById('confirmationModal').classList.remove('active', 'flex-important');
             document.getElementById('modalBackdrop').classList.remove('active');
             document.body.style.overflow = '';
         }
@@ -516,6 +522,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setTimeout(() => a.remove(), 500);
             });
         }, 5000);
+
+        function openDetailModal(data) {
+            document.getElementById('dt_ref').textContent = data.ref || ('BK-' + data.id);
+            document.getElementById('dt_name').textContent = data.name;
+            document.getElementById('dt_username').textContent = '@' + data.username;
+            document.getElementById('dt_avatar').textContent = data.name.charAt(0);
+            document.getElementById('dt_service').textContent = data.service;
+            document.getElementById('dt_trainer').textContent = data.trainer;
+            document.getElementById('dt_schedule').textContent = data.schedule;
+            
+            const statusEl = document.getElementById('dt_status');
+            statusEl.textContent = data.status;
+            statusEl.className = 'px-3 py-1 rounded-full border text-[8px] font-black uppercase italic tracking-widest text-' + data.statusColor + '-500 bg-' + data.statusColor + '-500/10 border-' + data.statusColor + '-500/20';
+
+            const modal = document.getElementById('detailModal');
+            modal.classList.add('active', 'flex-important');
+            document.getElementById('detailBackdrop').classList.add('active');
+        }
+
+        function closeDetailModal() {
+            const modal = document.getElementById('detailModal');
+            document.getElementById('detailBackdrop').classList.remove('active');
+            modal.classList.remove('active', 'flex-important');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeDetailModal();
+            }
+        });
     </script>
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
@@ -557,16 +594,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </nav>
 
 <!-- Modal System -->
-<div id="modalBackdrop" class="modal-backdrop" onclick="closeModal()"></div>
-<div id="confirmationModal" class="modal-container p-10 flex-col items-center text-center">
-    <div class="size-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-        <span class="material-symbols-outlined text-primary text-4xl">verified_user</span>
-    </div>
-    <h3 id="modalTitle" class="text-2xl font-black italic uppercase tracking-tight text-white mb-3">Confirm Action?</h3>
-    <p id="modalMessage" class="text-gray-500 text-sm font-medium mb-10 leading-relaxed px-4">Are you sure you want to proceed with this operation?</p>
-    <div class="flex w-full gap-4">
-        <button onclick="closeModal()" class="flex-1 bg-white/5 hover:bg-white/10 text-gray-400 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Discard</button>
-        <button id="confirmActionBtn" onclick="submitAction()" class="flex-1 bg-primary hover:bg-primary/90 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Proceed</button>
+<div id="confirmationModal">
+    <div id="modalBackdrop" class="modal-backdrop" onclick="closeModal()"></div>
+    <div class="modal-container p-10 flex flex-col items-center text-center">
+        <div class="size-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+            <span class="material-symbols-outlined text-primary text-4xl">verified_user</span>
+        </div>
+        <h3 id="modalTitle" class="text-2xl font-black italic uppercase tracking-tight text-white mb-3">Confirm Action?</h3>
+        <p id="modalMessage" class="text-gray-500 text-sm font-medium mb-10 leading-relaxed px-4">Are you sure you want to proceed with this operation?</p>
+        <div class="flex w-full gap-4">
+            <button onclick="closeModal()" class="flex-1 bg-white/5 hover:bg-white/10 text-gray-400 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Discard</button>
+            <button id="confirmActionBtn" onclick="submitAction()" class="flex-1 bg-primary hover:bg-primary/90 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Proceed</button>
+        </div>
     </div>
 </div>
 
@@ -708,16 +747,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </td>
                             <td class="px-8 py-6 text-right">
                                 <div class="flex justify-end gap-2">
+                                    <button type="button" 
+                                        onclick='openDetailModal({
+                                            id: "<?= $appt["booking_id"] ?>",
+                                            ref: "<?= $appt["booking_reference"] ?>",
+                                            name: "<?= htmlspecialchars($appt["first_name"] . " " . $appt["last_name"]) ?>",
+                                            username: "<?= htmlspecialchars($appt["username"] ?? "unknown") ?>",
+                                            service: "<?= htmlspecialchars($appt["resolved_service"] ?? "Gym Session") ?>",
+                                            trainer: "<?= htmlspecialchars($appt["resolved_trainer"] ?? "Personal Trainer") ?>",
+                                            schedule: "<?= date("M d, Y h:i A", strtotime(($appt["booking_date"] ?? "today") . " " . ($appt["start_time"] ?? "00:00"))) ?>",
+                                            status: "<?= $st ?>",
+                                            statusColor: "<?= $col ?>"
+                                        })'
+                                        class="size-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 flex items-center justify-center hover:bg-primary hover:text-white transition-all" title="View Details">
+                                        <span class="material-symbols-outlined text-[18px]">search</span>
+                                    </button>
                                     <?php if ($st === 'Pending'): ?>
                                         <button onclick="confirmAction(<?= $appt['booking_id'] ?>, 'approve')" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all active:scale-95" title="Approve">
                                             <span class="material-symbols-outlined text-[18px]">check_circle</span>
                                         </button>
                                         <button onclick="confirmAction(<?= $appt['booking_id'] ?>, 'reject')" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-95" title="Reject">
                                             <span class="material-symbols-outlined text-[18px]">cancel</span>
-                                        </button>
-                                    <?php else: ?>
-                                        <button class="size-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-gray-700 cursor-not-allowed" disabled>
-                                            <span class="material-symbols-outlined text-[18px]">lock</span>
                                         </button>
                                     <?php endif; ?>
                                 </div>
@@ -730,5 +780,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
 </div>
+
+    <!-- Appointment Detail Modal -->
+    <div id="detailModal">
+        <div id="detailBackdrop" class="modal-backdrop" onclick="closeDetailModal()"></div>
+        <div class="modal-container p-10 flex flex-col items-center overflow-hidden">
+            <div class="w-full flex justify-between items-start mb-8">
+                <div>
+                    <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white leading-none">Booking <span class="text-primary">Details</span></h3>
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-2" id="dt_ref">BK-000000</p>
+                </div>
+                <button onclick="closeDetailModal()" class="size-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-500 transition-all">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
+
+            <div class="w-full space-y-6">
+                <div class="glass-card p-6 border-white/5 bg-white/[0.02]">
+                    <p class="text-[10px] font-black uppercase text-primary mb-4 tracking-widest">Member Information</p>
+                    <div class="flex items-center gap-4">
+                        <div class="size-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black italic text-xl" id="dt_avatar">J</div>
+                        <div>
+                            <p class="text-base font-black italic uppercase text-white" id="dt_name">John Doe</p>
+                            <p class="text-[11px] font-bold text-gray-500" id="dt_username">@johndoe</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full grid grid-cols-2 gap-4">
+                    <div class="glass-card p-5 border-white/5 bg-white/[0.02] col-span-2">
+                        <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Service Requested</p>
+                        <p class="text-lg font-black italic text-white" id="dt_service">Gym Session</p>
+                        <p class="text-[10px] font-black text-primary tracking-widest uppercase mt-1" id="dt_trainer">Personal Trainer</p>
+                    </div>
+                </div>
+
+                <div class="w-full glass-card p-5 border-white/5 bg-white/[0.02] flex justify-between items-center">
+                    <div>
+                        <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Schedule</p>
+                        <p class="text-xs font-bold text-white italic" id="dt_schedule">Jan 01, 2024</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Status</p>
+                        <span class="px-3 py-1 rounded-full border text-[8px] font-black uppercase italic tracking-widest" id="dt_status">PENDING</span>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closeDetailModal()" class="w-full mt-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white active:scale-[0.98]">
+                Dismiss Record
+            </button>
+        </div>
+    </div>
 </body>
 </html>

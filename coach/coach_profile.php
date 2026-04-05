@@ -253,8 +253,6 @@ if ($user['coach_status'] === 'Active') {
         <a href="coach_schedule.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">calendar_today</span><span class="nav-label">My Schedule</span></a>
         <a href="coach_members.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">groups</span><span class="nav-label">Members</span></a>
         
-        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Training</span></div>
-        <a href="coach_workouts.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">fitness_center</span><span class="nav-label">Workouts</span></a>
     </div>
     <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
         <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>

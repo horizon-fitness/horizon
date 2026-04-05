@@ -35,7 +35,7 @@ $search = $_GET['search'] ?? '';
 // --- CALCULATE LIFETIME REVENUE (No date filter) ---
 $lifetime_total = 0;
 try {
-    $stmtLifetime = $pdo->prepare("SELECT SUM(amount) as total FROM payments WHERE payment_status IN ('Approved', 'Paid', 'Verified', 'Completed') AND gym_id = ? AND client_subscription_id IS NULL");
+    $stmtLifetime = $pdo->prepare("SELECT SUM(amount) as total FROM payments WHERE payment_status IN ('Approved', 'Paid', 'Verified', 'Completed') AND gym_id = ? AND client_subscription_id IS NULL AND payment_type = 'Membership'");
     $stmtLifetime->execute([$gym_id]);
     $lifetime_total = $stmtLifetime->fetch()['total'] ?? 0;
 } catch (Exception $e) {
@@ -44,7 +44,7 @@ try {
 // --- CALCULATE FILTERED REVENUE (For table total) ---
 $filtered_total = 0;
 try {
-    $stmtFiltered = $pdo->prepare("SELECT SUM(amount) as total FROM payments WHERE payment_status IN ('Approved', 'Paid', 'Verified', 'Completed') AND gym_id = ? AND client_subscription_id IS NULL AND created_at BETWEEN ? AND ?");
+    $stmtFiltered = $pdo->prepare("SELECT SUM(amount) as total FROM payments WHERE payment_status IN ('Approved', 'Paid', 'Verified', 'Completed') AND gym_id = ? AND client_subscription_id IS NULL AND payment_type = 'Membership' AND created_at BETWEEN ? AND ?");
     $stmtFiltered->execute([$gym_id, $start_date . ' 00:00:00', $end_date . ' 23:59:59']);
     $filtered_total = $stmtFiltered->fetch()['total'] ?? 0;
 } catch (Exception $e) {
@@ -68,6 +68,7 @@ try {
                     LEFT JOIN users u ON m.user_id = u.user_id 
                     WHERE (p.gym_id = ? OR p.member_id IN (SELECT member_id FROM members WHERE gym_id = ?))
                     AND p.client_subscription_id IS NULL
+                    AND p.payment_type = 'Membership'
                     AND p.created_at BETWEEN ? AND ?
                     AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.username LIKE ? OR p.reference_number LIKE ?)
                     ORDER BY p.created_at DESC";
@@ -349,6 +350,63 @@ $active_page = "admin_report";
                 overflow: visible !important;
             }
         }
+
+        /* Modal Elite Positioning - Sidebar-Aware */
+        #detailModal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
+            z-index: 200;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .side-nav:hover ~ #detailModal {
+            left: 300px;
+        }
+
+        .modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: -1;
+        }
+
+        .modal-backdrop.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-container {
+            width: 90%;
+            max-width: 512px;
+            background: #14121a;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 40px;
+            transform: scale(0.95);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            visibility: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        #detailModal.active .modal-container {
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1);
+        }
+
+        .flex-important {
+            display: flex !important;
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -474,6 +532,36 @@ $active_page = "admin_report";
                 html2pdf().set(opt).from(wrapper).save();
             }
         }
+
+        function openDetailModal(data) {
+            document.getElementById('dt_ref').textContent = 'TRX-' + (data.ref || data.id);
+            document.getElementById('dt_name').textContent = data.name;
+            document.getElementById('dt_username').textContent = '@' + data.username;
+            document.getElementById('dt_avatar').textContent = data.name.charAt(0);
+            document.getElementById('dt_amount').textContent = '₱' + parseFloat(data.amount).toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('dt_type').textContent = data.type;
+            document.getElementById('dt_date').textContent = data.date;
+            
+            const statusEl = document.getElementById('dt_status');
+            statusEl.textContent = data.status;
+            statusEl.className = 'px-3 py-1 rounded-full border text-[8px] font-black uppercase italic tracking-widest text-' + (data.statusColor || 'gray') + '-500 bg-' + (data.statusColor || 'gray') + '-500/10 border-' + (data.statusColor || 'gray') + '-500/20';
+
+            const modal = document.getElementById('detailModal');
+            modal.classList.add('active', 'flex-important');
+            document.getElementById('detailBackdrop').classList.add('active');
+        }
+
+        function closeDetailModal() {
+            const modal = document.getElementById('detailModal');
+            document.getElementById('detailBackdrop').classList.remove('active');
+            modal.classList.remove('active', 'flex-important');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeDetailModal();
+            }
+        });
     </script>
 </head>
 
@@ -654,6 +742,7 @@ $active_page = "admin_report";
                                         <th class="px-6 py-5">Note</th>
                                         <th class="px-6 py-5 text-right">Amount</th>
                                         <th class="px-6 py-5 text-right">Status</th>
+                                        <th class="px-6 py-5 text-right no-print">Action</th>
                                     <?php elseif ($tab === 'membership'): ?>
                                         <th class="px-6 py-5">Member Name</th>
                                         <th class="px-6 py-5">Plan</th>
@@ -720,6 +809,23 @@ $active_page = "admin_report";
                                                     ?>
                                                     <span
                                                         class="px-3 py-1 rounded-full bg-<?= $ps_color ?>-500/10 border border-<?= $ps_color ?>-500/20 text-[9px] text-<?= $ps_color ?>-500 font-extrabold uppercase italic"><?= $ps_text ?></span>
+                                                </td>
+                                                <td class="px-8 py-5 text-right no-print">
+                                                    <button type="button" 
+                                                        onclick='openDetailModal({
+                                                            id: "<?= $row["payment_id"] ?>",
+                                                            ref: "<?= $row["reference_number"] ?>",
+                                                            name: "<?= htmlspecialchars($row["fullname"]) ?>",
+                                                            username: "<?= htmlspecialchars($row["username"] ?? "unknown") ?>",
+                                                            amount: "<?= $row["amount"] ?>",
+                                                            type: "<?= htmlspecialchars($row["transaction_type"]) ?>",
+                                                            date: "<?= date("M d, Y h:i A", strtotime($row["created_at"])) ?>",
+                                                            status: "<?= $ps_text ?>",
+                                                            statusColor: "<?= $ps_color ?>"
+                                                        })'
+                                                        class="size-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 inline-flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-lg active:scale-95" title="View Details">
+                                                        <span class="material-symbols-outlined text-[18px]">search</span>
+                                                    </button>
                                                 </td>
                                             <?php elseif ($tab === 'membership'): ?>
                                                 <td class="px-6 py-5">
@@ -811,6 +917,60 @@ $active_page = "admin_report";
                 </div>
             </div>
         </main>
+    </div>
+    <!-- Transaction Detail Modal -->
+    <div id="detailModal">
+        <div id="detailBackdrop" class="modal-backdrop" onclick="closeDetailModal()"></div>
+        <div class="modal-container p-10 flex flex-col items-center">
+            <div class="w-full flex justify-between items-start mb-8">
+                <div>
+                    <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white leading-none">Transaction <span class="text-primary">Details</span></h3>
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-2" id="dt_ref">REF-000000</p>
+                </div>
+                <button onclick="closeDetailModal()" class="size-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-500 transition-all">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
+
+            <div class="w-full space-y-6">
+                <div class="glass-card p-6 border-white/5 bg-white/[0.02]">
+                    <p class="text-[10px] font-black uppercase text-primary mb-4 tracking-widest">Member Information</p>
+                    <div class="flex items-center gap-4">
+                        <div class="size-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black italic text-xl" id="dt_avatar">J</div>
+                        <div>
+                            <p class="text-base font-black italic uppercase text-white" id="dt_name">John Doe</p>
+                            <p class="text-[11px] font-bold text-gray-500" id="dt_username">@johndoe</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="w-full grid grid-cols-2 gap-4">
+                    <div class="glass-card p-5 border-white/5 bg-white/[0.02]">
+                        <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Amount Paid</p>
+                        <p class="text-lg font-black italic text-white" id="dt_amount">₱0.00</p>
+                    </div>
+                    <div class="glass-card p-5 border-white/5 bg-white/[0.02]">
+                        <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Payment Method</p>
+                        <span class="text-[10px] font-black uppercase italic text-primary" id="dt_type">OFFLINE</span>
+                    </div>
+                </div>
+
+                <div class="w-full glass-card p-5 border-white/5 bg-white/[0.02] flex justify-between items-center">
+                    <div>
+                        <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Transaction Date</p>
+                        <p class="text-xs font-bold text-white italic" id="dt_date">Jan 01, 2024</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Status</p>
+                        <span class="px-3 py-1 rounded-full border text-[8px] font-black uppercase italic tracking-widest" id="dt_status">PENDING</span>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="closeDetailModal()" class="w-full mt-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white active:scale-[0.98]">
+                Dismiss Record
+            </button>
+        </div>
     </div>
 </body>
 
