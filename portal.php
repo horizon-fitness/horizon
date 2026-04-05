@@ -8,16 +8,46 @@ if (empty($gym_slug)) {
     exit;
 }
 
-// Fetch Tenant Page Data
-$stmtPage = $pdo->prepare("SELECT tp.*, g.gym_name, g.gym_id, g.email as gym_email, g.contact_number as gym_contact 
-                           FROM tenant_pages tp 
-                           JOIN gyms g ON tp.gym_id = g.gym_id 
-                           WHERE tp.page_slug = ? AND tp.is_active = 1 LIMIT 1");
-$stmtPage->execute([$gym_slug]);
-$page = $stmtPage->fetch();
+// Fetch Tenant Page Data (Support Preview Mode without Slug)
+if (empty($gym_slug) && isset($_GET['preview'])) {
+    $page = [
+        'page_title' => 'Sample Gym Name',
+        'theme_color' => '#8c2bee',
+        'secondary_color' => '#a1a1aa',
+        'bg_color' => '#0a090d',
+        'font_family' => 'Lexend',
+        'about_text' => 'Enter your facility description to see it here...',
+        'contact_text' => 'Your location will be displayed here.',
+        'gym_email' => 'contact@gym.com',
+        'gym_contact' => '123-456-7890'
+    ];
+    $gym_details = [
+        'opening_time' => '08:00',
+        'closing_time' => '22:00',
+        'max_capacity' => 50,
+        'has_lockers' => 0, 'has_shower' => 0, 'has_parking' => 0, 'has_wifi' => 0
+    ];
+} else {
+    $stmtPage = $pdo->prepare("SELECT tp.*, g.gym_name, g.gym_id, g.email as gym_email, g.contact_number as gym_contact 
+                               FROM tenant_pages tp 
+                               JOIN gyms g ON tp.gym_id = g.gym_id 
+                               WHERE tp.page_slug = ? AND tp.is_active = 1 LIMIT 1");
+    $stmtPage->execute([$gym_slug]);
+    $page = $stmtPage->fetch();
 
-if (!$page) {
-    die("Gym page not found or is currently inactive.");
+    if (!$page) {
+        die("Gym page not found or is currently inactive.");
+    }
+
+    // Fetch Operational Details
+    $stmtDetails = $pdo->prepare("SELECT * FROM gym_details WHERE gym_id = ?");
+    $stmtDetails->execute([$page['gym_id']]);
+    $gym_details = $stmtDetails->fetch() ?: [
+        'opening_time' => '08:00',
+        'closing_time' => '22:00',
+        'max_capacity' => 0,
+        'has_lockers' => 0, 'has_shower' => 0, 'has_parking' => 0, 'has_wifi' => 0
+    ];
 }
 
 $primary_color = $page['theme_color'] ?? '#8c2bee';
@@ -225,6 +255,59 @@ $font_family = $page['font_family'] ?? 'Lexend';
                     </a>
                 </div>
             </div>
+
+            <!-- Operational Status (Live Sync) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div class="glass-card p-8 text-left relative overflow-hidden group">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                            <span class="material-symbols-outlined">schedule</span>
+                        </div>
+                        <h4 class="text-xs font-black uppercase tracking-widest text-white italic">Operational Status</h4>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center text-[11px] font-bold uppercase tracking-widest text-gray-500">
+                            <span>Opening Time</span>
+                            <span id="opening-time-display" class="text-white italic"><?= date('h:i A', strtotime($gym_details['opening_time'])) ?></span>
+                        </div>
+                        <div class="flex justify-between items-center text-[11px] font-bold uppercase tracking-widest text-gray-500">
+                            <span>Closing Time</span>
+                            <span id="closing-time-display" class="text-white italic"><?= date('h:i A', strtotime($gym_details['closing_time'])) ?></span>
+                        </div>
+                        <div class="flex justify-between items-center text-[11px] font-bold uppercase tracking-widest text-gray-500">
+                            <span>Max Capacity</span>
+                            <span id="max-capacity-display" class="text-primary italic animate-pulse"><?= $gym_details['max_capacity'] ?: 'N/A' ?> Members</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card p-8 text-left relative overflow-hidden group">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                            <span class="material-symbols-outlined">star</span>
+                        </div>
+                        <h4 class="text-xs font-black uppercase tracking-widest text-white italic">Amenities</h4>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div id="locker-tag" class="flex items-center gap-2 p-3 rounded-lg bg-white/5 border border-white/5 <?= ($gym_details['has_lockers']) ? '' : 'opacity-20 grayscale' ?>">
+                            <span class="material-symbols-outlined text-sm text-primary">lock</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest text-gray-300">Lockers</span>
+                        </div>
+                        <div id="shower-tag" class="flex items-center gap-2 p-3 rounded-lg bg-white/5 border border-white/5 <?= ($gym_details['has_shower']) ? '' : 'opacity-20 grayscale' ?>">
+                            <span class="material-symbols-outlined text-sm text-primary">shower</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest text-gray-300">Showers</span>
+                        </div>
+                        <div id="parking-tag" class="flex items-center gap-2 p-3 rounded-lg bg-white/5 border border-white/5 <?= ($gym_details['has_parking']) ? '' : 'opacity-20 grayscale' ?>">
+                            <span class="material-symbols-outlined text-sm text-primary">local_parking</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest text-gray-300">Parking</span>
+                        </div>
+                        <div id="wifi-tag" class="flex items-center gap-2 p-3 rounded-lg bg-white/5 border border-white/5 <?= ($gym_details['has_wifi']) ? '' : 'opacity-20 grayscale' ?>">
+                            <span class="material-symbols-outlined text-sm text-primary">wifi</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest text-gray-300">Wi-Fi</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </section>
 
         <section id="about" class="max-w-4xl w-full mt-32 py-20 text-center relative border-y border-white/5">
@@ -347,6 +430,38 @@ $font_family = $page['font_family'] ?? 'Lexend';
                         }
                     }
                 }
+
+                // Update Operational Data (Hours, Capacity)
+                if (data.opening_time) {
+                    const el = document.getElementById('opening-time-display');
+                    if (el) el.innerText = data.opening_time;
+                }
+                if (data.closing_time) {
+                    const el = document.getElementById('closing-time-display');
+                    if (el) el.innerText = data.closing_time;
+                }
+                if (data.max_capacity !== undefined) {
+                    const el = document.getElementById('max-capacity-display');
+                    if (el) el.innerText = (data.max_capacity || 'N/A') + ' Members';
+                }
+
+                // Update Amenity Tags
+                const amenMap = {
+                    'has_lockers': 'locker-tag',
+                    'has_shower': 'shower-tag',
+                    'has_parking': 'parking-tag',
+                    'has_wifi': 'wifi-tag'
+                };
+                Object.keys(amenMap).forEach(key => {
+                    const el = document.getElementById(amenMap[key]);
+                    if (el && data[key] !== undefined) {
+                        if (data[key]) {
+                            el.classList.remove('opacity-20', 'grayscale');
+                        } else {
+                            el.classList.add('opacity-20', 'grayscale');
+                        }
+                    }
+                });
             }
         });
     </script>

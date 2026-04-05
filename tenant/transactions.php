@@ -33,17 +33,17 @@ $bg_color = ($page && isset($page['bg_color'])) ? $page['bg_color'] : '#0a090d';
 
 // --- CALCULATION LOGIC ---
 // Total Revenue (Verified only)
-$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid')");
+$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND client_subscription_id IS NULL");
 $stmtTotal->execute([$gym_id]);
 $total_revenue = (float)($stmtTotal->fetchColumn() ?: 0);
 
 // Monthly Sales
-$stmtMonthly = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND MONTH(created_at) = MONTH(CURRENT_DATE) AND YEAR(created_at) = YEAR(CURRENT_DATE)");
+$stmtMonthly = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND client_subscription_id IS NULL AND MONTH(created_at) = MONTH(CURRENT_DATE) AND YEAR(created_at) = YEAR(CURRENT_DATE)");
 $stmtMonthly->execute([$gym_id]);
 $monthly_sales = (float)($stmtMonthly->fetchColumn() ?: 0);
 
 // Daily Revenue
-$stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND DATE(created_at) = CURRENT_DATE");
+$stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND client_subscription_id IS NULL AND DATE(created_at) = CURRENT_DATE");
 $stmtDaily->execute([$gym_id]);
 $daily_sales = (float)($stmtDaily->fetchColumn() ?: 0);
 
@@ -52,7 +52,7 @@ $f_date = $_GET['f_date'] ?? '';
 $f_month = $_GET['f_month'] ?? '';
 $f_year = $_GET['f_year'] ?? ''; // Default to empty to show all years initially
 
-$where = ["p.gym_id = :gym_id"];
+$where = ["p.gym_id = :gym_id", "p.client_subscription_id IS NULL"];
 $params = [':gym_id' => $gym_id];
 
 if (!empty($f_date)) {
@@ -254,10 +254,7 @@ $is_sub_active = (strtolower($sub_status) === 'active');
         </div>
 
         <div class="flex items-center gap-8">
-            <a href="profile.php" class="hidden md:flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase italic tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 group">
-                <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">account_circle</span>
-                My Profile
-            </a>
+
             <div class="text-right">
                 <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
                 <p class="text-primary text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 italic"><?= date('l, M d, Y') ?></p>

@@ -17,32 +17,30 @@ $date_to = $_GET['date_to'] ?? date('Y-m-d');
 
 // --- FINANCIAL CALCULATIONS (Scoped by Date Range) ---
 // Total Revenue (Verified only)
-$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND DATE(created_at) BETWEEN ? AND ?");
+$stmtTotal = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND client_subscription_id IS NULL AND DATE(created_at) BETWEEN ? AND ?");
 $stmtTotal->execute([$gym_id, $date_from, $date_to]);
 $total_revenue = $stmtTotal->fetchColumn() ?? 0;
 
 // Lifetime Revenue (Verified only)
-$stmtLifetime = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid')");
+$stmtLifetime = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND client_subscription_id IS NULL");
 $stmtLifetime->execute([$gym_id]);
 $lifetime_revenue = $stmtLifetime->fetchColumn() ?? 0;
 
 // Today's Sales
-$stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND DATE(created_at) = CURDATE()");
+$stmtDaily = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND client_subscription_id IS NULL AND DATE(created_at) = CURDATE()");
 $stmtDaily->execute([$gym_id]);
 $daily_sales = $stmtDaily->fetchColumn() ?? 0;
 
 // --- TRANSACTION HISTORY (Filtered) ---
 $stmtHistory = $pdo->prepare("
     SELECT p.*, 
-           COALESCE(u_member.first_name, u_owner.first_name) as first_name, 
-           COALESCE(u_member.last_name, u_owner.last_name) as last_name 
+           u_member.first_name, 
+           u_member.last_name 
     FROM payments p 
     LEFT JOIN member_subscriptions ms ON p.subscription_id = ms.subscription_id
     LEFT JOIN members m ON p.member_id = m.member_id
     LEFT JOIN users u_member ON m.user_id = u_member.user_id
-    LEFT JOIN client_subscriptions cs ON p.client_subscription_id = cs.client_subscription_id
-    LEFT JOIN users u_owner ON cs.owner_user_id = u_owner.user_id 
-    WHERE p.gym_id = ? AND DATE(p.created_at) BETWEEN ? AND ?
+    WHERE p.gym_id = ? AND p.client_subscription_id IS NULL AND DATE(p.created_at) BETWEEN ? AND ?
     ORDER BY p.created_at DESC
 ");
 $stmtHistory->execute([$gym_id, $date_from, $date_to]);
@@ -255,10 +253,7 @@ $active_page = "sales";
         </div>
 
         <div class="flex items-center gap-8">
-            <a href="profile.php" class="hidden md:flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase italic tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 group">
-                <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">account_circle</span>
-                My Profile
-            </a>
+
             <div class="text-right flex flex-col items-end">
                 <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
                 <p id="topDate" class="text-primary font-bold uppercase tracking-widest text-[10px] mt-2 px-1 opacity-80 italic">
@@ -268,7 +263,7 @@ $active_page = "sales";
         </div>
     </header>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div class="glass-card p-8 hover-lift">
             <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 italic">Total Revenue</p>
             <h3 class="text-3xl font-black italic tracking-tighter text-white uppercase">₱<?= number_format($total_revenue, 2) ?></h3>
@@ -290,12 +285,6 @@ $active_page = "sales";
             <div class="mt-4 flex items-center gap-1.5">
                 <span class="text-[9px] font-black text-emerald-500 uppercase tracking-widest italic">Live Tracking</span>
             </div>
-        </div>
-
-        <div class="glass-card p-8 hover-lift border-l-4 border-emerald-500/40">
-            <p class="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1 italic">Forecast</p>
-            <h3 class="text-3xl font-black italic tracking-tighter text-emerald-500 uppercase">₱<?= number_format($daily_sales * 30, 2) ?></h3>
-            <p class="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-4 italic leading-none">Estimated Monthly</p>
         </div>
     </div>
 

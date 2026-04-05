@@ -61,7 +61,7 @@ $stmtMembers->execute([$gym_id]);
 $total_members = $stmtMembers->fetchColumn() ?: 0;
 
 // Fetch Monthly Revenue
-$stmtRev = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND MONTH(created_at) = MONTH(CURRENT_DATE) AND YEAR(created_at) = YEAR(CURRENT_DATE)");
+$stmtRev = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND client_subscription_id IS NULL AND MONTH(created_at) = MONTH(CURRENT_DATE) AND YEAR(created_at) = YEAR(CURRENT_DATE)");
 $stmtRev->execute([$gym_id]);
 $monthly_rev = $stmtRev->fetchColumn() ?: 0;
 
@@ -90,7 +90,7 @@ for ($i = 5; $i >= 0; $i--) {
     $year = date('Y', strtotime("-$i months"));
     $month_name = date('M', strtotime("-$i months"));
     
-    $stmt = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND MONTH(created_at) = ? AND YEAR(created_at) = ?");
+    $stmt = $pdo->prepare("SELECT SUM(amount) FROM payments WHERE gym_id = ? AND payment_status IN ('Verified', 'Completed', 'Paid') AND client_subscription_id IS NULL AND MONTH(created_at) = ? AND YEAR(created_at) = ?");
     $stmt->execute([$gym_id, $month, $year]);
     $revenue_trends[] = [
         'month' => $month_name,

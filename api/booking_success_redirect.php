@@ -9,6 +9,7 @@ require_once '../db.php';
 $gym_id = isset($_GET['gym_id']) ? (int)$_GET['gym_id'] : 0;
 $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : 0;
 $service_id = isset($_GET['service_id']) ? (int)$_GET['service_id'] : 0;
+$coach_id = isset($_GET['coach_id']) && $_GET['coach_id'] !== '' ? (int)$_GET['coach_id'] : null;
 $date = isset($_GET['date']) ? $_GET['date'] : '';
 $time = isset($_GET['time']) ? $_GET['time'] : '';
 $amount = isset($_GET['amount']) ? $_GET['amount'] : '0.00';
@@ -16,7 +17,7 @@ $signature = isset($_GET['sig']) ? $_GET['sig'] : '';
 
 // 1. Security Check: Verify signature
 $my_secret_salt = "FitPlatform_Secure_2026!"; 
-$sig_input = $gym_id . $user_id . $service_id . $date . $time . $amount . $my_secret_salt;
+$sig_input = $gym_id . $user_id . $service_id . $date . $time . $amount . ($coach_id ?? '') . $my_secret_salt;
 $expected_signature = hash('sha256', $sig_input);
 
 $db_status = "Pending";
@@ -45,18 +46,18 @@ if ($gym_id > 0 && $user_id > 0 && $service_id > 0) {
             $now = date('Y-m-d H:i:s');
             $booking_reference = 'BK-' . strtoupper(substr(md5(time() . $member_id), 0, 8));
 
-            // 2. Create Booking Record (Status is Approved since it is paid)
+            // 2. Create Booking Record (Status is Pending for staff approval)
             $stmtBook = $pdo->prepare("INSERT INTO bookings 
-                (member_id, gym_id, gym_service_id, booking_reference, booking_date, start_time, end_time, booking_source, booking_status, created_at, updated_at) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, 'Mobile App', 'Approved', ?, ?)");
-            $stmtBook->execute([$member_id, $gym_id, $service_id, $booking_reference, $date, $time, $time, $now, $now]);
+                (member_id, gym_id, gym_service_id, coach_id, booking_reference, booking_date, start_time, end_time, booking_source, booking_status, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Mobile App', 'Pending', ?, ?)");
+            $stmtBook->execute([$member_id, $gym_id, $service_id, $coach_id, $booking_reference, $date, $time, $time, $now, $now]);
             $booking_id = $pdo->lastInsertId();
 
             // 3. Record Payment
             $payment_reference = 'PAYB-' . strtoupper(substr(md5(time() . $booking_id), 0, 8));
             $stmtPay = $pdo->prepare("INSERT INTO payments 
                 (member_id, gym_id, booking_id, amount, payment_method, payment_type, reference_number, payment_status, created_at) 
-                VALUES (?, ?, ?, ?, 'PayMongo', 'Booking', ?, 'Verified', ?)");
+                VALUES (?, ?, ?, ?, 'PayMongo', 'Booking', ?, 'Pending', ?)");
             $stmtPay->execute([$member_id, $gym_id, $booking_id, $amount, $payment_reference, $now]);
 
             $pdo->commit();

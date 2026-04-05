@@ -69,6 +69,110 @@ $stmtBookings->execute($sql_params);
 $bookings_list = $stmtBookings->fetchAll();
 
 $active_page = "admin_appointment";
+
+// --- ACTION HANDLER: APPROVE / REJECT ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_once '../includes/mailer.php';
+    require_once '../includes/audit_logger.php';
+    $now = date('Y-m-d H:i:s');
+    
+    if (isset($_POST['approve_id'])) {
+        $booking_id = (int)$_POST['approve_id'];
+        
+        // 1. Get Context for Email
+        $stmtCtx = $pdo->prepare("
+            SELECT u.email, u.first_name, b.booking_date, b.start_time, b.service, g.gym_name
+            FROM bookings b
+            JOIN members m ON b.member_id = m.member_id
+            JOIN users u ON m.user_id = u.user_id
+            JOIN gyms g ON m.gym_id = g.gym_id
+            WHERE b.booking_id = ?
+            LIMIT 1
+        ");
+        $stmtCtx->execute([$booking_id]);
+        $ctx = $stmtCtx->fetch();
+        
+        $pdo->beginTransaction();
+        try {
+            // 2. Update Booking Status to 'Confirmed'
+            $stmtUB = $pdo->prepare("UPDATE bookings SET booking_status = 'Confirmed', approved_by = ?, approved_at = ?, updated_at = ? WHERE booking_id = ?");
+            $stmtUB->execute([$_SESSION['user_id'], $now, $now, $booking_id]);
+            
+            // 3. Send Email
+            if ($ctx && !empty($ctx['email'])) {
+                $subject = "Booking Confirmed - See you at " . htmlspecialchars($ctx['gym_name']) . "!";
+                $content = "
+                    <p>Hello " . htmlspecialchars($ctx['first_name']) . ",</p>
+                    <p>Your session for <strong>" . htmlspecialchars($ctx['service']) . "</strong> on <strong>" . date('M d, Y', strtotime($ctx['booking_date'])) . "</strong> at <strong>" . htmlspecialchars($ctx['start_time']) . "</strong> has been <strong>APPROVED</strong>.</p>
+                    <p>We look forward to seeing you at " . htmlspecialchars($ctx['gym_name']) . "!</p>
+                    <p>Thank you for choosing Horizon!</p>
+                ";
+                sendSystemEmail($ctx['email'], $subject, getEmailTemplate("Appointment Confirmed", $content));
+            }
+
+            // 4. Log Audit
+            log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'], 'Approve', 'bookings', $booking_id, ['old_status' => 'Pending'], ['new_status' => 'Confirmed']);
+
+            $pdo->commit();
+            $_SESSION['success_msg'] = "Booking for " . htmlspecialchars($ctx['first_name']) . " has been approved.";
+            header("Location: admin_appointment.php");
+            exit;
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $_SESSION['error_msg'] = $e->getMessage();
+            header("Location: admin_appointment.php");
+            exit;
+        }
+    }
+
+    if (isset($_POST['reject_id'])) {
+        $booking_id = (int)$_POST['reject_id'];
+        
+        $stmtCtx = $pdo->prepare("
+            SELECT u.email, u.first_name, b.service, g.gym_name
+            FROM bookings b
+            JOIN members m ON b.member_id = m.member_id
+            JOIN users u ON m.user_id = u.user_id
+            JOIN gyms g ON m.gym_id = g.gym_id
+            WHERE b.booking_id = ?
+            LIMIT 1
+        ");
+        $stmtCtx->execute([$booking_id]);
+        $ctx = $stmtCtx->fetch();
+
+        $pdo->beginTransaction();
+        try {
+            // 1. Update Booking Status to 'Cancelled'
+            $stmtUB = $pdo->prepare("UPDATE bookings SET booking_status = 'Cancelled', cancellation_reason = 'Rejected by Staff', updated_at = ? WHERE booking_id = ?");
+            $stmtUB->execute([$now, $booking_id]);
+            
+            // 2. Send Email
+            if ($ctx && !empty($ctx['email'])) {
+                $subject = "Booking Update - " . htmlspecialchars($ctx['gym_name']);
+                $content = "
+                    <p>Hello " . htmlspecialchars($ctx['first_name']) . ",</p>
+                    <p>We regret to inform you that your booking for <strong>" . htmlspecialchars($ctx['service']) . "</strong> at " . htmlspecialchars($ctx['gym_name']) . " has been <strong>DECLINED</strong> by the staff.</p>
+                    <p>Please contact the gym or book another slot if this was in error.</p>
+                    <p>Thank you for your understanding.</p>
+                ";
+                sendSystemEmail($ctx['email'], $subject, getEmailTemplate("Appointment Declined", $content));
+            }
+
+            // 3. Log Audit
+            log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'], 'Reject', 'bookings', $booking_id, ['old_status' => 'Pending'], ['new_status' => 'Cancelled', 'reason' => 'Rejected by Staff']);
+
+            $pdo->commit();
+            $_SESSION['success_msg'] = "Booking for " . htmlspecialchars($ctx['first_name']) . " has been rejected.";
+            header("Location: admin_appointment.php");
+            exit;
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $_SESSION['error_msg'] = $e->getMessage();
+            header("Location: admin_appointment.php");
+            exit;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -251,6 +355,63 @@ $active_page = "admin_appointment";
             padding: 4px 12px;
             border-radius: 99px;
         }
+
+        /* Modal Elite Positioning */
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(12px);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+        }
+
+        .modal-backdrop.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-container {
+            width: 90%;
+            max-width: 450px;
+            background: #14121a;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 32px;
+            position: fixed;
+            top: 50%;
+            left: calc(var(--nav-width) + (100% - var(--nav-width)) / 2);
+            transform: translate(-50%, -40%) scale(0.95);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            opacity: 0;
+            visibility: hidden;
+            z-index: 1001;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-backdrop.active ~ .modal-container {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* Alert System */
+        .alert-banner {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 2000;
+            animation: slideIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(120%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.9); }
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -266,6 +427,57 @@ $active_page = "admin_appointment";
         function clearAppointmentFilters() {
             window.location.href = 'admin_appointment.php';
         }
+
+        let pendingAction = { id: null, type: null };
+
+        function confirmAction(id, type) {
+            pendingAction = { id, type };
+            const modal = document.getElementById('confirmationModal');
+            const backdrop = document.getElementById('modalBackdrop');
+            const title = document.getElementById('modalTitle');
+            const message = document.getElementById('modalMessage');
+            const confirmBtn = document.getElementById('confirmActionBtn');
+
+            if (type === 'approve') {
+                title.innerText = 'Approve Booking?';
+                message.innerText = 'Confirming this appointment will notify the member via email.';
+                confirmBtn.className = 'flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all';
+            } else {
+                title.innerText = 'Reject Booking?';
+                message.innerText = 'This will cancel the session and inform the member.';
+                confirmBtn.className = 'flex-1 bg-rose-500 hover:bg-rose-600 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all';
+            }
+
+            modal.classList.add('active');
+            backdrop.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            document.getElementById('confirmationModal').classList.remove('active');
+            document.getElementById('modalBackdrop').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        function submitAction() {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = pendingAction.type === 'approve' ? 'approve_id' : 'reject_id';
+            input.value = pendingAction.id;
+            form.appendChild(input);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert-banner');
+            alerts.forEach(a => {
+                a.style.animation = 'fadeOut 0.5s ease-in forwards';
+                setTimeout(() => a.remove(), 500);
+            });
+        }, 5000);
     </script>
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
@@ -307,6 +519,35 @@ $active_page = "admin_appointment";
 </nav>
 
 <div class="main-content flex-1 overflow-y-auto no-scrollbar">
+    <!-- Alert System -->
+    <?php if (isset($_SESSION['success_msg'])): ?>
+        <div class="alert-banner px-6 py-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-xl flex items-center gap-4 shadow-2xl shadow-emerald-500/10">
+            <span class="material-symbols-outlined text-emerald-500">check_circle</span>
+            <p class="text-xs font-bold text-emerald-500"><?= $_SESSION['success_msg']; unset($_SESSION['success_msg']); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <?php if (isset($_SESSION['error_msg'])): ?>
+        <div class="alert-banner px-6 py-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 backdrop-blur-xl flex items-center gap-4 shadow-2xl shadow-rose-500/10">
+            <span class="material-symbols-outlined text-rose-500">error</span>
+            <p class="text-xs font-bold text-rose-500"><?= $_SESSION['error_msg']; unset($_SESSION['error_msg']); ?></p>
+        </div>
+    <?php endif; ?>
+
+    <!-- Modal System -->
+    <div id="modalBackdrop" class="modal-backdrop fixed inset-0" onclick="closeModal()"></div>
+    <div id="confirmationModal" class="modal-container p-10 flex flex-col items-center text-center">
+        <div class="size-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+            <span class="material-symbols-outlined text-primary text-4xl">verified_user</span>
+        </div>
+        <h3 id="modalTitle" class="text-2xl font-black italic uppercase tracking-tight text-white mb-3">Confirm Action?</h3>
+        <p id="modalMessage" class="text-gray-500 text-sm font-medium mb-10 leading-relaxed px-4">Are you sure you want to proceed with this operation?</p>
+        <div class="flex w-full gap-4">
+            <button onclick="closeModal()" class="flex-1 bg-white/5 hover:bg-white/10 text-gray-400 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Discard</button>
+            <button id="confirmActionBtn" onclick="submitAction()" class="flex-1 bg-primary hover:bg-primary/90 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Proceed</button>
+        </div>
+    </div>
+
     <main class="p-10 max-w-[1400px] mx-auto pb-20">
         <header class="mb-12 flex flex-row justify-between items-end gap-6">
             <div>
@@ -344,7 +585,7 @@ $active_page = "admin_appointment";
                     </div>
 
                     <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Protocol Status</p>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Status</p>
                         <select name="status" class="input-box w-full">
                             <option value="">All Status</option>
                             <option value="Confirmed" <?= ($status === 'Confirmed') ? 'selected' : '' ?>>Confirmed</option>
@@ -375,11 +616,11 @@ $active_page = "admin_appointment";
                 <table class="w-full text-left">
                     <thead>
                         <tr class="text-[10px] font-black uppercase tracking-[0.15em] text-gray-600 border-b border-white/5 bg-white/[0.01]">
-                            <th class="px-8 py-5">NODE IDENTITY</th>
-                            <th class="px-8 py-5">HANDLERS / SERVICE</th>
-                            <th class="px-8 py-5">SCHEDULE PROTOCOL</th>
-                            <th class="px-8 py-5 text-center">SYSTEM STATUS</th>
-                            <th class="px-8 py-5 text-right">CONTROLS</th>
+                            <th class="px-8 py-5">Member</th>
+                            <th class="px-8 py-5">Service / Coach</th>
+                            <th class="px-8 py-5">Schedule</th>
+                            <th class="px-8 py-5 text-center">Status</th>
+                            <th class="px-8 py-5 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
@@ -422,12 +663,18 @@ $active_page = "admin_appointment";
                             </td>
                             <td class="px-8 py-6 text-right">
                                 <div class="flex justify-end gap-2">
-                                    <button class="size-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all transition-colors active:scale-95">
-                                        <span class="material-symbols-outlined text-[18px]">edit_note</span>
-                                    </button>
-                                    <button class="size-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-rose-500 hover:bg-rose-500/10 transition-all transition-colors active:scale-95">
-                                        <span class="material-symbols-outlined text-[18px]">cancel</span>
-                                    </button>
+                                    <?php if ($st === 'Pending'): ?>
+                                        <button onclick="confirmAction(<?= $appt['booking_id'] ?>, 'approve')" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all active:scale-95" title="Approve">
+                                            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                                        </button>
+                                        <button onclick="confirmAction(<?= $appt['booking_id'] ?>, 'reject')" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-95" title="Reject">
+                                            <span class="material-symbols-outlined text-[18px]">cancel</span>
+                                        </button>
+                                    <?php else: ?>
+                                        <button class="size-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-gray-700 cursor-not-allowed" disabled>
+                                            <span class="material-symbols-outlined text-[18px]">lock</span>
+                                        </button>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>

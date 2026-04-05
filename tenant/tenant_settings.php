@@ -13,13 +13,22 @@ $gym_id = $_SESSION['gym_id'];
 $user_id = $_SESSION['user_id'];
 $active_page = "settings";
 
-// --- Database Refresh (Ensure secondary_color exists) ---
+// --- Database Refresh (Ensure secondary_color and rules_text exist) ---
 try {
     $pdo->exec("ALTER TABLE tenant_pages ADD COLUMN secondary_color VARCHAR(100) DEFAULT '#a1a1aa' AFTER theme_color");
 } catch (Exception $e) { /* Column already exists */ }
 
-// Fetch Gym Details
-$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
+try {
+    $pdo->exec("ALTER TABLE gym_details ADD COLUMN rules_text TEXT AFTER about_text");
+} catch (Exception $e) { /* Column already exists */ }
+
+// Fetch Gym & Detail
+$stmtGym = $pdo->prepare("
+    SELECT g.*, gd.opening_time, gd.closing_time, gd.max_capacity, gd.has_lockers, gd.has_shower, gd.has_parking, gd.has_wifi, gd.rules_text
+    FROM gyms g
+    LEFT JOIN gym_details gd ON g.gym_id = gd.gym_id
+    WHERE g.gym_id = ?
+");
 $stmtGym->execute([$gym_id]);
 $gym = $stmtGym->fetch();
 
@@ -69,10 +78,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $bg_color = $_POST['bg_color'] ?? '#0a090d';
     $font_family = $_POST['font_family'] ?? 'Lexend';
     
-    // Facility Data
-    $opening_time = $_POST['opening_time'] ?? '08:00:00';
-    $closing_time = $_POST['closing_time'] ?? '22:00:00';
-    $max_capacity = (int)($_POST['max_capacity'] ?? 50);
+    // Facility Data (Required for saving)
+    $opening_time = !empty($_POST['opening_time']) ? $_POST['opening_time'] : null;
+    $closing_time = !empty($_POST['closing_time']) ? $_POST['closing_time'] : null;
+    $max_capacity = !empty($_POST['max_capacity']) ? (int)$_POST['max_capacity'] : null;
+    
     $has_lockers = isset($_POST['has_lockers']) ? 1 : 0;
     $has_shower = isset($_POST['has_shower']) ? 1 : 0;
     $has_parking = isset($_POST['has_parking']) ? 1 : 0;
@@ -83,6 +93,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $now = date('Y-m-d H:i:s');
 
     try {
+        // Server-side validation
+        if (!$opening_time || !$closing_time || !$max_capacity) {
+            throw new Exception("Opening Time, Closing Time, and Max Capacity are required.");
+        }
+
         $pdo->beginTransaction();
 
         // 1. Update/Create Branding (tenant_pages)
@@ -102,9 +117,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtInsertPage->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $secondary_color, $bg_color, $font_family, $now]);
         }
 
-        // 2. Update Facility (gyms)
-        $stmtUpdateGym = $pdo->prepare("UPDATE gyms SET description = ?, opening_time = ?, closing_time = ?, max_capacity = ?, has_lockers = ?, has_shower = ?, has_parking = ?, has_wifi = ?, rules_text = ?, updated_at = ? WHERE gym_id = ?");
-        $stmtUpdateGym->execute([$gym_description, $opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now, $gym_id]);
+        // 2. Update Gym Description
+        $stmtUpdateGymDesc = $pdo->prepare("UPDATE gyms SET description = ?, updated_at = ? WHERE gym_id = ?");
+        $stmtUpdateGymDesc->execute([$gym_description, $now, $gym_id]);
+
+        // 3. Update/Create Gym Details
+        $stmtCheckDetails = $pdo->prepare("SELECT 1 FROM gym_details WHERE gym_id = ?");
+        $stmtCheckDetails->execute([$gym_id]);
+        
+        if ($stmtCheckDetails->fetch()) {
+            $stmtUpdateDetails = $pdo->prepare("UPDATE gym_details SET opening_time = ?, closing_time = ?, max_capacity = ?, has_lockers = ?, has_shower = ?, has_parking = ?, has_wifi = ?, rules_text = ?, updated_at = ? WHERE gym_id = ?");
+            $stmtUpdateDetails->execute([$opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now, $gym_id]);
+        } else {
+            $stmtInsertDetails = $pdo->prepare("INSERT INTO gym_details (gym_id, opening_time, closing_time, max_capacity, has_lockers, has_shower, has_parking, has_wifi, rules_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtInsertDetails->execute([$gym_id, $opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now]);
+        }
 
         $pdo->commit();
         $success = "All configurations saved and synchronized successfully!";
@@ -113,7 +140,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmtGym->execute([$gym_id]); $gym = $stmtGym->fetch();
         $stmtPage->execute([$gym_id]); $page = $stmtPage->fetch();
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         $error = "Update Error: " . $e->getMessage();
     }
     }
@@ -375,10 +404,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <div class="flex items-center gap-8">
-            <a href="profile.php" class="hidden md:flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase italic tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 group">
-                <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">account_circle</span>
-                My Profile
-            </a>
+
             <div class="text-right">
                 <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
                 <p id="topDate" class="text-primary text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 italic">
@@ -421,6 +447,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 <div id="portalContainer" class="w-full relative shadow-3xl border border-white/5 rounded-3xl overflow-y-auto bg-black shadow-inner origin-top no-scrollbar">
                     <!-- High-Fidelity Desktop Mockup -->
+                    <!-- High-Fidelity Desktop Mockup (Always Use portal.php?preview=1) -->
                     <iframe id="portalFrame" src="../portal.php?gym=<?= $page['page_slug'] ?? '' ?>&preview=1" class="absolute top-0 left-0 w-[1600px] h-[2000px] border-none origin-top-left"></iframe>
                 </div>
             </div>
@@ -478,7 +505,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="space-y-2">
                         <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Portal Description</label>
-                        <textarea name="gym_description" rows="3" class="input-dark" placeholder="About your facility..."><?= htmlspecialchars($gym['description'] ?? '') ?></textarea>
+                        <textarea name="gym_description" rows="3" oninput="updateMockup()" class="input-dark" placeholder="About your facility..."><?= htmlspecialchars($gym['description'] ?? '') ?></textarea>
                     </div>
 
                     <div class="pt-8 border-t border-white/5">
@@ -505,36 +532,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="grid grid-cols-2 gap-8">
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Opening Time</label>
-                            <input type="time" name="opening_time" value="<?= htmlspecialchars($gym['opening_time'] ?? '08:00') ?>" class="input-dark">
+                            <input type="time" name="opening_time" oninput="updateMockup()" value="<?= htmlspecialchars($gym['opening_time'] ?? '') ?>" class="input-dark" required>
                         </div>
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Closing Time</label>
-                            <input type="time" name="closing_time" value="<?= htmlspecialchars($gym['closing_time'] ?? '22:00') ?>" class="input-dark">
+                            <input type="time" name="closing_time" oninput="updateMockup()" value="<?= htmlspecialchars($gym['closing_time'] ?? '') ?>" class="input-dark" required>
                         </div>
                     </div>
                     
                     <div class="space-y-2">
                         <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Max Member Capacity</label>
-                        <input type="number" name="max_capacity" value="<?= htmlspecialchars($gym['max_capacity'] ?? '50') ?>" class="input-dark" placeholder="50">
+                        <input type="number" name="max_capacity" oninput="updateMockup()" value="<?= htmlspecialchars($gym['max_capacity'] ?? '') ?>" class="input-dark" placeholder="Enter capacity (e.g. 50)" required>
                     </div>
 
                     <div class="pt-8 border-t border-white/5">
                         <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 mb-6 block italic">Amenities & Services</label>
                         <div class="grid grid-cols-2 gap-4">
                             <label class="flex items-center gap-4 p-4 rounded-2xl bg-black border border-white/5 cursor-pointer hover:border-primary/40 transition-all group">
-                                <input type="checkbox" name="has_lockers" <?= ($gym['has_lockers'] ?? 0) ? 'checked' : '' ?> class="size-5 rounded-md border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 transition-all">
+                                <input type="checkbox" name="has_lockers" onchange="updateMockup()" <?= ($gym['has_lockers'] ?? 0) ? 'checked' : '' ?> class="size-5 rounded-md border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 transition-all">
                                 <span class="text-[11px] font-black uppercase tracking-widest text-gray-400 group-hover:text-white">Lockers</span>
                             </label>
                             <label class="flex items-center gap-4 p-4 rounded-2xl bg-black border border-white/5 cursor-pointer hover:border-primary/40 transition-all group">
-                                <input type="checkbox" name="has_shower" <?= ($gym['has_shower'] ?? 0) ? 'checked' : '' ?> class="size-5 rounded-md border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 transition-all">
+                                <input type="checkbox" name="has_shower" onchange="updateMockup()" <?= ($gym['has_shower'] ?? 0) ? 'checked' : '' ?> class="size-5 rounded-md border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 transition-all">
                                 <span class="text-[11px] font-black uppercase tracking-widest text-gray-400 group-hover:text-white">Showers</span>
                             </label>
                             <label class="flex items-center gap-4 p-4 rounded-2xl bg-black border border-white/5 cursor-pointer hover:border-primary/40 transition-all group">
-                                <input type="checkbox" name="has_parking" <?= ($gym['has_parking'] ?? 0) ? 'checked' : '' ?> class="size-5 rounded-md border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 transition-all">
+                                <input type="checkbox" name="has_parking" onchange="updateMockup()" <?= ($gym['has_parking'] ?? 0) ? 'checked' : '' ?> class="size-5 rounded-md border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 transition-all">
                                 <span class="text-[11px] font-black uppercase tracking-widest text-gray-400 group-hover:text-white">Parking</span>
                             </label>
                             <label class="flex items-center gap-4 p-4 rounded-2xl bg-black border border-white/5 cursor-pointer hover:border-primary/40 transition-all group">
-                                <input type="checkbox" name="has_wifi" <?= ($gym['has_wifi'] ?? 0) ? 'checked' : '' ?> class="size-5 rounded-md border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 transition-all">
+                                <input type="checkbox" name="has_wifi" onchange="updateMockup()" <?= ($gym['has_wifi'] ?? 0) ? 'checked' : '' ?> class="size-5 rounded-md border-white/10 bg-white/5 text-primary focus:ring-primary focus:ring-offset-0 transition-all">
                                 <span class="text-[11px] font-black uppercase tracking-widest text-gray-400 group-hover:text-white">Wi-Fi</span>
                             </label>
                         </div>
@@ -608,13 +635,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         const data = {
-            page_title: titleInput.value,
-            theme_color: colorInput.value,
-            secondary_color: secondaryInput ? secondaryInput.value : null,
-            bg_color: bgInput ? bgInput.value : null,
-            font_family: fontInput ? fontInput.value : null,
-            about_text: aboutInput ? aboutInput.value : null,
-            logo_url: (logoImg && !logoImg.classList.contains('hidden')) ? logoImg.src : null
+            page_title: titleInput ? titleInput.value : '',
+            theme_color: colorInput ? colorInput.value : '#8c2bee',
+            secondary_color: secondaryInput ? secondaryInput.value : '#a1a1aa',
+            bg_color: bgInput ? bgInput.value : '#0a090d',
+            font_family: fontInput ? fontInput.value : 'Lexend',
+            about_text: aboutInput ? aboutInput.value : '',
+            logo_url: (logoImg && !logoImg.classList.contains('hidden')) ? logoImg.src : null,
+            // Operational Data Sync
+            opening_time: document.querySelector('input[name="opening_time"]')?.value || '',
+            closing_time: document.querySelector('input[name="closing_time"]')?.value || '',
+            max_capacity: document.querySelector('input[name="max_capacity"]')?.value || '',
+            has_lockers: document.querySelector('input[name="has_lockers"]')?.checked ? 1 : 0,
+            has_shower: document.querySelector('input[name="has_shower"]')?.checked ? 1 : 0,
+            has_parking: document.querySelector('input[name="has_parking"]')?.checked ? 1 : 0,
+            has_wifi: document.querySelector('input[name="has_wifi"]')?.checked ? 1 : 0
         };
         
         // Update Hex Displays
