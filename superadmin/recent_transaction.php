@@ -13,6 +13,27 @@ $active_page = "transactions";
 
 // 1. Get Filter Inputs
 $tenant_filter = $_GET['tenant_id'] ?? 'all';
+$status_filter = $_GET['status'] ?? 'all';
+$type_filter = $_GET['type'] ?? 'all';
+$date_from = $_GET['date_from'] ?? '';
+$date_to = $_GET['date_to'] ?? '';
+$search_query = $_GET['search'] ?? '';
+
+// 0. Financial Overview Calculations (Global)
+$stmtTotal = $pdo->query("SELECT SUM(amount) FROM payments WHERE LOWER(payment_status) IN ('paid', 'success', 'completed')");
+$total_revenue = $stmtTotal->fetchColumn() ?: 0.00;
+
+$stmtPending = $pdo->query("SELECT SUM(amount), COUNT(*) FROM payments WHERE LOWER(payment_status) = 'pending'");
+$pending_data = $stmtPending->fetch(PDO::FETCH_NUM);
+$pending_revenue = $pending_data[0] ?: 0.00;
+$pending_count = $pending_data[1] ?: 0;
+
+$stmtToday = $pdo->query("SELECT SUM(amount) FROM payments WHERE DATE(created_at) = CURDATE() AND LOWER(payment_status) IN ('paid', 'success', 'completed')");
+$today_revenue = $stmtToday->fetchColumn() ?: 0.00;
+
+// Count tenants with "Pending" or "Failed" transactions
+$stmtUnpaid = $pdo->query("SELECT COUNT(DISTINCT gym_id) FROM payments WHERE LOWER(payment_status) IN ('pending', 'failed')");
+$unpaid_tenant_count = $stmtUnpaid->fetchColumn();
 
 // Fetch Tenants for Filter Dropdown
 $tenants_list = $pdo->query("SELECT gym_id, gym_name FROM gyms WHERE status = 'Active' ORDER BY gym_name ASC")->fetchAll();
@@ -22,8 +43,44 @@ $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $limit;
 
-// 3. Logic for fetching transactions
-$count_query = "SELECT COUNT(*) FROM payments p";
+// 3. Dynamic Query Builder
+$where_clauses = [];
+$params = [];
+
+if ($tenant_filter !== 'all') {
+    $where_clauses[] = "p.gym_id = :tid";
+    $params[':tid'] = $tenant_filter;
+}
+if ($status_filter !== 'all') {
+    $where_clauses[] = "p.payment_status = :status";
+    $params[':status'] = $status_filter;
+}
+if ($type_filter !== 'all') {
+    $where_clauses[] = "p.payment_type = :type";
+    $params[':type'] = $type_filter;
+}
+if (!empty($date_from)) {
+    $where_clauses[] = "p.created_at >= :date_from";
+    $params[':date_from'] = $date_from . " 00:00:00";
+}
+if (!empty($date_to)) {
+    $where_clauses[] = "p.created_at <= :date_to";
+    $params[':date_to'] = $date_to . " 23:59:59";
+}
+if (!empty($search_query)) {
+    $where_clauses[] = "(p.reference_number LIKE :search OR u_member.first_name LIKE :search OR u_member.last_name LIKE :search OR u_owner.first_name LIKE :search)";
+    $params[':search'] = "%$search_query%";
+}
+
+$where_sql = !empty($where_clauses) ? " WHERE " . implode(" AND ", $where_clauses) : "";
+
+$count_query = "SELECT COUNT(*) 
+                FROM payments p
+                LEFT JOIN members m ON p.member_id = m.member_id
+                LEFT JOIN users u_member ON m.user_id = u_member.user_id
+                LEFT JOIN client_subscriptions cs ON p.client_subscription_id = cs.client_subscription_id
+                LEFT JOIN users u_owner ON cs.owner_user_id = u_owner.user_id" . $where_sql;
+
 $query = "SELECT p.*, g.gym_name,
                  COALESCE(u_member.first_name, u_owner.first_name, 'System') as f_name,
                  COALESCE(u_member.last_name, u_owner.last_name, '') as l_name
@@ -32,14 +89,7 @@ $query = "SELECT p.*, g.gym_name,
           LEFT JOIN members m ON p.member_id = m.member_id
           LEFT JOIN users u_member ON m.user_id = u_member.user_id
           LEFT JOIN client_subscriptions cs ON p.client_subscription_id = cs.client_subscription_id
-          LEFT JOIN users u_owner ON cs.owner_user_id = u_owner.user_id";
-
-$params = [];
-if ($tenant_filter !== 'all') {
-    $count_query .= " WHERE p.gym_id = :tid";
-    $query .= " WHERE p.gym_id = :tid";
-    $params[':tid'] = $tenant_filter;
-}
+          LEFT JOIN users u_owner ON cs.owner_user_id = u_owner.user_id" . $where_sql;
 
 // Get total records for pagination
 $count_stmt = $pdo->prepare($count_query);
@@ -51,16 +101,48 @@ $total_pages = ceil($total_records / $limit);
 $query .= " ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset";
 $stmtTrx = $pdo->prepare($query);
 
-// Bind filter parameter if active
-if ($tenant_filter !== 'all') {
-    $stmtTrx->bindValue(':tid', $params[':tid']);
+// Bind all parameters
+foreach ($params as $key => $val) {
+    if ($key === ':limit' || $key === ':offset') continue; 
+    $stmtTrx->bindValue($key, $val);
 }
 
-// Bind pagination parameters as Integers (Crucial for SQL syntax)
+// Bind pagination parameters as Integers
 $stmtTrx->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
 $stmtTrx->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
 $stmtTrx->execute();
 $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
+
+// Helper for Pagination links persistence
+$query_string = $_GET;
+unset($query_string['page']);
+$base_pagination_url = "recent_transaction.php?" . http_build_query($query_string);
+
+// Hex to RGB helper for dynamic transparency
+function hexToRgb($hex) {
+    if (!$hex) return "140, 43, 238"; // Default primary RGB
+    $hex = str_replace("#", "", $hex);
+    if (strlen($hex) == 3) {
+        $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+        $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+        $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+    } else {
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+    }
+    return "$r, $g, $b";
+}
+
+// Fetch and Merge Settings
+$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+
+$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtUser->execute([$_SESSION['user_id']]);
+$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+
+$configs = array_merge($global_configs, $user_configs);
 ?>
 
 <!DOCTYPE html>
@@ -74,20 +156,49 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+            theme: { extend: { colors: { 
+                "primary": "var(--primary)", 
+                "background": "var(--background)", 
+                "secondary": "var(--secondary)",
+                "surface-dark": "#14121a", 
+                "border-subtle": "rgba(255,255,255,0.05)"
+            }}}
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        
-        /* Sidebar Hover Logic - ADJUSTED WIDTHS */
+        :root {
+            --primary: <?= $configs['theme_color'] ?? '#8c2bee' ?>;
+            --primary-rgb: <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>;
+            --background: <?= $configs['bg_color'] ?? '#0a090d' ?>;
+            --highlight: <?= $configs['secondary_color'] ?? '#a1a1aa' ?>;
+            --text-main: <?= $configs['text_color'] ?? '#d1d5db' ?>;
+            --card-blur: 20px;
+            --card-bg: <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#141216') ?>;
+        }
+
+        body { 
+            font-family: 'Lexend', sans-serif; 
+            background-color: var(--background); 
+            color: var(--text-main); 
+        }
+
+        .glass-card { 
+            background: var(--card-bg); 
+            border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 24px; 
+            backdrop-filter: blur(var(--card-blur));
+            transition: all 0.3s ease;
+        }
+
+        /* Sidebar Nav Styles */
         .sidebar-nav {
             width: 110px; 
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            background: var(--background);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
         .sidebar-nav:hover {
             width: 300px; 
@@ -154,8 +265,27 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
             gap: 4px; 
         }
 
-        .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
-        .active-nav { color: #8c2bee !important; position: relative; }
+        .nav-link { 
+            font-size: 11px; 
+            font-weight: 800; 
+            letter-spacing: 0.05em; 
+            transition: all 0.2s; 
+            white-space: nowrap; 
+            color: var(--text-main);
+        }
+        .nav-link span.material-symbols-outlined {
+            color: var(--highlight);
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+        .nav-link:hover {
+            opacity: 0.8;
+        }
+        .active-nav { color: var(--primary) !important; position: relative; }
+        .active-nav span.material-symbols-outlined {
+            color: var(--primary) !important;
+            opacity: 1 !important;
+        }
         .active-nav::after { 
             content: ''; 
             position: absolute; 
@@ -164,7 +294,7 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
             transform: translateY(-50%);
             width: 4px; 
             height: 20px; 
-            background: #8c2bee; 
+            background: var(--primary); 
             border-radius: 99px; 
         }
         
@@ -174,6 +304,30 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* --- Dropdown Styling Fix --- */
+        select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23<?= str_replace('#', '', $configs['theme_color'] ?? '8c2bee') ?>'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1em;
+        }
+
+        select option {
+            background-color: #1a1820 !important;
+            color: var(--text-main);
+            padding: 12px;
+            font-weight: 600;
+        }
+
+        select option:hover, 
+        select option:focus, 
+        select option:active {
+            background-color: var(--primary) !important;
+            color: white !important;
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -193,72 +347,80 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
+<nav class="sidebar-nav sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col no-scrollbar">
     <div class="mb-4 shrink-0"> 
         <div class="flex items-center gap-4 mb-4"> 
-            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+            <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($configs['system_logo'])): ?>
+                    <img src="<?= htmlspecialchars($configs['system_logo']) ?>" class="size-full object-contain">
+                <?php else: ?>
+                    <div class="size-full bg-primary flex items-center justify-center">
+                        <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                    </div>
+                <?php endif; ?>
             </div>
-            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">
+                <?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>
+            </h1>
         </div>
     </div>
     
     <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
         <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main] opacity-40">Overview</span>
         </div>
-        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
         </a>
         
         <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main] opacity-40">Management</span>
         </div>
-        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">business</span> 
             <span class="nav-text">Tenant Management</span>
         </a>
 
-        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
             <span class="nav-text">Subscription Logs</span>
         </a>
 
-        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">group</span> 
             <span class="nav-text">Real-Time Occupancy</span>
         </a>
 
-        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
             <span class="nav-text">Recent Transactions</span>
         </a>
 
         <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main] opacity-40">System</span>
         </div>
-        <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
             <span class="nav-text">System Alerts</span>
         </a>
 
-        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
             <span class="nav-text">Reports</span>
         </a>
 
-        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">monitoring</span> 
             <span class="nav-text">Sales Reports</span>
         </a>
 
-        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">assignment</span> 
             <span class="nav-text">Audit Logs</span>
         </a>
 
-        <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
             <span class="nav-text">Backup</span>
         </a>
@@ -266,17 +428,17 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
 
     <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-2 shrink-0">
         <div class="nav-section-header px-0 mb-0">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main] opacity-40">Account</span>
         </div>
-        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
             <span class="nav-text">Settings</span>
         </a>
-        <a href="profile.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
+        <a href="profile.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">person</span> 
             <span class="nav-text">Profile</span>
         </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
+        <a href="../logout.php" class="text-[--text-main] opacity-40 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
             <span class="nav-link nav-text">Sign Out</span>
         </a>
@@ -288,40 +450,117 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
 
         <header class="mb-10 flex flex-row justify-between items-end gap-6">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Global <span class="text-primary">Transactions</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Cross-tenant payment history</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-[--text-main] leading-none">Global <span class="text-primary">Transactions</span></h2>
+                <p class="text-[--text-main] opacity-60 text-xs font-bold uppercase tracking-widest mt-2">Financial ecosystem monitoring</p>
             </div>
             <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
+                <p id="headerClock" class="text-[--text-main] font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
                 <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
-        <div class="glass-card mb-8 p-8">
+        <!-- Financial Summary Dashboard -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <div class="glass-card p-8 border-emerald-500/20 bg-emerald-500/[0.03] relative overflow-hidden group">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-5xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">payments</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-2 tracking-widest">Total Revenue</p>
+                <h3 class="text-2xl font-black italic uppercase text-emerald-400">₱<?= number_format($total_revenue, 2) ?></h3>
+                <p class="text-emerald-500/60 text-[9px] font-black uppercase mt-2 italic shadow-sm">Verified Collections</p>
+            </div>
+
+            <a href="?status=pending" class="glass-card p-8 border-amber-500/20 bg-amber-500/[0.03] relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-5xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">pending_actions</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-2 tracking-widest">Pending Collections</p>
+                <h3 class="text-2xl font-black italic uppercase text-amber-400">₱<?= number_format($pending_revenue, 2) ?></h3>
+                <p class="text-amber-500/60 text-[9px] font-black uppercase mt-2 italic"><?= $pending_count ?> transactions requiring action</p>
+            </a>
+
+            <a href="?status=failed" class="glass-card p-8 border-rose-500/20 bg-rose-500/[0.03] relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-5xl opacity-10 group-hover:scale-110 transition-transform text-rose-500">warning</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-2 tracking-widest">At-Risk Accounts</p>
+                <h3 class="text-2xl font-black italic uppercase text-rose-400"><?= $unpaid_tenant_count ?> Gyms</h3>
+                <p class="text-rose-500/60 text-[9px] font-black uppercase mt-2 italic">Outstanding / Failed Logs</p>
+            </a>
+
+            <div class="glass-card p-8 border-primary/20 bg-primary/[0.03] relative overflow-hidden group">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-5xl opacity-10 group-hover:scale-110 transition-transform text-primary">trending_up</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-2 tracking-widest">Today's Growth</p>
+                <h3 class="text-2xl font-black italic uppercase text-primary">₱<?= number_format($today_revenue, 2) ?></h3>
+                <p class="text-primary/60 text-[9px] font-black uppercase mt-2 italic"><?= date('F d') ?> Snapshot</p>
+            </div>
+        </div>
+
+        <div class="glass-card mb-8 p-6">
             <form method="GET" class="flex flex-wrap items-end gap-6" id="trxFilterForm">
-                <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Select Tenant</p>
-                    <select name="tenant_id" onchange="this.form.submit()" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:border-primary focus:outline-none transition-all min-w-[280px]">
-                        <option value="all">All Tenants / System Logs</option>
+                <div class="flex-1 min-w-[280px]">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mb-3 block px-1">Quick Search</p>
+                    <div class="relative group">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary transition-transform group-hover:scale-110">search</span>
+                        <input type="text" name="search" value="<?= htmlspecialchars($search_query) ?>" placeholder="Ref ID, Member, or Client Name..." 
+                               class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary focus:bg-white/[0.08] outline-none">
+                    </div>
+                </div>
+
+                <div class="w-[200px]">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mb-3 block px-1">Gym Context</p>
+                    <select name="tenant_id" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary focus:bg-white/[0.08] outline-none appearance-none">
+                        <option value="all" class="bg-[--background]">All Tenants</option>
                         <?php foreach($tenants_list as $t): ?>
-                            <option value="<?= $t['gym_id'] ?>" <?= $tenant_filter == $t['gym_id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($t['gym_name']) ?>
-                            </option>
+                            <option value="<?= $t['gym_id'] ?>" <?= ($tenant_filter == $t['gym_id']) ? 'selected' : '' ?> class="bg-[--background]"><?= htmlspecialchars($t['gym_name']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="flex items-center gap-3">
-                    <button type="submit" class="h-10 px-6 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-all shadow-lg shadow-primary/20">Apply</button>
-                    <a href="recent_transaction.php" class="text-[9px] font-black uppercase tracking-widest text-gray-600 hover:text-white transition-colors">Reset Filter</a>
+
+                <div class="w-[180px]">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mb-3 block px-1">Status</p>
+                    <select name="status" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary focus:bg-white/[0.08] outline-none appearance-none">
+                        <option value="all" class="bg-[--background]">All Statuses</option>
+                        <?php 
+                            $statuses = ['Paid', 'Pending', 'Failed', 'Success', 'Refunded'];
+                            foreach($statuses as $s): 
+                        ?>
+                            <option value="<?= strtolower($s) ?>" <?= ($status_filter == strtolower($s)) ? 'selected' : '' ?> class="bg-[--background]"><?= $s ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="submit" class="h-11 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20">Update View</button>
+                    <a href="recent_transaction.php" class="h-11 px-6 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-50 hover:opacity-100 transition-all">Reset</a>
                 </div>
             </form>
+
+            <div class="mt-6 pt-6 border-t border-white/5 flex items-center gap-6">
+                <div class="flex items-center gap-2">
+                    <span class="text-[9px] font-black uppercase text-[--text-main] opacity-30">Temporal Control:</span>
+                    <div class="flex items-center gap-2 bg-white/5 rounded-lg p-1">
+                        <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" class="bg-transparent border-none text-[10px] font-bold text-primary focus:outline-none px-2">
+                        <span class="text-[10px] opacity-20">TO</span>
+                        <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" class="bg-transparent border-none text-[10px] font-bold text-primary focus:outline-none px-2">
+                    </div>
+                </div>
+                <div class="ml-auto flex items-center gap-2">
+                    <span class="text-[9px] font-black uppercase text-[--text-main] opacity-30">Category Filter:</span>
+                    <div class="flex gap-1">
+                        <?php 
+                            $types = ['Membership', 'Walk-in', 'Subscription'];
+                            foreach($types as $t): 
+                                $is_active = ($type_filter == strtolower($t));
+                        ?>
+                            <a href="?type=<?= strtolower($t) ?>" class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all <?= $is_active ? 'bg-primary/10 border-primary text-primary' : 'bg-white/5 border-white/10 text-[--text-main] opacity-40 hover:opacity-100' ?>">
+                                <?= $t ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="glass-card overflow-hidden shadow-2xl">
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
+                        <tr class="bg-[--background]/50 text-[--text-main] opacity-60 text-[10px] font-black uppercase tracking-widest">
                             <th class="px-8 py-4">Transaction ID</th>
                             <th class="px-8 py-4">Member / Branch</th>
                             <th class="px-8 py-4">Category</th>
@@ -332,7 +571,7 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         <?php if (empty($transactions)): ?>
-                            <tr><td colspan="6" class="px-8 py-12 text-center text-xs font-bold text-gray-500 italic uppercase">No transaction records found.</td></tr>
+                            <tr><td colspan="6" class="px-8 py-12 text-center text-xs font-bold text-[--text-main] opacity-60 italic uppercase">No transaction records found.</td></tr>
                         <?php else: ?>
                             <?php foreach($transactions as $trx): ?>
                             <tr class="hover:bg-white/[0.02] transition-all">
@@ -342,16 +581,16 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
                                 <td class="px-8 py-5">
                                     <div>
                                         <p class="text-sm font-bold text-white"><?= htmlspecialchars($trx['f_name'] . ' ' . $trx['l_name']) ?></p>
-                                        <p class="text-[9px] text-gray-500 font-black uppercase tracking-widest italic"><?= $trx['gym_name'] ? htmlspecialchars($trx['gym_name']) : 'System Managed' ?></p>
+                                        <p class="text-[9px] text-[--text-main] opacity-60 font-black uppercase tracking-widest italic"><?= $trx['gym_name'] ? htmlspecialchars($trx['gym_name']) : 'System Managed' ?></p>
                                     </div>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <span class="text-[9px] font-black uppercase tracking-tighter text-gray-400"><?= htmlspecialchars($trx['payment_type']) ?></span>
+                                    <span class="text-[9px] font-black uppercase tracking-tighter text-[--text-main] opacity-40"><?= htmlspecialchars($trx['payment_type']) ?></span>
                                 </td>
                                 <td class="px-8 py-5">
                                     <p class="text-sm font-black italic text-white">₱<?= number_format($trx['amount'], 2) ?></p>
                                 </td>
-                                <td class="px-8 py-5 text-[10px] font-bold text-gray-500">
+                                <td class="px-8 py-5 text-[10px] font-bold text-[--text-main] opacity-60">
                                     <?= date('M d, Y', strtotime($trx['created_at'])) ?>
                                     <p class="text-[8px] opacity-50 uppercase"><?= date('h:i A', strtotime($trx['created_at'])) ?></p>
                                 </td>
@@ -373,13 +612,13 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
 
             <?php if ($total_pages > 1): ?>
             <div class="px-8 py-6 border-t border-white/5 bg-white/[0.01] flex items-center justify-between">
-                <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                <p class="text-[10px] font-bold text-[--text-main] opacity-60 uppercase tracking-widest">
                     Showing <span class="text-white"><?= $offset + 1 ?></span> to <span class="text-white"><?= min($offset + $limit, $total_records) ?></span> of <span class="text-white"><?= $total_records ?></span>
                 </p>
                 <div class="flex items-center gap-1">
                     <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                        <a href="?tenant_id=<?= $tenant_filter ?>&page=<?= $i ?>" 
-                           class="size-8 rounded-lg flex items-center justify-center text-[10px] font-black transition-all <?= ($i == $page) ? 'bg-primary text-black' : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' ?>">
+                        <a href="<?= $base_pagination_url ?>&page=<?= $i ?>" 
+                           class="size-8 rounded-lg flex items-center justify-center text-[10px] font-black transition-all <?= ($i == $page) ? 'bg-primary text-black' : 'bg-white/5 text-[--text-main] opacity-40 hover:opacity-100 hover:bg-white/10' ?>">
                             <?= $i ?>
                         </a>
                     <?php endfor; ?>

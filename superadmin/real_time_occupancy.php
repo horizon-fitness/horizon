@@ -80,44 +80,9 @@ try {
     
     $gyms = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // --- UI Testing: Inject Specialized Mock Data ---
-    $mock_gyms = [
-        ['gym_id' => 101, 'name' => 'Elite Iron Fitness', 'capacity' => 150, 'count' => 142],
-        ['gym_id' => 102, 'name' => 'Titan Strength Lab', 'capacity' => 80, 'count' => 15],
-        ['gym_id' => 103, 'name' => 'Zenith Wellness Club', 'capacity' => 200, 'count' => 95],
-        ['gym_id' => 104, 'name' => 'Apex Performance Hub', 'capacity' => 120, 'count' => 110],
-        ['gym_id' => 105, 'name' => 'Velociti Sprint Center', 'capacity' => 60, 'count' => 45],
-        ['gym_id' => 106, 'name' => 'Primal Agility Box', 'capacity' => 40, 'count' => 2],
-        ['gym_id' => 107, 'name' => 'Summit Bouldering Gym', 'capacity' => 180, 'count' => 75],
-        ['gym_id' => 108, 'name' => 'Aura Yoga Sanctuary', 'capacity' => 35, 'count' => 32],
-        ['gym_id' => 109, 'name' => 'Impact Combat Academy', 'capacity' => 100, 'count' => 12],
-        ['gym_id' => 110, 'name' => 'Gravity Free Weights', 'capacity' => 250, 'count' => 180],
-        ['gym_id' => 111, 'name' => 'Pulse Cycle Studio', 'capacity' => 25, 'count' => 24],
-        ['gym_id' => 112, 'name' => 'Nomad Crossfit', 'capacity' => 90, 'count' => 50]
-    ];
-    
-    foreach ($mock_gyms as $m) {
-        // Appy Filters to Mock Data
-        if (!empty($search) && stripos($m['name'], $search) === false) continue;
-        
-        // Calculate status first to apply status filter
-        $rate = ($m['capacity'] > 0) ? ($m['count'] / $m['capacity']) * 100 : 0;
-        $status = ($rate >= 80) ? 'Full' : (($rate >= 40) ? 'Moderate' : 'Low');
-        
-        if ($occupancy_status !== 'all' && $status !== $occupancy_status) continue;
-        
-        $gyms[] = array_merge($m, ['status' => $status]);
-    }
-    
-    // Process status for real gyms if status filter is active
+    // --- Process Gym Status & Final Filter ---
     $filtered_gyms = [];
-    foreach ($gyms as &$gym) {
-        // If status was already calculated (mock), just check filter
-        if (isset($gym['status'])) {
-            $filtered_gyms[] = $gym;
-            continue;
-        }
-
+    foreach ($gyms as $gym) {
         $rate = ($gym['capacity'] > 0) ? ($gym['count'] / $gym['capacity']) * 100 : 0;
         $status = ($rate >= 80) ? 'Full' : (($rate >= 40) ? 'Moderate' : 'Low');
         $gym['status'] = $status;
