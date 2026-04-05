@@ -461,9 +461,9 @@ $base_pagination_url = "recent_transaction.php?" . http_build_query($query_strin
                 <h2 class="text-3xl font-black italic uppercase tracking-tighter text-[--text-main] leading-none">Global <span class="text-primary">Transactions</span></h2>
                 <p class="text-[--text-main] opacity-60 text-xs font-bold uppercase tracking-widest mt-2">Financial ecosystem monitoring</p>
             </div>
-            <div class="text-right">
-                <p id="headerClock" class="text-[--text-main] font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
+            <div class="text-right shrink-0">
+                <p id="headerClock" class="text-[--text-main] font-black italic text-2xl tracking-tighter leading-none mb-2 transition-colors cursor-default">00:00:00 AM</p>
+                <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none opacity-80"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
