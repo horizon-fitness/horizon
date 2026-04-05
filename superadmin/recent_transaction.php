@@ -196,39 +196,57 @@ $base_pagination_url = "recent_transaction.php?" . http_build_query($query_strin
 
         /* Sidebar Nav Styles */
         .sidebar-nav {
-            width: 110px; 
+            width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 50;
             background: var(--background);
             border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
+
         .sidebar-nav:hover {
-            width: 300px; 
+            width: 300px;
         }
 
-        /* Added: Scrollable container for links */
+        .main-content {
+            margin-left: 110px;
+            flex: 1;
+            min-width: 0;
+            transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-nav:hover ~ .main-content {
+            margin-left: 300px;
+        }
+
         .sidebar-scroll-container {
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
-            padding-right: 4px;
         }
 
         /* Custom Scrollbar for the sidebar */
         .sidebar-scroll-container::-webkit-scrollbar {
             width: 4px;
         }
+
         .sidebar-scroll-container::-webkit-scrollbar-track {
             background: transparent;
         }
+
         .sidebar-scroll-container::-webkit-scrollbar-thumb {
-            background: rgba(140, 43, 238, 0.1);
+            background: rgba(var(--primary-rgb), 0.1);
             border-radius: 10px;
         }
+
         .sidebar-nav:hover .sidebar-scroll-container::-webkit-scrollbar-thumb {
-            background: rgba(140, 43, 238, 0.4);
+            background: rgba(var(--primary-rgb), 0.4);
         }
 
         .nav-text {
@@ -238,6 +256,7 @@ $base_pagination_url = "recent_transaction.php?" . http_build_query($query_strin
             white-space: nowrap;
             pointer-events: none;
         }
+
         .sidebar-nav:hover .nav-text {
             opacity: 1;
             transform: translateX(0);
@@ -250,64 +269,99 @@ $base_pagination_url = "recent_transaction.php?" . http_build_query($query_strin
             overflow: hidden;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             margin: 0 !important;
+            padding: 0 38px;
             pointer-events: none;
         }
+
         .sidebar-nav:hover .nav-section-header {
             max-height: 20px;
             opacity: 1;
-            margin-bottom: 0px !important; 
+            margin-bottom: 8px !important;
             pointer-events: auto;
         }
-        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0px !important; } 
-        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 0px !important; } 
+
+        .sidebar-nav:hover .nav-section-header.mt-4 {
+            margin-top: 12px !important;
+        }
+
+        .sidebar-nav:hover .nav-section-header.mt-6 {
+            margin-top: 16px !important;
+        }
 
         .sidebar-content {
-            gap: 2px; 
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
             transition: all 0.3s ease-in-out;
         }
+
         .sidebar-nav:hover .sidebar-content {
-            gap: 4px; 
+            gap: 4px;
         }
 
-        .nav-link { 
-            font-size: 11px; 
-            font-weight: 800; 
-            letter-spacing: 0.05em; 
-            transition: all 0.2s; 
-            white-space: nowrap; 
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 38px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.05em;
             color: var(--text-main);
+            text-decoration: none;
         }
+
         .nav-link span.material-symbols-outlined {
             color: var(--highlight);
             opacity: 0.7;
             transition: all 0.3s ease;
         }
+
         .nav-link:hover {
             opacity: 0.8;
+            transform: scale(1.02);
         }
-        .active-nav { color: var(--primary) !important; position: relative; }
+
+        .active-nav {
+            color: var(--primary) !important;
+            position: relative;
+        }
+
         .active-nav span.material-symbols-outlined {
             color: var(--primary) !important;
             opacity: 1 !important;
         }
-        .active-nav::after { 
-            content: ''; 
-            position: absolute; 
-            right: 0px; 
+
+        .active-nav::after {
+            content: '';
+            position: absolute;
+            right: 0px;
             top: 50%;
             transform: translateY(-50%);
-            width: 4px; 
-            height: 20px; 
-            background: var(--primary); 
-            border-radius: 99px; 
-        }
-        
-        @media (max-width: 1023px) {
-            .active-nav::after { display: none; }
+            width: 4px;
+            height: 24px;
+            background: var(--primary);
+            border-radius: 4px 0 0 4px;
+            opacity: 1;
+            transition: opacity 0.3s ease;
         }
 
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @media (max-width: 1023px) {
+            .active-nav::after {
+                display: none;
+            }
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
 
         /* --- Elite Invisible Scroll System --- */
         *::-webkit-scrollbar { display: none !important; }
@@ -355,105 +409,119 @@ $base_pagination_url = "recent_transaction.php?" . http_build_query($query_strin
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col no-scrollbar">
-    <div class="mb-4 shrink-0"> 
-        <div class="flex items-center gap-4 mb-4"> 
-            <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($configs['system_logo'])): ?>
-                    <img src="<?= htmlspecialchars($configs['system_logo']) ?>" class="size-full object-contain">
-                <?php else: ?>
-                    <div class="size-full bg-primary flex items-center justify-center">
-                        <span class="material-symbols-outlined text-white text-2xl">bolt</span>
-                    </div>
-                <?php endif; ?>
+    <nav class="sidebar-nav z-50 flex flex-col no-scrollbar">
+        <div class="px-7 py-5 mb-2 shrink-0">
+            <div class="flex items-center gap-4">
+                <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                    <?php if (!empty($configs['system_logo'])): ?>
+                        <img src="<?= htmlspecialchars($configs['system_logo']) ?>" id="sidebarLogoPreview"
+                            class="size-full object-contain rounded-xl">
+                    <?php else: ?>
+                        <img src="../assests/horizon logo.png" id="sidebarLogoPreview"
+                            class="size-full object-contain rounded-xl transition-transform duration-500 hover:scale-110"
+                            alt="Horizon Logo">
+                    <?php endif; ?>
+                </div>
+                <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">
+                    <?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>
+                </h1>
             </div>
-            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">
-                <?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>
-            </h1>
         </div>
-    </div>
-    
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
-        <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main] opacity-40">Overview</span>
+
+        <div class="sidebar-scroll-container no-scrollbar space-y-1 pb-4">
+            <div class="nav-section-header mb-2">
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span>
+            </div>
+            <a href="superadmin_dashboard.php"
+                class="nav-link <?= ($active_page == 'dashboard') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">grid_view</span>
+                <span class="nav-text">Dashboard</span>
+            </a>
+
+            <div class="nav-section-header mb-2 mt-4">
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span>
+            </div>
+            <a href="tenant_management.php"
+                class="nav-link <?= ($active_page == 'tenants') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">business</span>
+                <span class="nav-text">Tenant Management</span>
+            </a>
+
+            <a href="subscription_logs.php"
+                class="nav-link <?= ($active_page == 'subscriptions') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">history_edu</span>
+                <span class="nav-text">Subscription Logs</span>
+            </a>
+
+            <a href="real_time_occupancy.php"
+                class="nav-link <?= ($active_page == 'occupancy') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">group</span>
+                <span class="nav-text">Real-Time Occupancy</span>
+            </a>
+
+            <a href="recent_transaction.php"
+                class="nav-link <?= ($active_page == 'transactions') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
+                <span class="nav-text">Recent Transactions</span>
+            </a>
+
+            <div class="nav-section-header mb-2 mt-4">
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">System</span>
+            </div>
+            <a href="system_alerts.php"
+                class="nav-link <?= ($active_page == 'alerts') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span>
+                <span class="nav-text">System Alerts</span>
+            </a>
+
+            <a href="system_reports.php"
+                class="nav-link <?= ($active_page == 'reports') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">analytics</span>
+                <span class="nav-text">Reports</span>
+            </a>
+
+            <a href="sales_report.php"
+                class="nav-link <?= ($active_page == 'sales_report') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">monitoring</span>
+                <span class="nav-text">Sales Reports</span>
+            </a>
+
+            <a href="audit_logs.php"
+                class="nav-link <?= ($active_page == 'audit_logs') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">assignment</span>
+                <span class="nav-text">Audit Logs</span>
+            </a>
+
+            <a href="backup.php"
+                class="nav-link <?= ($active_page == 'backup') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">backup</span>
+                <span class="nav-text">Backup</span>
+            </a>
         </div>
-        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
-            <span class="nav-text">Dashboard</span>
-        </a>
-        
-        <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main] opacity-40">Management</span>
+
+        <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
+            <div class="nav-section-header mb-2">
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span>
+            </div>
+            <a href="settings.php"
+                class="nav-link <?= ($active_page == 'settings') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">settings</span>
+                <span class="nav-text">Settings</span>
+            </a>
+            <a href="profile.php"
+                class="nav-link <?= ($active_page == 'profile') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">person</span>
+                <span class="nav-text">Profile</span>
+            </a>
+            <a href="../logout.php"
+                class="nav-link !text-gray-400 hover:!text-rose-500 transition-colors group">
+                <span class="material-symbols-outlined text-xl shrink-0 group-hover:!text-rose-500">logout</span>
+                <span class="nav-text group-hover:!text-rose-500">Sign Out</span>
+            </a>
         </div>
-        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">business</span> 
-            <span class="nav-text">Tenant Management</span>
-        </a>
+    </nav>
 
-        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
-            <span class="nav-text">Subscription Logs</span>
-        </a>
-
-        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">group</span> 
-            <span class="nav-text">Real-Time Occupancy</span>
-        </a>
-
-        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
-            <span class="nav-text">Recent Transactions</span>
-        </a>
-
-        <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main] opacity-40">System</span>
-        </div>
-        <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
-            <span class="nav-text">System Alerts</span>
-        </a>
-
-        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
-            <span class="nav-text">Reports</span>
-        </a>
-
-        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">monitoring</span> 
-            <span class="nav-text">Sales Reports</span>
-        </a>
-
-        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">assignment</span> 
-            <span class="nav-text">Audit Logs</span>
-        </a>
-
-        <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
-            <span class="nav-text">Backup</span>
-        </a>
-    </div>
-
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-2 shrink-0">
-        <div class="nav-section-header px-0 mb-0">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main] opacity-40">Account</span>
-        </div>
-        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
-            <span class="nav-text">Settings</span>
-        </a>
-        <a href="profile.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-[--text-main] opacity-40 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">person</span> 
-            <span class="nav-text">Profile</span>
-        </a>
-        <a href="../logout.php" class="text-[--text-main] opacity-40 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
-            <span class="nav-link nav-text">Sign Out</span>
-        </a>
-    </div>
-</nav>
-
-<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <div class="main-content flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
 
         <header class="mb-10 flex flex-row justify-between items-end gap-6">
