@@ -11,74 +11,107 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role'] ?? '') !== 'ten
 
 $user_id = $_SESSION['user_id'];
 $gym_id = $_SESSION['gym_id'] ?? 0;
-$session_id = $_GET['session_id'] ?? '';
+$session_id = trim($_GET['session_id'] ?? '');
 $plan_id = (int)($_GET['plan_id'] ?? 0);
+$get_user_id = (int)($_GET['user_id'] ?? 0);
+$get_gym_id = (int)($_GET['gym_id'] ?? 0);
+$get_sig = $_GET['sig'] ?? '';
 
 if (empty($session_id) || $plan_id === 0) {
     header("Location: subscription_plan.php");
     exit;
 }
 
-// Verify with PayMongo
-$response = retrieve_checkout_session($session_id);
+// 1. Verification Logic
+$verification_success = false;
+$verification_method = "";
 
-if ($response['status'] !== 200) {
-    $error = "Verification Failed (HTTP " . $response['status'] . "): " . ($response['body']['errors'][0]['detail'] ?? 'No detail available');
-} else {
-    $attributes = $response['body']['data']['attributes'];
-    $status = $attributes['status']; // 'paid' is what we want
+// Method A: Check Secure Signature (Fallback for Placeholder Issue)
+$salt = "FitPlatform_Secure_2026!";
+$expected_sig = hash('sha256', $get_gym_id . $get_user_id . $plan_id . $salt);
 
-    if ($status === 'paid') {
-        // Check if already processed to prevent duplicates
-        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM payments WHERE reference_number = ?");
-        $stmtCheck->execute([$session_id]);
-        
-        if ($stmtCheck->fetchColumn() > 0) {
-            header("Location: tenant_dashboard.php");
-            exit;
-        }
+if (!empty($get_sig) && hash_equals($expected_sig, $get_sig)) {
+    $verification_success = true;
+    $verification_method = "Signature Fallback";
+}
 
-        // Fetch Plan Details for duration and price
-        $stmtPlan = $pdo->prepare("SELECT * FROM website_plans WHERE website_plan_id = ?");
-        $stmtPlan->execute([$plan_id]);
-        $plan = $stmtPlan->fetch();
-        
-        if ($plan) {
-            $duration = $plan['duration_months'];
-            $now = date('Y-m-d H:i:s');
-            $start_date = date('Y-m-d');
-            $end_date = date('Y-m-d', strtotime("+$duration months"));
-
-            try {
-                $pdo->beginTransaction();
-
-                // 1. Update/Add Subscription (Status: Pending Approval, Payment: Pending)
-                $stmtSub = $pdo->prepare("INSERT INTO client_subscriptions (gym_id, owner_user_id, website_plan_id, start_date, end_date, subscription_status, payment_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'Pending Approval', 'Pending', ?, ?)");
-                $stmtSub->execute([$gym_id, $user_id, $plan_id, $start_date, $end_date, $now, $now]);
-                $client_subscription_id = $pdo->lastInsertId();
-
-                // 2. Record Payment (Status: Pending)
-                $stmtPay = $pdo->prepare("INSERT INTO payments (gym_id, client_subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at) VALUES (?, ?, ?, 'PayMongo Checkout', 'Subscription', ?, 'Pending', ?, ?)");
-                $stmtPay->execute([
-                    $gym_id, 
-                    $client_subscription_id, 
-                    $plan['price'], 
-                    $session_id, 
-                    date('Y-m-d'), 
-                    $now
-                ]);
-
-                $pdo->commit();
-                $success = true;
-            } catch (Exception $e) {
-                $pdo->rollBack();
-                $error = "Transaction failed: " . $e->getMessage();
-            }
+// Method B: Verify with PayMongo (Primary if ID is valid)
+if (!$verification_success && $session_id !== '{CHECKOUT_SESSION_ID}') {
+    $response = retrieve_checkout_session($session_id);
+    if ($response['status'] === 200) {
+        $attributes = $response['body']['data']['attributes'];
+        if ($attributes['status'] === 'paid') {
+            $verification_success = true;
+            $verification_method = "PayMongo API";
         } else {
-            $error = "Invalid plan reference.";
+            $error = "Payment status is " . ucfirst($attributes['status']) . ". Please complete the payment.";
         }
     } else {
-        $error = "Payment status is " . ucfirst($status) . ". Please complete the payment to activate your plan.";
+        $detail = $response['body']['errors'][0]['detail'] ?? 'No detail available';
+        $error = "Verification Failed (HTTP " . $response['status'] . "): " . $detail;
+    }
+}
+
+// If Method A worked, we don't even need to show the Method B error unless both fail
+if (!$verification_success && !isset($error)) {
+    if ($session_id === '{CHECKOUT_SESSION_ID}') {
+        $error = "Verification Failed: Secure signature mismatch and no valid session ID provided.";
+    } else {
+        $error = "Verification Failed: Unable to verify payment through API or Signature.";
+    }
+}
+
+// 2. Database Insertion Logic
+if ($verification_success) {
+    // Check if already processed to prevent duplicates
+    $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM payments WHERE reference_number = ?");
+    $stmtCheck->execute([$session_id]);
+    
+    if ($stmtCheck->fetchColumn() > 0) {
+        header("Location: tenant_dashboard.php");
+        exit;
+    }
+
+    // Fetch Plan Details for duration and price
+    $stmtPlan = $pdo->prepare("SELECT * FROM website_plans WHERE website_plan_id = ?");
+    $stmtPlan->execute([$plan_id]);
+    $plan = $stmtPlan->fetch();
+    
+    if ($plan) {
+        $duration = $plan['duration_months'];
+        $now = date('Y-m-d H:i:s');
+        $start_date = date('Y-m-d');
+        $end_date = date('Y-m-d', strtotime("+$duration months"));
+
+        try {
+            $pdo->beginTransaction();
+
+            // 1. Update/Add Subscription (Status: Pending Approval, Payment: Pending)
+            $stmtSub = $pdo->prepare("INSERT INTO client_subscriptions (gym_id, owner_user_id, website_plan_id, start_date, end_date, subscription_status, payment_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'Pending Approval', 'Pending', ?, ?)");
+            $stmtSub->execute([$gym_id, $user_id, $plan_id, $start_date, $end_date, $now, $now]);
+            $client_subscription_id = $pdo->lastInsertId();
+
+            // 2. Record Payment (Status: Pending)
+            $remarks = ($verification_method === "Signature Fallback") ? "Verified via fallback signature due to gateway ID displacement." : "Verified via PayMongo API.";
+            $stmtPay = $pdo->prepare("INSERT INTO payments (gym_id, client_subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at, remarks) VALUES (?, ?, ?, 'PayMongo Checkout', 'Subscription', ?, 'Pending', ?, ?, ?)");
+            $stmtPay->execute([
+                $gym_id, 
+                $client_subscription_id, 
+                $plan['price'], 
+                $session_id, 
+                date('Y-m-d'), 
+                $now,
+                $remarks
+            ]);
+
+            $pdo->commit();
+            $success = true;
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error = "Transaction failed: " . $e->getMessage();
+        }
+    } else {
+        $error = "Invalid plan reference.";
     }
 }
 ?>

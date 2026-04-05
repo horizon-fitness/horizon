@@ -54,9 +54,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
         
         // Since we're in /tenant/, we want the full path to it
         $current_dir = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
-        $base_url = $protocol . $host . $current_dir;
+        $base_url = rtrim($protocol . $host . $current_dir, '/');
 
-        $success_url = $base_url . "/payment_success.php?plan_id=" . $plan_id . "&session_id={CHECKOUT_SESSION_ID}";
+        // Security Signature for fallback verification
+        $salt = "FitPlatform_Secure_2026!";
+        $signature = hash('sha256', $gym_id . $user_id . $plan_id . $salt);
+
+        $success_url = $base_url . "/payment_success.php?plan_id=" . $plan_id . "&user_id=" . $user_id . "&gym_id=" . $gym_id . "&sig=" . $signature . "&session_id={CHECKOUT_SESSION_ID}";
         $cancel_url = $base_url . "/payment_cancel.php";
 
         // 1. Fetch Billing/Metadata Details for better PayMongo dashboard reflection

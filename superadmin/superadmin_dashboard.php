@@ -3,156 +3,133 @@ session_start();
 require_once '../db.php';
 
 // Security Check: Only Superadmin can access
-if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmin') {
+if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role'] ?? '') !== 'superadmin') {
     header("Location: ../login.php");
     exit;
 }
 
-$page_title = "Super Admin Dashboard";
-$active_page = "dashboard";
+try {
+    $page_title = "Super Admin Dashboard";
+    $active_page = "dashboard";
 
-// 4-Color Elite Branding System: Fetching & Merging Settings
-// Hex to RGB helper for dynamic transparency
-if (!function_exists('hexToRgb')) {
-    function hexToRgb($hex)
-    {
-        $hex = str_replace("#", "", $hex);
-        if (strlen($hex) == 3) {
-            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
-            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
-            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
-        } else {
-            $r = hexdec(substr($hex, 0, 2));
-            $g = hexdec(substr($hex, 2, 2));
-            $b = hexdec(substr($hex, 4, 2));
+    // 4-Color Elite Branding System
+    if (!function_exists('hexToRgb')) {
+        function hexToRgb($hex) {
+            $hex = str_replace("#", "", $hex);
+            if (strlen($hex) == 3) {
+                $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+                $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+                $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+            } else {
+                $r = hexdec(substr($hex, 0, 2));
+                $g = hexdec(substr($hex, 2, 2));
+                $b = hexdec(substr($hex, 4, 2));
+            }
+            return "$r, $g, $b";
         }
-        return "$r, $g, $b";
     }
+
+    // 1. Fetch Global Settings
+    $stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+    $global_configs = $stmtGlobal ? $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) : [];
+
+    // 2. Fetch User-Specific Settings
+    $stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+    $stmtUser->execute([$_SESSION['user_id']]);
+    $user_configs = $stmtUser ? $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR) : [];
+
+    // 3. Merge
+    $brand = array_merge($global_configs, $user_configs);
+
+    // Activity Analytics
+    $stmtRev = $pdo->query("SELECT SUM(amount) FROM payments WHERE payment_status = 'Completed'");
+    $total_revenue = ($stmtRev) ? ($stmtRev->fetchColumn() ?: 0.00) : 0.00;
+
+    $stmtGyms = $pdo->query("SELECT COUNT(*) as total, SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active, SUM(CASE WHEN status = 'Suspended' THEN 1 ELSE 0 END) as suspended FROM gyms");
+    $gym_stats = ($stmtGyms) ? $stmtGyms->fetch(PDO::FETCH_ASSOC) : ['total'=>0, 'active'=>0, 'suspended'=>0];
+
+    $stmtUsers = $pdo->query("SELECT COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_users FROM users");
+    $user_stats = ($stmtUsers) ? $stmtUsers->fetch(PDO::FETCH_ASSOC) : ['total'=>0, 'active_users'=>0];
+
+    $stmtPending = $pdo->query("SELECT COUNT(*) FROM gym_owner_applications WHERE application_status = 'Pending'");
+    $pending_apps_count = ($stmtPending) ? $stmtPending->fetchColumn() : 0;
+
+    // Charts Logic
+    $daily_activity = [];
+    for ($i = 6; $i >= 0; $i--) {
+        $d = date('Y-m-d', strtotime("-$i days"));
+        $daily_activity[$d] = ['log_date' => $d, 'count' => 0];
+    }
+    $stmtDaily = $pdo->query("SELECT DATE(created_at) as log_date, COUNT(*) as count FROM audit_logs WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) GROUP BY log_date ORDER BY log_date ASC");
+    if ($stmtDaily) {
+        while ($row = $stmtDaily->fetch(PDO::FETCH_ASSOC)) {
+            if (isset($daily_activity[$row['log_date']])) $daily_activity[$row['log_date']]['count'] = (int)$row['count'];
+        }
+    }
+    $daily_activity = array_values($daily_activity);
+
+    $monthly_activity = [];
+    for ($i = 5; $i >= 0; $i--) {
+        $m = date('Y-m', strtotime("-$i months"));
+        $monthly_activity[$m] = ['log_month' => $m, 'count' => 0];
+    }
+    $stmtMonthly = $pdo->query("SELECT DATE_FORMAT(created_at, '%Y-%m') as log_month, COUNT(*) as count FROM audit_logs WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) GROUP BY log_month ORDER BY log_month ASC");
+    if ($stmtMonthly) {
+        while ($row = $stmtMonthly->fetch(PDO::FETCH_ASSOC)) {
+            if (isset($monthly_activity[$row['log_month']])) $monthly_activity[$row['log_month']]['count'] = (int)$row['count'];
+        }
+    }
+    $monthly_activity = array_values($monthly_activity);
+
+    // Alerts System
+    $nowStr = date('Y-m-d H:i:s');
+    $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
+
+    $stmtExpiring = $pdo->prepare("SELECT cs.*, g.gym_name FROM client_subscriptions cs JOIN gyms g ON cs.gym_id = g.gym_id WHERE cs.end_date <= ? AND cs.subscription_status = 'Active'");
+    $stmtExpiring->execute([$sevenDaysLater]);
+    $expiringSubs = $stmtExpiring->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($expiringSubs as $sub) {
+        $daysLeft = round((strtotime($sub['end_date']) - strtotime(date('Y-m-d'))) / 86400);
+        $msg = "Subscription for " . $sub['gym_name'] . " expires in " . $daysLeft . " days (Ends: " . $sub['end_date'] . ")";
+        // FIX: Cast to latin1 to match the database column collation on InfinityFree
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != 'Resolved'");
+        $stmtCheck->execute([$msg]);
+        if ($stmtCheck->fetchColumn() == 0) {
+            $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Subscription Expiry', 'Billing', ?, 'Medium', 'Unread', ?)");
+            $stmtInsert->execute([$msg, $nowStr]);
+        }
+    }
+
+    $stmtPendingPayments = $pdo->query("SELECT p.*, u.first_name, u.last_name FROM payments p LEFT JOIN members m ON p.member_id = m.member_id LEFT JOIN users u ON m.user_id = u.user_id WHERE p.payment_status = 'Pending'");
+    if ($stmtPendingPayments) {
+        foreach ($stmtPendingPayments->fetchAll(PDO::FETCH_ASSOC) as $payment) {
+            $payer = ($payment['first_name'] ?? '') ? $payment['first_name'] . ' ' . $payment['last_name'] : 'Tenant/Guest';
+            $msg = "New payment of Php" . number_format($payment['amount'] ?? 0, 2) . " from " . $payer . " requires verification. (Ref: " . ($payment['reference_number'] ?? 'N/A') . ")";
+            // CAST to latin1 to match InfinityFree DB collation
+            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != 'Resolved'");
+            $stmtCheck->execute([$msg]);
+            if ($stmtCheck->fetchColumn() == 0) {
+                $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Payment Verification', 'Finance', ?, 'Medium', 'Unread', ?)");
+                $stmtInsert->execute([$msg, $nowStr]);
+            }
+        }
+    }
+
+    $stmtActiveAlerts = $pdo->query("SELECT COUNT(*) FROM system_alerts WHERE status != 'Resolved'");
+    $active_alerts_count = ($stmtActiveAlerts) ? $stmtActiveAlerts->fetchColumn() : 0;
+
+} catch (Exception $e) {
+    die("<div style='background:#1a1a1a; color:#ff4444; padding:20px; font-family:sans-serif; border-radius:10px; margin:20px; border:1px solid #ff4444;'>
+            <h2 style='margin-top:0;'>Dashboard Critical Error</h2>
+            <p><strong>Message:</strong> " . htmlspecialchars($e->getMessage()) . "</p>
+            <p><strong>File:</strong> " . $e->getFile() . " (Line " . $e->getLine() . ")</p>
+            <p><a href='superadmin_dashboard.php' style='color:#fff; text-decoration:underline;'>Retry</a></p>
+         </div>");
 }
 
-// 1. Fetch Global Settings (user_id = 0)
-$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
-$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
-
-// 2. Fetch User-Specific Settings (Personal Branding)
-$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
-$stmtUser->execute([$_SESSION['user_id']]);
-$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
-
-// 3. Merge (User settings take precedence for overlapping keys)
-$brand = array_merge($global_configs, $user_configs);
-
-// Application messages handled via session
 $success_msg = $_SESSION['success_msg'] ?? '';
 $error_msg = $_SESSION['error_msg'] ?? '';
 unset($_SESSION['success_msg'], $_SESSION['error_msg']);
-
-// 0. Revenue Analytics
-$stmtRev = $pdo->query("SELECT SUM(amount) FROM payments WHERE payment_status = 'Completed'");
-$total_revenue = $stmtRev->fetchColumn() ?: 0.00;
-
-// 1. Gym Analytics
-$stmtGyms = $pdo->query("SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'Active' THEN 1 ELSE 0 END) as active,
-        SUM(CASE WHEN status = 'Suspended' THEN 1 ELSE 0 END) as suspended,
-        SUM(CASE WHEN status = 'Deactivated' THEN 1 ELSE 0 END) as deactivated
-    FROM gyms");
-$gym_stats = $stmtGyms->fetch(PDO::FETCH_ASSOC);
-
-// 2. User Analytics
-$stmtUsers = $pdo->query("SELECT 
-        COUNT(*) as total,
-        SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_users,
-        SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive_users
-    FROM users");
-$user_stats = $stmtUsers->fetch(PDO::FETCH_ASSOC);
-
-// 3. Application Analytics
-$stmtPending = $pdo->query("SELECT COUNT(*) FROM gym_owner_applications WHERE application_status = 'Pending'");
-$pending_apps_count = $stmtPending->fetchColumn();
-
-// 4. Activity Analytics (System-wide)
-// Daily Activity (Last 7 Days - Pre-filled for consistent bar charts)
-$daily_activity = [];
-for ($i = 6; $i >= 0; $i--) {
-    $d = date('Y-m-d', strtotime("-$i days"));
-    $daily_activity[$d] = ['log_date' => $d, 'count' => 0];
-}
-
-$stmtDaily = $pdo->query("
-        SELECT DATE(created_at) as log_date, COUNT(*) as count 
-        FROM audit_logs 
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) 
-        GROUP BY DATE(created_at) 
-        ORDER BY log_date ASC
-    ");
-while ($row = $stmtDaily->fetch(PDO::FETCH_ASSOC)) {
-    if (isset($daily_activity[$row['log_date']])) {
-        $daily_activity[$row['log_date']]['count'] = (int) $row['count'];
-    }
-}
-$daily_activity = array_values($daily_activity);
-
-// Monthly Activity (Last 6 Months - Pre-filled for consistent line charts)
-$monthly_activity = [];
-for ($i = 5; $i >= 0; $i--) {
-    $m = date('Y-m', strtotime("-$i months"));
-    $monthly_activity[$m] = ['log_month' => $m, 'count' => 0];
-}
-
-$stmtMonthly = $pdo->query("
-        SELECT DATE_FORMAT(created_at, '%Y-%m') as log_month, COUNT(*) as count 
-        FROM audit_logs 
-        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH) 
-        GROUP BY log_month 
-        ORDER BY log_month ASC
-    ");
-while ($row = $stmtMonthly->fetch(PDO::FETCH_ASSOC)) {
-    if (isset($monthly_activity[$row['log_month']])) {
-        $monthly_activity[$row['log_month']]['count'] = (int) $row['count'];
-    }
-}
-$monthly_activity = array_values($monthly_activity);
-
-// 5. System Alerts Analytics (Automated Checks on Dashboard Load)
-$nowStr = date('Y-m-d H:i:s');
-$sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
-
-// Check for Expiring Client Subscriptions
-$stmtExpiring = $pdo->prepare("SELECT cs.*, g.gym_name FROM client_subscriptions cs JOIN gyms g ON cs.gym_id = g.gym_id WHERE cs.end_date <= ? AND cs.subscription_status = 'Active'");
-$stmtExpiring->execute([$sevenDaysLater]);
-$expiringSubs = $stmtExpiring->fetchAll(PDO::FETCH_ASSOC);
-foreach ($expiringSubs as $sub) {
-    $daysLeft = (strtotime($sub['end_date']) - strtotime(date('Y-m-d'))) / 86400;
-    $msg = "Subscription for " . $sub['gym_name'] . " expires in " . round($daysLeft) . " days (Ends: " . $sub['end_date'] . ")";
-    $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
-    $stmtCheck->execute([$msg]);
-    if ($stmtCheck->fetchColumn() == 0) {
-        $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Subscription Expiry', 'Billing', ?, 'Medium', 'Unread', ?)");
-        $stmtInsert->execute([$msg, $nowStr]);
-    }
-}
-
-// Check for Pending Payments
-$stmtPendingPayments = $pdo->query("SELECT p.*, u.first_name, u.last_name FROM payments p LEFT JOIN members m ON p.member_id = m.member_id LEFT JOIN users u ON m.user_id = u.user_id WHERE p.payment_status = 'Pending'");
-$pendingPayments = $stmtPendingPayments->fetchAll(PDO::FETCH_ASSOC);
-foreach ($pendingPayments as $payment) {
-    $payer = ($payment['first_name']) ? $payment['first_name'] . ' ' . $payment['last_name'] : 'Tenant/Guest';
-    $msg = "New payment of ₱" . number_format($payment['amount'], 2) . " from " . $payer . " requires verification. (Ref: " . $payment['reference_number'] . ")";
-    $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
-    $stmtCheck->execute([$msg]);
-    if ($stmtCheck->fetchColumn() == 0) {
-        $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Payment Verification', 'Finance', ?, 'Medium', 'Unread', ?)");
-        $stmtInsert->execute([$msg, $nowStr]);
-    }
-}
-
-$stmtActiveAlerts = $pdo->query("SELECT COUNT(*) FROM system_alerts WHERE status != 'Resolved'");
-$active_alerts_count = $stmtActiveAlerts->fetchColumn();
-
-
-
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">

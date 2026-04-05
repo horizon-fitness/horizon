@@ -6,8 +6,8 @@ require_once __DIR__ . '/../config/paymongo-config.php';
  */
 
 function paymongo_post($endpoint, $data) {
-    $url = PAYMONGO_BASE_URL . $endpoint;
-    $apiKey = PAYMONGO_SECRET_KEY;
+    $url = rtrim(PAYMONGO_BASE_URL, '/') . '/' . ltrim($endpoint, '/');
+    $apiKey = trim(PAYMONGO_SECRET_KEY);
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -15,6 +15,7 @@ function paymongo_post($endpoint, $data) {
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['data' => ['attributes' => $data]]));
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
+        'Accept: application/json',
         'Authorization: Basic ' . base64_encode($apiKey . ':')
     ]);
 
@@ -29,13 +30,15 @@ function paymongo_post($endpoint, $data) {
 }
 
 function paymongo_get($endpoint) {
-    $url = PAYMONGO_BASE_URL . $endpoint;
-    $apiKey = PAYMONGO_SECRET_KEY;
+    $url = rtrim(PAYMONGO_BASE_URL, '/') . '/' . ltrim($endpoint, '/');
+    $apiKey = trim(PAYMONGO_SECRET_KEY);
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         'Content-Type: application/json',
+        'Accept: application/json',
         'Authorization: Basic ' . base64_encode($apiKey . ':')
     ]);
 
