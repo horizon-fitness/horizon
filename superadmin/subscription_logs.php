@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
     try {
         // Fetch Subscriber Data for Email
         $stmtData = $pdo->prepare("
-            SELECT cs.*, g.gym_name, u.email as owner_email, wp.plan_name 
+            SELECT cs.*, g.gym_name, g.email as gym_email, u.email as owner_email, wp.plan_name 
             FROM client_subscriptions cs
             JOIN gyms g ON cs.gym_id = g.gym_id
             JOIN users u ON g.owner_user_id = u.user_id
@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
                 </div>
                 <p>Thank you for choosing Horizon!</p>
             ";
-            $email_sent = sendSystemEmail($subData['owner_email'], $subject, getEmailTemplate("Payment Approved", $content));
+            $email_sent = sendSystemEmail($subData['gym_email'], $subject, getEmailTemplate("Payment Approved", $content));
 
         } elseif ($action === 'reject_payment') {
             // Update subscription to Rejected and Inactive
@@ -90,13 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
 
                 <p style='margin-top: 30px;'>Thank you for your cooperation.</p>
             ";
-            $email_sent = sendSystemEmail($subData['owner_email'], $subject, getEmailTemplate("Payment Verification Failed", $content));
+            $email_sent = sendSystemEmail($subData['gym_email'], $subject, getEmailTemplate("Payment Verification Failed", $content));
         }
 
         // Log the action with Email status
         $audit_msg = $msg . ($email_sent ? " (Email Sent Successfully)" : " (Email Failed to Send)");
-        $stmtAudit = $pdo->prepare("INSERT INTO audit_logs (user_id, action_type, table_name, record_id, details, created_at) VALUES (?, 'Update', 'client_subscriptions', ?, ?, NOW())");
-        $stmtAudit->execute([$admin_id, $sub_id, $audit_msg]);
+        $stmtAudit = $pdo->prepare("INSERT INTO audit_logs (user_id, gym_id, action_type, table_name, record_id, old_values, new_values, created_at) VALUES (?, ?, 'Update', 'client_subscriptions', ?, '', ?, NOW())");
+        $stmtAudit->execute([$admin_id, $subData['gym_id'], $sub_id, $audit_msg]);
 
         $pdo->commit();
         $_SESSION['success_msg'] = "Action successful: $msg" . (!$email_sent ? " (Email failed, but status updated)" : "");
@@ -867,7 +867,7 @@ foreach ($logs as $log) {
                                                     </button>
                                                 </form>
                                                 <form method="POST" class="confirm-form">
-                                                    <input type="hidden" name="subscription_id" value="<?= $log['subscription_id'] ?>">
+                                                    <input type="hidden" name="subscription_id" value="<?= $log['client_subscription_id'] ?>">
                                                     <input type="hidden" name="action" value="reject_payment">
                                                     <button type="button" 
                                                             onclick="confirmAdminAction(this.form, 'Reject Payment', 'Are you sure you want to reject this payment? This will set the subscription to Inactive.')"
