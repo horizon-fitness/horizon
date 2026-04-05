@@ -51,7 +51,7 @@ if ($coach_id > 0) {
     }
 
     // 1. Approved bookings for today
-    $stmtToday = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date = ? AND booking_status = 'Approved'");
+    $stmtToday = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date = ? AND booking_status IN ('Approved', 'Confirmed', 'Completed')");
     $stmtToday->execute([$coach_id, $today]);
     $today_count = $stmtToday->fetchColumn();
 
@@ -80,7 +80,7 @@ if ($coach_id > 0) {
     $total_members_coached = $stmtMembers->fetchColumn();
 
     // 5. Upcoming sessions (approved, from tomorrow onwards)
-    $stmtUpcoming = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date > ? AND booking_status = 'Approved'");
+    $stmtUpcoming = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date > ? AND booking_status IN ('Approved', 'Confirmed')");
     $stmtUpcoming->execute([$coach_id, $today]);
     $upcoming_sessions = $stmtUpcoming->fetchColumn();
 }
@@ -95,7 +95,7 @@ if ($coach_id > 0) {
         JOIN members m ON b.member_id = m.member_id
         JOIN users u ON m.user_id = u.user_id
         LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
-        WHERE b.coach_id = ? AND b.booking_date = ? AND b.booking_status = 'Approved'
+        WHERE b.coach_id = ? AND b.booking_date = ? AND b.booking_status IN ('Approved', 'Confirmed', 'Completed')
         ORDER BY b.start_time ASC
     ");
     $stmtSched->execute([$coach_id, $today]);
@@ -112,7 +112,7 @@ $offset = ($current_page - 1) * $limit;
 // Fetch Total Count for Pagination
 $total_approved = 0;
 if ($coach_id > 0) {
-    $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date = ? AND booking_status = 'Approved'");
+    $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date = ? AND booking_status IN ('Approved', 'Confirmed', 'Completed')");
     $stmtCount->execute([$coach_id, $today]);
     $total_approved = $stmtCount->fetchColumn();
 }
@@ -126,7 +126,7 @@ if ($coach_id > 0) {
         JOIN members m ON b.member_id = m.member_id
         JOIN users u ON m.user_id = u.user_id
         LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
-        WHERE b.coach_id = ? AND b.booking_date = ? AND b.booking_status = 'Approved'
+        WHERE b.coach_id = ? AND b.booking_date = ? AND b.booking_status IN ('Approved', 'Confirmed', 'Completed')
         ORDER BY b.start_time ASC
         LIMIT $limit OFFSET $offset
     ");

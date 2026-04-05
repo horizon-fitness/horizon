@@ -112,6 +112,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // 2. Update Booking Status to 'Confirmed'
             $stmtUB = $pdo->prepare("UPDATE bookings SET booking_status = 'Confirmed', approved_by = ?, approved_at = ?, updated_at = ? WHERE booking_id = ?");
             $stmtUB->execute([$_SESSION['user_id'], $now, $now, $booking_id]);
+
+            // 2b. Sync Payment Status to 'Approved'
+            $stmtUP = $pdo->prepare("UPDATE payments SET payment_status = 'Approved', verified_by = ?, verified_at = ? WHERE booking_id = ? AND payment_type = 'Booking'");
+            $stmtUP->execute([$_SESSION['user_id'], $now, $booking_id]);
             
             // 3. Send Email
             if ($ctx && !empty($ctx['email'])) {

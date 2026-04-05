@@ -3,22 +3,24 @@ session_start();
 require_once '../db.php';
 
 // Security Check
-if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmin') {
+if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role'] ?? '') !== 'superadmin') {
     header("Location: ../login.php");
     exit;
 }
 
-// Handle POST Actions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['resolve_id'])) {
-        $stmtResolve = $pdo->prepare("UPDATE system_alerts SET status = 'Resolved' WHERE alert_id = ?");
-        $stmtResolve->execute([$_POST['resolve_id']]);
-        $success_msg = "Alert marked as resolved.";
-    } elseif (isset($_POST['clear_all'])) {
-        $pdo->exec("UPDATE system_alerts SET status = 'Resolved' WHERE status != 'Resolved'");
-        $success_msg = "All alerts cleared.";
+try {
+
+    // Handle POST Actions
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (isset($_POST['resolve_id'])) {
+            $stmtResolve = $pdo->prepare("UPDATE system_alerts SET status = CAST('Resolved' AS CHAR CHARACTER SET latin1) WHERE alert_id = ?");
+            $stmtResolve->execute([$_POST['resolve_id']]);
+            $success_msg = "Alert marked as resolved.";
+        } elseif (isset($_POST['clear_all'])) {
+            $pdo->exec("UPDATE system_alerts SET status = CAST('Resolved' AS CHAR CHARACTER SET latin1) WHERE status != CAST('Resolved' AS CHAR CHARACTER SET latin1)");
+            $success_msg = "All alerts cleared.";
+        }
     }
-}
 
 // Get Filter Inputs
 $search = $_GET['search'] ?? '';
@@ -58,63 +60,63 @@ $configs = array_merge($global_configs, $user_configs);
 $now = date('Y-m-d H:i:s');
 $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
 
-// 1. Check for Expiring Client Subscriptions
-$stmtExpiring = $pdo->prepare("
-    SELECT cs.*, g.gym_name 
-    FROM client_subscriptions cs 
-    JOIN gyms g ON cs.gym_id = g.gym_id 
-    WHERE cs.end_date <= ? 
-    AND cs.subscription_status = 'Active'
-");
-$stmtExpiring->execute([$sevenDaysLater]);
-$expiringSubs = $stmtExpiring->fetchAll(PDO::FETCH_ASSOC);
+    // 1. Check for Expiring Client Subscriptions
+    $stmtExpiring = $pdo->prepare("
+        SELECT cs.*, g.gym_name 
+        FROM client_subscriptions cs 
+        JOIN gyms g ON cs.gym_id = g.gym_id 
+        WHERE cs.end_date <= ? 
+        AND cs.subscription_status = CAST('Active' AS CHAR CHARACTER SET latin1)
+    ");
+    $stmtExpiring->execute([$sevenDaysLater]);
+    $expiringSubs = $stmtExpiring->fetchAll(PDO::FETCH_ASSOC);
 
-foreach ($expiringSubs as $sub) {
-    $daysLeft = (strtotime($sub['end_date']) - strtotime(date('Y-m-d'))) / 86400;
-    $msg = "Subscription for " . $sub['gym_name'] . " expires in " . round($daysLeft) . " days (Ends: " . $sub['end_date'] . ")";
+    foreach ($expiringSubs as $sub) {
+        $daysLeft = (strtotime($sub['end_date']) - strtotime(date('Y-m-d'))) / 86400;
+        $msg = "Subscription for " . $sub['gym_name'] . " expires in " . round($daysLeft) . " days (Ends: " . $sub['end_date'] . ")";
 
-    // Deduplication: Check if alert already exists
-    $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
-    $stmtCheck->execute([$msg]);
-    if ($stmtCheck->fetchColumn() == 0) {
-        $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Subscription Expiry', 'Billing', ?, 'Medium', 'Unread', ?)");
-        $stmtInsert->execute([$msg, $now]);
+        // Deduplication: Check if alert already exists
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != CAST('Resolved' AS CHAR CHARACTER SET latin1)");
+        $stmtCheck->execute([$msg]);
+        if ($stmtCheck->fetchColumn() == 0) {
+            $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Subscription Expiry', 'Billing', ?, 'Medium', 'Unread', ?)");
+            $stmtInsert->execute([$msg, $now]);
+        }
     }
-}
 
-// 2. Check for Pending Payments
-$stmtPendingPayments = $pdo->query("
-    SELECT p.*, u.first_name, u.last_name 
-    FROM payments p 
-    LEFT JOIN members m ON p.member_id = m.member_id 
-    LEFT JOIN users u ON m.user_id = u.user_id 
-    WHERE p.payment_status = 'Pending'
-");
-$pendingPayments = $stmtPendingPayments->fetchAll(PDO::FETCH_ASSOC);
+    // 2. Check for Pending Payments
+    $stmtPendingPayments = $pdo->query("
+        SELECT p.*, u.first_name, u.last_name 
+        FROM payments p 
+        LEFT JOIN members m ON p.member_id = m.member_id 
+        LEFT JOIN users u ON m.user_id = u.user_id 
+        WHERE p.payment_status = CAST('Pending' AS CHAR CHARACTER SET latin1)
+    ");
+    $pendingPayments = $stmtPendingPayments->fetchAll(PDO::FETCH_ASSOC);
 
-foreach ($pendingPayments as $payment) {
-    $payer = ($payment['first_name']) ? $payment['first_name'] . ' ' . $payment['last_name'] : 'Tenant/Guest';
-    $msg = "New payment of ₱" . number_format($payment['amount'], 2) . " from " . $payer . " requires verification. (Ref: " . $payment['reference_number'] . ")";
+    foreach ($pendingPayments as $payment) {
+        $payer = ($payment['first_name'] ?? '') ? $payment['first_name'] . ' ' . $payment['last_name'] : 'Tenant/Guest';
+        $msg = "New payment of ₱" . number_format($payment['amount'] ?? 0, 2) . " from " . $payer . " requires verification. (Ref: " . ($payment['reference_number'] ?? 'N/A') . ")";
 
-    // Deduplication
-    $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
-    $stmtCheck->execute([$msg]);
-    if ($stmtCheck->fetchColumn() == 0) {
-        $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Payment Verification', 'Finance', ?, 'Medium', 'Unread', ?)");
-        $stmtInsert->execute([$msg, $now]);
+        // Deduplication
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != CAST('Resolved' AS CHAR CHARACTER SET latin1)");
+        $stmtCheck->execute([$msg]);
+        if ($stmtCheck->fetchColumn() == 0) {
+            $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Payment Verification', 'Finance', ?, 'Medium', 'Unread', ?)");
+            $stmtInsert->execute([$msg, $now]);
+        }
     }
-}
 
-// 3. System Health Placeholder
-if (rand(1, 100) > 95) { // 5% chance to show a health check alert
-    $msg = "System health check completed. All nodes performing optimally.";
-    $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
-    $stmtCheck->execute([$msg]);
-    if ($stmtCheck->fetchColumn() == 0) {
-        $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Health Check', 'Server', ?, 'Medium', 'Unread', ?)");
-        $stmtInsert->execute([$msg, $now]);
+    // 3. System Health Placeholder
+    if (rand(1, 100) > 95) { // 5% chance to show a health check alert
+        $msg = "System health check completed. All nodes performing optimally.";
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != CAST('Resolved' AS CHAR CHARACTER SET latin1)");
+        $stmtCheck->execute([$msg]);
+        if ($stmtCheck->fetchColumn() == 0) {
+            $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Health Check', 'Server', ?, 'Medium', 'Unread', ?)");
+            $stmtInsert->execute([$msg, $now]);
+        }
     }
-}
 
 // --- End Automated Alert Logic ---
 
@@ -126,29 +128,29 @@ $view = $_GET['view'] ?? 'active';
 $query = "SELECT * FROM system_alerts WHERE 1=1";
 $params = [];
 
-// Status Filter (Tabs)
-if ($view === 'history') {
-    $query .= " AND status = 'Resolved'";
-} else {
-    $query .= " AND status != 'Resolved'";
-}
+    // Status Filter (Tabs)
+    if ($view === 'history') {
+        $query .= " AND status = CAST('Resolved' AS CHAR CHARACTER SET latin1)";
+    } else {
+        $query .= " AND status != CAST('Resolved' AS CHAR CHARACTER SET latin1)";
+    }
 
-// Search Filter
-if (!empty($search)) {
-    $query .= " AND (message LIKE :search OR type LIKE :search OR source LIKE :search)";
-    $params['search'] = "%$search%";
-}
+    // Search Filter
+    if (!empty($search)) {
+        $query .= " AND (message LIKE CAST(:search AS CHAR CHARACTER SET latin1) OR type LIKE CAST(:search AS CHAR CHARACTER SET latin1) OR source LIKE CAST(:search AS CHAR CHARACTER SET latin1))";
+        $params['search'] = "%$search%";
+    }
 
-// Category Intelligence Filter (Database-Driven)
-if ($category_filter !== 'all') {
-    $query .= " AND type = :category";
-    $params['category'] = $category_filter;
-}
+    // Category Intelligence Filter (Database-Driven)
+    if ($category_filter !== 'all') {
+        $query .= " AND type = CAST(:category AS CHAR CHARACTER SET latin1)";
+        $params['category'] = $category_filter;
+    }
 
-$query .= " ORDER BY created_at DESC";
-$stmtAlerts = $pdo->prepare($query);
-$stmtAlerts->execute($params);
-$alerts = $stmtAlerts->fetchAll(PDO::FETCH_ASSOC);
+    $query .= " ORDER BY created_at DESC";
+    $stmtAlerts = $pdo->prepare($query);
+    $stmtAlerts->execute($params);
+    $alerts = $stmtAlerts->fetchAll(PDO::FETCH_ASSOC);
 
 // Final Data Merging & Sorting (Production-Ready)
 usort($alerts, function ($a, $b) {
@@ -238,8 +240,20 @@ if (isset($_GET['ajax'])) {
     exit;
 }
 
-$page_title = "System Alerts";
-$active_page = "alerts";
+    $page_title = "System Alerts";
+    $active_page = "alerts";
+
+} catch (Exception $e) {
+    die("<div style='background:#14121a; color:#ff4444; padding:30px; font-family:Lexend,sans-serif; border-radius:24px; margin:40px; border:1px solid rgba(255,68,68,0.2); backdrop-filter:blur(20px);'>
+            <h2 style='margin-top:0; font-weight:900; text-transform:uppercase; font-style:italic; letter-spacing:-0.05em;'>System Alert Engine Error</h2>
+            <p style='color:rgba(255,255,255,0.6); font-size:12px; font-weight:700; text-transform:uppercase; tracking:0.1em; margin-bottom:20px;'>Critical Failure Detected</p>
+            <div style='background:rgba(255,68,68,0.05); padding:20px; border-radius:16px; border:1px solid rgba(255,68,68,0.1);'>
+                <p style='margin:0; font-size:14px;'><strong>Message:</strong> " . htmlspecialchars($e->getMessage()) . "</p>
+                <p style='margin:10px 0 0 0; font-size:12px; opacity:0.5;'><strong>Location:</strong> " . $e->getFile() . " (Line " . $e->getLine() . ")</p>
+            </div>
+            <p style='margin-top:30px;'><a href='system_alerts.php' style='color:#8c2bee; text-decoration:none; font-weight:800; font-size:11px; text-transform:uppercase; letter-spacing:0.1em; background:rgba(140,43,238,0.1); padding:12px 24px; border-radius:100px; border:1px solid rgba(140,43,238,0.2);'>Reload Interface</a></p>
+         </div>");
+}
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">

@@ -109,7 +109,7 @@ if ($coach_id > 0) {
         FROM bookings b
         JOIN members m ON b.member_id = m.member_id
         JOIN users u ON m.user_id = u.user_id
-        WHERE b.coach_id = ? AND b.booking_status IN ('Approved', 'Pending')
+        WHERE b.coach_id = ? AND b.booking_status IN ('Approved', 'Pending', 'Confirmed', 'Completed')
     ");
     $stmtBookings->execute([$coach_id]);
     $fetched_bookings = $stmtBookings->fetchAll();

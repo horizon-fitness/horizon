@@ -8,28 +8,29 @@ try {
     $action = $input['action'] ?? 'register';
 
     if ($action === 'register') {
-        $gym_id = $input['gym_id'] ?? '';
+        $gym_id = $input['gym_id'] ?? $input['tenant_code'] ?? '';
         $first_name = trim($input['first_name'] ?? '');
         $middle_name = trim($input['middle_name'] ?? '');
         $last_name = trim($input['last_name'] ?? '');
         $email = trim($input['email'] ?? '');
         $username = trim($input['username'] ?? '');
         $password = $input['password'] ?? '';
-        $phone = trim($input['phone'] ?? $input['phone_number'] ?? '');
+        $phone = trim($input['phone_number'] ?? $input['contact_number'] ?? $input['phone'] ?? '');
         
         $birth_date = $input['birth_date'] ?? '2000-01-01';
         $sex = $input['sex'] ?? 'Not Specified';
         $occupation = trim($input['occupation'] ?? '');
         $address = trim($input['address'] ?? '');
         $medical_history = trim($input['medical_history'] ?? '');
-        $emergency_name = trim($input['emergency_name'] ?? $input['emergency_contact_name'] ?? '');
-        $emergency_phone = trim($input['emergency_phone'] ?? $input['emergency_contact_number'] ?? '');
+        $emergency_name = trim($input['emergency_contact_name'] ?? $input['emergency_name'] ?? '');
+        $emergency_phone = trim($input['emergency_contact_number'] ?? $input['emergency_phone'] ?? '');
 
         $now = date('Y-m-d H:i:s');
 
-        if (empty($gym_id) || empty($first_name) || empty($last_name) || empty($email) || empty($username) || empty($password)) {
+        // Expanded required fields check
+        if (empty($gym_id) || empty($first_name) || empty($last_name) || empty($email) || empty($username) || empty($password) || empty($phone) || empty($birth_date) || empty($sex) || empty($emergency_name) || empty($emergency_phone)) {
             ob_end_clean();
-            echo json_encode(['success' => false, 'message' => 'Missing required fields.']);
+            echo json_encode(['success' => false, 'message' => 'Missing required fields. Please ensure all personal and emergency details are filled.']);
             exit;
         }
 
