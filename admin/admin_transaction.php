@@ -117,11 +117,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'], 'Verify', 'payments', $pay_id, ['old_status' => 'Pending'], ['new_status' => 'Verified', 'action' => 'Approved']);
 
             $pdo->commit();
-            header("Location: admin_transaction.php?success=approved");
+            $_SESSION['success_msg'] = "Transaction for " . htmlspecialchars($ctx['first_name']) . " successfully approved.";
+            header("Location: admin_transaction.php");
             exit;
         } catch (Exception $e) {
             $pdo->rollBack();
-            $error = $e->getMessage();
+            $_SESSION['error_msg'] = $e->getMessage();
+            header("Location: admin_transaction.php");
+            exit;
         }
     }
 
@@ -171,11 +174,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'], 'Verify', 'payments', $pay_id, ['old_status' => 'Pending'], ['new_status' => 'Rejected', 'action' => 'Rejected']);
             
             $pdo->commit();
-            header("Location: admin_transaction.php?success=rejected");
+            $_SESSION['success_msg'] = "Transaction for " . htmlspecialchars($ctx['first_name']) . " has been rejected.";
+            header("Location: admin_transaction.php");
             exit;
         } catch (Exception $e) {
             $pdo->rollBack();
-            $error = $e->getMessage();
+            $_SESSION['error_msg'] = $e->getMessage();
+            header("Location: admin_transaction.php");
+            exit;
         }
     }
 }
@@ -340,6 +346,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
+        #confirmModal, #detailModal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
+            z-index: 300;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .flex-important {
+            display: flex !important;
+        }
+
+        .sidebar-nav:hover~#confirmModal, .sidebar-nav:hover~#detailModal,
+        .side-nav:hover~.main-content #confirmModal, .side-nav:hover~.main-content #detailModal {
+            left: 300px;
+        }
+
+        @media (max-width: 1023px) {
+            #confirmModal, #detailModal {
+                left: 0 !important;
+            }
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideInFromTop { from { transform: translateY(-1rem); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-in { animation: fadeIn 0.5s ease-out; }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        .slide-in-from-top-4 { animation: slideInFromTop 0.5s ease-out; }
     </style>
     <script>
         function updateHeaderClock() {
@@ -409,6 +445,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
         </header>
+        
+        <?php if (isset($_SESSION['success_msg'])): ?>
+            <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                <span class="material-symbols-outlined">check_circle</span>
+                <?= htmlspecialchars($_SESSION['success_msg']) ?>
+            </div>
+            <?php unset($_SESSION['success_msg']); ?>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['error_msg'])): ?>
+            <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-semibold flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                <span class="material-symbols-outlined">error</span>
+                <?= htmlspecialchars($_SESSION['error_msg']) ?>
+            </div>
+            <?php unset($_SESSION['error_msg']); ?>
+        <?php endif; ?>
 
         <!-- Dynamic Filter Matrix -->
         <div class="mb-10">
@@ -513,21 +565,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <td class="px-8 py-6 text-right">
                                 <?php if ($pay['payment_status'] === 'Pending'): ?>
                                 <div class="flex justify-end gap-2">
-                                    <form method="POST" onsubmit="return confirm('Approve this transaction?');">
+                                    <button type="button" 
+                                        onclick='openDetailModal({
+                                            id: "<?= $pay["payment_id"] ?>",
+                                            name: "<?= htmlspecialchars($pay["first_name"] . " " . $pay["last_name"]) ?>",
+                                            username: "<?= htmlspecialchars($pay["username"] ?? "unknown") ?>",
+                                            amount: "<?= $pay["amount"] ?>",
+                                            type: "<?= htmlspecialchars($pay["payment_type"] ?? "OFFLINE") ?>",
+                                            date: "<?= date("M d, Y h:i A", strtotime($pay["created_at"])) ?>",
+                                            status: "<?= $status ?>",
+                                            statusClass: "<?= $status_class ?>"
+                                        })'
+                                        class="size-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 flex items-center justify-center hover:bg-primary hover:text-white transition-all" title="View Details">
+                                        <span class="material-symbols-outlined text-base">search</span>
+                                    </button>
+                                    <form method="POST">
                                         <input type="hidden" name="approve_id" value="<?= $pay['payment_id'] ?>">
-                                        <button type="submit" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all">
+                                        <button type="button" onclick="confirmAction(this.form, 'Approve Transaction', 'Are you sure you want to approve this transaction?')" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all" title="Approve">
                                             <span class="material-symbols-outlined text-base">check</span>
                                         </button>
                                     </form>
-                                    <form method="POST" onsubmit="return confirm('Reject this transaction?');">
+                                    <form method="POST">
                                         <input type="hidden" name="reject_id" value="<?= $pay['payment_id'] ?>">
-                                        <button type="submit" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
+                                        <button type="button" onclick="confirmAction(this.form, 'Reject Transaction', 'Are you sure you want to reject this transaction? This action cannot be undone.')" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all" title="Reject">
                                             <span class="material-symbols-outlined text-base">close</span>
                                         </button>
                                     </form>
                                 </div>
                                 <?php else: ?>
-                                <span class="text-[10px] font-bold text-gray-600 italic">None</span>
+                                <div class="flex justify-end">
+                                    <button type="button" 
+                                        onclick='openDetailModal({
+                                            id: "<?= $pay["payment_id"] ?>",
+                                            name: "<?= htmlspecialchars($pay["first_name"] . " " . $pay["last_name"]) ?>",
+                                            username: "<?= htmlspecialchars($pay["username"] ?? "unknown") ?>",
+                                            amount: "<?= $pay["amount"] ?>",
+                                            type: "<?= htmlspecialchars($pay["payment_type"] ?? "OFFLINE") ?>",
+                                            date: "<?= date("M d, Y h:i A", strtotime($pay["created_at"])) ?>",
+                                            status: "<?= $status ?>",
+                                            statusClass: "<?= $status_class ?>"
+                                        })'
+                                        class="size-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 flex items-center justify-center hover:bg-primary hover:text-white transition-all" title="View Details">
+                                        <span class="material-symbols-outlined text-base">search</span>
+                                    </button>
+                                </div>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -538,5 +619,160 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
 </div>
+    <div id="confirmModal" class="fixed inset-0 z-[150] hidden items-center justify-center p-4 overflow-hidden">
+        <div id="confirmBackdrop" onclick="closeConfirmModal()" class="absolute inset-0 bg-black/40 backdrop-blur-xl transition-opacity duration-300 opacity-0"></div>
+        <div id="confirmContainer" class="relative w-full max-w-md bg-transparent backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0">
+            <div class="p-8 text-center text-white">
+                <div class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
+                    <span class="material-symbols-outlined text-3xl text-primary">contact_support</span>
+                </div>
+                <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter mb-2">Confirm Action</h3>
+                <p id="confirmMessage" class="text-gray-400 text-xs font-medium leading-relaxed mb-8"></p>
+                <div class="flex gap-3">
+                    <button onclick="closeConfirmModal()" class="flex-1 py-3 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest transition-all text-gray-500 hover:text-white">Cancel</button>
+                    <button onclick="executeConfirmedAction()" class="flex-1 py-3 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transaction Detail Modal -->
+    <div id="detailModal" class="fixed inset-0 z-[150] hidden items-center justify-center p-4 overflow-hidden">
+        <div id="detailBackdrop" onclick="closeDetailModal()" class="absolute inset-0 bg-black/40 backdrop-blur-xl transition-opacity duration-300 opacity-0"></div>
+        <div id="detailContainer" class="relative w-full max-w-lg bg-transparent backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[40px] overflow-hidden transition-all duration-400 scale-95 opacity-0">
+            <div class="p-10">
+                <div class="flex justify-between items-start mb-8">
+                    <div>
+                        <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white leading-none">Transaction <span class="text-primary">Details</span></h3>
+                        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-2" id="dt_ref">REF-000000</p>
+                    </div>
+                    <button onclick="closeDetailModal()" class="size-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-500 transition-all">
+                        <span class="material-symbols-outlined text-xl">close</span>
+                    </button>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="glass-card p-6 border-white/5 bg-white/[0.02]">
+                        <p class="text-[10px] font-black uppercase text-primary mb-4 tracking-widest">Member Information</p>
+                        <div class="flex items-center gap-4">
+                            <div class="size-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black italic text-xl" id="dt_avatar">J</div>
+                            <div>
+                                <p class="text-base font-black italic uppercase text-white" id="dt_name">John Doe</p>
+                                <p class="text-[11px] font-bold text-gray-500" id="dt_username">@johndoe</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="glass-card p-5 border-white/5 bg-white/[0.02]">
+                            <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Amount Paid</p>
+                            <p class="text-lg font-black italic text-white" id="dt_amount">₱0.00</p>
+                        </div>
+                        <div class="glass-card p-5 border-white/5 bg-white/[0.02]">
+                            <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Payment Type</p>
+                            <span class="text-[10px] font-black uppercase italic text-primary" id="dt_type">OFFLINE</span>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-5 border-white/5 bg-white/[0.02] flex justify-between items-center">
+                        <div>
+                            <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Transaction Date</p>
+                            <p class="text-xs font-bold text-white italic" id="dt_date">Jan 01, 2024</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Status</p>
+                            <span class="px-3 py-1 rounded-full border text-[8px] font-black uppercase italic tracking-widest" id="dt_status">PENDING</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="closeDetailModal()" class="w-full mt-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white active:scale-[0.98]">
+                    Dismiss Record
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let pendingForm = null;
+
+        function confirmAction(form, title, message) {
+            pendingForm = form;
+            document.getElementById('confirmTitle').textContent = title;
+            document.getElementById('confirmMessage').textContent = message;
+
+            const modal = document.getElementById('confirmModal');
+            modal.classList.replace('hidden', 'flex-important');
+            setTimeout(() => {
+                document.getElementById('confirmBackdrop').classList.replace('opacity-0', 'opacity-100');
+                document.getElementById('confirmContainer').classList.replace('scale-95', 'scale-100');
+                document.getElementById('confirmContainer').classList.replace('opacity-0', 'opacity-100');
+            }, 10);
+        }
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirmModal');
+            const backdrop = document.getElementById('confirmBackdrop');
+            const container = document.getElementById('confirmContainer');
+
+            backdrop.classList.replace('opacity-100', 'opacity-0');
+            container.classList.replace('scale-100', 'scale-95');
+            container.classList.replace('opacity-100', 'opacity-0');
+
+            setTimeout(() => {
+                modal.classList.replace('flex-important', 'hidden');
+                pendingForm = null;
+            }, 300);
+        }
+
+        function executeConfirmedAction() {
+            if (pendingForm) {
+                pendingForm.submit();
+            }
+        }
+
+        function openDetailModal(data) {
+            document.getElementById('dt_ref').textContent = 'TRX-' + (data.ref || data.id);
+            document.getElementById('dt_name').textContent = data.name;
+            document.getElementById('dt_username').textContent = '@' + data.username;
+            document.getElementById('dt_avatar').textContent = data.name.charAt(0);
+            document.getElementById('dt_amount').textContent = '₱' + parseFloat(data.amount).toLocaleString(undefined, {minimumFractionDigits: 2});
+            document.getElementById('dt_type').textContent = data.type;
+            document.getElementById('dt_date').textContent = data.date;
+            
+            const statusEl = document.getElementById('dt_status');
+            statusEl.textContent = data.status;
+            statusEl.className = 'px-3 py-1 rounded-full border text-[8px] font-black uppercase italic tracking-widest ' + data.statusClass;
+
+            const modal = document.getElementById('detailModal');
+            modal.classList.replace('hidden', 'flex-important');
+            setTimeout(() => {
+                document.getElementById('detailBackdrop').classList.replace('opacity-0', 'opacity-100');
+                document.getElementById('detailContainer').classList.replace('scale-95', 'scale-100');
+                document.getElementById('detailContainer').classList.replace('opacity-0', 'opacity-100');
+            }, 10);
+        }
+
+        function closeDetailModal() {
+            const modal = document.getElementById('detailModal');
+            const backdrop = document.getElementById('detailBackdrop');
+            const container = document.getElementById('detailContainer');
+
+            backdrop.classList.replace('opacity-100', 'opacity-0');
+            container.classList.replace('scale-100', 'scale-95');
+            container.classList.replace('opacity-100', 'opacity-0');
+
+            setTimeout(() => {
+                modal.classList.replace('flex-important', 'hidden');
+            }, 400);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeConfirmModal();
+                closeDetailModal();
+            }
+        });
+    </script>
 </body>
 </html>
