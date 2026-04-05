@@ -57,15 +57,15 @@ if ($gym_id > 0 && $user_id > 0) {
             // Check if there's an existing active sub to update, or just create new
             $stmtSub = $pdo->prepare("INSERT INTO member_subscriptions 
                 (member_id, membership_plan_id, start_date, end_date, sessions_total, sessions_used, subscription_status, payment_status, created_at, updated_at) 
-                VALUES (?, ?, ?, ?, ?, 0, 'Active', 'Paid', ?, ?)");
+                VALUES (?, ?, ?, ?, ?, 0, 'Pending Approval', 'Paid', ?, ?)");
             $stmtSub->execute([$member_id, $plan_id, $start_date, $end_date, $sessions, $now, $now]);
             $subscription_id = $pdo->lastInsertId();
 
-            // 3. Record Payment (Using 'Verified' status for dashboard integration)
+            // 3. Record Payment (Using 'Pending' status for dashboard integration)
             $reference_number = 'PAYM-' . strtoupper(substr(md5(time() . $member_id), 0, 8));
             $stmtPay = $pdo->prepare("INSERT INTO payments 
                 (member_id, gym_id, subscription_id, amount, payment_method, payment_type, reference_number, payment_status, created_at) 
-                VALUES (?, ?, ?, ?, 'PayMongo', 'Membership', ?, 'Verified', ?)");
+                VALUES (?, ?, ?, ?, 'PayMongo', 'Membership', ?, 'Pending', ?)");
             $stmtPay->execute([$member_id, $gym_id, $subscription_id, $amount, $reference_number, $now]);
 
             // 4. Activate Member status

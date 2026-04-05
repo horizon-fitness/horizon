@@ -11,6 +11,35 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 $page_title = "Audit Logs";
 $active_page = "audit_logs"; 
 
+// Hex to RGB helper for dynamic transparency
+function hexToRgb($hex)
+{
+    $hex = str_replace("#", "", $hex);
+    if (strlen($hex) == 3) {
+        $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+        $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+        $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+    } else {
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+    }
+    return "$r, $g, $b";
+}
+
+// Fetch and Merge Settings
+// 1. Fetch Global Settings
+$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 2. Fetch User-Specific Settings
+$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtUser->execute([$_SESSION['user_id']]);
+$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 3. Merge (User settings take precedence for overlapping keys if any)
+$configs = array_merge($global_configs, $user_configs);
+
 // Get Filter Inputs
 $search = $_GET['search'] ?? '';
 $action_filter = $_GET['action_type'] ?? 'all';
@@ -21,10 +50,10 @@ $tenant_filter = $_GET['tenant_id'] ?? 'all';
 // Fetch Tenants for Filter Dropdown
 $tenants_list = $pdo->query("SELECT gym_id, gym_name FROM gyms WHERE status = 'Active' ORDER BY gym_name ASC")->fetchAll();
 
-// Pagination Settings
-$limit = 10;
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$offset = ($page - 1) * $limit;
+// Pagination Settings - Increased to 200 for the Elite Client-Side engine
+$limit = 200;
+$page = 1;
+$offset = 0;
 
 // Logic for fetching logs
 $count_query = "SELECT COUNT(*) 
@@ -46,9 +75,17 @@ $params = [
 ];
 
 if ($action_filter !== 'all') {
-    $count_query .= " AND al.action_type = :type";
-    $query .= " AND al.action_type = :type";
-    $params['type'] = $action_filter;
+    if ($action_filter === 'Applicant') {
+        $count_query .= " AND al.table_name = 'gym_owner_applications'";
+        $query .= " AND al.table_name = 'gym_owner_applications'";
+    } elseif ($action_filter === 'Transaction') {
+        $count_query .= " AND al.table_name IN ('payments', 'client_subscriptions')";
+        $query .= " AND al.table_name IN ('payments', 'client_subscriptions')";
+    } else {
+        $count_query .= " AND al.action_type = :type";
+        $query .= " AND al.action_type = :type";
+        $params['type'] = $action_filter;
+    }
 }
 
 if ($tenant_filter !== 'all') {
@@ -77,7 +114,7 @@ $query .= " ORDER BY al.created_at DESC LIMIT :limit OFFSET :offset";
 $stmt = $pdo->prepare($query);
 $stmt->bindParam(':start', $params['start']);
 $stmt->bindParam(':end', $params['end']);
-if ($action_filter !== 'all') $stmt->bindParam(':type', $params['type']);
+if ($action_filter !== 'all' && !in_array($action_filter, ['Applicant', 'Transaction'])) $stmt->bindParam(':type', $params['type']);
 if ($tenant_filter !== 'all') $stmt->bindParam(':tid', $params['tid']);
 if (!empty($search)) {
     $stmt->bindParam(':s1', $params['s1']);
@@ -102,33 +139,105 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+            theme: { extend: { colors: { "primary": "var(--primary)", "background": "var(--background)", "secondary": "var(--secondary)", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; }
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        
-        /* Sidebar Hover Logic */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+
+        :root {
+            --primary: <?= $configs['theme_color'] ?? '#8c2bee' ?>;
+            --primary-rgb: <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>;
+            --highlight: <?= $configs['secondary_color'] ?? '#a1a1aa' ?>;
+            --text-main: <?= $configs['text_color'] ?? '#d1d5db' ?>;
+            --background: <?= $configs['bg_color'] ?? '#0a090d' ?>;
+            --secondary: <?= $configs['secondary_color'] ?? '#a1a1aa' ?>;
+
+            /* Glassmorphism Engine */
+            --card-blur: 20px;
+            --card-bg: <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#141216') ?>;
+        }
+
+        body {
+            font-family: '<?= $configs['font_family'] ?? 'Lexend' ?>', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            overflow-x: hidden;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
         .sidebar-nav {
             width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 50;
+            background: var(--background);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
+
         .sidebar-nav:hover {
             width: 300px;
         }
+
+        .main-content {
+            margin-left: 110px;
+            flex: 1;
+            min-width: 0;
+            transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sidebar-nav:hover ~ .main-content {
+            margin-left: 300px;
+        }
+
+        .sidebar-scroll-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .sidebar-scroll-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar-scroll-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(var(--primary-rgb), 0.1);
+            border-radius: 10px;
+        }
+
+        .sidebar-nav:hover .sidebar-scroll-container::-webkit-scrollbar-thumb {
+            background: rgba(var(--primary-rgb), 0.4);
+        }
+
         .nav-text {
             opacity: 0;
-            visibility: hidden;
             transform: translateX(-15px);
             transition: all 0.3s ease-in-out;
             white-space: nowrap;
             pointer-events: none;
         }
+
         .sidebar-nav:hover .nav-text {
             opacity: 1;
-            visibility: visible;
             transform: translateX(0);
             pointer-events: auto;
         }
@@ -139,40 +248,207 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             overflow: hidden;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             margin: 0 !important;
+            padding: 0 38px;
             pointer-events: none;
         }
+
         .sidebar-nav:hover .nav-section-header {
             max-height: 20px;
             opacity: 1;
-            margin-bottom: 0.5rem !important;
+            margin-bottom: 8px !important;
             pointer-events: auto;
         }
-        /* Override for Overview which is the first section */
-        .sidebar-nav:hover .nav-section-header.mt-4 { margin-top: 0.75rem !important; }
-        .sidebar-nav:hover .nav-section-header.mt-6 { margin-top: 1.25rem !important; }
+
+        .sidebar-nav:hover .nav-section-header.mt-4 {
+            margin-top: 12px !important;
+        }
+
+        .sidebar-nav:hover .nav-section-header.mt-6 {
+            margin-top: 16px !important;
+        }
 
         .sidebar-content {
+            display: flex;
+            flex-direction: column;
             gap: 2px;
             transition: all 0.3s ease-in-out;
         }
+
         .sidebar-nav:hover .sidebar-content {
             gap: 4px;
         }
-        .nav-link { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
-        .active-nav { color: #8c2bee !important; position: relative; }
-        .active-nav::after { 
-            content: ''; 
-            position: absolute; 
-            right: 0px; 
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 38px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            color: var(--text-main);
+            text-decoration: none;
+        }
+
+        .nav-link span.material-symbols-outlined {
+            color: var(--highlight);
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            opacity: 0.8;
+            transform: scale(1.02);
+        }
+
+        .active-nav {
+            color: var(--primary) !important;
+            position: relative;
+        }
+
+        .active-nav span.material-symbols-outlined {
+            color: var(--primary) !important;
+            opacity: 1 !important;
+        }
+
+        .active-nav::after {
+            content: '';
+            position: absolute;
+            right: 0px;
             top: 50%;
             transform: translateY(-50%);
-            width: 4px; 
-            height: 20px; 
-            background: #8c2bee; 
-            border-radius: 99px; 
+            width: 4px;
+            height: 24px;
+            background: var(--primary);
+            border-radius: 4px 0 0 4px;
+            opacity: 1;
+            transition: opacity 0.3s ease;
         }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        @media (max-width: 1023px) {
+            .active-nav::after {
+                display: none;
+            }
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .input-field {
+            background: rgba(0,0,0,0.2) !important;
+            border: 1px solid rgba(255,255,255,0.05) !important;
+            border-radius: 12px !important;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 0 16px;
+            height: 42px;
+            color: white;
+            font-size: 13px;
+            transition: all 0.2s;
+            backdrop-filter: blur(10px);
+            appearance: none;
+        }
+
+        .input-field:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .input-field:focus {
+            border-color: var(--primary);
+            outline: none;
+            background: rgba(var(--primary-rgb), 0.05);
+            box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.1);
+        }
+
+        .premium-select-container {
+            position: relative;
+        }
+
+        select option {
+            background-color: #14121a;
+            color: white;
+            padding: 10px;
+        }
+
+        input[type="date"] {
+            color-scheme: dark;
+        }
+
+        .filter-label {
+            opacity: 0.4;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+        }
+
+        .text-primary { color: var(--primary) !important; }
+        .bg-primary { background-color: var(--primary) !important; }
+
+        /* Elite Pagination Component Styling */
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 32px;
+            margin-top: 24px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+        }
+
+        .pagination-btn {
+            padding: 8px 16px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .pagination-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .pagination-status {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-main);
+            opacity: 0.5;
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -214,6 +490,8 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     const newTable = doc.getElementById('auditTableContainer');
                     if (newTable) {
                         document.getElementById('auditTableContainer').innerHTML = newTable.innerHTML;
+                        // Re-initialize Elite Pagination after AJAX update
+                        initElitePagination('auditLogTable', 10);
                     }
                 });
         }
@@ -306,151 +584,190 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0 flex flex-col">
-    <div class="mb-4 shrink-0"> 
-        <div class="flex items-center gap-4 mb-4"> 
-            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+    <nav id="liveSidebar" class="sidebar-nav z-50 flex flex-col no-scrollbar">
+        <div class="px-7 py-5 mb-2 shrink-0">
+            <div class="flex items-center gap-4">
+                <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                    <?php if (!empty($configs['system_logo'])): ?>
+                        <img src="<?= htmlspecialchars($configs['system_logo']) ?>" id="sidebarLogoPreview"
+                            class="size-full object-contain rounded-xl">
+                    <?php else: ?>
+                        <img src="../assests/horizon logo.png" id="sidebarLogoPreview"
+                            class="size-full object-contain rounded-xl transition-transform duration-500 hover:scale-110"
+                            alt="Horizon Logo">
+                    <?php endif; ?>
+                </div>
+                <h1 id="sidebarSystemName"
+                    class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">
+                    <?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>
+                </h1>
             </div>
-            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
         </div>
-    </div>
-    
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pr-2">
-        <div class="nav-section-header px-0 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Overview</span>
+
+        <div class="sidebar-scroll-container no-scrollbar space-y-1 pb-4 flex-1">
+            <div class="nav-section-header mb-2">
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Overview</span>
+            </div>
+            <a href="superadmin_dashboard.php"
+                class="nav-link <?= ($active_page == 'dashboard') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">grid_view</span>
+                <span class="nav-text">Dashboard</span>
+            </a>
+
+            <div class="nav-section-header mb-2 mt-4">
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Management</span>
+            </div>
+            <a href="tenant_management.php" class="nav-link <?= ($active_page == 'tenants') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">business</span>
+                <span class="nav-text">Tenant Management</span>
+            </a>
+
+            <a href="subscription_logs.php"
+                class="nav-link <?= ($active_page == 'subscriptions') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">history_edu</span>
+                <span class="nav-text">Subscription Logs</span>
+            </a>
+
+            <a href="real_time_occupancy.php" class="nav-link <?= ($active_page == 'occupancy') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">group</span>
+                <span class="nav-text">Real-Time Occupancy</span>
+            </a>
+
+            <a href="recent_transaction.php"
+                class="nav-link <?= ($active_page == 'transactions') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
+                <span class="nav-text">Recent Transactions</span>
+            </a>
+
+            <div class="nav-section-header mb-2 mt-4">
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">System</span>
+            </div>
+            <a href="system_alerts.php" class="nav-link <?= ($active_page == 'alerts') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span>
+                <span class="nav-text">System Alerts</span>
+            </a>
+
+            <a href="system_reports.php" class="nav-link <?= ($active_page == 'reports') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">analytics</span>
+                <span class="nav-text">Reports</span>
+            </a>
+
+            <a href="sales_report.php" class="nav-link <?= ($active_page == 'sales_report') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">monitoring</span>
+                <span class="nav-text">Sales Reports</span>
+            </a>
+
+            <a href="audit_logs.php" class="nav-link <?= ($active_page == 'audit_logs') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">assignment</span>
+                <span class="nav-text">Audit Logs</span>
+            </a>
+
+            <a href="backup.php" class="nav-link <?= ($active_page == 'backup') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">backup</span>
+                <span class="nav-text">Backup</span>
+            </a>
         </div>
-        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
-            <span class="nav-text">Dashboard</span>
-        </a>
-        
-        <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Management</span>
+
+        <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
+            <div class="nav-section-header mb-2">
+                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Account</span>
+            </div>
+            <a href="settings.php" class="nav-link <?= ($active_page == 'settings') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">settings</span>
+                <span class="nav-text">Settings</span>
+            </a>
+            <a href="profile.php" class="nav-link <?= ($active_page == 'profile') ? 'active-nav' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">person</span>
+                <span class="nav-text">Profile</span>
+            </a>
+            <a href="../logout.php" class="nav-link hover:text-rose-500 transition-all group">
+                <span class="material-symbols-outlined text-xl shrink-0 group-hover:text-rose-500">logout</span>
+                <span class="nav-text group-hover:text-rose-500">Sign Out</span>
+            </a>
         </div>
-        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">business</span> 
-            <span class="nav-text">Tenant Management</span>
-        </a>
+    </nav>
 
-        <a href="subscription_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'subscriptions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
-            <span class="nav-text">Subscription Logs</span>
-        </a>
-
-        <a href="real_time_occupancy.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'occupancy') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">group</span> 
-            <span class="nav-text">Real-Time Occupancy</span>
-        </a>
-
-        <a href="recent_transaction.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'transactions') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
-            <span class="nav-text">Recent Transactions</span>
-        </a>
-
-        <div class="nav-section-header px-0 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">System</span>
-        </div>
-        <a href="system_alerts.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'alerts') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
-            <span class="nav-text">System Alerts</span>
-        </a>
-
-        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
-            <span class="nav-text">Reports</span>
-        </a>
-
-        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">monitoring</span> 
-            <span class="nav-text">Sales Reports</span>
-        </a>
-
-        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">assignment</span> 
-            <span class="nav-text">Audit Logs</span>
-        </a>
-
-        <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
-            <span class="nav-text">Backup</span>
-        </a>
-    </div>
-
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-2 shrink-0">
-        <div class="nav-section-header px-0 mb-0">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span>
-        </div>
-        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
-            <span class="nav-text">Settings</span>
-        </a>
-        <a href="profile.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'profile') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">person</span> 
-            <span class="nav-text">Profile</span>
-        </a>
-        <a href="../logout.php" class="text-gray-400 hover:text-rose-500 transition-colors flex items-center gap-4 group py-2">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0">logout</span>
-            <span class="nav-link nav-text">Sign Out</span>
-        </a>
-    </div>
-</nav>
-
-<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <div class="main-content flex-1 flex flex-col min-w-0 overflow-y-auto">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
-        <header class="mb-10 flex flex-row justify-between items-end gap-6">
+        <header class="mb-12 flex flex-row justify-between items-end gap-6">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Audit <span class="text-primary">Logs</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2">Administrative & Security Monitoring</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none">
+                    <span class="text-[--text-main] opacity-80">AUDIT</span>
+                    <span class="text-primary">LOGS</span>
+                </h2>
+                <p class="text-[--text-main] text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80">
+                    Administrative & Security Monitoring
+                </p>
             </div>
-            <div class="text-right">
-                <p id="headerClock" class="text-white font-black italic text-xl tracking-tight leading-none mb-2">00:00:00 AM</p>
-                <p class="text-primary text-[9px] font-black uppercase tracking-[0.2em] opacity-80"><?= date('l, M d, Y') ?></p>
+            <div class="flex items-end gap-8 text-right shrink-0">
+                <div class="flex flex-col items-end">
+                    <p id="headerClock" class="text-[--text-main] font-black italic text-2xl leading-none tracking-tighter uppercase transition-colors cursor-default">
+                        00:00:00 AM
+                    </p>
+                    <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
+                        <?= date('l, M d, Y') ?>
+                    </p>
+                </div>
             </div>
         </header>
 
         <div class="glass-card mb-8 p-8">
             <form method="GET" class="flex flex-wrap items-end gap-6" id="auditFilterForm">
                 <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Search Term</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 ml-1">Search Term</p>
                     <div class="relative">
-                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main]/40 text-sm">search</span>
                         <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Filter logs..." 
                                oninput="reactiveFilter()"
-                               class="bg-[#0a090d] border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-white focus:border-primary focus:outline-none w-48 transition-all">
+                               class="input-field pl-12 w-64">
                     </div>
                 </div>
+
                 <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Action Type</p>
-                    <select name="action_type" onchange="reactiveFilter()" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all w-40">
-                        <option value="all">All Activities</option>
-                        <option value="Login" <?= $action_filter == 'Login' ? 'selected' : '' ?>>Login/Logout</option>
-                        <option value="Create" <?= $action_filter == 'Create' ? 'selected' : '' ?>>Create Actions</option>
-                        <option value="Update" <?= $action_filter == 'Update' ? 'selected' : '' ?>>Update Actions</option>
-                        <option value="Delete" <?= $action_filter == 'Delete' ? 'selected' : '' ?>>Delete Actions</option>
-                        <option value="Tenant" <?= $action_filter == 'Tenant' ? 'selected' : '' ?>>Tenant Changes</option>
-                    </select>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 ml-1">Action Type</p>
+                    <div class="relative group premium-select-container">
+                        <select name="action_type" onchange="reactiveFilter()" class="input-field pr-10 min-w-[180px]">
+                            <option value="all">All Activities</option>
+                            <option value="Login" <?= $action_filter == 'Login' ? 'selected' : '' ?>>Login/Logout</option>
+                            <option value="Applicant" <?= $action_filter == 'Applicant' ? 'selected' : '' ?>>New Applicants</option>
+                            <option value="Transaction" <?= $action_filter == 'Transaction' ? 'selected' : '' ?>>New Transactions</option>
+                            <option value="Create" <?= $action_filter == 'Create' ? 'selected' : '' ?>>Create Actions</option>
+                            <option value="Update" <?= $action_filter == 'Update' ? 'selected' : '' ?>>Update Actions</option>
+                            <option value="Delete" <?= $action_filter == 'Delete' ? 'selected' : '' ?>>Delete Actions</option>
+                        </select>
+                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary text-base pointer-events-none group-hover:scale-110 transition-transform">expand_more</span>
+                    </div>
                 </div>
+
                 <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Tenant</p>
-                    <select name="tenant_id" onchange="reactiveFilter()" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none transition-all w-40">
-                        <option value="all">All Tenants</option>
-                        <?php foreach($tenants_list as $t): ?>
-                            <option value="<?= $t['gym_id'] ?>" <?= $tenant_filter == $t['gym_id'] ? 'selected' : '' ?>><?= htmlspecialchars($t['gym_name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 ml-1">Tenant</p>
+                    <div class="relative group premium-select-container">
+                        <select name="tenant_id" onchange="reactiveFilter()" class="input-field pr-10 min-w-[200px]">
+                            <option value="all">All Tenants</option>
+                            <?php foreach($tenants_list as $t): ?>
+                                <option value="<?= $t['gym_id'] ?>" <?= $tenant_filter == $t['gym_id'] ? 'selected' : '' ?>><?= htmlspecialchars($t['gym_name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary text-base pointer-events-none group-hover:scale-110 transition-transform">expand_more</span>
+                    </div>
                 </div>
+
                 <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">From</p>
-                    <input type="date" name="date_from" value="<?= $date_from ?>" onchange="reactiveFilter()" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 ml-1">From</p>
+                    <input type="date" name="date_from" value="<?= $date_from ?>" onchange="reactiveFilter()" class="input-field px-4 [color-scheme:dark]">
                 </div>
+
                 <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">To</p>
-                    <input type="date" name="date_to" value="<?= $date_to ?>" onchange="reactiveFilter()" class="bg-[#0a090d] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:border-primary focus:outline-none">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 ml-1">To</p>
+                    <input type="date" name="date_to" value="<?= $date_to ?>" onchange="reactiveFilter()" class="input-field px-4 [color-scheme:dark]">
                 </div>
-                <div class="flex items-center gap-3">
-                    <button type="submit" class="h-10 px-6 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-all active:scale-95 shadow-lg shadow-primary/20">Apply</button>
-                    <a href="audit_logs.php" class="text-[9px] font-black uppercase tracking-widest text-gray-600 hover:text-white transition-colors">Reset Filters</a>
+
+                <div class="flex items-center gap-4">
+                    <button type="submit" class="bg-primary hover:bg-primary/90 px-8 h-[42px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95 group shrink-0 text-white leading-none">
+                        <span class="material-symbols-outlined text-base group-hover:scale-110 transition-transform text-white">filter_list</span>
+                        Apply
+                    </button>
+                    <a href="audit_logs.php" class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 hover:text-white transition-colors">Reset</a>
                 </div>
             </form>
         </div>
@@ -458,65 +775,67 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <div class="glass-card overflow-hidden" id="auditTableContainer">
             <div class="px-8 py-6 border-b border-white/5 bg-white/[0.01] flex flex-wrap justify-between items-center gap-4">
                 <div>
-                    <h3 class="text-sm font-black italic uppercase tracking-widest text-white">System Audit Trail</h3>
-                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Tracking all administrative and security events</p>
+                    <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">System Audit Trail</h3>
+                    <p class="text-[9px] text-[--text-main]/60 font-bold uppercase tracking-widest mt-1">Tracking all administrative and security events</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <button type="button" onclick="exportAuditTrail(true)" class="h-10 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-all flex items-center gap-2">
+                    <button type="button" onclick="exportAuditTrail(true)" class="h-[40px] px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-[--text-main] transition-all flex items-center gap-2">
                         <span class="material-symbols-outlined text-sm">visibility</span> Preview
                     </button>
-                    <button type="button" onclick="exportAuditTrail(false)" class="h-10 px-6 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all active:scale-95 shadow-lg shadow-primary/20 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-sm">picture_as_pdf</span> Export PDF
+                    <button type="button" onclick="exportAuditTrail(false)" class="h-[40px] px-6 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all active:scale-95 shadow-lg shadow-primary/20 flex items-center gap-2 group">
+                        <span class="material-symbols-outlined text-sm group-hover:rotate-12 transition-transform text-white">picture_as_pdf</span> Export PDF
                     </button>
                 </div>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-left">
+                <table id="auditLogTable" class="w-full text-left">
                     <thead>
-                        <tr class="bg-background-dark/50 text-gray-500 text-[10px] font-black uppercase tracking-widest">
-                            <th class="px-8 py-4 text-left">Timestamp</th>
-                            <th class="px-8 py-4 text-left">User</th>
-                            <th class="px-8 py-4 text-left">Role</th>
-                            <th class="px-8 py-4 text-left">Event Action</th>
-                            <th class="px-8 py-4 text-right">Record ID</th>
+                        <tr class="bg-white/[0.02] border-b border-white/5">
+                            <th class="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main]/40">TIMESTAMP</th>
+                            <th class="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main]/40">USER</th>
+                            <th class="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main]/40">SYSTEM ROLE</th>
+                            <th class="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main]/40">EVENT ACTIVITY</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-white/5">
+                    <tbody id="auditTableBody" class="divide-y divide-white/5 font-lexend">
                         <?php if (empty($logs)): ?>
-                            <tr><td colspan="5" class="px-8 py-12 text-center text-xs text-gray-600 italic uppercase font-bold tracking-widest">No audit records found</td></tr>
+                            <tr><td colspan="4" class="px-8 py-12 text-center text-xs text-[--text-main]/40 italic uppercase font-bold tracking-widest">No audit records found</td></tr>
                         <?php else: ?>
                             <?php foreach ($logs as $log): ?>
-                            <tr class="hover:bg-white/[0.01] transition-colors">
-                                <td class="px-8 py-5">
-                                    <p class="text-[11px] text-white font-medium uppercase leading-none mb-1"><?= date('M d, Y', strtotime($log['created_at'])) ?></p>
-                                    <p class="text-[9px] text-gray-500 font-black italic tracking-tighter"><?= date('h:i:s A', strtotime($log['created_at'])) ?></p>
+                            <tr class="transition-all duration-300 group cursor-default border-b border-white/5">
+                                <td class="px-8 py-6">
+                                    <p class="text-xs text-[--text-main] font-bold uppercase leading-none mb-1 transition-colors"><?= date('M d, Y', strtotime($log['created_at'])) ?></p>
+                                    <p class="text-[10px] text-[--text-main]/60 font-black italic tracking-tighter"><?= date('h:i:s A', strtotime($log['created_at'])) ?></p>
                                 </td>
-                                <td class="px-8 py-5">
-                                    <div class="flex items-center gap-3">
-                                        <div class="size-7 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
-                                            <span class="material-symbols-outlined text-primary text-[14px]">person</span>
-                                        </div>
-                                        <p class="text-xs font-bold text-white"><?= htmlspecialchars($log['first_name'] . ' ' . $log['last_name']) ?></p>
-                                    </div>
+                                <td class="px-8 py-6">
+                                    <p class="text-sm font-bold text-[--text-main] transition-colors"><?= htmlspecialchars($log['first_name'] . ' ' . $log['last_name']) ?></p>
                                 </td>
-                                <td class="px-8 py-5">
-                                    <span class="px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20 text-[9px] text-primary font-black uppercase tracking-widest">
+                                <td class="px-8 py-6">
+                                    <span class="text-[10px] text-primary font-black uppercase tracking-widest">
                                         <?= htmlspecialchars($log['role'] ?? 'User') ?>
                                     </span>
                                 </td>
-                                <td class="px-8 py-5">
+                                <td class="px-8 py-6">
                                     <?php 
-                                        $color = 'gray-500';
-                                        if(in_array($log['action_type'], ['Create', 'Login'])) $color = 'emerald-500';
-                                        if($log['action_type'] === 'Delete') $color = 'rose-500';
-                                        if($log['action_type'] === 'Update') $color = 'amber-500';
+                                        $textColor = 'text-[--text-main]/70';
+                                        $displayText = $log['action_type'];
+
+                                        if(in_array($log['action_type'], ['Create', 'Login'])) { $textColor = 'text-emerald-400'; }
+                                        if($log['action_type'] === 'Delete') { $textColor = 'text-rose-400'; }
+                                        if($log['action_type'] === 'Update') { $textColor = 'text-amber-400'; }
+                                        if($log['action_type'] === 'Logout') { $textColor = 'text-[--text-main]/40'; }
+
+                                        // Specialized mapping for Applicants and Transactions
+                                        if ($log['table_name'] === 'gym_owner_applications') {
+                                            $displayText = 'New Application';
+                                            $textColor = 'text-primary';
+                                        }
+                                        if (in_array($log['table_name'], ['payments', 'client_subscriptions'])) {
+                                            $displayText = 'New Transaction';
+                                            $textColor = 'text-emerald-500';
+                                        }
                                     ?>
-                                    <span class="px-3 py-1 rounded-md bg-<?= $color ?>/10 border border-<?= $color ?>/20 text-[9px] text-<?= $color ?> font-black uppercase italic">
-                                        <?= htmlspecialchars($log['action_type']) ?>
-                                    </span>
-                                </td>
-                                <td class="px-8 py-5 text-right">
-                                    <p class="text-[10px] font-black text-gray-600 tracking-widest">#<?= htmlspecialchars($log['record_id']) ?></p>
+                                    <p class="text-[11px] font-black uppercase tracking-[0.15em] <?= $textColor ?>"><?= htmlspecialchars($displayText) ?></p>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -525,52 +844,102 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 </table>
             </div>
 
-            <!-- Pagination Controls -->
-            <?php if ($total_pages > 1): ?>
-            <div class="px-8 py-6 border-t border-white/5 bg-white/[0.01] flex items-center justify-between pagination-controls">
-                <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                    Showing <span class="text-white"><?= $offset + 1 ?></span> to <span class="text-white"><?= min($offset + $limit, $total_records) ?></span> of <span class="text-white"><?= $total_records ?></span> results
+            <!-- Elite Pagination Engine UI -->
+            <div id="paginationFooter" class="pagination-container hidden">
+                <p id="paginationStatus" class="pagination-status">
+                    Initializing Pagination...
                 </p>
-                <div class="flex items-center gap-2">
-                    <?php if ($page > 1): ?>
-                        <button onclick="changePage(<?= $page - 1 ?>)" class="size-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-primary/20 hover:border-primary/50 transition-all group">
-                            <span class="material-symbols-outlined text-sm group-hover:-translate-x-0.5 transition-transform">chevron_left</span>
-                        </button>
-                    <?php endif; ?>
-
-                    <div class="flex items-center gap-1">
-                        <?php
-                        $start_page = max(1, $page - 2);
-                        $end_page = min($total_pages, $page + 2);
-
-                        if ($start_page > 1) {
-                            echo '<button onclick="changePage(1)" class="size-8 rounded-lg bg-white/5 border border-white/10 text-[10px] font-black text-gray-400 hover:text-white hover:bg-primary/20 transition-all">1</button>';
-                            if ($start_page > 2) echo '<span class="text-gray-600 text-[10px]">...</span>';
-                        }
-
-                        for ($i = $start_page; $i <= $end_page; $i++) {
-                            $active = ($i == $page) ? 'bg-primary text-black border-primary' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-primary/20';
-                            echo '<button onclick="changePage('.$i.')" class="size-8 rounded-lg border '.$active.' text-[10px] font-black transition-all">'.$i.'</button>';
-                        }
-
-                        if ($end_page < $total_pages) {
-                            if ($end_page < $total_pages - 1) echo '<span class="text-gray-600 text-[10px]">...</span>';
-                            echo '<button onclick="changePage('.$total_pages.')" class="size-8 rounded-lg bg-white/5 border border-white/10 text-[10px] font-black text-gray-400 hover:text-white hover:bg-primary/20 transition-all">'.$total_pages.'</button>';
-                        }
-                        ?>
-                    </div>
-
-                    <?php if ($page < $total_pages): ?>
-                        <button onclick="changePage(<?= $page + 1 ?>)" class="size-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-primary/20 hover:border-primary/50 transition-all group">
-                            <span class="material-symbols-outlined text-sm group-hover:translate-x-0.5 transition-transform">chevron_right</span>
-                        </button>
-                    <?php endif; ?>
+                <div id="paginationWrapper" class="flex items-center gap-2">
+                    <!-- Dynamic Buttons -->
                 </div>
             </div>
-            <?php endif; ?>
         </div>
+
+        <script>
+            function initElitePagination(containerId, rowsPerPage = 10) {
+                const tbody = document.getElementById('auditTableBody');
+                const footer = document.getElementById('paginationFooter');
+                const controls = document.getElementById('paginationWrapper');
+                const status = document.getElementById('paginationStatus');
+                
+                if (!tbody || !footer) return;
+                
+                const rows = Array.from(tbody.querySelectorAll('tr:not(.empty-row)'));
+                const totalRows = rows.length;
+                
+                if (totalRows <= rowsPerPage) {
+                    footer.classList.add('hidden');
+                    rows.forEach(r => r.classList.remove('hidden'));
+                    return;
+                }
+
+                footer.classList.remove('hidden');
+                const totalPages = Math.ceil(totalRows / rowsPerPage);
+                let currentPage = 1;
+
+                function showPage(p) {
+                    currentPage = p;
+                    const start = (p - 1) * rowsPerPage;
+                    const end = start + rowsPerPage;
+
+                    rows.forEach((row, i) => {
+                        if (i >= start && i < end) {
+                            row.classList.remove('hidden');
+                            row.classList.add('animate-in', 'fade-in', 'duration-500');
+                        } else {
+                            row.classList.add('hidden');
+                        }
+                    });
+
+                    renderControls();
+                    status.innerHTML = `Showing ${start + 1} to ${Math.min(end, totalRows)} of ${totalRows} security events`;
+                }
+
+                function renderControls() {
+                    controls.innerHTML = '';
+                    
+                    // Prev Button
+                    const prev = document.createElement('button');
+                    prev.className = `pagination-btn ${currentPage === 1 ? 'disabled' : ''}`;
+                    prev.disabled = currentPage === 1;
+                    prev.textContent = 'Prev';
+                    prev.onclick = () => currentPage > 1 && showPage(currentPage - 1);
+                    controls.appendChild(prev);
+
+                    // Indices
+                    for (let i = 1; i <= totalPages; i++) {
+                        if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                            const btn = document.createElement('button');
+                            btn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+                            btn.innerText = i;
+                            btn.onclick = () => showPage(i);
+                            controls.appendChild(btn);
+                        } else if (i === currentPage - 3 || i === currentPage + 3) {
+                            const dot = document.createElement('span');
+                            dot.className = 'text-[--text-main]/20 text-[10px] font-black mx-1';
+                            dot.innerText = '...';
+                            controls.appendChild(dot);
+                        }
+                    }
+
+                    // Next Button
+                    const next = document.createElement('button');
+                    next.className = `pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`;
+                    next.disabled = currentPage === totalPages;
+                    next.textContent = 'Next';
+                    next.onclick = () => currentPage < totalPages && showPage(currentPage + 1);
+                    controls.appendChild(next);
+                }
+
+                showPage(1);
+            }
+
+            // Initialize on load
+            window.addEventListener('DOMContentLoaded', () => {
+                initElitePagination('auditLogTable', 10);
+            });
+        </script>
     </main>
 </div>
-
 </body>
-</html>
+</html>

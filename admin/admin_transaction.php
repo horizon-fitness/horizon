@@ -63,6 +63,122 @@ $stmtPayments->execute($sql_params);
 $payments_list = $stmtPayments->fetchAll();
 
 $active_page = "admin_transaction";
+
+// --- ACTION HANDLER: APPROVE / REJECT ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_once '../includes/mailer.php';
+    require_once '../includes/audit_logger.php';
+    $now = date('Y-m-d H:i:s');
+    
+    if (isset($_POST['approve_id'])) {
+        $pay_id = (int)$_POST['approve_id'];
+        
+        // 1. Get Context for Email (Member Name, Email, Plan Name, Gym Name)
+        $stmtCtx = $pdo->prepare("
+            SELECT u.email, u.first_name, mp.plan_name, g.gym_name, p.subscription_id
+            FROM payments p
+            JOIN members m ON p.member_id = m.member_id
+            JOIN users u ON m.user_id = u.user_id
+            JOIN gyms g ON m.gym_id = g.gym_id
+            LEFT JOIN member_subscriptions ms ON p.subscription_id = ms.subscription_id
+            LEFT JOIN membership_plans mp ON ms.membership_plan_id = mp.membership_plan_id
+            WHERE p.payment_id = ?
+            LIMIT 1
+        ");
+        $stmtCtx->execute([$pay_id]);
+        $ctx = $stmtCtx->fetch();
+        $sub_id = $ctx['subscription_id'] ?? null;
+        
+        $pdo->beginTransaction();
+        try {
+            // 2. Update Payment Status to 'Verified'
+            $stmtUP = $pdo->prepare("UPDATE payments SET payment_status = 'Verified', verified_by = ?, verified_at = ? WHERE payment_id = ?");
+            $stmtUP->execute([$_SESSION['user_id'], $now, $pay_id]);
+            
+            // 3. Update Subscription Status to 'Active'
+            if ($sub_id) {
+                $stmtUS = $pdo->prepare("UPDATE member_subscriptions SET subscription_status = 'Active', updated_at = ? WHERE subscription_id = ?");
+                $stmtUS->execute([$now, $sub_id]);
+            }
+            
+            // 4. Send Email
+            if ($ctx && !empty($ctx['email'])) {
+                $subject = "Payment Approved - Your " . ($ctx['plan_name'] ?? 'Membership') . " is now Active!";
+                $content = "
+                    <p>Hello " . htmlspecialchars($ctx['first_name']) . ",</p>
+                    <p>We are pleased to inform you that your payment for <strong>" . htmlspecialchars($ctx['gym_name']) . "</strong> has been approved.</p>
+                    <p>Your <strong>" . htmlspecialchars($ctx['plan_name'] ?? 'Membership') . "</strong> subscription is now active. You can now use your membership at the gym!</p>
+                    <p>Thank you for choosing Horizon!</p>
+                ";
+                sendSystemEmail($ctx['email'], $subject, getEmailTemplate("Payment Approved", $content));
+            }
+
+            // 5. Log Audit
+            log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'], 'Verify', 'payments', $pay_id, ['old_status' => 'Pending'], ['new_status' => 'Verified', 'action' => 'Approved']);
+
+            $pdo->commit();
+            header("Location: admin_transaction.php?success=approved");
+            exit;
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error = $e->getMessage();
+        }
+    }
+
+    if (isset($_POST['reject_id'])) {
+        $pay_id = (int)$_POST['reject_id'];
+        
+        $stmtCtx = $pdo->prepare("
+            SELECT u.email, u.first_name, mp.plan_name, g.gym_name, p.subscription_id
+            FROM payments p
+            JOIN members m ON p.member_id = m.member_id
+            JOIN users u ON m.user_id = u.user_id
+            JOIN gyms g ON m.gym_id = g.gym_id
+            LEFT JOIN member_subscriptions ms ON p.subscription_id = ms.subscription_id
+            LEFT JOIN membership_plans mp ON ms.membership_plan_id = mp.membership_plan_id
+            WHERE p.payment_id = ?
+            LIMIT 1
+        ");
+        $stmtCtx->execute([$pay_id]);
+        $ctx = $stmtCtx->fetch();
+        $sub_id = $ctx['subscription_id'] ?? null;
+
+        $pdo->beginTransaction();
+        try {
+            // 2. Update Payment Status to 'Rejected'
+            $stmtUP = $pdo->prepare("UPDATE payments SET payment_status = 'Rejected', verified_by = ?, verified_at = ? WHERE payment_id = ?");
+            $stmtUP->execute([$_SESSION['user_id'], $now, $pay_id]);
+            
+            // 3. Update Subscription Status to 'Rejected'
+            if ($sub_id) {
+                $stmtUS = $pdo->prepare("UPDATE member_subscriptions SET subscription_status = 'Rejected', updated_at = ? WHERE subscription_id = ?");
+                $stmtUS->execute([$now, $sub_id]);
+            }
+
+            // 4. Send Email
+            if ($ctx && !empty($ctx['email'])) {
+                $subject = "Payment Rejected - Action Required for " . $ctx['gym_name'];
+                $content = "
+                    <p>Hello " . htmlspecialchars($ctx['first_name']) . ",</p>
+                    <p>Your recent payment for the <strong>" . htmlspecialchars($ctx['plan_name'] ?? 'Membership') . "</strong> at <strong>" . htmlspecialchars($ctx['gym_name']) . "</strong> was not verified and has been <strong>Rejected</strong>.</p>
+                    <p>Please log in to your app to re-submit your payment or visit the front desk for assistance.</p>
+                    <p>Thank you!</p>
+                ";
+                sendSystemEmail($ctx['email'], $subject, getEmailTemplate("Payment Rejected", $content));
+            }
+
+            // 5. Log Audit
+            log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'], 'Verify', 'payments', $pay_id, ['old_status' => 'Pending'], ['new_status' => 'Rejected', 'action' => 'Rejected']);
+            
+            $pdo->commit();
+            header("Location: admin_transaction.php?success=rejected");
+            exit;
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error = $e->getMessage();
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -284,7 +400,7 @@ $active_page = "admin_transaction";
         <header class="mb-12 flex flex-row justify-between items-end gap-6">
             <div>
                 <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Transaction <span class="text-primary">Ledger</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Verified Billing Logs • System Registry</p>
+                <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Complete Payment History & Approval Queue</p>
             </div>
             <div class="flex items-end gap-8 text-right shrink-0">
                 <div class="flex flex-col items-end">
@@ -327,7 +443,7 @@ $active_page = "admin_transaction";
         </div>
 
         <div class="flex justify-between items-center mb-6">
-            <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">SECURE GATEWAY FEED — <span class="text-white">ENCRYPTED LOGS</span></p>
+            <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">TRANSACTION LOGS — <span class="text-white">LIVE FEED</span></p>
             <div class="flex items-center gap-4">
                 <span class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest text-gray-400">Total Entries: <?= count($payments_list) ?></span>
             </div>
@@ -338,19 +454,20 @@ $active_page = "admin_transaction";
                 <table class="w-full text-left">
                     <thead>
                         <tr class="text-[10px] font-black uppercase tracking-[0.15em] text-gray-600 border-b border-white/5 bg-white/[0.01]">
-                            <th class="px-8 py-5">SENSORY IDENTITY</th>
-                            <th class="px-8 py-5 text-center">FINANCIAL AMOUNT</th>
-                            <th class="px-8 py-5 text-center">CHANNEL TYPE</th>
-                            <th class="px-8 py-5">TIMESTAMP</th>
-                            <th class="px-8 py-5 text-right">PROTOCOL STATUS</th>
+                            <th class="px-8 py-5">Member Profile</th>
+                            <th class="px-8 py-5 text-center">Amount</th>
+                            <th class="px-8 py-5 text-center">Transaction Type</th>
+                            <th class="px-8 py-5">Date &amp; Time</th>
+                            <th class="px-8 py-5 text-center">Status</th>
+                            <th class="px-8 py-5 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         <?php if (empty($payments_list)): ?>
                         <tr>
-                            <td colspan="5" class="px-8 py-24 text-center">
+                            <td colspan="6" class="px-8 py-24 text-center">
                                 <span class="material-symbols-outlined text-4xl text-gray-700 mb-4 block">receipt_long</span>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">No transaction records detected in current matrix.</p>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">No transactions found.</p>
                             </td>
                         </tr>
                         <?php else: foreach ($payments_list as $pay): ?>
@@ -378,8 +495,40 @@ $active_page = "admin_transaction";
                                     <p class="text-[9px] font-bold text-gray-600 uppercase tracking-widest italic"><?= date('M d, Y', strtotime($pay['created_at'])) ?></p>
                                 </div>
                             </td>
+                            <td class="px-8 py-6 text-center">
+                                <?php 
+                                $status = strtoupper($pay['payment_status'] ?? 'PENDING');
+                                $status_class = "text-gray-400 bg-white/5 border-white/5";
+                                if ($status === 'VERIFIED' || $status === 'COMPLETED' || $status === 'PAID') {
+                                    $status = "APPROVED";
+                                    $status_class = "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
+                                } elseif ($status === 'REJECTED') {
+                                    $status_class = "text-rose-500 bg-rose-500/10 border-rose-500/20";
+                                } elseif ($status === 'PENDING') {
+                                    $status_class = "text-amber-500 bg-amber-500/10 border-amber-500/20";
+                                }
+                                ?>
+                                <span class="px-4 py-1.5 rounded-full border text-[9px] font-extrabold uppercase italic tracking-widest <?= $status_class ?>"><?= $status ?></span>
+                            </td>
                             <td class="px-8 py-6 text-right">
-                                <span class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-extrabold uppercase italic tracking-widest"><?= htmlspecialchars($pay['payment_status'] ?? 'COMPLETED') ?></span>
+                                <?php if ($pay['payment_status'] === 'Pending'): ?>
+                                <div class="flex justify-end gap-2">
+                                    <form method="POST" onsubmit="return confirm('Approve this transaction?');">
+                                        <input type="hidden" name="approve_id" value="<?= $pay['payment_id'] ?>">
+                                        <button type="submit" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all">
+                                            <span class="material-symbols-outlined text-base">check</span>
+                                        </button>
+                                    </form>
+                                    <form method="POST" onsubmit="return confirm('Reject this transaction?');">
+                                        <input type="hidden" name="reject_id" value="<?= $pay['payment_id'] ?>">
+                                        <button type="submit" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
+                                            <span class="material-symbols-outlined text-base">close</span>
+                                        </button>
+                                    </form>
+                                </div>
+                                <?php else: ?>
+                                <span class="text-[10px] font-bold text-gray-600 italic">None</span>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; endif; ?>

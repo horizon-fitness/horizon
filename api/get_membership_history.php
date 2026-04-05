@@ -40,6 +40,7 @@ try {
             p.payment_method,
             p.payment_status,
             p.created_at,
+            ms.subscription_status,
             mp.plan_name
         FROM payments p
         JOIN members m ON p.member_id = m.member_id
@@ -60,8 +61,9 @@ try {
             'time' => $datetime->format('h:i A'),
             'service' => $row['plan_name'] ?? 'Membership Subscription',
             'reference' => $row['reference_number'],
-            'amount' => number_format($row['amount'], 2), // App adds the symbol
-            'status' => (in_array($row['payment_status'], ['Completed', 'Verified', 'Paid', 'Active'])) ? 'Approved' : $row['payment_status']
+            'amount' => number_format((float)$row['amount'], 2),
+            'status' => ($row['subscription_status'] === 'Pending Approval') ? 'Pending' : 
+                        ((in_array($row['payment_status'], ['Completed', 'Verified', 'Paid', 'Active'])) ? 'Approved' : $row['payment_status'])
         ];
     }
 
