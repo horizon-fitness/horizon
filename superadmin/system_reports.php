@@ -62,13 +62,37 @@ if ($tenant_filter !== 'all') {
 $user_reg_query .= " GROUP BY DATE(u.created_at) ORDER BY reg_date ASC";
 $stmtReg = $pdo->prepare($user_reg_query);
 $stmtReg->execute($reg_params);
-$registration_data = $stmtReg->fetchAll(PDO::FETCH_ASSOC);
+$real_data = $stmtReg->fetchAll(PDO::FETCH_ASSOC);
+
+// Fill gaps in registration data to show a continuous line
+$registration_data = [];
+$start_ts = strtotime($date_from);
+$end_ts = strtotime($date_to);
+$current_ts = $start_ts;
+
+// Create a lookup map
+$data_map = [];
+foreach ($real_data as $rd) {
+    $data_map[$rd['reg_date']] = $rd['count'];
+}
+
+while ($current_ts <= $end_ts) {
+    $date_str = date('Y-m-d', $current_ts);
+    $registration_data[] = [
+        'reg_date' => $date_str,
+        'count' => $data_map[$date_str] ?? 0
+    ];
+    $current_ts = strtotime("+1 day", $current_ts);
+}
 
 // 3. Usage Statistics
-// Total Users
-$total_users_query = "SELECT COUNT(*) FROM users u";
+// Total Users (Only from Approved/Active Tenants)
+$total_users_query = "SELECT COUNT(DISTINCT u.user_id) FROM users u 
+                      JOIN user_roles ur ON u.user_id = ur.user_id 
+                      JOIN gyms g ON ur.gym_id = g.gym_id 
+                      WHERE g.status = 'Active'";
 if ($tenant_filter !== 'all') {
-    $total_users_query .= " JOIN user_roles ur ON u.user_id = ur.user_id WHERE ur.gym_id = :tid";
+    $total_users_query .= " AND g.gym_id = :tid";
 }
 $stmtTotal = $pdo->prepare($total_users_query);
 $stmtTotal->execute($tenant_filter !== 'all' ? ['tid' => $tenant_filter] : []);
@@ -263,19 +287,20 @@ switch ($report_type) {
             margin-left: 300px;
         }
 
+        /* Invisible Scroll System (Global Reset) */
+        *::-webkit-scrollbar {
+            display: none !important;
+        }
+
+        * {
+            -ms-overflow-style: none !important;
+            scrollbar-width: none !important;
+        }
+
         .sidebar-scroll-container {
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
-        }
-
-        ::-webkit-scrollbar {
-            display: none;
-        }
-
-        * {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
         }
 
         .nav-text {
@@ -383,9 +408,13 @@ switch ($report_type) {
         .tab-btn {
             position: relative;
             transition: all 0.3s ease;
-            color: var(--highlight);
+            color: var(--text-main);
             cursor: pointer;
-            opacity: 0.6;
+            opacity: 0.4;
+        }
+
+        .tab-btn:hover {
+            opacity: 0.7;
         }
 
         .tab-btn.active {
@@ -479,8 +508,141 @@ switch ($report_type) {
                 transform: translateY(0);
             }
         }
+
+        /* Elite Pagination Component Styling */
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 32px;
+            margin-top: 24px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+        }
+
+        .pagination-btn {
+            padding: 8px 16px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .pagination-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .pagination-status {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-main);
+            opacity: 0.5;
+        }
     </style>
     <script>
+        function initPagination(tableId, paginationContainerId, itemsPerPage = 10) {
+            const table = document.querySelector(`#detailedTab table`);
+            if (!table) return;
+
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.no-report)'));
+            const totalRows = rows.length;
+            const container = document.getElementById(paginationContainerId);
+            const statusLabel = document.getElementById(`paginationStatus-detailed`);
+            const controls = document.getElementById(`paginationControls-detailed`);
+
+            if (!container || !statusLabel || !controls) return;
+
+            // If rows fits in single page, hide pagination
+            if (totalRows <= itemsPerPage) {
+                container.classList.add('hidden');
+                rows.forEach(r => r.style.display = '');
+                return;
+            }
+
+            container.classList.remove('hidden');
+            let currentPage = 1;
+            const totalPages = Math.ceil(totalRows / itemsPerPage);
+
+            function showPage(page) {
+                if (page < 1 || page > totalPages) return;
+                currentPage = page;
+                const start = (currentPage - 1) * itemsPerPage;
+                const end = start + itemsPerPage;
+
+                rows.forEach((row, index) => {
+                    row.style.display = (index >= start && index < end) ? '' : 'none';
+                });
+
+                // Update Status
+                const showingEnd = Math.min(end, totalRows);
+                statusLabel.textContent = `Showing ${start + 1} to ${showingEnd} of ${totalRows} entries`;
+
+                renderControls();
+            }
+
+            function renderControls() {
+                controls.innerHTML = '';
+
+                // Prev Button
+                const prevBtn = document.createElement('button');
+                prevBtn.className = `pagination-btn ${currentPage === 1 ? 'disabled' : ''}`;
+                prevBtn.disabled = currentPage === 1;
+                prevBtn.textContent = 'Prev';
+                prevBtn.onclick = () => showPage(currentPage - 1);
+                controls.appendChild(prevBtn);
+
+                // Page Numbers
+                for (let i = 1; i <= totalPages; i++) {
+                    const pageBtn = document.createElement('button');
+                    pageBtn.className = `pagination-btn ${currentPage === i ? 'active' : ''}`;
+                    pageBtn.textContent = i;
+                    pageBtn.onclick = () => showPage(i);
+                    controls.appendChild(pageBtn);
+                }
+
+                // Next Button
+                const nextBtn = document.createElement('button');
+                nextBtn.className = `pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`;
+                nextBtn.disabled = currentPage === totalPages;
+                nextBtn.textContent = 'Next';
+                nextBtn.onclick = () => showPage(currentPage + 1);
+                controls.appendChild(nextBtn);
+            }
+
+            showPage(1);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof updateHeaderClock === 'function') updateHeaderClock();
+            initPagination('detailedTable', 'pagination-detailed', 10);
+        });
+
         function updateHeaderClock() {
             const now = new Date();
             const clockEl = document.getElementById('headerClock');
@@ -658,18 +820,18 @@ switch ($report_type) {
                     <div class="space-y-2">
                         <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Date From
                         </p>
-                        <input type="date" name="date_from" value="<?= $date_from ?>" class="input-field">
+                        <input type="date" name="date_from" value="<?= $date_from ?>" class="input-field" onchange="this.form.submit()">
                     </div>
                     <div class="space-y-2">
                         <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Date To
                         </p>
-                        <input type="date" name="date_to" value="<?= $date_to ?>" class="input-field">
+                        <input type="date" name="date_to" value="<?= $date_to ?>" class="input-field" onchange="this.form.submit()">
                     </div>
                     <div class="space-y-2">
                         <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Select
                             Tenant</p>
                         <div class="relative group premium-select-container">
-                            <select name="tenant_id" class="input-field cursor-pointer pr-10 w-full min-w-[200px]">
+                            <select name="tenant_id" class="input-field cursor-pointer pr-10 w-full min-w-[200px]" onchange="this.form.submit()">
                                 <option value="all">All Tenants</option>
                                 <?php foreach ($tenants_list as $gt): ?>
                                     <option value="<?= $gt['gym_id'] ?>" <?= $tenant_filter == $gt['gym_id'] ? 'selected' : '' ?>>
@@ -693,12 +855,12 @@ switch ($report_type) {
             <!-- Tab Navigation -->
             <div class="flex gap-8 border-b border-white/5 mb-8 px-2">
                 <button onclick="switchTab('detailedTab')"
-                    class="tab-btn pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= ($active_tab == 'detailedTab') ? 'active text-primary' : '' ?>">
+                    class="tab-btn pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= ($active_tab == 'detailedTab') ? 'active' : '' ?>">
                     Detailed Reports
                     <div class="tab-indicator"></div>
                 </button>
                 <button onclick="switchTab('overviewTab')"
-                    class="tab-btn pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= ($active_tab == 'overviewTab') ? 'active text-primary' : '' ?>">
+                    class="tab-btn pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= ($active_tab == 'overviewTab') ? 'active' : '' ?>">
                     Analytics Overview
                     <div class="tab-indicator"></div>
                 </button>
@@ -760,19 +922,19 @@ switch ($report_type) {
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
-                                <tr class="bg-black/20 text-gray-500 text-xs font-black uppercase tracking-widest">
+                                <tr class="bg-white/5 text-[--text-main] opacity-60 text-[10px] font-black uppercase tracking-[0.25em] border-b border-white/5">
                                     <?php switch ($report_type):
                                         case 'gym_apps': ?>
-                                            <th class="px-8 py-4">Gym / Business</th>
-                                            <th class="px-8 py-4">Type</th>
-                                            <th class="px-8 py-4">Submitted</th>
+                                            <th class="px-8 py-4">Gym Identity</th>
+                                            <th class="px-8 py-4">Business Type</th>
+                                            <th class="px-8 py-4">Submission Date</th>
                                             <th class="px-8 py-4 text-center">Status</th>
                                             <?php break;
                                         case 'client_subs': ?>
-                                            <th class="px-8 py-4">Gym / Owner</th>
+                                            <th class="px-8 py-4">Tenant Identity</th>
                                             <th class="px-8 py-4">Plan</th>
-                                            <th class="px-8 py-4">Duration</th>
-                                            <th class="px-8 py-4 text-center">Sub Status</th>
+                                            <th class="px-8 py-4">Validity</th>
+                                            <th class="px-8 py-4 text-center">Status</th>
                                             <th class="px-8 py-4 text-right">Payment</th>
                                             <?php break;
                                         default: // tenant_activity ?>
@@ -793,93 +955,89 @@ switch ($report_type) {
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($report_data as $row): ?>
-                                        <tr class="hover:bg-white/[0.01] transition-colors group">
+                                        <tr class="hover:bg-white/5 transition-all text-[--text-main]">
                                             <?php switch ($report_type):
                                                 case 'gym_apps': ?>
                                                     <td class="px-8 py-5">
-                                                        <p class="text-base font-bold text-white mb-1">
+                                                        <p class="text-sm font-bold italic text-white leading-none mb-1">
                                                             <?= htmlspecialchars($row['gym_name']) ?></p>
-                                                        <p class="text-xs text-primary font-black uppercase tracking-tighter">
+                                                        <p class="text-[10px] opacity-40 uppercase tracking-widest font-black">
                                                             <?= htmlspecialchars($row['business_name']) ?></p>
                                                     </td>
-                                                    <td
-                                                        class="px-8 py-5 text-sm text-gray-400 font-bold uppercase tracking-widest italic">
-                                                        <?= htmlspecialchars(str_replace('_', ' ', $row['business_type'])) ?></td>
                                                     <td class="px-8 py-5">
-                                                        <p class="text-sm font-bold text-white">
+                                                        <p class="text-xs font-black uppercase tracking-widest opacity-60">
+                                                            <?= htmlspecialchars(str_replace('_', ' ', $row['business_type'] ?? 'unknown')) ?></p>
+                                                    </td>
+                                                    <td class="px-8 py-5">
+                                                        <p class="text-xs font-bold text-white mb-1">
                                                             <?= date('M d, Y', strtotime($row['submitted_at'])) ?></p>
-                                                        <p class="text-xs text-gray-500 font-black italic">
+                                                        <p class="text-[9px] opacity-40 font-black uppercase italic">
                                                             <?= date('h:i A', strtotime($row['submitted_at'])) ?></p>
                                                     </td>
                                                     <td class="px-8 py-5 text-center">
-                                                        <div class="mb-1">
-                                                            <?php
-                                                            $s = $row['application_status'];
-                                                            $sc = 'gray-400';
-                                                            if (strtolower($s) == 'approved')
-                                                                $sc = 'emerald-500';
-                                                            elseif (strtolower($s) == 'pending')
-                                                                $sc = 'amber-500';
-                                                            elseif (strtolower($s) == 'rejected')
-                                                                $sc = 'rose-500';
-                                                            ?>
-                                                            <span
-                                                                class="px-3 py-1 rounded-md bg-<?= $sc ?>/10 border border-<?= $sc ?>/20 text-xs text-<?= $sc ?> font-black uppercase italic">
-                                                                <?= htmlspecialchars(str_replace('_', ' ', $s)) ?>
-                                                            </span>
-                                                        </div>
+                                                        <?php
+                                                        $s = $row['application_status'];
+                                                        $sc = 'gray-500';
+                                                        if (strtolower($s) == 'approved')
+                                                            $sc = 'emerald-500';
+                                                        elseif (strtolower($s) == 'pending')
+                                                            $sc = 'amber-500';
+                                                        elseif (strtolower($s) == 'rejected')
+                                                            $sc = 'rose-500';
+                                                        ?>
+                                                        <span class="px-2.5 py-1 rounded-lg bg-<?= $sc ?>/10 border border-<?= $sc ?>/20 text-[9px] text-<?= $sc ?> font-black uppercase tracking-wider italic">
+                                                            <?= htmlspecialchars(str_replace('_', ' ', $s)) ?>
+                                                        </span>
                                                     </td>
                                                     <?php break;
                                                 case 'client_subs': ?>
                                                     <td class="px-8 py-5">
-                                                        <p class="text-base font-bold text-white mb-1">
+                                                        <p class="text-sm font-bold italic text-white leading-none mb-1">
                                                             <?= htmlspecialchars($row['gym_name']) ?></p>
-                                                        <p class="text-xs text-gray-500 font-bold italic">
+                                                        <p class="text-[10px] opacity-40 uppercase tracking-widest font-black">
                                                             <?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
                                                     </td>
                                                     <td class="px-8 py-5">
-                                                        <p class="text-sm font-black text-primary uppercase tracking-widest italic">
+                                                        <p class="text-xs font-black text-primary uppercase tracking-widest">
                                                             <?= htmlspecialchars($row['plan_name']) ?></p>
                                                     </td>
                                                     <td class="px-8 py-5">
-                                                        <p class="text-xs text-white font-bold leading-none mb-1">
+                                                        <p class="text-xs text-white font-bold mb-1">
                                                             <?= date('M d', strtotime($row['start_date'])) ?> -
                                                             <?= date('M d, Y', strtotime($row['end_date'])) ?></p>
-                                                        <p class="text-xs text-gray-500 font-black uppercase tracking-tighter italic">
-                                                            Billing Period</p>
+                                                        <p class="text-[9px] opacity-40 font-black uppercase italic tracking-tighter">
+                                                            Billing Cycle</p>
                                                     </td>
                                                     <td class="px-8 py-5 text-center">
                                                         <?php $sc = $row['subscription_status'] == 'Active' ? 'emerald-500' : 'amber-500'; ?>
-                                                        <span
-                                                            class="px-3 py-1 rounded-md bg-<?= $sc ?>/10 border border-<?= $sc ?>/20 text-xs text-<?= $sc ?> font-black uppercase italic"><?= htmlspecialchars(str_replace('_', ' ', $row['subscription_status'])) ?></span>
+                                                        <span class="px-2.5 py-1 rounded-lg bg-<?= $sc ?>/10 border border-<?= $sc ?>/20 text-[9px] text-<?= $sc ?> font-black uppercase tracking-wider italic"><?= htmlspecialchars(str_replace('_', ' ', $row['subscription_status'])) ?></span>
                                                     </td>
                                                     <td class="px-8 py-5 text-right">
-                                                        <p class="text-sm font-black text-emerald-500 italic uppercase">
+                                                        <p class="text-xs font-black text-emerald-500 uppercase">
                                                             <?= htmlspecialchars($row['payment_status']) ?></p>
                                                     </td>
                                                     <?php break;
                                                 default: // tenant_activity ?>
                                                     <td class="px-8 py-5">
-                                                        <p class="text-base font-bold text-white leading-none mb-1">
+                                                        <p class="text-sm font-bold italic text-white leading-none mb-1">
                                                             <?= htmlspecialchars($row['gym_name']) ?></p>
-                                                        <p class="text-xs text-primary font-black uppercase tracking-tighter italic">
+                                                        <p class="text-[10px] opacity-40 uppercase tracking-widest font-black">
                                                             <?= htmlspecialchars($row['tenant_code']) ?></p>
                                                     </td>
                                                     <td class="px-8 py-5 text-center">
-                                                        <p class="text-base font-bold text-white leading-none mb-1">
+                                                        <p class="text-sm font-black text-white">
                                                             <?= number_format($row['member_count']) ?></p>
                                                     </td>
                                                     <td class="px-8 py-5 text-center">
-                                                        <p class="text-base font-bold text-white leading-none mb-1">
+                                                        <p class="text-sm font-black text-white">
                                                             <?= number_format($row['activity_count']) ?></p>
                                                     </td>
                                                     <td class="px-8 py-5 text-center">
                                                         <?php $tc = $row['status'] == 'Active' ? 'emerald-500' : 'rose-500'; ?>
-                                                        <span
-                                                            class="px-3 py-1 rounded-md bg-<?= $tc ?>/10 border border-<?= $tc ?>/20 text-xs text-<?= $tc ?> font-black uppercase italic"><?= htmlspecialchars(str_replace('_', ' ', $row['status'])) ?></span>
+                                                        <span class="px-2.5 py-1 rounded-lg bg-<?= $tc ?>/10 border border-<?= $tc ?>/20 text-[9px] text-<?= $tc ?> font-black uppercase tracking-wider italic"><?= htmlspecialchars(str_replace('_', ' ', $row['status'])) ?></span>
                                                     </td>
                                                     <td class="px-8 py-5 text-right">
-                                                        <p class="text-sm font-bold text-white uppercase leading-none mb-1">
+                                                        <p class="text-xs font-bold text-white uppercase opacity-60">
                                                             <?= date('M d, Y', strtotime($row['joined_date'])) ?></p>
                                                     </td>
                                             <?php endswitch; ?>
@@ -889,19 +1047,26 @@ switch ($report_type) {
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Elite Pagination Container -->
+                    <div id="pagination-detailed" class="pagination-container hidden">
+                        <div class="pagination-status" id="paginationStatus-detailed">Showing 0 of 0 entries</div>
+                        <div class="flex gap-2" id="paginationControls-detailed">
+                            <!-- JS injected buttons -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Tab 2: Analytics Overview -->
             <div id="overviewTab" class="tab-content <?= ($active_tab == 'overviewTab') ? 'active' : '' ?>">
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+                    <!-- Primary Chart (2/3 Column) -->
                     <div class="lg:col-span-2 glass-card p-8">
                         <div class="flex justify-between items-center mb-8">
                             <div>
-                                <h3 class="text-sm font-black italic uppercase tracking-widest text-white">User
-                                    Registration Growth</h3>
-                                <p class="text-xs text-[--text-main]/60 font-bold uppercase mt-1 tracking-wider">Growth
-                                    Trends Over Time</p>
+                                <h3 class="text-sm font-black italic uppercase tracking-widest text-white">User Registration Growth</h3>
+                                <p class="text-[9px] text-[--text-main] opacity-50 font-bold uppercase mt-1 tracking-wider">Growth Trends Over Selected Period</p>
                             </div>
                         </div>
                         <div class="h-[300px] w-full">
@@ -909,33 +1074,24 @@ switch ($report_type) {
                         </div>
                     </div>
 
-                    <div class="glass-card p-8 flex flex-col justify-between">
-                        <h3 class="text-sm font-black italic uppercase tracking-widest text-white mb-6">Usage Statistics
-                        </h3>
-                        <div class="space-y-6">
-                            <div
-                                class="p-5 rounded-2xl bg-white/[0.01] border border-white/5 relative overflow-hidden group hover:border-primary/20 transition-colors">
-                                <span
-                                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-5 group-hover:scale-110 transition-transform">groups</span>
-                                <p class="text-xs font-black uppercase text-[--text-main]/60 mb-1 tracking-widest">Total
-                                    System Users</p>
-                                <h2 class="text-2xl font-black text-white italic"><?= $total_users ?></h2>
+                    <!-- Usage Statistics (1/3 Column) -->
+                    <div class="glass-card p-8 flex flex-col">
+                        <h3 class="text-sm font-black italic uppercase tracking-widest text-white mb-6">Usage Statistics</h3>
+                        <div class="flex-1 space-y-6 flex flex-col justify-center">
+                            <div class="p-6 rounded-2xl bg-white/[0.01] border border-white/5 relative overflow-hidden group hover:border-primary/20 hover:bg-white/[0.03] transition-all cursor-default">
+                                <span class="material-symbols-outlined absolute right-6 top-1/2 -translate-y-1/2 text-5xl opacity-10 group-hover:scale-110 transition-transform text-white">groups</span>
+                                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-1 tracking-widest">Total System Users</p>
+                                <h2 class="text-xl font-black text-white italic tracking-tighter"><?= $total_users ?></h2>
                             </div>
-                            <div
-                                class="p-5 rounded-2xl bg-white/[0.01] border border-white/5 relative overflow-hidden group hover:border-emerald-500/20 transition-colors">
-                                <span
-                                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-5 group-hover:scale-110 transition-transform text-emerald-500">login</span>
-                                <p class="text-xs font-black uppercase text-[--text-main]/60 mb-1 tracking-widest">Avg.
-                                    Daily Logins</p>
-                                <h2 class="text-2xl font-black text-emerald-500 italic"><?= $avg_daily_logins ?></h2>
+                            <div class="p-6 rounded-2xl bg-white/[0.01] border border-white/5 relative overflow-hidden group hover:border-emerald-500/20 hover:bg-white/[0.03] transition-all cursor-default">
+                                <span class="material-symbols-outlined absolute right-6 top-1/2 -translate-y-1/2 text-5xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">login</span>
+                                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-1 tracking-widest">Avg. Daily Logins</p>
+                                <h2 class="text-xl font-black text-emerald-500 italic tracking-tighter"><?= $avg_daily_logins ?></h2>
                             </div>
-                            <div
-                                class="p-5 rounded-2xl bg-white/[0.01] border border-white/5 relative overflow-hidden group hover:border-primary/20 transition-colors">
-                                <span
-                                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-4xl opacity-5 group-hover:scale-110 transition-transform text-primary">schedule</span>
-                                <p class="text-xs font-black uppercase text-[--text-main]/60 mb-1 tracking-widest">Peak
-                                    Usage Hour</p>
-                                <h2 class="text-2xl font-black text-primary italic"><?= $peak_hour ?></h2>
+                            <div class="p-6 rounded-2xl bg-white/[0.01] border border-white/5 relative overflow-hidden group hover:border-primary/20 hover:bg-white/[0.03] transition-all cursor-default">
+                                <span class="material-symbols-outlined absolute right-6 top-1/2 -translate-y-1/2 text-5xl opacity-10 group-hover:scale-110 transition-transform text-primary">schedule</span>
+                                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-1 tracking-widest">Peak Usage Hour</p>
+                                <h2 class="text-xl font-black text-primary italic tracking-tighter"><?= $peak_hour ?></h2>
                             </div>
                         </div>
                     </div>
@@ -945,45 +1101,42 @@ switch ($report_type) {
     </div>
 
     <script>
-        const ctx = document.getElementById('registrationChart').getContext('2d');
-        new Chart(ctx, {
+        // 1. User Registration Growth (Line-Area) - Elite Styling
+        const regCtx = document.getElementById('registrationChart').getContext('2d');
+        new Chart(regCtx, {
             type: 'line',
             data: {
-                labels: <?= json_encode(array_map(function ($d) {
-                    return date('M d', strtotime($d['reg_date'])); }, $registration_data)) ?>,
+                labels: <?= json_encode(array_map(function ($d) { return date('M d', strtotime($d['reg_date'])); }, $registration_data)) ?>,
                 datasets: [{
-                    label: 'New Registrations',
-                    data: <?= json_encode(array_map(function ($d) {
-                        return (int) $d['count']; }, $registration_data)) ?>,
-                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(),
-                    backgroundColor: 'rgba(' + getComputedStyle(document.documentElement).getPropertyValue('--primary-rgb').trim() + ', 0.05)',
-                    borderWidth: 3,
+                    label: 'Registrations',
+                    data: <?= json_encode(array_map(function ($d) { return (int) $d['count']; }, $registration_data)) ?>,
+                    borderColor: '<?= $configs['theme_color'] ?? '#8c2bee' ?>',
+                    backgroundColor: 'rgba(<?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>, 0.1)',
+                    borderWidth: 2,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 4,
-                    pointBackgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(),
-                    pointBorderColor: 'rgba(255,255,255,0.1)',
-                    pointHoverRadius: 6
+                    pointBackgroundColor: '<?= $configs['theme_color'] ?? '#8c2bee' ?>',
+                    pointBorderColor: 'rgba(255,255,255,0.2)',
+                    pointHitRadius: 10
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: '#14121a',
-                        titleColor: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(),
-                        bodyColor: '#fff',
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        borderWidth: 1,
-                        padding: 10,
-                        displayColors: false
-                    }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666', font: { size: 10, weight: '800' } } },
-                    x: { grid: { display: false }, ticks: { color: '#666', font: { size: 10, weight: '800' } } }
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+                        border: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.4)', font: { family: 'Lexend', size: 9, weight: '800' } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        border: { display: false },
+                        ticks: { color: 'rgba(255,255,255,0.4)', font: { family: 'Lexend', size: 9, weight: '800' } }
+                    }
                 }
             }
         });
