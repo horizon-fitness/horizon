@@ -77,14 +77,14 @@ $stmtDaily = $pdo->prepare("
 $stmtDaily->execute(['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59']);
 $daily_sales = $stmtDaily->fetchAll(PDO::FETCH_ASSOC);
 
-// 4. TRANSACTION HISTORY SUMMARY (Recent 15)
+// 4. TRANSACTION HISTORY SUMMARY
 $stmtHistory = $pdo->prepare("
-    SELECT cs.*, g.gym_name, wp.plan_name 
+    SELECT cs.*, g.gym_name, wp.plan_name, wp.price 
     FROM client_subscriptions cs
     JOIN gyms g ON cs.gym_id = g.gym_id
     JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
-    WHERE cs.created_at BETWEEN :start AND :end
-    ORDER BY cs.created_at DESC LIMIT 15
+    WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end
+    ORDER BY cs.created_at DESC
 ");
 $stmtHistory->execute(['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59']);
 $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);

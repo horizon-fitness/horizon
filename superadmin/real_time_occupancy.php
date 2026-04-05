@@ -429,12 +429,8 @@ try {
             height: 24px;
             background: var(--primary);
             border-radius: 4px 0 0 4px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .sidebar-nav:hover .active-nav::after {
             opacity: 1;
+            transition: opacity 0.3s ease;
         }
         
         @media (max-width: 1023px) {

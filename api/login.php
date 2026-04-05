@@ -18,11 +18,13 @@ try {
 
     // Capture User with Role and Gym synergy - Filtered by tenant_code for strict multi-tenancy
     // Relaxed check: Allow login if tenant is '000', empty, or if user is Super Admin
-    $sql = "SELECT u.*, ur.gym_id, r.role_name, ur.tenant_code AS ur_tenant_code, g.tenant_code AS g_tenant_code, g.gym_name 
+    $sql = "SELECT u.*, ur.gym_id, r.role_name, ur.tenant_code AS ur_tenant_code, g.tenant_code AS g_tenant_code, g.gym_name,
+            m.member_id, m.member_code, m.birth_date AS member_birth_date, m.sex AS member_sex, m.occupation, m.address, m.emergency_contact_name, m.emergency_contact_number, m.medical_history, m.member_status
             FROM users u 
             JOIN user_roles ur ON u.user_id = ur.user_id 
             JOIN roles r ON ur.role_id = r.role_id 
             LEFT JOIN gyms g ON ur.gym_id = g.gym_id
+            LEFT JOIN members m ON u.user_id = m.user_id
             WHERE (u.username = :user1 OR u.email = :user2) 
             AND (ur.tenant_code = :tenant1 OR :tenant2 = '' OR :tenant3 = '000' OR r.role_name = 'Super Admin') 
             LIMIT 1";
@@ -78,7 +80,18 @@ try {
                 'tenant_id' => (string)($user['ur_tenant_code'] ?? ($user['g_tenant_code'] ?? '000')),
                 'gym_name' => (string)($user['gym_name'] ?? 'Horizon'),
                 'gym_id' => (int)($user['gym_id'] ?? 0),
-                'role' => (string)($user['role_name'] ?? 'Member')
+                'role' => (string)($user['role_name'] ?? 'Member'),
+                // Member-specific profile details
+                'member_id' => (int)($user['member_id'] ?? 0),
+                'member_code' => (string)($user['member_code'] ?? ''),
+                'address' => (string)($user['address'] ?? ''),
+                'birth_date' => (string)($user['member_birth_date'] ?? ($user['birth_date'] ?? '')),
+                'sex' => (string)($user['member_sex'] ?? ($user['sex'] ?? '')),
+                'occupation' => (string)($user['occupation'] ?? ''),
+                'medical_history' => (string)($user['medical_history'] ?? ''),
+                'emergency_contact_name' => (string)($user['emergency_contact_name'] ?? ''),
+                'emergency_contact_number' => (string)($user['emergency_contact_number'] ?? ''),
+                'member_status' => (string)($user['member_status'] ?? 'Active')
             ],
             'branding' => $branding ? [
                 'page_id' => (int)$branding['page_id'],

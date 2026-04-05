@@ -354,10 +354,9 @@ foreach ($logs as $log) {
             height: 24px; 
             background: var(--primary); 
             border-radius: 4px 0 0 4px; 
-            opacity: 0;
+            opacity: 1;
             transition: opacity 0.3s ease;
         }
-        .sidebar-nav:hover .active-nav::after { opacity: 1; }
         
         @media (max-width: 1023px) {
             .active-nav::after { display: none; }
