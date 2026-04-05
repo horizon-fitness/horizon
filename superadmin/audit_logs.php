@@ -729,7 +729,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         <select name="action_type" onchange="reactiveFilter()" class="input-field pr-10 min-w-[180px]">
                             <option value="all">All Activities</option>
                             <option value="Login" <?= $action_filter == 'Login' ? 'selected' : '' ?>>Login/Logout</option>
-                            <option value="Applicant" <?= $action_filter == 'Applicant' ? 'selected' : '' ?>>New Applicants</option>
+                            <option value="Applicant" <?= $action_filter == 'Applicant' ? 'selected' : '' ?>>Applicants & Tenants</option>
                             <option value="Transaction" <?= $action_filter == 'Transaction' ? 'selected' : '' ?>>New Transactions</option>
                             <option value="Create" <?= $action_filter == 'Create' ? 'selected' : '' ?>>Create Actions</option>
                             <option value="Update" <?= $action_filter == 'Update' ? 'selected' : '' ?>>Update Actions</option>
@@ -827,12 +827,21 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                                         // Specialized mapping for Applicants and Transactions
                                         if ($log['table_name'] === 'gym_owner_applications') {
-                                            $displayText = 'New Application';
-                                            $textColor = 'text-primary';
+                                            $newVals = json_decode($log['new_values'], true);
+                                            if (($newVals['status'] ?? '') === 'Approved') {
+                                                $displayText = 'New Tenant Onboarded';
+                                                $textColor = 'text-primary font-black';
+                                            } elseif (($log['action_type'] ?? '') === 'Reject') {
+                                                $displayText = 'Application Rejected';
+                                                $textColor = 'text-rose-500';
+                                            } else {
+                                                $displayText = 'New Application Sub';
+                                                $textColor = 'text-primary/70';
+                                            }
                                         }
                                         if (in_array($log['table_name'], ['payments', 'client_subscriptions'])) {
                                             $displayText = 'New Transaction';
-                                            $textColor = 'text-emerald-500';
+                                            $textColor = 'text-emerald-400 font-bold';
                                         }
                                     ?>
                                     <p class="text-[11px] font-black uppercase tracking-[0.15em] <?= $textColor ?>"><?= htmlspecialchars($displayText) ?></p>

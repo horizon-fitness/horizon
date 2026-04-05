@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../db.php';
+require_once '../includes/audit_logger.php';
 // Include PHPMailer classes
 require '../PHPMailer/Exception.php';
 require '../PHPMailer/PHPMailer.php';
@@ -82,6 +83,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
             $stmtUser->execute([$app['user_id']]);
             $userData = $stmtUser->fetch(PDO::FETCH_ASSOC);
             $username = $userData ? $userData['username'] : 'N/A';
+
+            // 7. Log Audit Event
+            log_audit_event($pdo, $admin_id, $gym_id, 'Create', 'gym_owner_applications', $app_id, ['status' => 'Pending'], ['status' => 'Approved', 'gym_id' => $gym_id, 'tenant_code' => $tenant_code]);
 
             $pdo->commit();
 
@@ -186,6 +190,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
             $alertMsg = "Gym Application Rejected: " . ($app['gym_name'] ?: 'Unknown');
             $stmtAlert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Application Rejected', 'System', ?, 'High', 'Unread', ?)");
             $stmtAlert->execute([$alertMsg, $now]);
+
+            // 5. Log Audit Event
+            log_audit_event($pdo, $admin_id, null, 'Reject', 'gym_owner_applications', $app_id, ['status' => 'Pending'], ['status' => 'Rejected']);
 
             $pdo->commit();
             $_SESSION['success_msg'] = "Application rejected successfully. Credentials are now available for reuse.";
