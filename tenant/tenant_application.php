@@ -81,6 +81,10 @@ unset($_SESSION['application_data']);
         input[type="time"]::-webkit-calendar-picker-indicator:hover {
             opacity: 1;
         }
+
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
     </style>
 </head>
 

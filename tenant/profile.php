@@ -156,6 +156,10 @@ $active_page = "profile";
         .strength-bar { height: 4px; border-radius: 2px; transition: all 0.3s ease; width: 0; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
     </style>
     <script>
         function updateHeaderClock() {

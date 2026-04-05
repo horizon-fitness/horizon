@@ -37,6 +37,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
             // Update subscription to Paid and Active
             $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Paid', subscription_status = 'Active' WHERE subscription_id = ?");
             $stmt->execute([$sub_id]);
+
+            // Sync with payments table
+            $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Paid' WHERE client_subscription_id = ?");
+            $stmtPay->execute([$sub_id]);
+
             $msg = "Approved payment for Subscription #$sub_id (" . $subData['gym_name'] . ")";
 
             // Prepare Email
@@ -57,6 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
             // Update subscription to Rejected and Inactive
             $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Rejected', subscription_status = 'Inactive' WHERE subscription_id = ?");
             $stmt->execute([$sub_id]);
+
+            // Sync with payments table
+            $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Rejected' WHERE client_subscription_id = ?");
+            $stmtPay->execute([$sub_id]);
+
             $msg = "Rejected payment for Subscription #$sub_id (" . $subData['gym_name'] . ")";
 
             // Prepare Email

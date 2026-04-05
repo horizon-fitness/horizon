@@ -78,6 +78,7 @@ $subscription = $stmtSub->fetch();
 
 $plan_name = $subscription['plan_name'] ?? 'No Plan';
 $sub_status = $subscription['subscription_status'] ?? 'None';
+$is_sub_active = (strtolower($sub_status) === 'active');
 
 $page_title = "Owner Dashboard";
 
@@ -203,10 +204,34 @@ for ($i = 5; $i >= 0; $i--) {
         .nav-item.active { color: <?= $theme_color ?> !important; position: relative; }
         .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: <?= $theme_color ?>; border-radius: 4px 0 0 4px; }
         
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
+        /* Sidebar-Aware Sub Modal */
+        #subModal { 
+            position: fixed; 
+            top: 0; 
+            right: 0; 
+            bottom: 0; 
+            left: 110px; 
+            z-index: 200; 
+            display: none !important; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 24px; 
+            background: rgba(0, 0, 0, 0.8); 
+            backdrop-filter: blur(12px); 
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        #subModal.active { display: flex !important; }
+        .side-nav:hover ~ #subModal { left: 300px; }
     </style>
+
+    <script>
+        function showSubWarning() { document.getElementById('subModal').classList.add('active'); }
+        function closeSubModal() { document.getElementById('subModal').classList.remove('active'); }
+    </script>
 
     <script>
 
@@ -313,6 +338,34 @@ for ($i = 5; $i >= 0; $i--) {
 
 <main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar">
 
+    <?php if ($sub_status === 'Pending Approval'): ?>
+        <div class="glass-card p-6 border-amber-500/30 bg-amber-500/5 mb-8 flex items-center gap-6">
+            <div class="size-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
+                <span class="material-symbols-outlined text-2xl">hourglass_empty</span>
+            </div>
+            <div class="flex-1">
+                <h4 class="text-sm font-black uppercase italic tracking-tight text-amber-400">Subscription Pending Approval</h4>
+                <p class="text-[10px] font-bold text-amber-500/70 uppercase tracking-widest mt-1">Your payment is being verified by our team. Access to some features might be restricted until your plan is activated.</p>
+            </div>
+            <div class="text-right">
+                <span class="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-[9px] font-black uppercase tracking-widest border border-amber-500/30">Verification In Progress</span>
+            </div>
+        </div>
+    <?php elseif ($sub_status === 'None' || $sub_status === 'Expired' || $sub_status === 'Inactive'): ?>
+        <div class="glass-card p-6 border-rose-500/30 bg-rose-500/5 mb-8 flex items-center gap-6">
+            <div class="size-12 rounded-2xl bg-rose-500/20 flex items-center justify-center text-rose-500 shrink-0">
+                <span class="material-symbols-outlined text-2xl">priority_high</span>
+            </div>
+            <div class="flex-1">
+                <h4 class="text-sm font-black uppercase italic tracking-tight text-rose-400">No Active Subscription</h4>
+                <p class="text-[10px] font-bold text-rose-500/70 uppercase tracking-widest mt-1">Activate a growth plan to unlock the full potential of your gym's digital infrastructure.</p>
+            </div>
+            <a href="subscription_plan.php" class="h-10 px-6 rounded-xl bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center hover:opacity-90 transition-all">
+                Select Plan
+            </a>
+        </div>
+    <?php endif; ?>
+
     <header class="mb-10 flex justify-between items-end">
         <div>
             <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic">Welcome Back, <span class="text-primary italic"><?= htmlspecialchars($first_name) ?></span></h2>
@@ -405,8 +458,9 @@ for ($i = 5; $i >= 0; $i--) {
                 <a href="tenant_settings.php" class="flex-1 h-12 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center text-[10px] font-bold uppercase tracking-widest gap-2">
                     <span class="material-symbols-outlined text-lg">edit_note</span> Edit Page
                 </a>
-                <a target="_blank" href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" class="flex-1 h-12 rounded-xl bg-primary hover:opacity-90 transition-all flex items-center justify-center text-[10px] font-bold uppercase tracking-widest gap-2 text-white shadow-lg shadow-primary/20">
-                    <span class="material-symbols-outlined text-lg">visibility</span> View Site
+                <a <?= $is_sub_active ? 'target="_blank" href="../portal.php?gym=' . htmlspecialchars($page['page_slug'] ?? '') . '"' : 'onclick="showSubWarning()"' ?> class="flex-1 h-12 rounded-xl <?= $is_sub_active ? 'bg-primary shadow-primary/20 hover:opacity-90' : 'bg-white/5 border border-white/10 text-gray-500 hover:text-white' ?> transition-all flex items-center justify-center text-[10px] font-bold uppercase tracking-widest gap-2 text-white shadow-lg cursor-pointer">
+                    <span class="material-symbols-outlined text-lg"><?= $is_sub_active ? 'visibility' : 'lock' ?></span> 
+                    <?= $is_sub_active ? 'View Site' : 'Site Locked' ?>
                 </a>
             </div>
         </div>
@@ -572,6 +626,31 @@ for ($i = 5; $i >= 0; $i--) {
             options: chartOptions
         });
     </script>
+
+    <!-- Restriction Modal (Sidebar-Aware) -->
+    <div id="subModal">
+        <div class="glass-card max-w-md w-full p-10 text-center animate-in zoom-in duration-300 relative shadow-[0_0_100px_rgba(140,43,238,0.15)] border-primary/20">
+            <button onclick="closeSubModal()" class="absolute top-6 right-6 text-gray-400 hover:text-white transition-all size-10 rounded-xl hover:bg-white/5 flex items-center justify-center">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            <div class="size-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-8">
+                <span class="material-symbols-outlined text-4xl text-primary">lock</span>
+            </div>
+            <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-3">Subscription Required</h3>
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-10 leading-relaxed italic px-4">
+                Your public gym portal is currently offline or restricted. Your status is <span class="text-primary italic animate-pulse"><?= $sub_status ?></span>. Please activate a growth plan to go live.
+            </p>
+            <div class="flex flex-col gap-4">
+                <a href="subscription_plan.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+                    <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">payments</span>
+                    Select Growth Plan
+                </a>
+                <button onclick="closeSubModal()" class="h-14 rounded-2xl bg-white/5 border border-white/10 text-gray-400 text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center hover:bg-white/10 transition-all">
+                    Dismiss
+                </button>
+            </div>
+        </div>
+    </div>
 
 </body>
 

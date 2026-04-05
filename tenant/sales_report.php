@@ -62,11 +62,11 @@ $page = $stmtPage->fetch();
 $theme_color = $page['theme_color'] ?? '#8c2bee';
 $bg_color = $page['bg_color'] ?? '#0a090d';
 
-// Check Subscription
-$stmtSub = $pdo->prepare("SELECT ws.plan_name FROM client_subscriptions cs JOIN website_plans ws ON cs.website_plan_id = ws.website_plan_id WHERE cs.gym_id = ? AND cs.subscription_status = 'Active' LIMIT 1");
-$stmtSub->execute([$gym_id]);
-$sub = $stmtSub->fetch();
-$plan_name = $sub['plan_name'] ?? 'Free Trial';
+// --- SUBSCRIPTION CHECK FOR RESTRICTION ---
+$stmtSubStatus = $pdo->prepare("SELECT subscription_status FROM client_subscriptions WHERE gym_id = ? ORDER BY created_at DESC LIMIT 1");
+$stmtSubStatus->execute([$gym_id]);
+$sub_status = $stmtSubStatus->fetchColumn() ?: 'None';
+$is_sub_active = (strtolower($sub_status) === 'active');
 
 $active_page = "sales";
 ?>
@@ -113,15 +113,49 @@ $active_page = "sales";
         .nav-item.active { color: var(--primary) !important; position: relative; }
         .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: var(--primary); border-radius: 4px 0 0 4px; }
         
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
         /* Inputs */
         .input-box { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: white; padding: 10px 16px; font-size: 11px; font-weight: 500; outline: none; transition: all 0.2s; }
         .input-box:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.08); }
         .input-box option { background: #14121a; color: white; }
+
+        /* RESTRICTION BLUR */
+        .blur-overlay { position: relative; }
+        .blur-overlay-content { filter: blur(12px); pointer-events: none; user-select: none; }
+
+        /* Sidebar-Aware Sub Modal */
+        #subModal { 
+            position: fixed; 
+            top: 0; 
+            right: 0; 
+            bottom: 0; 
+            left: 110px; 
+            z-index: 200; 
+            display: none !important; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 24px; 
+            background: rgba(0, 0, 0, 0.8); 
+            backdrop-filter: blur(12px); 
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        #subModal.active { display: flex !important; }
+        .side-nav:hover ~ #subModal { left: 300px; }
     </style>
     <script>
+        function showSubWarning() { document.getElementById('subModal').classList.add('active'); }
+        function closeSubModal() { document.getElementById('subModal').classList.remove('active'); }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            <?php if (!$is_sub_active): ?>
+            showSubWarning();
+            <?php endif; ?>
+            updateTopClock();
+        });
+
         function updateTopClock() {
             const now = new Date();
             const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -207,7 +241,8 @@ $active_page = "sales";
     </div>
 </nav>
 
-<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar">
+<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar <?= !$is_sub_active ? 'blur-overlay' : '' ?>">
+    <div class="<?= !$is_sub_active ? 'blur-overlay-content' : '' ?>">
 
     <header class="mb-10 flex justify-between items-end">
         <div>
@@ -488,5 +523,24 @@ $active_page = "sales";
         }
     }
 </script>
+    <!-- Restriction Modal (Sidebar-Aware) -->
+    <div id="subModal">
+        <div class="glass-card max-w-md w-full p-10 text-center animate-in zoom-in duration-300 relative shadow-[0_0_100px_rgba(140,43,238,0.15)] border-primary/20">
+            <div class="size-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-8">
+                <span class="material-symbols-outlined text-4xl text-primary">payments</span>
+            </div>
+            <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-3">Subscription Required</h3>
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-10 leading-relaxed italic px-4">
+                Access to financial intelligence, revenue forecasting, and sales analytics is restricted. Your status is <span class="text-primary italic animate-pulse"><?= $sub_status ?></span>. Please activate a growth plan to unlock.
+            </p>
+            <div class="flex flex-col gap-4">
+                <a href="subscription_plan.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+                    <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">payments</span>
+                    Select Growth Plan
+                </a>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>

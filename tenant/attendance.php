@@ -80,6 +80,12 @@ $stmtAttendance = $pdo->prepare("
 ");
 $stmtAttendance->execute($params);
 $attendance = $stmtAttendance->fetchAll();
+
+// --- SUBSCRIPTION CHECK FOR RESTRICTION ---
+$stmtSubStatus = $pdo->prepare("SELECT subscription_status FROM client_subscriptions WHERE gym_id = ? ORDER BY created_at DESC LIMIT 1");
+$stmtSubStatus->execute([$gym_id]);
+$sub_status = $stmtSubStatus->fetchColumn() ?: 'None';
+$is_sub_active = (strtolower($sub_status) === 'active');
 ?>
 
 <!DOCTYPE html>
@@ -118,13 +124,47 @@ $attendance = $stmtAttendance->fetchAll();
         .nav-item.active { color: <?= $theme_color ?> !important; position: relative; }
         .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: <?= $theme_color ?>; border-radius: 4px 0 0 4px; }
 
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
         .filter-input { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 8px 12px; font-size: 11px; font-weight: 600; color: white; outline: none; transition: all 0.2s; color-scheme: dark; }
         .filter-input option { background-color: #1a1821; color: white; }
         .filter-input:focus { border-color: <?= $theme_color ?>; background: rgba(140, 43, 238, 0.05); }
+
+        /* RESTRICTION BLUR */
+        .blur-overlay { position: relative; }
+        .blur-overlay-content { filter: blur(12px); pointer-events: none; user-select: none; }
+
+        /* Sidebar-Aware Sub Modal */
+        #subModal { 
+            position: fixed; 
+            top: 0; 
+            right: 0; 
+            bottom: 0; 
+            left: 110px; 
+            z-index: 200; 
+            display: none !important; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 24px; 
+            background: rgba(0, 0, 0, 0.8); 
+            backdrop-filter: blur(12px); 
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        #subModal.active { display: flex !important; }
+        .side-nav:hover ~ #subModal { left: 300px; }
     </style>
+    <script>
+        function showSubWarning() { document.getElementById('subModal').classList.add('active'); }
+        function closeSubModal() { document.getElementById('subModal').classList.remove('active'); }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            <?php if (!$is_sub_active): ?>
+            showSubWarning();
+            <?php endif; ?>
+        });
+    </script>
 </head>
 <body class="flex h-screen overflow-hidden">
 
@@ -199,7 +239,8 @@ $attendance = $stmtAttendance->fetchAll();
     </div>
 </nav>
 
-<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar pb-10">
+<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar pb-10 <?= !$is_sub_active ? 'blur-overlay' : '' ?>">
+    <div class="<?= !$is_sub_active ? 'blur-overlay-content' : '' ?>">
     <header class="mb-10 flex justify-between items-end">
         <div>
             <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic leading-none">
@@ -361,6 +402,25 @@ $attendance = $stmtAttendance->fetchAll();
     setInterval(updateTopClock, 1000);
     window.addEventListener('DOMContentLoaded', updateTopClock);
 </script>
+
+    <!-- Restriction Modal (Sidebar-Aware) -->
+    <div id="subModal">
+        <div class="glass-card max-w-md w-full p-10 text-center animate-in zoom-in duration-300 relative shadow-[0_0_100px_rgba(140,43,238,0.15)] border-primary/20">
+            <div class="size-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-8">
+                <span class="material-symbols-outlined text-4xl text-primary">history</span>
+            </div>
+            <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-3">Subscription Required</h3>
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-10 leading-relaxed italic px-4">
+                Access to attendance tracking and presence logs is restricted. Your status is <span class="text-primary italic animate-pulse"><?= $sub_status ?></span>. Please activate a growth plan to unlock.
+            </p>
+            <div class="flex flex-col gap-4">
+                <a href="subscription_plan.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+                    <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">payments</span>
+                    Select Growth Plan
+                </a>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>

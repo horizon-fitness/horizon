@@ -32,7 +32,6 @@ $stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1")
 $stmtPage->execute([$gym_id]);
 $page = $stmtPage->fetch();
 
-// Fetch Active Subscription for Sidebar/Header
 $stmtSub = $pdo->prepare("
     SELECT ws.plan_name 
     FROM client_subscriptions cs 
@@ -44,6 +43,12 @@ $stmtSub->execute([$gym_id]);
 $sub = $stmtSub->fetch();
 $plan_name = $sub['plan_name'] ?? 'Standard Plan';
 
+// --- SUBSCRIPTION CHECK FOR RESTRICTION ---
+$stmtSubStatus = $pdo->prepare("SELECT subscription_status FROM client_subscriptions WHERE gym_id = ? ORDER BY created_at DESC LIMIT 1");
+$stmtSubStatus->execute([$gym_id]);
+$sub_status = $stmtSubStatus->fetchColumn() ?: 'None';
+$is_sub_active = (strtolower($sub_status) === 'active');
+
 $success = null;
 $error = null;
 
@@ -54,8 +59,11 @@ $secondary_color = $page['secondary_color'] ?? '#a1a1aa';
 
 // --- UNIFIED POST HANDLER ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Branding Data
-    $page_title = $_POST['page_title'] ?? $gym['gym_name'];
+    if (!$is_sub_active) {
+        $error = "Action restricted. Your subscription is currently $sub_status.";
+    } else {
+        // Branding Data
+        $page_title = $_POST['page_title'] ?? $gym['gym_name'];
     $theme_color = $_POST['theme_color'] ?? '#8c2bee';
     $secondary_color = $_POST['secondary_color'] ?? '#a1a1aa';
     $bg_color = $_POST['bg_color'] ?? '#0a090d';
@@ -107,6 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         $pdo->rollBack();
         $error = "Update Error: " . $e->getMessage();
+    }
     }
 }
 ?>
@@ -234,7 +243,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         .input-dark { background: #0a090d; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; color: white; padding: 12px 16px; font-size: 12px; width: 100%; outline: none; transition: all 0.2s; }
         .input-dark:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(140, 43, 238, 0.1); }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
         
         #portalFrame {
             width: 1600px;
@@ -245,7 +256,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             left: 0;
             transform-origin: top left;
         }
+
+        /* RESTRICTION BLUR */
+        .blur-overlay { position: relative; }
+        .blur-overlay-content { filter: blur(12px); pointer-events: none; user-select: none; }
+
+        /* Sidebar-Aware Sub Modal */
+        #subModal { 
+            position: fixed; 
+            top: 0; 
+            right: 0; 
+            bottom: 0; 
+            left: 110px; 
+            z-index: 200; 
+            display: none !important; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 24px; 
+            background: rgba(0, 0, 0, 0.8); 
+            backdrop-filter: blur(12px); 
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
+        }
+        #subModal.active { display: flex !important; }
+        .side-nav:hover ~ #subModal { left: 300px; }
     </style>
+    <script>
+        function showSubWarning() { document.getElementById('subModal').classList.add('active'); }
+        function closeSubModal() { document.getElementById('subModal').classList.remove('active'); }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            <?php if (!$is_sub_active): ?>
+            showSubWarning();
+            <?php endif; ?>
+        });
+    </script>
 </head>
 <body class="flex h-screen overflow-hidden">
 
@@ -344,13 +388,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </header>
 
-    <?php if ($success): ?>
-    <div class="mb-10 p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-black uppercase italic tracking-widest flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
-        <span class="material-symbols-outlined text-base">check_circle</span> <?= $success ?>
+    <?php if ($error): ?>
+    <div class="mb-10 p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] font-black uppercase italic tracking-widest flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+        <span class="material-symbols-outlined text-base">error</span> <?= $error ?>
     </div>
     <?php endif; ?>
 
-    <form id="unifiedSettingsForm" method="POST" enctype="multipart/form-data" class="space-y-12 pb-20 max-w-[1700px] mx-auto">
+    <div class="<?= !$is_sub_active ? 'blur-overlay' : '' ?>">
+        <?php if (!$is_sub_active): ?>
+            <!-- Premium Modal shown via JS on load -->
+        <?php endif; ?>
+
+        <form id="unifiedSettingsForm" method="POST" enctype="multipart/form-data" class="space-y-12 pb-20 max-w-[1700px] mx-auto <?= !$is_sub_active ? 'blur-overlay-content' : '' ?>">
         
         <!-- TOP: LIVE PREVIEW TERMINAL -->
         <div class="space-y-6">
@@ -508,7 +557,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 Update Global Settings
             </button>
         </div>
-    </form>
+        </div>
+    </div>
+</form>
 </main>
 
 <script>
@@ -592,6 +643,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     window.onload = handleResize;
     window.addEventListener('resize', handleResize);
 </script>
+
+    <!-- Restriction Modal (Sidebar-Aware) -->
+    <div id="subModal">
+        <div class="glass-card max-w-md w-full p-10 text-center animate-in zoom-in duration-300 relative shadow-[0_0_100px_rgba(140,43,238,0.15)] border-primary/20">
+            <div class="size-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-8">
+                <span class="material-symbols-outlined text-4xl text-primary">lock</span>
+            </div>
+            <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-3">Subscription Required</h3>
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-10 leading-relaxed italic px-4">
+                Access to branding and facility configuration is restricted. Your status is <span class="text-primary italic animate-pulse"><?= $sub_status ?></span>. Please activate a growth plan to unlock.
+            </p>
+            <div class="flex flex-col gap-4">
+                <a href="subscription_plan.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+                    <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">payments</span>
+                    Select Growth Plan
+                </a>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>
