@@ -53,8 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // 4. (DEPRECATED) Handle Proof of Payment (Removed for PayMongo)
         $proof_path = null;
 
-        // 5. Insert Payment Record (Removed receipt_image for PayMongo)
-        $stmtPay = $pdo->prepare("INSERT INTO payments (member_id, gym_id, subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at) VALUES (?, ?, ?, ?, ?, 'Subscription', ?, 'Pending', ?, ?)");
+        // 5. Insert Payment Record (Setting type to 'Membership' to distinguish from Tenant 'Subscription')
+        $stmtPay = $pdo->prepare("INSERT INTO payments (member_id, gym_id, subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at) VALUES (?, ?, ?, ?, ?, 'Membership', ?, 'Pending', ?, ?)");
         $stmtPay->execute([$member_id, $gym_id, $subscription_id, $amount, $payment_method, $reference_number, date('Y-m-d'), $now]);
         $payment_id = $pdo->lastInsertId();
 

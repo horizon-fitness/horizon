@@ -104,9 +104,10 @@ if ($verification_success) {
 
             // 2. Record Payment (Status: Pending)
             $remarks = ($verification_method === "Signature Fallback") ? "Verified via fallback signature due to gateway ID displacement. Original Session: $session_id" : "Verified via PayMongo API. Session: $session_id";
-            $stmtPay = $pdo->prepare("INSERT INTO payments (gym_id, client_subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at, remarks) VALUES (?, ?, ?, 'PayMongo Checkout', 'Subscription', ?, 'Pending', ?, ?, ?)");
+            $stmtPay = $pdo->prepare("INSERT INTO payments (gym_id, subscription_id, client_subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at, remarks) VALUES (?, ?, ?, ?, 'PayMongo Checkout', 'Subscription', ?, 'Pending', ?, ?, ?)");
             $stmtPay->execute([
                 $gym_id, 
+                $client_subscription_id, // Also fill subscription_id for visibility
                 $client_subscription_id, 
                 $plan['price'], 
                 $reference_to_save, 

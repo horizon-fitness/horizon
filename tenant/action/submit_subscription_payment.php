@@ -22,8 +22,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['subscription_id'], $_
         $pdo->beginTransaction();
 
         // 1. Insert into payments table
-        $stmtPayment = $pdo->prepare("INSERT INTO payments (gym_id, client_subscription_id, amount, payment_method, payment_type, reference_number, payment_status, created_at) VALUES (?, ?, ?, ?, 'Subscription', ?, 'Pending', ?)");
-        $stmtPayment->execute([$gym_id, $subscription_id, $amount, $payment_method, $reference_number, $now]);
+        $stmtPayment = $pdo->prepare("INSERT INTO payments (gym_id, subscription_id, client_subscription_id, amount, payment_method, payment_type, reference_number, payment_status, created_at) VALUES (?, ?, ?, ?, ?, 'Subscription', ?, 'Pending', ?)");
+        $stmtPayment->execute([$gym_id, $subscription_id, $subscription_id, $amount, $payment_method, $reference_number, $now]);
         $payment_id = $pdo->lastInsertId();
 
         // 2. Update client_subscriptions status

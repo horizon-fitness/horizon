@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtPay->execute([$user_id, $now, $payment_id]);
 
             // 2. Update Subscription Payment Status back to 'Rejected'
-            $stmtSub = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Rejected', subscription_status = 'Inactive', updated_at = ? WHERE subscription_id = ?");
+            $stmtSub = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Rejected', subscription_status = 'Inactive', updated_at = ? WHERE client_subscription_id = ?");
             $stmtSub->execute([$now, $subscription_id]);
 
             // Prepare Rejection Email

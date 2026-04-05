@@ -38,9 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
             $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Paid', subscription_status = 'Active' WHERE client_subscription_id = ?");
             $stmt->execute([$sub_id]);
 
-            // Sync with payments table
-            $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Paid' WHERE client_subscription_id = ?");
-            $stmtPay->execute([$sub_id]);
+            // Sync with payments table (Strictly based on client_subscription_id and payment_type = 'Subscription')
+            $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Paid', verified_by = ?, verified_at = NOW() WHERE client_subscription_id = ? AND payment_type = 'Subscription'");
+            $stmtPay->execute([$admin_id, $sub_id]);
 
             $msg = "Approved payment for Subscription #$sub_id (" . $subData['gym_name'] . ")";
 
@@ -63,9 +63,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
             $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Rejected', subscription_status = 'Inactive' WHERE client_subscription_id = ?");
             $stmt->execute([$sub_id]);
 
-            // Sync with payments table (linking to client_subscription_id)
-            $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Rejected' WHERE client_subscription_id = ?");
-            $stmtPay->execute([$sub_id]);
+            // Sync with payments table (Strictly based on client_subscription_id and payment_type = 'Subscription')
+            $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Rejected', verified_by = ?, verified_at = NOW() WHERE client_subscription_id = ? AND payment_type = 'Subscription'");
+            $stmtPay->execute([$admin_id, $sub_id]);
 
             $msg = "Rejected subscription payment for #" . $sub_id . " (" . $subData['gym_name'] . ")";
 
@@ -857,7 +857,7 @@ foreach ($logs as $log) {
                                         <td class="px-8 py-5 text-right">
                                             <div class="inline-flex gap-2">
                                                 <form method="POST" class="confirm-form">
-                                                    <input type="hidden" name="subscription_id" value="<?= $log['subscription_id'] ?>">
+                                                    <input type="hidden" name="subscription_id" value="<?= $log['client_subscription_id'] ?>">
                                                     <input type="hidden" name="action" value="approve_payment">
                                                     <button type="button" 
                                                             onclick="confirmAdminAction(this.form, 'Approve Payment', 'Are you sure you want to approve this payment? This will activate the gym\'s premium subscription.')"
