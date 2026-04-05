@@ -129,6 +129,14 @@ $peak_hour = $peak_row ? date('h:00 A', strtotime($peak_row['hr'] . ':00')) : 'N
 $report_type = $_GET['report_type'] ?? 'tenant_activity';
 $report_data = [];
 
+$report_titles = [
+    'tenant_activity' => ['title' => 'Tenant Activity Report', 'desc' => 'Site-wide engagement and member volume'],
+    'gym_apps' => ['title' => 'Gym Applications Report', 'desc' => 'Pending and processed ownership requests'],
+    'client_subs' => ['title' => 'Client Subscriptions Report', 'desc' => 'Revenue and validity tracking for gym partners']
+];
+
+$curr_report = $report_titles[$report_type] ?? $report_titles['tenant_activity'];
+
 switch ($report_type) {
     case 'gym_apps':
         $sql = "SELECT a.*, u.first_name, u.last_name, r.first_name as rev_f, r.last_name as rev_l 
