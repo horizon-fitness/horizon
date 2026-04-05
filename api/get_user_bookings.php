@@ -34,14 +34,19 @@ try {
             b.booking_date as date, 
             b.start_time as time, 
             '60 mins' as duration,
-            COALESCE(gs.custom_service_name, sc.service_name) as service, 
-            'Gym Staff' as trainer,
+            COALESCE(gs.custom_service_name, sc.service_name, 'Unlimited Gym Use') as service, 
+            CASE 
+                WHEN COALESCE(gs.custom_service_name, sc.service_name, '') LIKE '%Unlimited Gym Use%' OR b.gym_service_id IS NULL THEN 'Self'
+                ELSE CONCAT(u.first_name, ' ', u.last_name)
+            END as trainer,
             b.booking_status as status,
             g.gym_name
         FROM bookings b
         LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
         LEFT JOIN service_catalog sc ON gs.catalog_service_id = sc.catalog_service_id
         LEFT JOIN gyms g ON b.gym_id = g.gym_id
+        LEFT JOIN staff s ON b.coach_id = s.staff_id
+        LEFT JOIN users u ON s.user_id = u.user_id
         WHERE b.member_id IN ($placeholders)
         ORDER BY b.booking_date DESC, b.start_time DESC
     ");

@@ -356,14 +356,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 99px;
         }
 
-        /* Modal Elite Positioning */
+        /* Modal Elite Positioning - Sidebar-Aware */
         .modal-backdrop {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
             background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(12px);
             opacity: 0;
             visibility: hidden;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1000;
+            z-index: 200;
+        }
+
+        .side-nav:hover ~ .modal-backdrop {
+            left: 300px;
         }
 
         .modal-backdrop.active {
@@ -379,19 +388,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 32px;
             position: fixed;
             top: 50%;
-            left: calc(var(--nav-width) + (100% - var(--nav-width)) / 2);
+            left: calc(110px + (100% - 110px) / 2);
             transform: translate(-50%, -40%) scale(0.95);
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 0;
             visibility: hidden;
-            z-index: 1001;
+            z-index: 201;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .side-nav:hover ~ .modal-container {
+            left: calc(300px + (100% - 300px) / 2);
         }
 
         .modal-backdrop.active ~ .modal-container {
             opacity: 1;
             visibility: visible;
             transform: translate(-50%, -50%) scale(1);
+        }
+
+        .flex-modal {
+            display: flex !important;
         }
 
         /* Alert System */
@@ -448,13 +465,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 confirmBtn.className = 'flex-1 bg-rose-500 hover:bg-rose-600 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all';
             }
 
-            modal.classList.add('active');
+            modal.classList.add('active', 'flex-modal');
             backdrop.classList.add('active');
             document.body.style.overflow = 'hidden';
         }
 
         function closeModal() {
-            document.getElementById('confirmationModal').classList.remove('active');
+            document.getElementById('confirmationModal').classList.remove('active', 'flex-modal');
             document.getElementById('modalBackdrop').classList.remove('active');
             document.body.style.overflow = '';
         }
@@ -518,6 +535,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </nav>
 
+<!-- Modal System -->
+<div id="modalBackdrop" class="modal-backdrop" onclick="closeModal()"></div>
+<div id="confirmationModal" class="modal-container p-10 flex-col items-center text-center">
+    <div class="size-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+        <span class="material-symbols-outlined text-primary text-4xl">verified_user</span>
+    </div>
+    <h3 id="modalTitle" class="text-2xl font-black italic uppercase tracking-tight text-white mb-3">Confirm Action?</h3>
+    <p id="modalMessage" class="text-gray-500 text-sm font-medium mb-10 leading-relaxed px-4">Are you sure you want to proceed with this operation?</p>
+    <div class="flex w-full gap-4">
+        <button onclick="closeModal()" class="flex-1 bg-white/5 hover:bg-white/10 text-gray-400 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Discard</button>
+        <button id="confirmActionBtn" onclick="submitAction()" class="flex-1 bg-primary hover:bg-primary/90 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Proceed</button>
+    </div>
+</div>
+
 <div class="main-content flex-1 overflow-y-auto no-scrollbar">
     <!-- Alert System -->
     <?php if (isset($_SESSION['success_msg'])): ?>
@@ -534,19 +565,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     <?php endif; ?>
 
-    <!-- Modal System -->
-    <div id="modalBackdrop" class="modal-backdrop fixed inset-0" onclick="closeModal()"></div>
-    <div id="confirmationModal" class="modal-container p-10 flex flex-col items-center text-center">
-        <div class="size-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-            <span class="material-symbols-outlined text-primary text-4xl">verified_user</span>
-        </div>
-        <h3 id="modalTitle" class="text-2xl font-black italic uppercase tracking-tight text-white mb-3">Confirm Action?</h3>
-        <p id="modalMessage" class="text-gray-500 text-sm font-medium mb-10 leading-relaxed px-4">Are you sure you want to proceed with this operation?</p>
-        <div class="flex w-full gap-4">
-            <button onclick="closeModal()" class="flex-1 bg-white/5 hover:bg-white/10 text-gray-400 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Discard</button>
-            <button id="confirmActionBtn" onclick="submitAction()" class="flex-1 bg-primary hover:bg-primary/90 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Proceed</button>
-        </div>
-    </div>
 
     <main class="p-10 max-w-[1400px] mx-auto pb-20">
         <header class="mb-12 flex flex-row justify-between items-end gap-6">

@@ -10,15 +10,15 @@ if ($gym_id <= 0) {
 }
 
 try {
-    // Get active coaches Joined with users table
+    // Get active employees with the role 'Coach' from the staff table
     $stmt = $pdo->prepare("
-        SELECT c.coach_id, u.first_name, u.last_name, c.specialization
-        FROM coaches c
-        JOIN users u ON c.user_id = u.user_id
-        WHERE c.gym_id = ? AND c.status = 'Active'
+        SELECT s.staff_id as coach_id, u.first_name, u.last_name, 'Fitness Specialist' as specialization
+        FROM staff s
+        JOIN users u ON s.user_id = u.user_id
+        WHERE s.gym_id = ? AND s.staff_role = 'Coach' AND s.status = 'Active'
     ");
     $stmt->execute([$gym_id]);
-    $coaches = $stmt->fetchAll();
+    $coaches = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode([
         'success' => true,
