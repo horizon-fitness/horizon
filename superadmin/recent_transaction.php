@@ -19,6 +19,36 @@ $date_from = $_GET['date_from'] ?? '';
 $date_to = $_GET['date_to'] ?? '';
 $search_query = $_GET['search'] ?? '';
 
+// (Logic moved below settings fetch to support mock data override)
+
+// (Query logic moved to the mock/real switch below settings)
+
+// Hex to RGB helper for dynamic transparency
+function hexToRgb($hex) {
+    if (!$hex) return "140, 43, 238"; // Default primary RGB
+    $hex = str_replace("#", "", $hex);
+    if (strlen($hex) == 3) {
+        $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+        $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+        $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+    } else {
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+    }
+    return "$r, $g, $b";
+}
+
+// Fetch and Merge Settings
+$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+
+$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtUser->execute([$_SESSION['user_id']]);
+$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+
+$configs = array_merge($global_configs, $user_configs);
+
 // 0. Financial Overview Calculations (Global)
 $stmtTotal = $pdo->query("SELECT SUM(amount) FROM payments WHERE LOWER(payment_status) IN ('paid', 'success', 'completed')");
 $total_revenue = $stmtTotal->fetchColumn() ?: 0.00;
@@ -95,7 +125,7 @@ $query = "SELECT p.*, g.gym_name,
 $count_stmt = $pdo->prepare($count_query);
 $count_stmt->execute($params);
 $total_records = $count_stmt->fetchColumn();
-$total_pages = ceil($total_records / $limit);
+$total_pages = max(1, ceil($total_records / $limit));
 
 // Finalize query with ordering and pagination
 $query .= " ORDER BY p.created_at DESC LIMIT :limit OFFSET :offset";
@@ -117,32 +147,6 @@ $transactions = $stmtTrx->fetchAll(PDO::FETCH_ASSOC);
 $query_string = $_GET;
 unset($query_string['page']);
 $base_pagination_url = "recent_transaction.php?" . http_build_query($query_string);
-
-// Hex to RGB helper for dynamic transparency
-function hexToRgb($hex) {
-    if (!$hex) return "140, 43, 238"; // Default primary RGB
-    $hex = str_replace("#", "", $hex);
-    if (strlen($hex) == 3) {
-        $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
-        $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
-        $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
-    } else {
-        $r = hexdec(substr($hex, 0, 2));
-        $g = hexdec(substr($hex, 2, 2));
-        $b = hexdec(substr($hex, 4, 2));
-    }
-    return "$r, $g, $b";
-}
-
-// Fetch and Merge Settings
-$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
-$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
-
-$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
-$stmtUser->execute([$_SESSION['user_id']]);
-$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
-
-$configs = array_merge($global_configs, $user_configs);
 ?>
 
 <!DOCTYPE html>
@@ -304,6 +308,10 @@ $configs = array_merge($global_configs, $user_configs);
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* --- Elite Invisible Scroll System --- */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
         /* --- Dropdown Styling Fix --- */
         select {
@@ -496,14 +504,14 @@ $configs = array_merge($global_configs, $user_configs);
                     <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mb-3 block px-1">Quick Search</p>
                     <div class="relative group">
                         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary transition-transform group-hover:scale-110">search</span>
-                        <input type="text" name="search" value="<?= htmlspecialchars($search_query) ?>" placeholder="Ref ID, Member, or Client Name..." 
+                        <input type="text" name="search" id="trxSearch" value="<?= htmlspecialchars($search_query) ?>" placeholder="Ref ID, Member, or Client Name..." 
                                class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary focus:bg-white/[0.08] outline-none">
                     </div>
                 </div>
 
                 <div class="w-[200px]">
                     <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mb-3 block px-1">Gym Context</p>
-                    <select name="tenant_id" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary focus:bg-white/[0.08] outline-none appearance-none">
+                    <select name="tenant_id" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary focus:bg-white/[0.08] outline-none appearance-none">
                         <option value="all" class="bg-[--background]">All Tenants</option>
                         <?php foreach($tenants_list as $t): ?>
                             <option value="<?= $t['gym_id'] ?>" <?= ($tenant_filter == $t['gym_id']) ? 'selected' : '' ?> class="bg-[--background]"><?= htmlspecialchars($t['gym_name']) ?></option>
@@ -524,30 +532,35 @@ $configs = array_merge($global_configs, $user_configs);
                     </select>
                 </div>
 
-                <div class="flex gap-3">
-                    <button type="submit" class="h-11 px-8 rounded-xl bg-primary text-black text-[10px] font-black uppercase italic tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20">Update View</button>
-                    <a href="recent_transaction.php" class="h-11 px-6 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-50 hover:opacity-100 transition-all">Reset</a>
+                <div class="flex gap-2">
+                    <button type="submit" class="w-11 h-11 flex items-center justify-center rounded-xl bg-primary text-black hover:scale-[1.05] active:scale-[0.95] transition-all shadow-lg shadow-primary/20" title="Update View">
+                        <span class="material-symbols-outlined text-xl">filter_alt</span>
+                    </button>
+                    <a href="recent_transaction.php" class="w-11 h-11 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-[--text-main] opacity-50 hover:opacity-100 hover:bg-white/10 transition-all" title="Reset Filters">
+                        <span class="material-symbols-outlined text-xl">restart_alt</span>
+                    </a>
                 </div>
             </form>
 
             <div class="mt-6 pt-6 border-t border-white/5 flex items-center gap-6">
-                <div class="flex items-center gap-2">
-                    <span class="text-[9px] font-black uppercase text-[--text-main] opacity-30">Temporal Control:</span>
-                    <div class="flex items-center gap-2 bg-white/5 rounded-lg p-1">
-                        <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" class="bg-transparent border-none text-[10px] font-bold text-primary focus:outline-none px-2">
-                        <span class="text-[10px] opacity-20">TO</span>
-                        <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" class="bg-transparent border-none text-[10px] font-bold text-primary focus:outline-none px-2">
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-4 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                        <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" onchange="this.form.submit()"
+                               class="bg-transparent border-none text-xs font-bold text-primary focus:outline-none">
+                        <span class="text-[10px] font-black opacity-20 uppercase tracking-widest">TO</span>
+                        <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" onchange="this.form.submit()"
+                               class="bg-transparent border-none text-xs font-bold text-primary focus:outline-none">
                     </div>
                 </div>
-                <div class="ml-auto flex items-center gap-2">
-                    <span class="text-[9px] font-black uppercase text-[--text-main] opacity-30">Category Filter:</span>
-                    <div class="flex gap-1">
+                <div class="ml-auto flex items-center gap-4">
+                    <span class="text-[11px] font-black uppercase text-[--text-main] opacity-40">Category Filter:</span>
+                    <div class="flex gap-2">
                         <?php 
                             $types = ['Membership', 'Walk-in', 'Subscription'];
                             foreach($types as $t): 
                                 $is_active = ($type_filter == strtolower($t));
                         ?>
-                            <a href="?type=<?= strtolower($t) ?>" class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all <?= $is_active ? 'bg-primary/10 border-primary text-primary' : 'bg-white/5 border-white/10 text-[--text-main] opacity-40 hover:opacity-100' ?>">
+                            <a href="?type=<?= strtolower($t) ?>" class="px-4 py-2 rounded-xl text-[11px] font-black uppercase border transition-all <?= $is_active ? 'bg-primary/20 border-primary text-primary' : 'bg-white/5 border-white/10 text-[--text-main] opacity-50 hover:opacity-100 hover:bg-white/10' ?>">
                                 <?= $t ?>
                             </a>
                         <?php endforeach; ?>
@@ -560,39 +573,39 @@ $configs = array_merge($global_configs, $user_configs);
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="bg-[--background]/50 text-[--text-main] opacity-60 text-[10px] font-black uppercase tracking-widest">
-                            <th class="px-8 py-4">Transaction ID</th>
-                            <th class="px-8 py-4">Member / Branch</th>
-                            <th class="px-8 py-4">Category</th>
-                            <th class="px-8 py-4">Amount</th>
-                            <th class="px-8 py-4">Timestamp</th>
-                            <th class="px-8 py-4 text-right">Status</th>
+                        <tr class="bg-[--background]/50 text-[--text-main] opacity-40 text-[10px] font-black uppercase tracking-[0.25em] border-b border-white/5">
+                            <th class="px-8 py-5">Transaction ID</th>
+                            <th class="px-8 py-5">Member / Branch</th>
+                            <th class="px-8 py-5">Category</th>
+                            <th class="px-8 py-5 text-center">Amount</th>
+                            <th class="px-8 py-5">Timestamp</th>
+                            <th class="px-8 py-5 text-right">Status</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         <?php if (empty($transactions)): ?>
-                            <tr><td colspan="6" class="px-8 py-12 text-center text-xs font-bold text-[--text-main] opacity-60 italic uppercase">No transaction records found.</td></tr>
+                            <tr><td colspan="6" class="px-8 py-12 text-center text-xs font-bold text-[--text-main] opacity-60 italic uppercase tracking-widest">No transaction records found.</td></tr>
                         <?php else: ?>
                             <?php foreach($transactions as $trx): ?>
-                            <tr class="hover:bg-white/[0.02] transition-all">
+                            <tr class="hover:bg-white/[0.04] transition-all duration-300 group">
                                 <td class="px-8 py-5">
-                                    <span class="text-[10px] font-black italic text-primary uppercase">TRX-<?= htmlspecialchars($trx['reference_number'] ?: $trx['payment_id']) ?></span>
+                                    <span class="text-[10px] font-black italic text-primary uppercase group-hover:scale-105 transition-transform block w-fit">TRX-<?= htmlspecialchars($trx['reference_number'] ?: $trx['payment_id']) ?></span>
                                 </td>
                                 <td class="px-8 py-5">
                                     <div>
-                                        <p class="text-sm font-bold text-white"><?= htmlspecialchars($trx['f_name'] . ' ' . $trx['l_name']) ?></p>
-                                        <p class="text-[9px] text-[--text-main] opacity-60 font-black uppercase tracking-widest italic"><?= $trx['gym_name'] ? htmlspecialchars($trx['gym_name']) : 'System Managed' ?></p>
+                                        <p class="text-sm font-bold text-white leading-tight"><?= htmlspecialchars($trx['f_name'] . ' ' . $trx['l_name']) ?></p>
+                                        <p class="text-[10.5px] text-[--text-main] opacity-70 font-black uppercase tracking-wider italic mt-1"><?= $trx['gym_name'] ? htmlspecialchars($trx['gym_name']) : 'System Managed' ?></p>
                                     </div>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <span class="text-[9px] font-black uppercase tracking-tighter text-[--text-main] opacity-40"><?= htmlspecialchars($trx['payment_type']) ?></span>
+                                    <span class="text-[11px] font-black uppercase tracking-tight text-[--text-main] opacity-50 group-hover:opacity-100 transition-opacity"><?= htmlspecialchars($trx['payment_type']) ?></span>
                                 </td>
-                                <td class="px-8 py-5">
-                                    <p class="text-sm font-black italic text-white">₱<?= number_format($trx['amount'], 2) ?></p>
+                                <td class="px-8 py-5 text-center">
+                                    <p class="text-sm font-black italic text-white group-hover:text-primary transition-colors">₱<?= number_format($trx['amount'], 2) ?></p>
                                 </td>
-                                <td class="px-8 py-5 text-[10px] font-bold text-[--text-main] opacity-60">
+                                <td class="px-8 py-5 text-xs font-bold text-[--text-main] opacity-80">
                                     <?= date('M d, Y', strtotime($trx['created_at'])) ?>
-                                    <p class="text-[8px] opacity-50 uppercase"><?= date('h:i A', strtotime($trx['created_at'])) ?></p>
+                                    <p class="text-[10px] opacity-60 uppercase tracking-tight"><?= date('h:i A', strtotime($trx['created_at'])) ?></p>
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     <?php 
@@ -611,22 +624,48 @@ $configs = array_merge($global_configs, $user_configs);
             </div>
 
             <?php if ($total_pages > 1): ?>
-            <div class="px-8 py-6 border-t border-white/5 bg-white/[0.01] flex items-center justify-between">
-                <p class="text-[10px] font-bold text-[--text-main] opacity-60 uppercase tracking-widest">
-                    Showing <span class="text-white"><?= $offset + 1 ?></span> to <span class="text-white"><?= min($offset + $limit, $total_records) ?></span> of <span class="text-white"><?= $total_records ?></span>
+            <div class="px-8 py-6 border-t border-white/5 bg-white/[0.02] backdrop-blur-xl flex items-center justify-between">
+                <p class="text-[10px] font-black text-[--text-main] opacity-40 uppercase tracking-[0.2em]">
+                    Showing <span class="text-primary opacity-100"><?= $offset + 1 ?></span> to <span class="text-primary opacity-100"><?= min($offset + $limit, $total_records) ?></span> <span class="mx-1 text-[8px] opacity-20">OF</span> <span class="text-white opacity-100"><?= $total_records ?></span> entries
                 </p>
-                <div class="flex items-center gap-1">
-                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                        <a href="<?= $base_pagination_url ?>&page=<?= $i ?>" 
-                           class="size-8 rounded-lg flex items-center justify-center text-[10px] font-black transition-all <?= ($i == $page) ? 'bg-primary text-black' : 'bg-white/5 text-[--text-main] opacity-40 hover:opacity-100 hover:bg-white/10' ?>">
-                            <?= $i ?>
+                <div class="flex items-center gap-2">
+                    <!-- Prev Button -->
+                    <?php if ($page > 1): ?>
+                        <a href="<?= $base_pagination_url ?>&page=<?= $page - 1 ?>" 
+                           class="h-9 px-4 rounded-xl flex items-center gap-2 bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-[--text-main] opacity-60 hover:opacity-100 hover:bg-white/10 transition-all">
+                            <span class="material-symbols-outlined text-sm">chevron_left</span> Prev
                         </a>
-                    <?php endfor; ?>
+                    <?php endif; ?>
+
+                    <div class="flex items-center gap-1 bg-black/20 p-1 rounded-xl border border-white/5">
+                        <?php 
+                        $range = 2; // Show pages around current
+                        for ($i = 1; $i <= $total_pages; $i++): 
+                            if ($i == 1 || $i == $total_pages || ($i >= $page - $range && $i <= $page + $range)):
+                        ?>
+                            <a href="<?= $base_pagination_url ?>&page=<?= $i ?>" 
+                               class="size-8 rounded-lg flex items-center justify-center text-[10px] font-black transition-all <?= ($i == $page) ? 'bg-primary text-black shadow-lg shadow-primary/20' : 'text-[--text-main] opacity-40 hover:opacity-100 hover:bg-white/5' ?>">
+                                <?= $i ?>
+                            </a>
+                        <?php elseif ($i == $page - $range - 1 || $i == $page + $range + 1): ?>
+                            <span class="px-2 text-[10px] opacity-20">...</span>
+                        <?php endif; ?>
+                        <?php endfor; ?>
+                    </div>
+
+                    <!-- Next Button -->
+                    <?php if ($page < $total_pages): ?>
+                        <a href="<?= $base_pagination_url ?>&page=<?= $page + 1 ?>" 
+                           class="h-9 px-4 rounded-xl flex items-center gap-2 bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-[--text-main] opacity-60 hover:opacity-100 hover:bg-white/10 transition-all">
+                            Next <span class="material-symbols-outlined text-sm">chevron_right</span>
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
             <?php endif; ?>
         </div>
     </main>
 </div>
+<?php include '../includes/image_viewer.php'; ?>
 </body>
 </html>
