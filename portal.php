@@ -61,12 +61,12 @@ $host = $_SERVER['HTTP_HOST'];
 $script_path = $_SERVER['SCRIPT_NAME'];
 $script_dir = dirname($script_path);
 $base_url = $protocol . "://" . $host . ($script_dir === '/' || $script_dir === '\\' ? '' : $script_dir);
-$local_apk_link = $base_url . "/mobile-app/download.php";
 
-// Priority: Database link (if not GDrive) > Local APK link
+// GitHub Hosted APK (Link to your actual repository's latest release)
+$github_download_url = "https://github.com/horizon-fitness/Horizon-App/releases/latest/download/app-debug.apk";
 $final_download_link = (!empty($page['app_download_link']) && strpos($page['app_download_link'], 'drive.google.com') === false) 
                         ? $page['app_download_link'] 
-                        : $local_apk_link;
+                        : $github_download_url;
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
