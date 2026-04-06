@@ -184,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // 3. Log Audit
-            log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'], 'Reject', 'bookings', $booking_id, ['old_status' => 'Pending'], ['new_status' => 'Cancelled', 'reason' => 'Rejected by Staff']);
+            log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'], 'Reject', 'bookings', $booking_id, ['old_status' => 'Pending'], ['new_status' => 'Rejected', 'reason' => 'Rejected by Staff']);
 
             $pdo->commit();
             $_SESSION['success_msg'] = "Booking for " . htmlspecialchars($ctx['first_name']) . " has been rejected.";

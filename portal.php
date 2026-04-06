@@ -197,9 +197,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 <a href="#contact" class="text-xs font-medium text-gray-400 hover:text-white transition-colors">Contact</a>
             </nav>
             <div class="h-4 w-px bg-white/10"></div>
-            <a href="login.php?gym=<?= $gym_slug ?>" class="h-10 px-6 rounded-xl border border-white/10 hover:bg-white/5 flex items-center text-xs font-semibold text-white transition-all">
-                Member Login
-            </a>
+
         </div>
     </header>
 
@@ -226,9 +224,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
             </p>
             
             <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 px-10 rounded-2xl btn-premium flex items-center justify-center text-sm font-bold text-white">
-                    Member Login
-                </a>
+
                 <a id="app-download-btn" href="<?= htmlspecialchars($page['app_download_link'] ?? 'https://drive.google.com/drive/folders/1Mg7gltjfTP5dsb4CG_PVdgSdPYUjaFz6?usp=sharing') ?>" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-semibold text-white transition-all group">
                     <span class="material-symbols-outlined text-xl mr-2.5">smartphone</span>
                     Download App
@@ -249,11 +245,7 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 <p class="text-gray-400 text-sm mb-10 leading-relaxed font-body font-light max-w-2xl mx-auto">
                     Access our elite workout tracking and world-class management platform. For membership inquiries and registrations, please visit our front desk.
                 </p>
-                <div class="flex items-center justify-center gap-4">
-                    <a href="login.php?gym=<?= $gym_slug ?>" class="h-14 px-10 rounded-xl btn-premium flex items-center justify-center text-sm font-bold text-white">
-                        Access Portal
-                    </a>
-                </div>
+
             </div>
 
             <!-- Operational Status (Live Sync) -->

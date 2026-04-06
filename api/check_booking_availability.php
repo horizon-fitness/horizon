@@ -16,6 +16,14 @@ if ($user_id <= 0 || $gym_id <= 0 || empty($date) || empty($time)) {
     exit;
 }
 
+// Operational Hours Validation (7 AM to 10 PM)
+$hour = (int)date('H', strtotime($time));
+$minute = (int)date('i', strtotime($time));
+if ($hour < 7 || $hour > 22 || ($hour == 22 && $minute > 0)) {
+    echo json_encode(['success' => true, 'available' => false, 'message' => 'Bookings are only available from 7 AM to 10 PM.']);
+    exit;
+}
+
 try {
     // 1. Resolve member_id
     $stmtM = $pdo->prepare("SELECT member_id FROM members WHERE user_id = ? AND gym_id = ? LIMIT 1");

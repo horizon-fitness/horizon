@@ -23,7 +23,14 @@ $expected_signature = hash('sha256', $sig_input);
 $db_status = "Pending";
 $error_msg = "";
 
-if ($gym_id > 0 && $user_id > 0 && $service_id > 0) {
+// Final Operational Hours Check (7 AM to 10 PM)
+$hour = (int)date('H', strtotime($time));
+$minute = (int)date('i', strtotime($time));
+if ($hour < 7 || $hour > 22 || ($hour == 22 && $minute > 0)) {
+    $db_status = "Time Restriction Error: Bookings are only available from 7 AM to 10 PM.";
+}
+
+if ($gym_id > 0 && $user_id > 0 && $service_id > 0 && $db_status === "Pending") {
     if (hash_equals($expected_signature, $signature)) {
         try {
             $pdo->beginTransaction();
