@@ -54,6 +54,19 @@ $primary_color = $page['theme_color'] ?? '#8c2bee';
 $secondary_color = $page['secondary_color'] ?? '#a1a1aa';
 $bg_color = $page['bg_color'] ?? '#0a090d';
 $font_family = $page['font_family'] ?? 'Lexend';
+
+// Local APK Auto-Download Logic
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
+$host = $_SERVER['HTTP_HOST'];
+$script_path = $_SERVER['SCRIPT_NAME'];
+$script_dir = dirname($script_path);
+$base_url = $protocol . "://" . $host . ($script_dir === '/' || $script_dir === '\\' ? '' : $script_dir);
+$local_apk_link = $base_url . "/mobile-app/download.php";
+
+// Priority: Database link (if not GDrive) > Local APK link
+$final_download_link = (!empty($page['app_download_link']) && strpos($page['app_download_link'], 'drive.google.com') === false) 
+                        ? $page['app_download_link'] 
+                        : $local_apk_link;
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -176,6 +189,30 @@ $font_family = $page['font_family'] ?? 'Lexend';
             border-radius: 99px;
         }
         <?php endif; ?>
+        /* Modal Styles */
+        #qr-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(12px);
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #qr-modal.active {
+            display: flex;
+            opacity: 1;
+        }
+        .modal-content {
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        #qr-modal.active .modal-content {
+            transform: scale(1);
+        }
     </style>
 </head>
 <body class="antialiased min-h-screen flex flex-col font-display selection:bg-primary/30 selection:text-white">
@@ -223,12 +260,11 @@ $font_family = $page['font_family'] ?? 'Lexend';
                 <?= htmlspecialchars($page['about_text'] ?? 'Discover a premium workout experience powered by Horizon\'s elite technology and world-class coaching staff.') ?>
             </p>
             
-            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-
-                <a id="app-download-btn" href="<?= htmlspecialchars($page['app_download_link'] ?? 'https://drive.google.com/drive/folders/1Mg7gltjfTP5dsb4CG_PVdgSdPYUjaFz6?usp=sharing') ?>" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-semibold text-white transition-all group">
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+                <button id="app-download-btn" onclick="openQRModal()" class="h-14 px-10 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 flex items-center justify-center text-sm font-semibold text-white transition-all group cursor-pointer">
                     <span class="material-symbols-outlined text-xl mr-2.5">smartphone</span>
                     Download App
-                </a>
+                </button>
             </div>
         </section>
 
@@ -358,7 +394,56 @@ $font_family = $page['font_family'] ?? 'Lexend';
         </div>
     </footer>
     
+    <!-- QR Download Modal -->
+    <div id="qr-modal" onclick="event.target === this && closeQRModal()">
+        <div class="modal-content glass-card p-10 max-w-sm w-full relative mx-4">
+            <button onclick="closeQRModal()" class="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+            
+            <div class="flex flex-col items-center text-center">
+                <div class="size-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6">
+                    <span class="material-symbols-outlined text-3xl">qr_code_scanner</span>
+                </div>
+                
+                <h3 class="text-2xl font-bold text-white mb-2 font-display">Download Mobile App</h3>
+                <p class="text-gray-400 text-sm mb-8 leading-relaxed px-4">
+                    Scan this QR code with your phone's camera to automatically start the download.
+                </p>
+                
+                <div class="relative group/qr-modal">
+                    <div class="absolute -inset-4 bg-primary/20 rounded-[32px] blur-2xl opacity-50 group-hover/qr-modal:opacity-80 transition duration-500"></div>
+                    <div class="relative p-5 bg-white rounded-3xl shadow-2xl">
+                        <img id="qr-code-modal-img" src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=<?= urlencode($final_download_link) ?>" alt="QR Code" class="size-48 sm:size-64 rounded-xl">
+                    </div>
+                </div>
+                
+                <div class="mt-10 flex items-center gap-3 px-5 py-3 rounded-xl bg-primary/10 border border-primary/20">
+                    <span class="material-symbols-outlined text-primary text-sm">info</span>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-primary italic">Auto-Download Enabled</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        function openQRModal() {
+            const modal = document.getElementById('qr-modal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeQRModal() {
+            const modal = document.getElementById('qr-modal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // Close on Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeQRModal();
+        });
+
         // Real-time Preview Listener
         window.addEventListener('message', function(event) {
             if (event.data.type === 'updateStyles') {
@@ -381,10 +466,12 @@ $font_family = $page['font_family'] ?? 'Lexend';
                     names.forEach(n => n.innerText = data.page_title);
                 }
 
-                // Update App Download Links
+                // Update App Download Links & QR Code
                 if (data.app_download_link) {
-                    const downloadBtns = [document.getElementById('app-download-btn'), document.getElementById('staff-app-btn')];
-                    downloadBtns.forEach(btn => { if(btn) btn.href = data.app_download_link; });
+                    const qrImg = document.getElementById('qr-code-modal-img');
+                    if (qrImg) {
+                        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.app_download_link)}`;
+                    }
                 }
 
                 // Update About Text
