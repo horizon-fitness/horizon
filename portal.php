@@ -406,6 +406,96 @@ $primary_rgb = hexToRgb($primary_color);
             transform: translateY(-2px);
             box-shadow: 0 15px 40px -5px rgba(<?= $primary_rgb ?>, 0.6);
         }
+
+        /* Mockup Login Field Styles */
+        .mockup-input-container {
+            position: relative;
+            margin-bottom: 1.25rem;
+        }
+
+        .mockup-input-container label {
+            display: block;
+            font-size: 10px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .mockup-input-wrapper {
+            position: relative;
+        }
+
+        .mockup-input {
+            width: 100%;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 14px;
+            padding: 0 16px 0 44px;
+            color: #fff;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .mockup-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 18px;
+        }
+
+        .mockup-btn {
+            width: 100%;
+            height: 52px;
+            border-radius: 26px;
+            background: var(--pg-primary);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px -5px rgba(<?= $primary_rgb ?>, 0.4);
+            margin-top: 1.5rem;
+        }
+
+        .mockup-separator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 1.5rem 0;
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .mockup-separator::before,
+        .mockup-separator::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .mockup-footer-btn {
+            width: 100%;
+            height: 48px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.01);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
     </style>
 </head>
 
@@ -504,12 +594,12 @@ $primary_rgb = hexToRgb($primary_color);
                             <div class="flex items-center gap-3">
                                 <div
                                     class="size-10 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
-                                    <span class="material-symbols-outlined text-lg">check_circle</span>
+                                    <span class="material-symbols-outlined text-lg">verified_user</span>
                                 </div>
                                 <div class="pr-4">
-                                    <p class="text-[9px] font-black uppercase text-white tracking-widest">Entry Granted
+                                    <p class="text-[9px] font-black uppercase text-white tracking-widest">Secure Access
                                     </p>
-                                    <p class="text-[8px] text-gray-500 font-medium">Synced • Just Now</p>
+                                    <p class="text-[8px] text-gray-500 font-medium">Biometric Ready</p>
                                 </div>
                             </div>
                         </div>
@@ -531,80 +621,74 @@ $primary_rgb = hexToRgb($primary_color);
                                     </div>
                                 </div>
 
-                                <div class="flex-1 px-6 pt-6 flex flex-col gap-8 overflow-hidden">
-                                    <!-- App Header -->
-                                    <div class="flex justify-between items-center">
-                                        <div
-                                            class="size-10 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center border border-primary/30 overflow-hidden">
-                                            <?php if (!empty($logo_src)): ?>
-                                                <img src="<?= htmlspecialchars($logo_src) ?>"
-                                                    class="size-full object-cover">
-                                            <?php else: ?>
-                                                <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
-                                            <?php endif; ?>
+                                <div class="flex-1 px-8 pt-8 flex flex-col overflow-hidden">
+                                    <!-- Branding -->
+                                    <div class="text-center mb-10">
+                                        <h5 class="text-[12px] font-black tracking-[0.2em] text-white/90 uppercase mb-6">
+                                            <?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?>
+                                        </h5>
+
+                                        <!-- Circular Logo with lightning/diag icon -->
+                                        <div class="size-20 rounded-full mx-auto relative flex items-center justify-center border border-white/5 shadow-2xl mb-8">
+                                            <div class="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-transparent rounded-full opacity-20"></div>
+                                            <div class="size-16 rounded-full border border-primary/40 flex items-center justify-center bg-black/40 backdrop-blur-md">
+                                                <span class="material-symbols-outlined text-primary text-3xl font-light" style="font-variation-settings: 'wght' 200;">bolt</span>
+                                            </div>
                                         </div>
-                                        <div
-                                            class="size-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-                                            <span
-                                                class="material-symbols-outlined text-white/60 text-xl">notifications</span>
-                                        </div>
+
+                                        <h4 class="text-3xl font-display font-black text-white leading-none tracking-tight uppercase mb-3">
+                                            WELCOME BACK
+                                        </h4>
+                                        <p class="text-[11px] text-gray-500 font-medium tracking-tight">
+                                            Enter your credentials to access your account.
+                                        </p>
                                     </div>
 
-                                    <!-- Greeting & Dashboard Info -->
-                                    <div class="space-y-1.5">
-                                        <p class="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Member
-                                            Identity</p>
-                                        <h4 class="text-2xl font-display font-black text-white italic tracking-tight">
-                                            DASHBOARD</h4>
-                                    </div>
+                                    <!-- Mockup Login Form -->
+                                    <div class="mockup-form">
+                                        <div class="mockup-input-container">
+                                            <label>Username:</label>
+                                            <div class="mockup-input-wrapper">
+                                                <span class="material-symbols-outlined mockup-icon">person</span>
+                                                <div class="mockup-input flex items-center text-white/30">Enter username</div>
+                                            </div>
+                                        </div>
 
-                                    <!-- Check-In System (The "Heart" of the app) -->
-                                    <div
-                                        class="p-6 rounded-[2rem] bg-primary relative overflow-hidden group shadow-2xl shadow-primary/40">
-                                        <div
-                                            class="absolute -top-10 -right-10 size-32 bg-white/10 rounded-full blur-2xl transition-transform group-hover:scale-150">
+                                        <div class="mockup-input-container">
+                                            <label>Password:</label>
+                                            <div class="mockup-input-wrapper">
+                                                <span class="material-symbols-outlined mockup-icon">lock</span>
+                                                <div class="mockup-input flex items-center text-white/30">Enter password</div>
+                                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 text-lg">visibility</span>
+                                            </div>
                                         </div>
-                                        <p
-                                            class="text-[11px] font-black uppercase tracking-[0.25em] text-white/70 mb-4">
-                                            Verification Center</p>
-                                        <div class="bg-white p-4 rounded-2xl mx-auto w-fit mb-4 shadow-inner">
-                                            <span
-                                                class="material-symbols-outlined text-gray-900 text-6xl">qr_code_2</span>
-                                        </div>
-                                        <p
-                                            class="text-[10px] font-black uppercase text-center text-white tracking-widest">
-                                            Active QR for Entry</p>
-                                    </div>
 
-                                    <!-- Progress/Stats Preview -->
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
-                                            <p
-                                                class="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">
-                                                Week Hits</p>
-                                            <p class="text-xl font-black text-white italic">4/5</p>
+                                        <div class="flex items-center justify-between mt-2">
+                                            <div class="flex items-center gap-2">
+                                                <div class="size-4 rounded border border-primary bg-primary/20 flex items-center justify-center">
+                                                    <span class="material-symbols-outlined text-[12px] text-white">check</span>
+                                                </div>
+                                                <span class="text-[10px] font-bold text-gray-500">Remember Me</span>
+                                            </div>
+                                            <div class="text-[10px] font-bold text-gray-400">Forgot Password?</div>
                                         </div>
-                                        <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
-                                            <p
-                                                class="text-[8px] font-black text-gray-500 uppercase tracking-widest mb-1">
-                                                Status</p>
-                                            <p
-                                                class="text-xl font-black text-emerald-500 italic uppercase underline decoration-2">
-                                                Active</p>
+
+                                        <div class="mockup-btn">
+                                            Login
+                                        </div>
+
+                                        <div class="mockup-separator">OR</div>
+
+                                        <div class="mockup-footer-btn">
+                                            <span class="material-symbols-outlined text-lg opacity-40">apps</span>
+                                            <span>Switch Gym</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Custom High-Fidelity Bottom Nav -->
-                                <div
-                                    class="h-20 bg-black/60 backdrop-blur-md border-t border-white/5 px-10 flex justify-between items-center pb-2">
-                                    <span class="material-symbols-outlined text-primary text-2xl">grid_view</span>
-                                    <div class="relative">
-                                        <span
-                                            class="material-symbols-outlined text-white/30 text-2xl">event_available</span>
-                                        <div class="absolute -top-1 -right-1 size-2 bg-primary rounded-full"></div>
-                                    </div>
-                                    <span class="material-symbols-outlined text-white/30 text-2xl">account_circle</span>
+                                <!-- Nav indicator bar (iPhone style) -->
+                                <div class="h-6 flex items-center justify-center pb-2">
+                                    <div class="w-20 h-1 bg-white/10 rounded-full"></div>
                                 </div>
                             </div>
                         </div>
@@ -615,12 +699,12 @@ $primary_rgb = hexToRgb($primary_color);
                             <div class="flex items-center gap-4">
                                 <div
                                     class="size-10 rounded-xl bg-primary/20 text-primary flex items-center justify-center border border-primary/20">
-                                    <span class="material-symbols-outlined text-xl">fitness_center</span>
+                                    <span class="material-symbols-outlined text-xl">token</span>
                                 </div>
                                 <div class="pr-6">
-                                    <p class="text-[9px] font-black uppercase text-white tracking-widest">Next Class</p>
-                                    <p class="text-[8px] text-primary font-bold uppercase tracking-tighter">Strength •
-                                        5:00PM</p>
+                                    <p class="text-[9px] font-black uppercase text-white tracking-widest">Smart Login</p>
+                                    <p class="text-[8px] text-primary font-bold uppercase tracking-tighter">Session
+                                        Active</p>
                                 </div>
                             </div>
                         </div>
