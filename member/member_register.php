@@ -1,6 +1,4 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 session_start();
 
 // Use absolute paths for includes to avoid issues in subdirectories
@@ -16,7 +14,7 @@ if (empty($gym_slug)) {
 }
 
 // Exactly match portal.php logic for tenant data
-$stmtPage = $pdo->prepare("SELECT tp.*, g.gym_name, g.gym_id, g.email as gym_email, g.contact_number as gym_contact 
+$stmtPage = $pdo->prepare("SELECT tp.*, g.gym_name, g.gym_id, g.profile_picture as gym_logo, g.email as gym_email, g.contact_number as gym_contact 
                            FROM tenant_pages tp 
                            JOIN gyms g ON tp.gym_id = g.gym_id 
                            WHERE tp.page_slug = ? AND tp.is_active = 1 LIMIT 1");
@@ -53,17 +51,57 @@ $primary_rgb = hexToRgb($primary_color);
 
 $success = '';
 $error = '';
+$otp_sent = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        $registration_data = array_merge($_POST, [
-            'gym_id' => $gym_id,
-            'registration_source' => 'Self'
-        ]);
+        if (isset($_POST['otp_code'])) {
+            // PHASE 2: Verify OTP
+            if (!isset($_SESSION['pending_reg_otp']) || $_POST['otp_code'] !== $_SESSION['pending_reg_otp']) {
+                throw new Exception("Invalid verification code. Please try again.");
+            }
+            if (time() > ($_SESSION['pending_reg_expiry'] ?? 0)) {
+                throw new Exception("Verification code has expired. Please restart the process.");
+            }
+            
+            $result = processMemberRegistration($pdo, $_SESSION['pending_reg_data']);
+            $success = "Registration successful! You can now log in using your credentials on our mobile app.";
+            unset($_SESSION['pending_reg_otp'], $_SESSION['pending_reg_data'], $_SESSION['pending_reg_expiry']);
+            $_POST = [];
+        } else {
+            // PHASE 1: Send OTP
+            $email = trim($_POST['email'] ?? '');
+            $username = trim($_POST['username'] ?? '');
+            
+            // Preliminary checks
+            $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE email = ? OR username = ? LIMIT 1");
+            $stmtCheck->execute([$email, $username]);
+            if ($stmtCheck->fetch()) {
+                throw new Exception("Email or Username is already registered.");
+            }
 
-        $result = processMemberRegistration($pdo, $registration_data);
-        $success = "Registration successful! You can now log in using your credentials on our mobile app.";
-        $_POST = [];
+            $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            $_SESSION['pending_reg_otp'] = $otp;
+            $_SESSION['pending_reg_data'] = array_merge($_POST, ['gym_id' => $gym_id, 'registration_source' => 'Self']);
+            $_SESSION['pending_reg_expiry'] = time() + (10 * 60); // 10 mins
+
+            $subject = "Verification Code - $gym_name";
+            $emailBody = getEmailTemplate(
+                "Verify Your Registration",
+                "<p>Hello,</p>
+                <p>Thank you for choosing <strong>$gym_name</strong>. Use the verification code below to complete your registration:</p>
+                <div style='background: #111; padding: 30px; border-radius: 12px; margin: 20px 0; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 12px; color: " . $primary_color . "; border: 1px solid rgba(255,255,255,0.1);'>
+                    $otp
+                </div>
+                <p>This code will expire in 10 minutes.</p>"
+            );
+            
+            if (!sendSystemEmail($email, $subject, $emailBody)) {
+                throw new Exception("Failed to send verification email. Please check your email address.");
+            }
+            
+            $otp_sent = true;
+        }
     } catch (Exception $e) {
         $error = $e->getMessage();
     }
@@ -89,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 extend: {
                     colors: {
                         "primary": "<?= $primary_color ?>",
+                        "primary-dark": "<?= $primary_color ?>dd",
                         "background-dark": "<?= $bg_color ?>",
                         "surface-dark": "rgba(255, 255, 255, 0.02)",
                     },
@@ -96,14 +135,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         "display": ["<?= $font_family ?>", "Lexend", "sans-serif"],
                         "sans": ["Plus Jakarta Sans", "Inter", "sans-serif"]
                     },
-                    borderRadius: { 'custom': '24px' }
+                    borderRadius: { 'custom': '12px' }
                 },
             },
         }
     </script>
     <style>
-        *::-webkit-scrollbar { display: none; }
-        * { -ms-overflow-style: none; scrollbar-width: none; }
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
         
         body { 
             background-color: <?= $bg_color ?> !important; 
@@ -111,51 +150,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin: 0;
             padding: 0;
             min-height: 100vh;
-            font-family: ["<?= $font_family ?>", "Lexend", "sans-serif"];
         }
         
         .hero-glow {
             background-image: radial-gradient(circle at 50% -10%, rgba(<?= $primary_rgb ?>, 0.15), transparent 70%);
         }
 
-        .glass-card {
-            background: rgba(255, 255, 255, 0.02);
-            backdrop-filter: blur(20px);
+        .dashboard-window {
+            background: rgba(255, 255, 255, 0.01);
+            backdrop-filter: blur(24px);
             border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
         }
 
         .input-field {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            color: white;
-            padding: 14px 20px;
+            background: rgba(255, 255, 255, 0.02) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 12px !important;
+            color: #ffffff !important;
+            padding: 12px 18px !important;
             width: 100%;
             outline: none;
-            transition: all 0.3s;
-            font-size: 14px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 13px;
+        }
+
+        /* Prevent browser autofill from changing background color */
+        .input-field:-webkit-autofill,
+        .input-field:-webkit-autofill:hover, 
+        .input-field:-webkit-autofill:focus, 
+        .input-field:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 1000px <?= $bg_color ?> inset !important;
+            -webkit-text-fill-color: #ffffff !important;
+            transition: background-color 5000s ease-in-out 0s;
         }
 
         .input-field:focus {
-            border-color: <?= $primary_color ?>;
-            background: rgba(255, 255, 255, 0.06);
-            box-shadow: 0 0 0 1px rgba(<?= $primary_rgb ?>, 0.3);
+            border-color: <?= $primary_color ?> !important;
+            background: rgba(255, 255, 255, 0.05) !important;
+            box-shadow: 0 0 0 1px rgba(<?= $primary_rgb ?>, 0.3) !important;
+        }
+
+        .input-field::placeholder {
+            color: #6b7280 !important;
+            opacity: 0.5;
         }
 
         .step-hidden { display: none; }
         
         select option {
-            background-color: #0c0b10;
-            color: white;
+            background-color: #111111;
+            color: #ffffff;
         }
         
         input[type="date"] { color-scheme: dark; }
 
-        .strength-bar { height: 4px; border-radius: 2px; transition: all 0.3s ease; width: 0; }
+        .strength-bar { height: 3px; border-radius: 2px; transition: all 0.3s ease; width: 0; }
         .strength-weak { background-color: #ef4444; width: 33.33%; }
         .strength-medium { background-color: #f59e0b; width: 66.66%; }
         .strength-strong { background-color: #10b981; width: 100%; }
+
+        .section-label {
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: <?= $secondary_color ?>;
+            opacity: 0.7;
+            margin-bottom: 24px;
+            display: block;
+        }
     </style>
 </head>
 
@@ -163,14 +227,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <header class="relative z-20 w-full px-8 py-6 flex justify-between items-center bg-transparent">
     <a href="../portal.php?gym=<?= $gym_slug ?>" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-        <div class="size-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden">
-            <?php if (!empty($page['logo_path'])): ?>
-                <img src="../<?= htmlspecialchars($page['logo_path']) ?>" class="size-full object-cover">
-            <?php else: ?>
-                <span class="material-symbols-outlined text-white text-xl font-bold">bolt</span>
-            <?php endif; ?>
-        </div>
-        <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter"><?= htmlspecialchars($gym_name) ?></h2>
+            <?php 
+                // Primary: Custom Landing Page Logo | Secondary: Gym's Profile Picture
+                $logo_src = !empty($page['logo_path']) ? $page['logo_path'] : ($page['gym_logo'] ?? '');
+                
+                if (!empty($logo_src)) {
+                    // Check if it's a relative path and normalize it for the 'member/' directory
+                    if (!filter_var($logo_src, FILTER_VALIDATE_URL) && $logo_src[0] !== '/' && strpos($logo_src, 'data:image') === false) {
+                        // If it doesn't start with '../', prepend it to go up to root
+                        if (substr($logo_src, 0, 3) !== '../') {
+                            $logo_src = '../' . $logo_src;
+                        }
+                    }
+                }
+            ?>
+            <div class="size-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shadow-2xl">
+                <?php if (!empty($logo_src)): ?>
+                    <img src="<?= htmlspecialchars($logo_src) ?>" class="size-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <span class="material-symbols-outlined text-primary text-2xl font-bold" style="display:none;">bolt</span>
+                <?php else: ?>
+                    <span class="material-symbols-outlined text-primary text-2xl font-bold">bolt</span>
+                <?php endif; ?>
+            </div>
+            <div class="flex flex-col">
+                <h2 class="text-xl font-display font-black text-white uppercase italic tracking-tighter leading-none"><?= htmlspecialchars($gym_name) ?></h2>
+                <span class="text-[8px] font-black text-primary/60 uppercase tracking-[0.2em] mt-1 ml-1">Elite Partner Portal</span>
+            </div>
     </a>
     <div class="flex items-center gap-6">
         <a href="../portal.php?gym=<?= $gym_slug ?>" class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 hover:text-white transition-all flex items-center gap-2">
@@ -180,22 +262,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </header>
 
-<main class="flex-1 flex flex-col items-center py-8 px-4 relative z-10 w-full overflow-x-hidden">
+<main class="flex-1 flex flex-col items-center py-12 px-4 relative z-10 w-full overflow-x-hidden">
     <div class="w-full max-w-2xl">
-        <div class="text-center mb-8">
+        <div class="text-center mb-10">
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
                 Facility Membership
             </div>
-            <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">Join <span class="text-primary"><?= htmlspecialchars($gym_name) ?></span></h1>
-            <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Step <span id="step-number">1</span> of 2: Account Set-up</p>
+            <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">JOIN <span class="text-primary"><?= htmlspecialchars($gym_name) ?></span></h1>
+            <p class="text-xs text-gray-500 font-medium uppercase tracking-widest leading-relaxed">Step <span id="step-count">1</span> of 4: <span id="step-label" class="text-white">Personal Information</span></p>
             
             <div class="w-full bg-white/5 h-1.5 mt-8 rounded-full overflow-hidden">
-                <div id="progress-bar" class="bg-primary h-full transition-all duration-500" style="width: 50%"></div>
+                <div id="progress-bar" class="bg-primary h-full transition-all duration-700 ease-out shadow-[0_0_15px_rgba(<?= $primary_rgb ?>,0.5)]" style="width: 25%"></div>
             </div>
         </div>
 
         <?php if($success): ?>
-            <div class="mb-8 p-8 rounded-[32px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-bold flex flex-col items-center gap-6 text-center glass-card">
+            <div class="mb-8 p-8 rounded-[32px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-bold flex flex-col items-center gap-6 text-center dashboard-window">
                 <div class="size-20 rounded-full bg-emerald-500/20 flex items-center justify-center">
                     <span class="material-symbols-outlined text-5xl">check_circle</span>
                 </div>
@@ -208,115 +290,189 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php else: ?>
 
             <?php if($error): ?>
-                <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-3 glass-card">
+                <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-3 dashboard-window">
                     <span class="material-symbols-outlined text-lg">error</span> <?= $error ?>
                 </div>
             <?php endif; ?>
 
             <form id="reg-form" method="POST" class="space-y-6 pb-20">
                 
-                <!-- STEP 1: Account Credentials -->
+                <!-- SECTION 1: PERSONAL INFORMATION -->
                 <div class="step-container" data-step="1">
-                    <div class="glass-card rounded-[32px] p-8 md:p-10 relative overflow-hidden">
+                    <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
                         <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
                         
                         <div class="relative z-10">
                             <div class="flex items-center gap-4 mb-8">
-                                <span class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">1</span>
-                                <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Security Credentials</h3>
-                            </div>
-
-                            <div class="space-y-6">
-                                <div class="space-y-2">
-                                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Username</label>
-                                    <input type="text" name="username" required value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" class="input-field" placeholder="Create a unique username">
-                                </div>
-
-                                <div class="space-y-2">
-                                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Email Address</label>
-                                    <input type="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" class="input-field" placeholder="your@email.com">
-                                </div>
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div class="space-y-2">
-                                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Password</label>
-                                        <div class="relative">
-                                            <input type="password" name="password" id="password" required onkeyup="checkPasswordStrength(this.value)" class="input-field" placeholder="••••••••">
-                                            <button type="button" onclick="togglePassword('password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-all"><span class="material-symbols-outlined text-sm">visibility</span></button>
-                                        </div>
-                                        <div class="w-full bg-white/5 h-1 rounded-full mt-2 overflow-hidden"><div id="strength-indicator" class="strength-bar"></div></div>
-                                        <p id="strength-text" class="text-[9px] font-black uppercase tracking-widest ml-1 mt-1"></p>
-                                    </div>
-                                    <div class="space-y-2">
-                                        <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Confirm Password</label>
-                                        <div class="relative">
-                                            <input type="password" name="confirm_password" id="confirm_password" required class="input-field" placeholder="••••••••">
-                                            <button type="button" onclick="togglePassword('confirm_password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-all"><span class="material-symbols-outlined text-sm">visibility</span></button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- STEP 2: Personal Information -->
-                <div class="step-container step-hidden" data-step="2">
-                    <div class="glass-card rounded-[32px] p-8 md:p-10 relative overflow-hidden">
-                        <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
-                        
-                        <div class="relative z-10">
-                            <div class="flex items-center gap-4 mb-8">
-                                <span class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">2</span>
+                                <div class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">1</div>
                                 <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Personal Details</h3>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                                <div class="space-y-2">
-                                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">First Name</label>
-                                    <input type="text" name="first_name" required value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>" class="input-field" placeholder="Juan">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">First Name <small class="text-primary">*</small></label>
+                                    <input type="text" name="first_name" required value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>" class="input-field" placeholder="e.g. Juan">
                                 </div>
-                                <div class="space-y-2">
-                                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Last Name</label>
-                                    <input type="text" name="last_name" required value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" class="input-field" placeholder="Dela Cruz">
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Middle Name (Optional)</label>
+                                    <input type="text" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? '') ?>" class="input-field" placeholder="e.g. Santos">
                                 </div>
-                                <div class="space-y-2">
-                                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Sex</label>
-                                    <select name="sex" required class="input-field appearance-none cursor-pointer">
-                                        <option value="" disabled <?= !isset($_POST['sex']) ? 'selected' : '' ?>>Select Sex</option>
-                                        <option value="Male" <?= ($_POST['sex'] ?? '') === 'Male' ? 'selected' : '' ?>>Male</option>
-                                        <option value="Female" <?= ($_POST['sex'] ?? '') === 'Female' ? 'selected' : '' ?>>Female</option>
-                                    </select>
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Last Name <small class="text-primary">*</small></label>
+                                    <input type="text" name="last_name" required value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" class="input-field" placeholder="e.g. Dela Cruz">
                                 </div>
-                                <div class="space-y-2">
-                                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Birth Date</label>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Date of Birth <small class="text-primary">*</small></label>
                                     <input type="date" name="birth_date" required value="<?= htmlspecialchars($_POST['birth_date'] ?? '') ?>" class="input-field">
                                 </div>
-                                <div class="space-y-2">
-                                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Contact Number</label>
-                                    <input type="tel" name="phone" required oninput="formatPhoneNumber(this)" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>" class="input-field" placeholder="09XX-XXX-XXXX">
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Sex <small class="text-primary">*</small></label>
+                                    <div class="relative">
+                                        <select name="sex" required class="input-field appearance-none cursor-pointer">
+                                            <option value="" disabled <?= !isset($_POST['sex']) ? 'selected' : '' ?>>Select Sex</option>
+                                            <option value="Male" <?= ($_POST['sex'] ?? '') === 'Male' ? 'selected' : '' ?>>Male</option>
+                                            <option value="Female" <?= ($_POST['sex'] ?? '') === 'Female' ? 'selected' : '' ?>>Female</option>
+                                        </select>
+                                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-sm">expand_more</span>
+                                    </div>
                                 </div>
-                                <div class="space-y-2">
-                                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Emergency Contact</label>
-                                    <input type="tel" name="emergency_phone" required oninput="formatPhoneNumber(this)" value="<?= htmlspecialchars($_POST['emergency_phone'] ?? '') ?>" class="input-field" placeholder="Emergency Number">
+                            </div>
+
+                            <div class="space-y-1.5 mb-5 md:max-w-[50%]">
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Username (For Login) <small class="text-primary">*</small></label>
+                                <input type="text" name="username" required value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" class="input-field" placeholder="e.g. juan_delacruz">
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Security Password <small class="text-primary">*</small></label>
+                                    <div class="relative group">
+                                        <input type="password" name="password" id="password" required onkeyup="checkPasswordStrength(this.value)" class="input-field" placeholder="••••••••">
+                                        <button type="button" onclick="togglePassword('password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-all"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+                                    </div>
+                                    <div class="mt-2 flex gap-1 h-1 px-1">
+                                        <div id="strength-bar-1" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                        <div id="strength-bar-2" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                        <div id="strength-bar-3" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                    </div>
+                                    <p id="strength-text" class="text-[9px] font-bold uppercase tracking-widest text-gray-500 mt-2 ml-1">Strength: <span id="strength-label">None</span></p>
                                 </div>
-                                <div class="space-y-2 md:col-span-2">
-                                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Home Address</label>
-                                    <input type="text" name="address" required value="<?= htmlspecialchars($_POST['address'] ?? '') ?>" class="input-field" placeholder="Street, Barangay, City">
-                                </div>
-                                <div class="space-y-2 md:col-span-2">
-                                    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Medical Conditions (Optional)</label>
-                                    <textarea name="medical_history" class="input-field min-h-[100px] py-4" placeholder="List any medical conditions we should be aware of..."><?= htmlspecialchars($_POST['medical_history'] ?? '') ?></textarea>
+
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Confirm Password <small class="text-primary">*</small></label>
+                                    <div class="relative group">
+                                        <input type="password" name="confirm_password" id="confirm_password" required class="input-field" placeholder="••••••••">
+                                        <button type="button" onclick="togglePassword('confirm_password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-all"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="flex gap-4 pt-4">
-                    <button type="button" id="prev-btn" class="hidden flex-1 h-14 rounded-2xl bg-white/5 border border-white/10 text-white text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Previous</button>
-                    <button type="button" id="next-btn" class="flex-1 h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2">Next Step <span class="material-symbols-outlined text-lg">arrow_forward</span></button>
-                    <button type="submit" id="submit-btn" class="hidden flex-1 h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all flex items-center justify-center gap-2">Register <span class="material-symbols-outlined text-lg">rocket_launch</span></button>
+                <!-- SECTION 2: CONTACT INFORMATION -->
+                <div class="step-container step-hidden" data-step="2">
+                    <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
+                        <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+                        
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-4 mb-8">
+                                <div class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">2</div>
+                                <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Contact Information</h3>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Email address <small class="text-primary">*</small></label>
+                                    <input type="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" class="input-field" placeholder="e.g. name@example.com">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Contact Number <small class="text-primary">*</small></label>
+                                    <input type="tel" name="phone" required oninput="formatPhoneNumber(this)" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>" class="input-field" placeholder="09123456789">
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Full Home Address <small class="text-primary">*</small></label>
+                                <textarea name="address" required class="input-field min-h-[80px] py-3" placeholder="Street, Barangay, City, Province"><?= htmlspecialchars($_POST['address'] ?? '') ?></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 3: HEALTH & PROFILE -->
+                <div class="step-container step-hidden" data-step="3">
+                    <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
+                        <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+                        
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-4 mb-8">
+                                <div class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">3</div>
+                                <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Health Records</h3>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                                <div class="space-y-1.5 md:col-span-2">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Current Occupation</label>
+                                    <input type="text" name="occupation" value="<?= htmlspecialchars($_POST['occupation'] ?? '') ?>" class="input-field" placeholder="e.g. Software Engineer">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Emergency Representative <small class="text-primary">*</small></label>
+                                    <input type="text" name="emergency_name" required value="<?= htmlspecialchars($_POST['emergency_name'] ?? '') ?>" class="input-field" placeholder="Full name">
+                                </div>
+                                <div class="space-y-1.5">
+                                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Emergency Hotline <small class="text-primary">*</small></label>
+                                    <input type="tel" name="emergency_phone" required oninput="formatPhoneNumber(this)" value="<?= htmlspecialchars($_POST['emergency_phone'] ?? '') ?>" class="input-field" placeholder="09123456789">
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Medical history</label>
+                                <textarea name="medical_history" class="input-field min-h-[100px] py-3" placeholder="List any existing conditions, allergies, or medications..."><?= htmlspecialchars($_POST['medical_history'] ?? '') ?></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 4: SECURITY VERIFICATION -->
+                <div class="step-container step-hidden" data-step="4">
+                    <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
+                        <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+                        
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-4 mb-8">
+                                <div class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">4</div>
+                                <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Email Verification</h3>
+                            </div>
+                            
+                            <p class="text-xs text-gray-400 font-medium mb-8 leading-relaxed">
+                                We've sent a 6-digit security code to your email. Please enter it below to finalize your membership.
+                            </p>
+
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">6-Digit Code</label>
+                                <input type="text" name="otp_code" maxlength="6" class="input-field text-center text-4xl font-black tracking-[0.5em] h-24 bg-white/5 border-white/10" placeholder="000000">
+                            </div>
+
+                            <p class="mt-8 text-[10px] text-gray-500 font-bold uppercase text-center">Didn't receive it? Check your spam folder or wait a minute.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-stretch gap-4 pt-10 w-full px-0">
+                    <button type="button" id="prev-btn" class="hidden h-14 w-full sm:flex-1 rounded-xl bg-white/5 border border-white/10 text-white text-[11px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center">
+                        Previous
+                    </button>
+                    <button type="button" id="next-btn" class="h-14 w-full sm:flex-1 rounded-xl bg-primary text-white text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+                        Next Step <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
+                    <button type="submit" id="submit-btn" class="hidden h-14 w-full sm:flex-1 rounded-xl bg-primary text-white text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+                        Join Membership
+                    </button>
+                    <button type="submit" id="verify-btn" class="hidden h-14 w-full sm:flex-1 rounded-xl bg-emerald-600 text-white text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-emerald-900/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+                        Verify & Complete <span class="material-symbols-outlined text-lg">verified_user</span>
+                    </button>
                 </div>
 
             </form>
@@ -335,9 +491,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     const nextBtn = document.getElementById('next-btn');
     const prevBtn = document.getElementById('prev-btn');
     const submitBtn = document.getElementById('submit-btn');
-    const progressBar = document.getElementById('progress-bar');
-    const stepNumberLabel = document.getElementById('step-number');
-    let currentStep = 1;
+    const verifyBtn = document.getElementById('verify-btn');
+    let currentStep = <?= $otp_sent ? '4' : '1' ?>;
 
     function updateUI() {
         steps.forEach(step => {
@@ -348,13 +503,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         });
 
+        // Update Progress Bar & Step Labels
+        const progressBar = document.getElementById('progress-bar');
+        const stepCount = document.getElementById('step-count');
+        const stepLabel = document.getElementById('step-label');
+        
+        const labels = ["Personal Information", "Contact Details", "Health Records", "Security OTP"];
         const progress = (currentStep / steps.length) * 100;
+        
         progressBar.style.width = `${progress}%`;
-        stepNumberLabel.innerText = currentStep;
+        stepCount.innerText = currentStep;
+        stepLabel.innerText = labels[currentStep - 1];
 
-        prevBtn.classList.toggle('hidden', currentStep === 1);
-        nextBtn.classList.toggle('hidden', currentStep === steps.length);
-        submitBtn.classList.toggle('hidden', currentStep !== steps.length);
+        // Hide navigation if in OTP step (PHASE 1 to PHASE 2 transition handled by PHP reload)
+        if (currentStep === 4) {
+            prevBtn.classList.add('hidden');
+            nextBtn.classList.add('hidden');
+            submitBtn.classList.add('hidden');
+            verifyBtn.classList.remove('hidden');
+        } else {
+            prevBtn.classList.toggle('hidden', currentStep === 1);
+            nextBtn.classList.toggle('hidden', currentStep === 3);
+            submitBtn.classList.toggle('hidden', currentStep !== 3);
+            verifyBtn.classList.add('hidden');
+        }
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -406,19 +578,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     function checkPasswordStrength(password) {
+        const bars = [
+            document.getElementById('strength-bar-1'),
+            document.getElementById('strength-bar-2'),
+            document.getElementById('strength-bar-3')
+        ];
+        const label = document.getElementById('strength-label');
+        
         let strength = 0;
-        const indicator = document.getElementById('strength-indicator');
-        const text = document.getElementById('strength-text');
         if (password.length >= 8) strength++;
         if (/[A-Z]/.test(password)) strength++;
         if (/[0-9]/.test(password)) strength++;
         if (/[^A-Za-z0-9]/.test(password)) strength++;
         
-        indicator.className = 'strength-bar';
-        if (password.length === 0) text.textContent = '';
-        else if (strength <= 2) { indicator.classList.add('strength-weak'); text.textContent = 'Weak'; text.className = 'text-[9px] font-black uppercase text-red-500 mt-1'; }
-        else if (strength === 3) { indicator.classList.add('strength-medium'); text.textContent = 'Good'; text.className = 'text-[9px] font-black uppercase text-amber-500 mt-1'; }
-        else { indicator.classList.add('strength-strong'); text.textContent = 'Strong'; text.className = 'text-[9px] font-black uppercase text-emerald-500 mt-1'; }
+        bars.forEach(bar => bar.className = 'flex-1 rounded-full bg-white/5 transition-colors');
+        
+        if (password.length === 0) {
+            label.textContent = 'None';
+            label.className = 'text-gray-500';
+        } else {
+            const colors = ['bg-red-500', 'bg-amber-500', 'bg-emerald-500'];
+            const labels = ['Weak', 'Good', 'Strong'];
+            const activeStrength = Math.min(strength, 3);
+            
+            for (let i = 0; i < activeStrength; i++) {
+                bars[i].className = 'flex-1 rounded-full ' + colors[activeStrength - 1];
+            }
+            label.textContent = labels[activeStrength - 1];
+            label.className = colors[activeStrength - 1].replace('bg-', 'text-');
+        }
     }
 
     function formatPhoneNumber(input) {

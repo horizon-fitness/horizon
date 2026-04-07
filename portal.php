@@ -31,7 +31,7 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         'has_wifi' => 0
     ];
 } else {
-    $stmtPage = $pdo->prepare("SELECT tp.*, g.gym_name, g.gym_id, g.email as gym_email, g.contact_number as gym_contact 
+    $stmtPage = $pdo->prepare("SELECT tp.*, g.gym_name, g.gym_id, g.profile_picture as gym_logo, g.email as gym_email, g.contact_number as gym_contact 
                                FROM tenant_pages tp 
                                JOIN gyms g ON tp.gym_id = g.gym_id 
                                WHERE tp.page_slug = ? AND tp.is_active = 1 LIMIT 1");
@@ -348,8 +348,11 @@ $primary_rgb = hexToRgb($primary_color);
         <div class="flex items-center gap-4">
             <div id="header-logo-container"
                 class="size-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden">
-                <?php if (!empty($page['logo_path'])): ?>
-                    <img id="header-logo-img" src="<?= htmlspecialchars($page['logo_path']) ?>"
+                <?php 
+                    $logo_src = !empty($page['logo_path']) ? $page['logo_path'] : ($page['gym_logo'] ?? '');
+                ?>
+                <?php if (!empty($logo_src)): ?>
+                    <img id="header-logo-img" src="<?= htmlspecialchars($logo_src) ?>"
                         class="size-full object-cover">
                 <?php else: ?>
                     <span id="header-logo-icon" class="material-symbols-outlined text-white text-xl font-bold">bolt</span>
@@ -517,7 +520,14 @@ $primary_rgb = hexToRgb($primary_color);
                 <div class="flex items-center gap-3">
                     <div
                         class="size-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                        <span class="material-symbols-outlined text-white text-lg font-bold">bolt</span>
+                        <?php 
+                            $footer_logo = !empty($page['logo_path']) ? $page['logo_path'] : ($page['gym_logo'] ?? '');
+                        ?>
+                        <?php if (!empty($footer_logo)): ?>
+                            <img src="<?= htmlspecialchars($footer_logo) ?>" class="size-full object-contain p-1">
+                        <?php else: ?>
+                            <span class="material-symbols-outlined text-white text-lg font-bold">bolt</span>
+                        <?php endif; ?>
                     </div>
                     <h1
                         class="text-xl font-bold tracking-tight text-white font-display uppercase tracking-wider gym-name-display">
