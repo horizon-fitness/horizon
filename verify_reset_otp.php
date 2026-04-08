@@ -224,6 +224,7 @@ if (isset($_SESSION['reset_success'])) {
         inputs.forEach((input, index) => {
             // Handle typing
             input.addEventListener('input', (e) => {
+                input.value = input.value.replace(/\D/g, '');
                 if (input.value.length === 1) {
                     if (index < inputs.length - 1) inputs[index + 1].focus();
                 }
