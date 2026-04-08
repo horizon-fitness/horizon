@@ -66,6 +66,10 @@ if (isset($_SESSION['reset_success'])) {
         }
     </script>
     <style>
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+
         html, body { 
             background-color: #050505 !important; 
             color: #f3f4f6;
@@ -85,11 +89,28 @@ if (isset($_SESSION['reset_success'])) {
             border-color: #7f13ec;
             box-shadow: 0 0 0 1px rgba(127, 19, 236, 0.3);
         }
-        .otp-input {
-            letter-spacing: 0.8em;
-            text-align: center;
-            padding-left: 1em !important;
-            font-weight: 900;
+        .otp-box {
+            background-color: #08080a !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            appearance: none;
+            -webkit-appearance: none;
+        }
+        .otp-box:focus {
+            background-color: rgba(127, 19, 236, 0.05) !important;
+            border-color: #7f13ec !important;
+            box-shadow: 0 0 15px rgba(127, 19, 236, 0.2) !important;
+            transform: translateY(-2px);
+            outline: none !important;
+        }
+        /* Anti-Autofill and forced background fix */
+        .otp-box:-webkit-autofill,
+        .otp-box:-webkit-autofill:hover, 
+        .otp-box:-webkit-autofill:focus {
+            -webkit-text-fill-color: #ffffff !important;
+            -webkit-box-shadow: 0 0 0px 1000px #08080a inset !important;
+            transition: background-color 5000s ease-in-out 0s;
         }
     </style>
 </head>
@@ -102,10 +123,15 @@ if (isset($_SESSION['reset_success'])) {
                 <?php if ($branding && !empty($branding['logo_path'])): ?>
                     <img src="<?= $branding['logo_path'] ?>" class="size-full object-contain">
                 <?php else: ?>
-                    <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
+                    <img src="assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
                 <?php endif; ?>
             </div>
             <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>
+        </a>
+
+        <a href="forgot_password.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" class="text-[10px] font-display font-bold text-gray-500 hover:text-white transition-colors uppercase tracking-widest flex items-center gap-2">
+            <span class="material-symbols-outlined text-sm">arrow_back</span>
+            Back to Email Entry
         </a>
     </nav>
 
@@ -113,72 +139,72 @@ if (isset($_SESSION['reset_success'])) {
         <div class="dashboard-window w-full max-w-[440px] rounded-2xl p-10 md:p-12 relative overflow-hidden">
             <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
             
-            <div class="relative z-10">
-                <div class="text-center mb-10">
+            <div class="relative z-10 space-y-8">
+                <div class="text-center">
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
                         Verification Required
                     </div>
-                    <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">
+                    <h1 class="text-3xl font-display font-black text-white uppercase italic tracking-tighter mb-6 whitespace-nowrap">
                         Check your <span class="text-primary">Email</span>
                     </h1>
-                    <p class="text-[10px] text-gray-500 font-medium uppercase tracking-widest leading-relaxed">
-                        We've sent a 6-digit code to <span class="text-white"><?= htmlspecialchars($display_email) ?></span>.<br>
+                    <p class="text-xs text-gray-400 font-medium tracking-wide leading-relaxed">
+                        We've sent a 6-digit code to <span class="text-white font-bold"><?= htmlspecialchars($display_email) ?></span>.<br>
                         It expires in 15 minutes.
                     </p>
                 </div>
 
                 <?php if (!empty($error)): ?>
-                <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] flex items-center gap-3 font-bold uppercase tracking-wider">
+                <div id="alert-message" class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] flex items-center gap-3 font-bold tracking-wide relative group animate-fade-in">
                     <span class="material-symbols-outlined text-lg">error</span>
-                    <?= $error ?>
+                    <span class="flex-1"><?= $error ?></span>
+                    <button onclick="dismissAlert('alert-message')" class="opacity-50 hover:opacity-100 transition-opacity">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
                 </div>
                 <?php endif; ?>
 
                 <?php if (!empty($success)): ?>
-                <div class="mb-8 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-[11px] flex items-center gap-3 font-bold uppercase tracking-wider">
+                <div id="alert-message" class="mb-8 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-[11px] flex items-center gap-3 font-bold tracking-wide relative group animate-fade-in">
                     <span class="material-symbols-outlined text-lg">check_circle</span>
-                    <?= $success ?>
+                    <span class="flex-1"><?= $success ?></span>
+                    <button onclick="dismissAlert('alert-message')" class="opacity-50 hover:opacity-100 transition-opacity">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
                 </div>
                 <?php endif; ?>
 
-                <form action="action/verify_reset_otp.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" method="POST" class="space-y-6">
-                    <div class="space-y-2">
+                <form action="action/verify_reset_otp.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" method="POST" class="space-y-10">
+                    <div class="space-y-4">
                         <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Verification Code</label>
-                        <div class="relative group input-gradient-focus rounded-xl transition-all">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">pin</span>
-                            <input
-                                class="otp-input flex h-16 w-full rounded-xl border border-white/5 bg-white/[0.02] pr-4 text-2xl text-white placeholder:text-gray-800 focus:outline-none transition-all"
-                                name="otp_code"
-                                placeholder="000 000"
-                                required
-                                maxlength="6"
-                                type="text"
-                                autocomplete="one-time-code"
-                            />
+                        <div class="flex gap-3 justify-between" id="otp-inputs">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
                         </div>
+                        <input type="hidden" name="otp_code" id="otp_full_code">
                     </div>
 
                     <button
-                        class="w-full h-14 mt-6 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98]"
+                        class="w-full h-14 mt-4 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98]"
                         type="submit">
                         Verify Code
                         <span class="material-symbols-outlined text-lg">verified_user</span>
                     </button>
                 </form>
 
-                <div class="text-center mt-10 pt-8 border-t border-white/5">
+                <div class="text-center pt-8 border-t border-white/5">
                     <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
                         Didn't receive the code? 
-                        <a class="text-primary hover:text-white transition-colors ml-1" href="action/resend_reset_otp.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>">Resend Code</a>
+                        <a id="resendLink" class="text-primary hover:text-white transition-colors ml-1 pointer-events-none opacity-50" href="action/resend_reset_otp.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>">
+                            Resend Code<span id="resendCountdown"> (60s)</span>
+                        </a>
                     </p>
                 </div>
 
-                <div class="text-center mt-4">
-                    <a href="forgot_password.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" class="text-[9px] text-gray-500 hover:text-white transition-colors font-bold uppercase tracking-widest flex items-center justify-center gap-2">
-                        <span class="material-symbols-outlined text-sm">arrow_back</span>
-                        Back to Email Entry
-                    </a>
-                </div>
+
             </div>
         </div>
     </main>
@@ -189,5 +215,89 @@ if (isset($_SESSION['reset_success'])) {
         </p>
     </footer>
 
+    <script>
+    function setupOTP() {
+        const container = document.getElementById('otp-inputs');
+        const inputs = container.querySelectorAll('input');
+        const hiddenField = document.getElementById('otp_full_code');
+
+        inputs.forEach((input, index) => {
+            // Handle typing
+            input.addEventListener('input', (e) => {
+                if (input.value.length === 1) {
+                    if (index < inputs.length - 1) inputs[index + 1].focus();
+                }
+                updateHiddenField();
+            });
+
+            // Handle backspace
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && input.value.length === 0 && index > 0) {
+                    inputs[index - 1].focus();
+                }
+            });
+
+            // Handle paste
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const data = e.clipboardData.getData('text').slice(0, 6);
+                if (/^\d+$/.test(data)) {
+                    data.split('').forEach((char, i) => {
+                        if (index + i < inputs.length) {
+                            inputs[index + i].value = char;
+                        }
+                    });
+                    const nextIndex = Math.min(index + data.length, inputs.length - 1);
+                    inputs[nextIndex].focus();
+                    updateHiddenField();
+                }
+            });
+        });
+
+        function updateHiddenField() {
+            const val = Array.from(inputs).map(i => i.value).join('');
+            hiddenField.value = val;
+        }
+    }
+
+    function dismissAlert(id) {
+        const alert = document.getElementById(id);
+        if (alert) {
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-10px)';
+            alert.style.transition = 'all 0.5s ease';
+            setTimeout(() => alert.remove(), 500);
+        }
+    }
+
+    function startResendTimer() {
+        let seconds = 60;
+        const resendLink = document.getElementById('resendLink');
+        const resendCountdown = document.getElementById('resendCountdown');
+        
+        const timer = setInterval(() => {
+            seconds--;
+            if (seconds > 0) {
+                resendCountdown.textContent = ` (${seconds}s)`;
+            } else {
+                clearInterval(timer);
+                resendLink.classList.remove('pointer-events-none', 'opacity-50');
+                resendCountdown.textContent = '';
+            }
+        }, 1000);
+    }
+    
+    // Start the functions on page load
+    window.onload = function() {
+        startResendTimer();
+        setupOTP();
+        
+        // Auto-dismiss alert after 10 seconds
+        const alert = document.getElementById('alert-message');
+        if (alert) {
+            setTimeout(() => dismissAlert('alert-message'), 10000);
+        }
+    };
+    </script>
 </body>
 </html>

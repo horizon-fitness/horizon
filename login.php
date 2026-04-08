@@ -189,6 +189,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </script>
     <style>
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+
         html, body { 
             background-color: #050505 !important; 
             color: #f3f4f6;
@@ -235,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php if ($branding && !empty($branding['logo_path'])): ?>
                     <img src="<?= $branding['logo_path'] ?>" class="size-full object-contain">
                 <?php else: ?>
-                    <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
+                    <img src="assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
                 <?php endif; ?>
             </div>
             <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>

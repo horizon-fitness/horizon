@@ -27,6 +27,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // Check if new password is same as old password
+    $stmtCheckOld = $pdo->prepare("SELECT password_hash FROM users WHERE user_id = ? LIMIT 1");
+    $stmtCheckOld->execute([$user_id]);
+    $current_hash = $stmtCheckOld->fetchColumn();
+
+    if ($current_hash && password_verify($password, $current_hash)) {
+        $_SESSION['reset_error'] = "Your new password cannot be the same as your old one.";
+        header("Location: ../reset_password.php" . $gym_param);
+        exit;
+    }
+
     try {
         $pdo->beginTransaction();
 
@@ -46,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         unset($_SESSION['reset_user_id']);
         unset($_SESSION['reset_email']);
 
-        $_SESSION['reset_success'] = "Password updated successfully! You can now login with your new credentials.";
-        header("Location: ../login.php" . $gym_param);
+        $_SESSION['reset_success'] = "Password updated successfully! Redirecting to login page...";
+        header("Location: ../reset_password.php" . $gym_param);
         exit;
 
     } catch (Exception $e) {

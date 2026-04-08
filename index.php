@@ -36,6 +36,10 @@ session_start();
         }
     </script>
     <style>
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+
         html { scroll-behavior: smooth; }
         body { background-color: #050505; color: #f3f4f6; }
         
@@ -120,9 +124,7 @@ session_start();
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-12">
                     <div class="flex items-center gap-3">
-                        <div class="size-10 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
-                            <span class="material-symbols-outlined text-primary">blur_on</span>
-                        </div>
+                        <img src="assests/horizon logo.png" alt="Horizon Logo" class="h-10 w-auto object-contain rounded-lg">
                         <h2 class="text-xl font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
                     </div>
 
@@ -303,7 +305,7 @@ session_start();
                                 <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Gym Page Customizer
                             </li>
                         </ul>
-                        <a href="tenant/tenant_application.php" class="w-full py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-white/5 transition-all">Select Plan</a>
+
                     </div>
 
                     <div class="plan-card rounded-2xl p-10 flex flex-col text-left border-primary/50 bg-primary/5 scale-105">
@@ -324,7 +326,7 @@ session_start();
                                 <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Gym Page Customizer
                             </li>
                         </ul>
-                        <a href="tenant/tenant_application.php" class="w-full py-4 bg-primary rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-primary-dark transition-all">Select Plan</a>
+
                     </div>
 
                     <div class="plan-card rounded-2xl p-10 flex flex-col text-left">
@@ -345,7 +347,7 @@ session_start();
                                 <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Unlimited Team Accounts
                             </li>
                         </ul>
-                        <a href="tenant/tenant_application.php" class="w-full py-4 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white text-center hover:bg-white/5 transition-all">Select Plan</a>
+
                     </div>
                 </div>
             </div>
@@ -369,7 +371,7 @@ session_start();
                 <div class="space-y-8">
                     <div>
                         <div class="flex items-center gap-3 mb-6">
-                            <span class="material-symbols-outlined text-primary text-3xl">blur_on</span>
+                            <img src="assests/horizon logo.png" alt="Horizon Logo" class="h-12 w-auto object-contain rounded-lg">
                             <h2 class="text-2xl font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
                         </div>
                         <p class="text-[10px] text-primary font-black uppercase tracking-[0.4em] mb-6">Expand Your Horizon</p>
