@@ -353,10 +353,9 @@ $header_subtitle = 'Data Protection & Restore Points';
     </style>
     <script>
         function updateHeaderClock() {
-            const now = new Date();
             const clockEl = document.getElementById('headerClock');
             if (clockEl) {
-                clockEl.textContent = now.toLocaleTimeString('en-US', { 
+                clockEl.textContent = new Date().toLocaleTimeString('en-US', { 
                     hour: '2-digit', 
                     minute: '2-digit', 
                     second: '2-digit' 
@@ -364,7 +363,23 @@ $header_subtitle = 'Data Protection & Restore Points';
             }
         }
         setInterval(updateHeaderClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateHeaderClock);
+
+        // Auto-dismiss alerts after 15 seconds
+        window.addEventListener('DOMContentLoaded', () => {
+            updateHeaderClock();
+            
+            const alerts = ['successAlert', 'errorAlert'];
+            alerts.forEach(id => {
+                const alertEl = document.getElementById(id);
+                if (alertEl) {
+                    setTimeout(() => {
+                        alertEl.style.opacity = '0';
+                        alertEl.style.transform = 'translateY(-10px)';
+                        setTimeout(() => alertEl.remove(), 700);
+                    }, 15000);
+                }
+            });
+        });
     </script>
 </head>
 <body class="antialiased flex flex-row min-h-screen">
@@ -493,7 +508,7 @@ $header_subtitle = 'Data Protection & Restore Points';
 
 
         <?php if (isset($_SESSION['success_msg'])): ?>
-        <div class="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold uppercase tracking-widest flex items-center justify-between">
+        <div id="successAlert" class="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold uppercase tracking-widest flex items-center justify-between transition-all duration-700">
             <div class="flex items-center gap-3">
                 <span class="material-symbols-outlined">check_circle</span>
                 <?= $_SESSION['success_msg'] ?>
@@ -503,7 +518,7 @@ $header_subtitle = 'Data Protection & Restore Points';
         <?php unset($_SESSION['success_msg']); endif; ?>
 
         <?php if (isset($_SESSION['error_msg'])): ?>
-        <div class="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-bold uppercase tracking-widest flex items-center justify-between">
+        <div id="errorAlert" class="mb-6 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-bold uppercase tracking-widest flex items-center justify-between transition-all duration-700">
             <div class="flex items-center gap-3">
                 <span class="material-symbols-outlined">error</span>
                 <?= $_SESSION['error_msg'] ?>
