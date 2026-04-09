@@ -112,21 +112,21 @@ unset($_SESSION['application_data']);
                 Partner Registration
             </div>
             <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">Apply for <span class="text-primary">Partnership</span></h1>
-            <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Step <span id="step-number">1</span> of 3: Provider Details</p>
+            <p class="text-xs text-gray-500 font-medium uppercase tracking-widest mb-12">Step <span id="step-number">1</span> of 3: Provider Details</p>
             
-            <?php if (isset($_SESSION['application_error'])): ?>
-                <div class="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm font-bold flex items-center gap-3">
-                    <span class="material-symbols-outlined">error</span> <?= htmlspecialchars($_SESSION['application_error']) ?>
-                </div>
-                <?php unset($_SESSION['application_error']); ?>
-            <?php endif; ?>
-
             <div class="w-full bg-white/5 h-1.5 mt-8 rounded-full overflow-hidden">
                 <div id="progress-bar" class="bg-primary h-full transition-all duration-500" style="width: 33.33%"></div>
             </div>
         </div>
 
+        <div id="dynamic-alert-container" class="w-full pointer-events-none sticky top-4 z-[9999] px-2 mb-2"></div>
+
         <form id="multi-step-form" action="../action/submit_application.php" method="POST" enctype="multipart/form-data" class="space-y-6">
+            
+            <?php if (isset($_SESSION['application_error'])): ?>
+                <script>window.addEventListener('load', () => showAlert("<?= addslashes(htmlspecialchars($_SESSION['application_error'])) ?>", 'error'));</script>
+                <?php unset($_SESSION['application_error']); ?>
+            <?php endif; ?>
             
             <div class="step-container" data-step="1">
                 <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
@@ -141,7 +141,7 @@ unset($_SESSION['application_data']);
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">First Name</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">First Name <span class="text-red-500">*</span></label>
                             <input type="text" name="first_name" required placeholder="e.g. Juan" autocomplete="given-name" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
@@ -149,25 +149,25 @@ unset($_SESSION['application_data']);
                             <input type="text" name="middle_name" placeholder="e.g. Santos" autocomplete="additional-name" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Last Name</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Last Name <span class="text-red-500">*</span></label>
                             <input type="text" name="last_name" required placeholder="e.g. Dela Cruz" autocomplete="family-name" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Email Address</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Email Address <span class="text-red-500">*</span></label>
                             <input type="email" name="owner_email" required placeholder="e.g. name@example.com" autocomplete="email" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Contact Number</label>
-                            <input type="text" name="owner_contact" id="owner_contact" required placeholder="09123456789" maxlength="11" pattern="09\d{9}" inputmode="numeric" autocomplete="tel" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none numeric-only">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Contact Number <span class="text-red-500">*</span></label>
+                            <input type="text" name="owner_contact" id="owner_contact" required placeholder="0912-345-6789" maxlength="13" autocomplete="tel" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Date of Birth</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Date of Birth <span class="text-red-500">*</span></label>
                             <input type="date" name="owner_dob" id="owner_dob" required max="<?php echo date('Y-m-d', strtotime('-18 years')); ?>" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                             <p id="age-error" class="text-[9px] font-bold text-red-400 mt-1 ml-1 hidden flex items-center gap-1">
                                 <span class="material-symbols-outlined text-[10px]">error</span>
@@ -175,7 +175,7 @@ unset($_SESSION['application_data']);
                             </p>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Sex</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Sex <span class="text-red-500">*</span></label>
                             <select name="owner_sex" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none cursor-pointer appearance-none">
                                 <option value="">Select Sex</option>
                                 <option value="Male">Male</option>
@@ -185,13 +185,13 @@ unset($_SESSION['application_data']);
                     </div>
 
                     <div class="space-y-1.5 mb-5">
-                        <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Username (For Login)</label>
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Username (For Login) <span class="text-red-500">*</span></label>
                         <input type="text" name="username" required placeholder="e.g. juan_owner2026" autocomplete="username" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Password</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Password <span class="text-red-500">*</span></label>
                             <div class="relative group">
                                 <input type="password" id="reg-password" name="password" required placeholder="••••••••" autocomplete="new-password" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                                 <button type="button" onclick="togglePasswordVisibility('reg-password', 'eye-icon-pass')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors">
@@ -227,7 +227,7 @@ unset($_SESSION['application_data']);
                             </div>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Confirm Password</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Confirm Password <span class="text-red-500">*</span></label>
                             <div class="relative group">
                                 <input type="password" id="reg-confirm-password" name="confirm_password" placeholder="••••••••" required autocomplete="new-password" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                                 <button type="button" onclick="togglePasswordVisibility('reg-confirm-password', 'eye-icon-confirm')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors">
@@ -258,20 +258,20 @@ unset($_SESSION['application_data']);
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym / Brand Name</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym / Brand Name <span class="text-red-500">*</span></label>
                             <input type="text" name="gym_name" required placeholder="e.g. Iron Forge Gym" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Registered Business Name</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Registered Business Name <span class="text-red-500">*</span></label>
                             <input type="text" name="business_name" required placeholder="e.g. Iron Forge Fitness Inc." class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym Official Email</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym Official Email <span class="text-red-500">*</span></label>
                             <input type="email" name="gym_email" required placeholder="gym@example.com" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym Contact Number</label>
-                            <input type="text" name="gym_contact" id="gym_contact" required placeholder="09123456789" maxlength="11" pattern="09\d{9}" inputmode="numeric" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none numeric-only">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Gym Contact Number <span class="text-red-500">*</span></label>
+                            <input type="text" name="gym_contact" id="gym_contact" required placeholder="0912-345-6789" maxlength="13" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
 
                         <div class="space-y-1.5 md:col-span-2">
@@ -293,23 +293,23 @@ unset($_SESSION['application_data']);
                     <h4 class="text-xs font-black uppercase text-primary tracking-wider mb-4">Gym Address</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div class="md:col-span-2 space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Street Address</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Street Address <span class="text-red-500">*</span></label>
                             <input type="text" name="gym_address_line" placeholder="Unit No., Street Name" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Region</label>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Region <span class="text-red-500">*</span></label>
                             <input type="text" name="region" placeholder="e.g. Central Luzon" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Province</label>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Province <span class="text-red-500">*</span></label>
                             <input type="text" name="province" placeholder="e.g. Bulacan" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">City / Municipality</label>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">City / Municipality <span class="text-red-500">*</span></label>
                             <input type="text" name="city" placeholder="e.g. Baliwag" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Barangay</label>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Barangay <span class="text-red-500">*</span></label>
                             <input type="text" name="barangay" placeholder="e.g. Bagong Nayon" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                     </div>
@@ -328,7 +328,7 @@ unset($_SESSION['application_data']);
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Valid ID Type</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Valid ID Type <span class="text-red-500">*</span></label>
                             <select name="owner_valid_id_type" required class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none cursor-pointer appearance-none">
                                 <option value="">Select ID Type</option>
                                 <option value="passport">Passport</option>
@@ -338,23 +338,23 @@ unset($_SESSION['application_data']);
                             </select>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Upload Valid ID</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Upload Valid ID <span class="text-red-500">*</span></label>
                             <input type="file" name="owner_valid_id_file" required accept=".pdf,image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">BIR Number (TIN)</label>
-                            <input type="text" name="bir_number" id="bir_number" required placeholder="e.g. 123456789000" maxlength="12" pattern="\d{9,12}" inputmode="numeric" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none numeric-only">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">BIR Number (TIN) <span class="text-red-500">*</span></label>
+                            <input type="text" name="bir_number" id="bir_number" required placeholder="XXX-XXX-XXX-XXX" maxlength="15" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">BIR Document (0605 / COR)</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">BIR Document (0605 / COR) <span class="text-red-500">*</span></label>
                             <input type="file" name="bir_document" required accept=".pdf,image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Business Permit No.</label>
-                            <input type="text" name="business_permit_no" id="business_permit_no" required placeholder="e.g. B-2026-12345" maxlength="50" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Business Permit No. <span class="text-red-500">*</span></label>
+                            <input type="text" name="business_permit_no" id="business_permit_no" required placeholder="BIN-000-00-2026-000000" maxlength="22" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Mayor's Permit (File)</label>
+                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Mayor's Permit (File) <span class="text-red-500">*</span></label>
                             <input type="file" name="business_permit" required accept=".pdf,image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
                         </div>
                     </div>
@@ -364,16 +364,25 @@ unset($_SESSION['application_data']);
                     <h4 class="text-xs font-black uppercase text-primary tracking-wider mb-4">Payout Information</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div class="space-y-1.5 md:col-span-2">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Bank Name</label>
-                            <input type="text" name="bank_name" required placeholder="e.g. BDO, BPI, GCash" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Bank or E-Wallet Name <span class="text-red-500">*</span></label>
+                            <div class="relative" id="bank-dropdown-container">
+                                <input type="text" id="bank-search" placeholder="Search Bank or E-Wallet..." class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none" autocomplete="off">
+                                <input type="hidden" name="bank_name" id="bank_name_hidden" required>
+                                
+                                <div id="bank-options" class="absolute z-50 w-full mt-2 bg-[#08080a] border border-white/10 rounded-xl max-h-60 overflow-y-auto hidden shadow-2xl backdrop-blur-xl">
+                                    <div class="p-2 space-y-1" id="bank-list">
+                                        <!-- Banks will be injected here -->
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Account Name</label>
+                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Account Name <span class="text-red-500">*</span></label>
                             <input type="text" name="account_name" required placeholder="Juan Dela Cruz" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Account Number</label>
-                            <input type="text" name="account_number" id="account_number" required placeholder="e.g. 1234567890" maxlength="20" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none numeric-only">
+                            <label id="account-number-label" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Account Number <span class="text-red-500">*</span></label>
+                            <input type="text" name="account_number" id="account_number" required placeholder="e.g. 1234567890" maxlength="12" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
                         </div>
                     </div>
 
@@ -443,6 +452,52 @@ unset($_SESSION['application_data']);
         }
     }
 
+    // --- NEW NOTIFICATION SYSTEM START ---
+    function dismissAlert(id) {
+        const alert = document.getElementById(id);
+        if (alert) {
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-10px)';
+            alert.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            setTimeout(() => alert.remove(), 500);
+        }
+    }
+
+    function showAlert(message, type = 'error') {
+        const container = document.getElementById('dynamic-alert-container');
+        
+        // Anti-spam: limit to 1 visible alert
+        if (container.children.length >= 1) {
+            const oldest = container.lastElementChild;
+            if (oldest) dismissAlert(oldest.id);
+        }
+
+        const id = 'alert-' + Math.random().toString(36).substr(2, 9);
+        const icon = type === 'success' ? 'check_circle' : 'error';
+        const colorClass = type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-500';
+
+        const alertHtml = `
+            <div id="${id}" class="mb-4 p-3 rounded-xl ${colorClass} border text-[10px] font-bold uppercase tracking-wider flex items-center gap-3 animate-fade-in pointer-events-auto shadow-xl backdrop-blur-xl transition-all duration-500">
+                <div class="size-6 rounded-md ${type === 'success' ? 'bg-green-500/20' : 'bg-red-500/20'} flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-base">${icon}</span>
+                </div>
+                <span class="flex-1 leading-normal">${message}</span>
+                <button onclick="dismissAlert('${id}')" class="size-6 flex items-center justify-center rounded-md hover:bg-white/5 opacity-30 hover:opacity-100 transition-all">
+                    <span class="material-symbols-outlined text-xs">close</span>
+                </button>
+            </div>
+        `;
+        container.insertAdjacentHTML('afterbegin', alertHtml);
+        setTimeout(() => dismissAlert(id), 15000); 
+    }
+
+    // Auto-dismiss initial alerts
+    window.addEventListener('load', () => {
+        const errorAlert = document.getElementById('error-alert');
+        if (errorAlert) setTimeout(() => dismissAlert('error-alert'), 15000);
+    });
+    // --- NEW NOTIFICATION SYSTEM END ---
+
     function updateUI() {
         steps.forEach(step => {
             if(parseInt(step.dataset.step) === currentStep) {
@@ -469,14 +524,175 @@ unset($_SESSION['application_data']);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // --- NEW VALIDATION CODE START ---
-    // Enforce numeric-only input for specific fields
-    const numericInputs = document.querySelectorAll('.numeric-only');
-    numericInputs.forEach(input => {
-        input.addEventListener('input', (e) => {
-            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    // --- NEW FORMATTING & MASKING CODE START ---
+    const banks = [
+        "BDO Unibank", "BPI", "Land Bank of the Philippines",
+        "Metrobank", "Security Bank", "Union Bank",
+        "PNB", "China Bank", "RCBC", "EastWest Bank",
+        "GCash", "Maya"
+    ];
+
+    const bankSearch = document.getElementById('bank-search');
+    const bankOptions = document.getElementById('bank-options');
+    const bankList = document.getElementById('bank-list');
+    const bankHidden = document.getElementById('bank_name_hidden');
+    const accNumberInput = document.getElementById('account_number');
+    const accNumberLabel = document.getElementById('account-number-label');
+
+    // Populate bank list
+    function renderBanks(filter = "") {
+        const filtered = banks.filter(b => b.toLowerCase().includes(filter.toLowerCase()));
+        bankList.innerHTML = filtered.map(b => `
+            <div class="bank-item px-4 py-3 hover:bg-white/5 cursor-pointer rounded-lg text-sm text-gray-300 hover:text-white transition-colors flex items-center gap-3" data-name="${b}">
+                <span class="material-symbols-outlined text-sm text-primary opacity-50">account_balance</span>
+                ${b}
+            </div>
+        `).join('') || `<div class="p-4 text-xs text-gray-500 italic">No bank found. You can keep typing...</div>`;
+    }
+
+    renderBanks();
+
+    bankSearch.addEventListener('focus', () => {
+        bankOptions.classList.remove('hidden');
+        renderBanks(bankSearch.value);
+    });
+
+    bankSearch.addEventListener('input', (e) => {
+        renderBanks(e.target.value);
+        bankHidden.value = e.target.value; // Allow custom typing too
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!document.getElementById('bank-dropdown-container').contains(e.target)) {
+            bankOptions.classList.add('hidden');
+        }
+    });
+
+    bankList.addEventListener('click', (e) => {
+        const item = e.target.closest('.bank-item');
+        if (item) {
+            const name = item.dataset.name;
+            bankSearch.value = name;
+            bankHidden.value = name;
+            bankOptions.classList.add('hidden');
+            handleBankChange(name);
+        }
+    });
+
+    function handleBankChange(name) {
+        if (name === "GCash" || name === "Maya") {
+            accNumberLabel.innerHTML = `${name} Mobile Number <span class="text-red-500">*</span>`;
+            accNumberInput.placeholder = "0912-345-6789";
+            accNumberInput.classList.add('phone-mask');
+            accNumberInput.maxLength = 13;
+        } else {
+            accNumberLabel.innerHTML = `Account Number <span class="text-red-500">*</span>`;
+            accNumberInput.placeholder = "e.g. 1234567890";
+            accNumberInput.classList.remove('phone-mask');
+            accNumberInput.maxLength = 12;
+            accNumberInput.value = accNumberInput.value.replace(/[^0-9]/g, '');
+        }
+    }
+
+    // Generic Masking Function
+    function applyMask(input, mask) {
+        let value = input.value.replace(/\D/g, ''); // Remove non-digits
+        
+        // Specific logic for Business Permit No (BIN- prefix)
+        if (input.id === 'business_permit_no') {
+            applyBusinessPermitMask(input);
+            return;
+        }
+
+        let formatted = "";
+        let valIdx = 0;
+        
+        for (let i = 0; i < mask.length && valIdx < value.length; i++) {
+            if (mask[i] === 'X') {
+                formatted += value[valIdx++];
+            } else {
+                formatted += mask[i];
+                if (value[valIdx] === mask[i]) valIdx++; // Skip if user typed the separator
+            }
+        }
+        input.value = formatted;
+    }
+
+    function applyBusinessPermitMask(input) {
+        let digits = input.value.replace(/\D/g, '');
+        let formatted = "BIN-";
+        
+        // Exact format BIN-XXX-XX-2026-XXXXXX
+        if (digits.length > 0) formatted += digits.substring(0, 3);
+        if (digits.length > 3) formatted += "-" + digits.substring(3, 5);
+        if (digits.length > 5) formatted += "-2026-";
+        if (digits.length > 5) formatted += digits.substring(5, 11);
+        
+        input.value = formatted;
+    }
+
+    // Attach masks
+    const phoneFields = ['owner_contact', 'gym_contact', 'account_number'];
+    phoneFields.forEach(id => {
+        const el = document.getElementById(id);
+        el.addEventListener('input', () => {
+            if (id === 'account_number' && !el.classList.contains('phone-mask')) {
+                el.value = el.value.replace(/[^0-9]/g, '');
+                return;
+            }
+            applyMask(el, "09XX-XXX-XXXX");
         });
     });
+
+    document.getElementById('bir_number').addEventListener('input', (e) => {
+        applyMask(e.target, "XXX-XXX-XXX-XXX");
+    });
+
+    document.getElementById('business_permit_no').addEventListener('input', (e) => {
+        applyBusinessPermitMask(e.target);
+    });
+
+    // --- NEW FORMATTING & MASKING CODE END ---
+
+    // Real-time Username Check (Debounced)
+    const usernameInput = document.querySelector('input[name="username"]');
+    let usernameExists = false;
+    let isCheckingUsername = false;
+    let usernameTimeout = null;
+
+    if (usernameInput) {
+        usernameInput.addEventListener('input', () => {
+            clearTimeout(usernameTimeout);
+            const val = usernameInput.value.trim();
+            
+            if (val.length < 3) {
+                usernameInput.classList.remove('border-red-500/50', 'bg-red-500/5');
+                return;
+            }
+
+            usernameTimeout = setTimeout(async () => {
+                isCheckingUsername = true;
+                try {
+                    const response = await fetch(`?check_username=${encodeURIComponent(val)}`);
+                    const data = await response.json();
+                    usernameExists = data.exists;
+                    
+                    if (usernameExists) {
+                        showAlert('You can\'t use the same username! "' + val + '" is already taken.', 'error');
+                        usernameInput.classList.add('border-red-500/50');
+                        usernameInput.classList.add('bg-red-500/5');
+                    } else {
+                        usernameInput.classList.remove('border-red-500/50');
+                        usernameInput.classList.remove('bg-red-500/5');
+                    }
+                } catch (err) {
+                    console.error('Username check failed', err);
+                } finally {
+                    isCheckingUsername = false;
+                }
+            }, 700); // 700ms debounce
+        });
+    }
 
     // Real-time password match feedback
     const passwordInput = document.getElementById('reg-password');
@@ -591,9 +807,19 @@ unset($_SESSION['application_data']);
 
         // Additional validation for Step 1
         if (currentStep === 1) {
+            if (isCheckingUsername) {
+                showAlert('Verifying username availability...', 'success');
+                return;
+            }
+            if (usernameExists) {
+                showAlert('The chosen username is already taken. Please choose another.', 'error');
+                usernameInput.focus();
+                return;
+            }
+
             const strength = checkPasswordStrength(passwordInput.value);
             if (strength < 4) {
-                alert('Please fulfill all password requirements before proceeding.');
+                showAlert('Please fulfill all password requirements before proceeding.');
                 passwordInput.focus();
                 return;
             }
@@ -619,20 +845,24 @@ unset($_SESSION['application_data']);
                 ageError.classList.add('hidden');
             }
             
-            const contact = document.getElementById('owner_contact').value;
-            if (contact.length !== 11 || !contact.startsWith('09')) {
-                alert('Please enter a valid Philippine mobile number (e.g., 09123456789)');
-                document.getElementById('owner_contact').focus();
+            const contactField = document.getElementById('owner_contact');
+            const contact = contactField.value;
+            const rawContact = contact.replace(/\D/g, '');
+            if (rawContact.length !== 11 || !rawContact.startsWith('09')) {
+                showAlert('Please enter a valid Philippine mobile number (e.g., 0912-345-6789)');
+                contactField.focus();
                 return;
             }
         }
 
         // Additional validation for Step 2
         if (currentStep === 2) {
-            const contact = document.getElementById('gym_contact').value;
-            if (contact.length !== 11 || !contact.startsWith('09')) {
-                alert('Please enter a valid Philippine mobile number for the gym (e.g., 09123456789)');
-                document.getElementById('gym_contact').focus();
+            const gymContactField = document.getElementById('gym_contact');
+            const contact = gymContactField.value;
+            const rawContact = contact.replace(/\D/g, '');
+            if (rawContact.length !== 11 || !rawContact.startsWith('09')) {
+                showAlert('Please enter a valid Philippine mobile number for the gym (e.g., 0912-345-6789)');
+                gymContactField.focus();
                 return;
             }
         }
@@ -706,10 +936,10 @@ unset($_SESSION['application_data']);
             return;
         }
 
-        const tin = document.getElementById('bir_number').value;
-        if (tin.length < 9 || tin.length > 12) {
+        const tin = document.getElementById('bir_number').value.replace(/\D/g, '');
+        if (tin.length !== 12) {
             e.preventDefault();
-            alert('Please enter a valid TIN number (9 to 12 digits)');
+            showAlert('Please enter a valid 12-digit TIN number (XXX-XXX-XXX-XXX)');
             document.getElementById('bir_number').focus();
             return;
         }

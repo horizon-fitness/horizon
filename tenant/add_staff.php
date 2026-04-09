@@ -40,6 +40,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Essential fields are required.";
     } else {
         try {
+            // 0. Check Staff Limit (Global Rule)
+            $stmtMax = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'max_staff' LIMIT 1");
+            $stmtMax->execute();
+            $max_staff = (int)($stmtMax->fetchColumn() ?: 0);
+
+            if ($max_staff > 0) {
+                $stmtCountStaff = $pdo->prepare("SELECT COUNT(*) FROM staff WHERE gym_id = ? AND status = 'Active'");
+                $stmtCountStaff->execute([$gym_id]);
+                $current_staff = (int)$stmtCountStaff->fetchColumn();
+
+                $stmtCountCoaches = $pdo->prepare("SELECT COUNT(*) FROM coaches WHERE gym_id = ? AND status = 'Active'");
+                $stmtCountCoaches->execute([$gym_id]);
+                $current_coaches = (int)$stmtCountCoaches->fetchColumn();
+
+                if (($current_staff + $current_coaches) >= $max_staff) {
+                    throw new Exception("Security Protocol: Staff limit reached. Your current configuration allows only $max_staff active staff members. Please contact system administrators for expansion.");
+                }
+            }
+
             // 1. Check if Username Already Exists
             $stmtCheckU = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
             $stmtCheckU->execute([$username]);

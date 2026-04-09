@@ -12,6 +12,7 @@ $email = $_SESSION['verify_email'];
 $error = '';
 $success = '';
 $branding = null;
+$is_auto_approved = false;
 
 if (isset($_GET['gym'])) {
     $slug = $_GET['gym'];
@@ -53,15 +54,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $userUpdate = $pdo->prepare("UPDATE users SET is_verified = 1 WHERE user_id = ?");
                 $userUpdate->execute([$user_id]);
 
+                // 2. Check Auto-Approval Logic
+                $stmtCheckApp = $pdo->prepare("SELECT * FROM gym_owner_applications WHERE user_id = ? LIMIT 1");
+                $stmtCheckApp->execute([$user_id]);
+                $app = $stmtCheckApp->fetch(PDO::FETCH_ASSOC);
+
+                if ($app && $app['application_status'] === 'Active') {
+                    $app_id = $app['application_id'];
+                    $now = date('Y-m-d H:i:s');
+                    
+                    // 1. Update application status to 'Approved'
+                    $stmtUpdateApp = $pdo->prepare("UPDATE gym_owner_applications SET application_status = 'Approved', reviewed_by = 0, reviewed_at = ? WHERE application_id = ?");
+                    $stmtUpdateApp->execute([$now, $app_id]);
+
+                    // 2. Fetch logo
+                    $stmtLogo = $pdo->prepare("SELECT file_path FROM application_documents WHERE application_id = ? AND document_type = 'Gym Logo' LIMIT 1");
+                    $stmtLogo->execute([$app_id]);
+                    $logoRow = $stmtLogo->fetch(PDO::FETCH_ASSOC);
+                    $gymLogo = $logoRow ? $logoRow['file_path'] : null;
+
+                    // 3. Insert into gyms
+                    $tenant_code = strtoupper(substr(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']), 0, 3)) . '-' . rand(1000, 9999);
+                    $stmtGym = $pdo->prepare("INSERT INTO gyms (owner_user_id, application_id, gym_name, business_name, address_id, contact_number, email, profile_picture, tenant_code, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+                    $stmtGym->execute([
+                        $app['user_id'], $app['application_id'], $app['gym_name'], $app['business_name'], $app['address_id'], $app['contact_number'], $app['email'], $gymLogo, $tenant_code, $now, $now
+                    ]);
+                    $gym_id = $pdo->lastInsertId();
+
+                    // 4. Role Assignment
+                    $roleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = 'Tenant' LIMIT 1");
+                    $roleCheck->execute();
+                    $role = $roleCheck->fetch(PDO::FETCH_ASSOC);
+                    $roleId = $role ? $role['role_id'] : 0;
+                    if (!$roleId) {
+                        $pdo->query("INSERT INTO roles (role_name) VALUES ('Tenant')");
+                        $roleId = $pdo->lastInsertId();
+                    }
+
+                    $stmtRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', ?)");
+                    $stmtRole->execute([$app['user_id'], $roleId, $gym_id, $now]);
+
+                    // 5. Tenant Page
+                    $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']));
+                    $stmtPage = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, updated_at) VALUES (?, ?, ?, ?, '#7f13ec', ?)");
+                    $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $gymLogo, $now]);
+
+                    // 6. Welcome Email
+                    require_once '../includes/mailer.php';
+                    $stmtUser = $pdo->prepare("SELECT username FROM users WHERE user_id = ?");
+                    $stmtUser->execute([$app['user_id']]);
+                    $username = $stmtUser->fetchColumn() ?: 'N/A';
+
+                    $emailBody = "
+                        <div style='background-color:#f8fafc; padding: 40px; font-family: sans-serif; color: #1e293b;'>
+                            <h2 style='color: #0f172a;'>Formal Application Approval</h2>
+                            <p>We are pleased to notify you that the application for <strong>{$app['gym_name']}</strong> has been <strong>Automatically Approved</strong>.</p>
+                            <p>Your gym portal is now active. Access credentials:</p>
+                            <div style='background: #f1f5f9; padding: 20px; border-radius: 12px; margin: 20px 0;'>
+                                <p><strong>Username:</strong> {$username}</p>
+                                <p><strong>Tenant Code:</strong> <span style='color:#7f13ec; font-weight:800;'>{$tenant_code}</span></p>
+                            </div>
+                            <p>Please log in to your dashboard to begin configuration.</p>
+                        </div>";
+                    sendSystemEmail($app['email'], 'Official Application Approval - Horizon Systems', $emailBody);
+
+                    $success = 'Email verified and account automatically activated!';
+                    $is_auto_approved = true;
+                } else {
+                    $success = 'Email successfully verified!';
+                }
+
                 $pdo->commit();
 
-                $success = 'Email successfully verified! Your gym application is now awaiting admin approval.';
-                
                 unset($_SESSION['verify_user_id']);
                 unset($_SESSION['verify_email']);
                 
                 $gym_param = isset($_GET['gym']) ? "?gym=" . urlencode($_GET['gym']) : "";
-                header("refresh:3;url=../login.php" . $gym_param);
+                // Redirection is now handled by a button in the UI
+                // header("refresh:3;url=../login.php" . $gym_param);
 
             } catch (Exception $e) {
                 $pdo->rollBack();
@@ -138,10 +208,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <?php if (!empty($success)): ?>
-        <div class="mb-6 p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-xs flex items-center justify-center gap-2 font-semibold">
-            <span class="material-symbols-outlined text-[16px]">check_circle</span>
-            <?= $success ?>
-            <p class="mt-1 text-[10px] text-green-400/70">Redirecting to login...</p>
+        <div class="animate-in fade-in zoom-in duration-700">
+            <div class="size-24 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto mb-8 border border-emerald-500/20 shadow-[0_0_50px_rgba(16,185,129,0.1)]">
+                <span class="material-symbols-outlined text-5xl">verified</span>
+            </div>
+            
+            <div class="space-y-4 mb-10 text-center">
+                <h2 class="text-3xl font-black tracking-tighter uppercase italic text-white line-clamp-1">
+                    <?= $is_auto_approved ? 'Portal Activated' : 'Identity Verified' ?>
+                </h2>
+                <div class="h-1 w-12 bg-primary mx-auto rounded-full"></div>
+                <p class="text-gray-400 text-sm leading-relaxed font-medium px-4">
+                    <?php if($is_auto_approved): ?>
+                        Verification successful! Your gym infrastructure is now live and synced. Launch your secure dashboard to begin configuration.
+                    <?php else: ?>
+                        Identity confirmed! Your application is now in the priority queue for final administrative audit. We'll notify you once cleared.
+                    <?php endif; ?>
+                </p>
+            </div>
+
+            <a href="../login.php<?= isset($_GET['gym']) ? '?gym='.urlencode($_GET['gym']) : '' ?>" 
+               class="w-full h-14 rounded-xl bg-primary hover:bg-primary-hover text-white font-black uppercase tracking-widest text-sm transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] group">
+                <?= $is_auto_approved ? 'Launch Dashboard' : 'Return to Login' ?>
+                <span class="material-symbols-outlined text-xl group-hover:translate-x-1 transition-transform">rocket_launch</span>
+            </a>
+            
+            <p class="mt-8 text-[10px] font-black uppercase tracking-[0.2em] text-gray-600 italic">Horizon Digital Infrastructure &copy; <?= date('Y') ?></p>
         </div>
         <?php else: ?>
 

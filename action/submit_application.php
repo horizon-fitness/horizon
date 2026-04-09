@@ -95,13 +95,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $account_name = $_POST['account_name'] ?? '';
     $account_number = $_POST['account_number'] ?? '';
 
+    // Sanitize formatted inputs (Strip dashes)
+    $bir_number = str_replace('-', '', $bir_number);
+    $account_number = str_replace('-', '', $account_number);
+    $owner_contact = str_replace('-', '', $contact_number);
+    $gym_contact = str_replace('-', '', $gym_contact);
+
     // Data Integrity Checks
-    if (strlen($bir_number) < 9 || strlen($bir_number) > 12) {
-        throw new Exception("Security Error: BIR/TIN number must be between 9 and 12 digits.");
+    if (strlen($bir_number) !== 12) {
+        throw new Exception("Security Error: BIR/TIN number must be exactly 12 digits before formatting.");
     }
 
     if (empty($bank_name) || empty($account_name) || empty($account_number)) {
-        throw new Exception("Security Error: Complete payout information (Bank, Account Name, Account Number) is required.");
+        throw new Exception("Security Error: Complete payout information (Bank/E-wallet, Account Name, Account Number) is required.");
+    }
+
+    if (strlen($account_number) > 12) {
+        throw new Exception("Security Error: Bank Account Number cannot exceed 12 digits (excluding dashes for e-wallets).");
     }
     $platform_fee_preference = $_POST['platform_fee_preference'] ?? '';
 
@@ -147,7 +157,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $address_id = $pdo->lastInsertId();
 
         // 3. Insert into `gym_owner_applications` table
-        $application_status = 'Pending';
+        // Fetch default status from global settings
+        $stmtDefStatus = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'default_status' LIMIT 1");
+        $stmtDefStatus->execute();
+        $default_status = $stmtDefStatus->fetchColumn() ?: 'Pending';
+        
+        $application_status = $default_status;
         $stmtApp = $pdo->prepare("INSERT INTO gym_owner_applications (user_id, gym_name, business_name, business_type, address_id, owner_valid_id_type, bir_number, business_permit_no, contact_number, email, application_status, submitted_at, remarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
         $stmtApp->execute([$user_id, $gym_name, $business_name, $business_type, $address_id, $owner_valid_id_type, $bir_number, $business_permit_no, $gym_contact, $gym_email, $application_status, $current_date, $facility_remarks]);
         $application_id = $pdo->lastInsertId();

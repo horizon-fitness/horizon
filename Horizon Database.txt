@@ -509,9 +509,9 @@ INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES
 
 -- Website Plans
 INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, features) VALUES
-('6-Month Kickstart', 5999.00, '6 Months', 6, 'Multi-Tenant Management, Core Analytics, Gym Page Customizer, Revenue Reports, Priority Support, White-Label Access, API Integration'),
-('1-Year Momentum', 10999.00, '1 Year', 12, 'Multi-Tenant Management, Core Analytics, Gym Page Customizer, Revenue Reports, Priority Support, White-Label Access, API Integration'),
-('3-Year Legacy', 27999.00, '3 Years', 36, 'Multi-Tenant Management, Core Analytics, Gym Page Customizer, Revenue Reports, Priority Support, White-Label Access, API Integration');
+('6-Month Kickstart', 5999.00, '6 Months', 6, 'Core Analytics, Gym Page Customizer, Revenue Reports, White-Label Access, API Integration'),
+('1-Year Momentum', 10999.00, '1 Year', 12, 'Core Analytics, Gym Page Customizer, Revenue Reports, White-Label Access, API Integration'),
+('3-Year Legacy', 27999.00, '3 Years', 36, 'Core Analytics, Gym Page Customizer, Revenue Reports, White-Label Access, API Integration');
 
 -- Standardized Global Membership Plans
 INSERT INTO membership_plan_types (type_name) VALUES ('Gym Membership');
