@@ -9,7 +9,7 @@ $branding = null;
 // Use session-based authorization from OTP verification
 $user_id = $_SESSION['reset_authorized_user_id'] ?? null;
 
-if (!$user_id) {
+if (!$user_id && !isset($_SESSION['reset_success'])) {
     $_SESSION['reset_error'] = "Unauthorized access. Please start the recovery process again.";
     header("Location: forgot_password.php" . (isset($_GET['gym']) ? "?gym=" . urlencode($_GET['gym']) : ""));
     exit;
@@ -157,11 +157,34 @@ if (isset($_SESSION['reset_success'])) {
                     </p>
                 </div>
 
+                <!-- Premium Success Modal -->
                 <?php if (!empty($success)): ?>
-                    <div id="success-alert"
-                        class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] flex items-center gap-3 font-bold tracking-wide relative group animate-fade-in">
-                        <span class="material-symbols-outlined text-lg">check_circle</span>
-                        <span class="flex-1"><?= $success ?></span>
+                    <div id="success-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                        <div class="dashboard-window w-full max-w-[400px] rounded-2xl p-8 text-center relative overflow-hidden border-primary/20">
+                            <div class="absolute -top-24 -right-24 w-48 h-48 bg-emerald-500/10 blur-[60px] rounded-full pointer-events-none"></div>
+                            
+                            <div class="relative z-10">
+                                <div class="size-20 bg-emerald-500/10 rounded-full flex items-center justify-center border border-emerald-500/20 mx-auto mb-6">
+                                    <span class="material-symbols-outlined text-4xl text-emerald-400 animate-bounce">check_circle</span>
+                                </div>
+                                
+                                <h3 class="text-2xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
+                                    Update <span class="text-emerald-400">Successful</span>
+                                </h3>
+                                
+                                <p class="text-[13px] text-gray-400 font-medium leading-relaxed mb-8">
+                                    <?= $success ?>
+                                </p>
+                                
+                                <div class="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-2">
+                                    <div id="redirect-progress" class="absolute inset-y-0 left-0 bg-emerald-500 transition-all duration-100 ease-linear" style="width: 100%"></div>
+                                </div>
+                                <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-gray-600">
+                                    <span>Redirecting</span>
+                                    <span id="countdown-text">3s</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 <?php endif; ?>
 
@@ -357,13 +380,24 @@ if (isset($_SESSION['reset_success'])) {
                 setTimeout(() => dismissAlert('alert-message'), 10000);
             }
 
-            // Success redirection logic
-            const successAlert = document.getElementById('success-alert');
-            if (successAlert) {
-                setTimeout(() => {
-                    const gymParam = "<?= isset($_GET['gym']) ? '?gym=' . htmlspecialchars($_GET['gym']) : '' ?>";
-                    window.location.href = "login.php" + gymParam;
-                }, 3000); // Redirect after 3 seconds
+            // Success Modal Redirection Logic
+            const successModal = document.getElementById('success-modal');
+            if (successModal) {
+                let timeLeft = 3;
+                const countdownText = document.getElementById('countdown-text');
+                const progressBar = document.getElementById('redirect-progress');
+                
+                const interval = setInterval(() => {
+                    timeLeft -= 0.1;
+                    if (timeLeft <= 0) {
+                        clearInterval(interval);
+                        const gymParam = "<?= isset($_GET['gym']) ? '?gym=' . htmlspecialchars($_GET['gym']) : '' ?>";
+                        window.location.href = "login.php" + gymParam;
+                    } else {
+                        if (countdownText) countdownText.textContent = Math.ceil(timeLeft) + 's';
+                        if (progressBar) progressBar.style.width = (timeLeft / 3 * 100) + '%';
+                    }
+                }, 100);
             }
         };
     </script>
