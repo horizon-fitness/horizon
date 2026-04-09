@@ -15,6 +15,9 @@ if (!$user_id) {
     exit;
 }
 
+$temp_password = $_SESSION['temp_password'] ?? '';
+unset($_SESSION['temp_password']);
+
 // Fetch branding if gym slug is provided
 if (isset($_GET['gym'])) {
     $slug = $_GET['gym'];
@@ -140,7 +143,7 @@ if (isset($_SESSION['reset_success'])) {
             </div>
 
             <div class="relative z-10">
-                <div class="text-center mb-10">
+                <div class="text-center mb-6">
                     <div
                         class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
                         Update Security
@@ -174,7 +177,7 @@ if (isset($_SESSION['reset_success'])) {
                     </div>
                 <?php endif; ?>
 
-                <form action="action/process_password_reset.php" method="POST" class="space-y-6">
+                <form action="action/process_password_reset.php" method="POST" class="space-y-4">
                     <?php if (isset($_GET['gym'])): ?>
                         <input type="hidden" name="gym" value="<?= htmlspecialchars($_GET['gym']) ?>">
                     <?php endif; ?>
@@ -188,7 +191,7 @@ if (isset($_SESSION['reset_success'])) {
                                 class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">lock</span>
                             <input id="new-password"
                                 class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-12 pr-14 text-sm text-white placeholder:text-gray-700 focus:outline-none transition-all"
-                                name="password" placeholder="••••••••" required type="password" />
+                                name="password" placeholder="••••••••" required type="password" value="<?= htmlspecialchars($temp_password) ?>" />
                             <button type="button" onclick="togglePassword('new-password', 'eye-1')"
                                 class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-primary transition-colors">
                                 <span id="eye-1" class="material-symbols-outlined text-[20px]">visibility</span>
@@ -201,6 +204,26 @@ if (isset($_SESSION['reset_success'])) {
                             <div id="strength-bar-4" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
                         </div>
                         <p id="strength-text" class="text-[9px] font-bold uppercase tracking-widest text-gray-600 mt-2 ml-1">Strength: <span id="strength-label">None</span></p>
+
+                        <!-- Password Requirements Checklist -->
+                        <div class="grid grid-cols-2 gap-y-3 mt-5 px-1">
+                            <div id="req-length" class="flex items-center gap-2 text-gray-600 transition-colors">
+                                <span class="material-symbols-outlined text-sm transition-all">radio_button_unchecked</span>
+                                <span class="text-[9px] font-bold uppercase tracking-widest">8+ Characters</span>
+                            </div>
+                            <div id="req-upper" class="flex items-center gap-2 text-gray-600 transition-colors">
+                                <span class="material-symbols-outlined text-sm transition-all">radio_button_unchecked</span>
+                                <span class="text-[9px] font-bold uppercase tracking-widest">Uppercase</span>
+                            </div>
+                            <div id="req-number" class="flex items-center gap-2 text-gray-600 transition-colors">
+                                <span class="material-symbols-outlined text-sm transition-all">radio_button_unchecked</span>
+                                <span class="text-[9px] font-bold uppercase tracking-widest">Number</span>
+                            </div>
+                            <div id="req-special" class="flex items-center gap-2 text-gray-600 transition-colors">
+                                <span class="material-symbols-outlined text-sm transition-all">radio_button_unchecked</span>
+                                <span class="text-[9px] font-bold uppercase tracking-widest">Special Char</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="space-y-2">
@@ -212,7 +235,7 @@ if (isset($_SESSION['reset_success'])) {
                                 class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">lock_reset</span>
                             <input id="confirm-password"
                                 class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-12 pr-14 text-sm text-white placeholder:text-gray-700 focus:outline-none transition-all"
-                                name="confirm_password" placeholder="••••••••" required type="password" />
+                                name="confirm_password" placeholder="••••••••" required type="password" value="<?= htmlspecialchars($temp_password) ?>" />
                             <button type="button" onclick="togglePassword('confirm-password', 'eye-2')"
                                 class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-primary transition-colors">
                                 <span id="eye-2" class="material-symbols-outlined text-[20px]">visibility</span>
@@ -266,11 +289,30 @@ if (isset($_SESSION['reset_success'])) {
             ];
             const label = document.getElementById('strength-label');
             
+            // Requirements indicators
+            const reqs = {
+                length: { el: document.getElementById('req-length'), check: password.length >= 8 },
+                upper: { el: document.getElementById('req-upper'), check: /[A-Z]/.test(password) },
+                number: { el: document.getElementById('req-number'), check: /[0-9]/.test(password) },
+                special: { el: document.getElementById('req-special'), check: /[^A-Za-z0-9]/.test(password) }
+            };
+
             let strength = 0;
-            if (password.length >= 8) strength++;
-            if (/[A-Z]/.test(password)) strength++;
-            if (/[0-9]/.test(password)) strength++;
-            if (/[^A-Za-z0-9]/.test(password)) strength++;
+            // Update requirements UI
+            Object.keys(reqs).forEach(key => {
+                const item = reqs[key];
+                const icon = item.el.querySelector('.material-symbols-outlined');
+                if (item.check) {
+                    item.el.classList.remove('text-gray-600');
+                    item.el.classList.add('text-primary');
+                    icon.textContent = 'check_circle';
+                    strength++;
+                } else {
+                    item.el.classList.add('text-gray-600');
+                    item.el.classList.remove('text-primary');
+                    icon.textContent = 'radio_button_unchecked';
+                }
+            });
             
             bars.forEach(bar => bar.className = 'flex-1 rounded-full bg-white/5 transition-colors');
             
@@ -281,11 +323,12 @@ if (isset($_SESSION['reset_success'])) {
                 const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-emerald-500'];
                 const labels = ['Weak', 'Fair', 'Good', 'Strong'];
                 
-                for (let i = 0; i < strength; i++) {
-                    bars[i].className = 'flex-1 rounded-full ' + colors[strength - 1];
+                const displayStrength = Math.max(1, strength);
+                for (let i = 0; i < displayStrength; i++) {
+                    bars[i].className = 'flex-1 rounded-full ' + colors[displayStrength - 1];
                 }
-                label.textContent = labels[strength - 1];
-                label.className = colors[strength - 1].replace('bg-', 'text-');
+                label.textContent = labels[displayStrength - 1];
+                label.className = colors[displayStrength - 1].replace('bg-', 'text-');
             }
         }
 
@@ -304,6 +347,8 @@ if (isset($_SESSION['reset_success'])) {
             const passwordInput = document.getElementById('new-password');
             if (passwordInput) {
                 passwordInput.addEventListener('input', (e) => checkPasswordStrength(e.target.value));
+                // Initial check if value is pre-populated
+                if (passwordInput.value) checkPasswordStrength(passwordInput.value);
             }
 
             // Auto-dismiss error alert after 10 seconds

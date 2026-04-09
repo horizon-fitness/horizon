@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($password !== $confirm_password) {
+        $_SESSION['temp_password'] = $password;
         $_SESSION['reset_error'] = "Passwords do not match.";
         header("Location: ../reset_password.php" . $gym_param);
         exit;
@@ -33,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $current_hash = $stmtCheckOld->fetchColumn();
 
     if ($current_hash && password_verify($password, $current_hash)) {
+        $_SESSION['temp_password'] = $password;
         $_SESSION['reset_error'] = "Your new password cannot be the same as your old one.";
         header("Location: ../reset_password.php" . $gym_param);
         exit;
@@ -62,7 +64,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
 
     } catch (Exception $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $_SESSION['temp_password'] = $password;
         $_SESSION['reset_error'] = "A database error occurred. Please try again.";
         header("Location: ../reset_password.php" . $gym_param);
         exit;
