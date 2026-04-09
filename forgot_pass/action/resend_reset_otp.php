@@ -1,7 +1,7 @@
 <?php
 session_start();
-require_once '../db.php';
-require_once '../includes/mailer.php';
+require_once '../../db.php';
+require_once '../../includes/mailer.php';
 
 $user_id = $_SESSION['reset_user_id'] ?? null;
 $email = $_SESSION['reset_email'] ?? null;

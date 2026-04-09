@@ -1,7 +1,7 @@
 <?php
 session_start();
-require_once '../db.php';
-require_once '../includes/mailer.php';
+require_once '../../db.php';
+require_once '../../includes/mailer.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $identifier = trim($_POST['identifier'] ?? '');
@@ -62,6 +62,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header("Location: ../forgot_password.php" . $gym_param);
     exit;
 } else {
-    header("Location: ../login.php");
+    header("Location: ../../login.php");
     exit;
 }

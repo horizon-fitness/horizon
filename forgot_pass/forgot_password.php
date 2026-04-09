@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once 'db.php';
+require_once '../db.php';
 
 $error = '';
 $success = '';
@@ -100,13 +100,13 @@ if (isset($_SESSION['reset_error'])) {
 <body class="font-sans antialiased min-h-screen flex flex-col hero-glow">
 
     <nav class="w-full px-8 py-6 flex justify-between items-center relative z-20">
-        <a href="index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+        <a href="../index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div
                 class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
                 <?php if ($branding && !empty($branding['logo_path'])): ?>
                     <img src="<?= $branding['logo_path'] ?>" class="size-full object-contain">
                 <?php else: ?>
-                    <img src="assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
+                    <img src="../assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
                 <?php endif; ?>
             </div>
             <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">
@@ -115,7 +115,7 @@ if (isset($_SESSION['reset_error'])) {
             </h2>
         </a>
 
-        <a href="login.php<?= isset($_GET['gym']) ? '?gym=' . htmlspecialchars($_GET['gym']) : '' ?>"
+        <a href="../login.php<?= isset($_GET['gym']) ? '?gym=' . htmlspecialchars($_GET['gym']) : '' ?>"
             class="text-[10px] font-display font-bold text-gray-500 hover:text-white transition-colors uppercase tracking-widest flex items-center gap-2">
             <span class="material-symbols-outlined text-sm">arrow_back</span>
             Back to Login
@@ -195,7 +195,7 @@ if (isset($_SESSION['reset_error'])) {
                     <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
                         Remembered your key?
                         <a class="text-primary hover:text-white transition-colors ml-1"
-                            href="login.php<?= isset($_GET['gym']) ? '?gym=' . htmlspecialchars($_GET['gym']) : '' ?>">Login</a>
+                            href="../login.php<?= isset($_GET['gym']) ? '?gym=' . htmlspecialchars($_GET['gym']) : '' ?>">Login</a>
                     </p>
                 </div>
             </div>
