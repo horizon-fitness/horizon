@@ -21,6 +21,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // Strict Password Validation
+    $hasUppercase = preg_match('@[A-Z]@', $password);
+    $hasNumber    = preg_match('@[0-9]@', $password);
+    $hasSpecial   = preg_match('@[^\w]@', $password); // Matches any character that is not a word character (letters, numbers, underscore)
+    $isLongEnough = strlen($password) >= 8;
+
+    if (!$isLongEnough || !$hasUppercase || !$hasNumber || !$hasSpecial) {
+        $_SESSION['temp_password'] = $password;
+        $_SESSION['reset_error'] = "Password must be at least 8 characters long and contain at least one uppercase letter, one number, and one special character.";
+        header("Location: ../reset_password.php" . $gym_param);
+        exit;
+    }
+
     if ($password !== $confirm_password) {
         $_SESSION['temp_password'] = $password;
         $_SESSION['reset_error'] = "Passwords do not match.";

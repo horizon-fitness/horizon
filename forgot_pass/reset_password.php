@@ -181,7 +181,7 @@ if (isset($_SESSION['reset_success'])) {
                                 </div>
                                 <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-gray-600">
                                     <span>Redirecting</span>
-                                    <span id="countdown-text">3s</span>
+                                    <span id="countdown-text">10s</span>
                                 </div>
                             </div>
                         </div>
@@ -200,7 +200,7 @@ if (isset($_SESSION['reset_success'])) {
                     </div>
                 <?php endif; ?>
 
-                <form action="action/process_password_reset.php" method="POST" class="space-y-4">
+                <form id="reset-password-form" action="action/process_password_reset.php" method="POST" class="space-y-4">
                     <?php if (isset($_GET['gym'])): ?>
                         <input type="hidden" name="gym" value="<?= htmlspecialchars($_GET['gym']) ?>">
                     <?php endif; ?>
@@ -258,12 +258,13 @@ if (isset($_SESSION['reset_success'])) {
                                 class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">lock_reset</span>
                             <input id="confirm-password"
                                 class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-12 pr-14 text-sm text-white placeholder:text-gray-700 focus:outline-none transition-all"
-                                name="confirm_password" placeholder="••••••••" required type="password" value="<?= htmlspecialchars($temp_password) ?>" />
+                                name="confirm_password" placeholder="••••••••" required type="password" value="" />
                             <button type="button" onclick="togglePassword('confirm-password', 'eye-2')"
                                 class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-primary transition-colors">
                                 <span id="eye-2" class="material-symbols-outlined text-[20px]">visibility</span>
                             </button>
                         </div>
+                        <p id="match-text" class="text-[9px] font-bold uppercase tracking-widest text-gray-600 mt-2 ml-1 opacity-0 transition-opacity">Status: <span id="match-label">Not Matching</span></p>
                     </div>
 
                     <div class="pt-2">
@@ -339,6 +340,8 @@ if (isset($_SESSION['reset_success'])) {
             
             bars.forEach(bar => bar.className = 'flex-1 rounded-full bg-white/5 transition-colors');
             
+            let currentStrength = 0;
+            
             if (password.length === 0) {
                 label.textContent = 'None';
                 label.className = 'text-gray-600';
@@ -352,6 +355,31 @@ if (isset($_SESSION['reset_success'])) {
                 }
                 label.textContent = labels[displayStrength - 1];
                 label.className = colors[displayStrength - 1].replace('bg-', 'text-');
+                currentStrength = strength;
+            }
+            return currentStrength;
+        }
+
+        function checkMatch() {
+            const p1 = document.getElementById('new-password').value;
+            const p2 = document.getElementById('confirm-password').value;
+            const matchText = document.getElementById('match-text');
+            const matchLabel = document.getElementById('match-label');
+            
+            if (p2.length > 0) {
+                matchText.classList.remove('opacity-0');
+                if (p1 === p2) {
+                    matchLabel.textContent = 'Passwords Match';
+                    matchLabel.className = 'text-emerald-500';
+                    return true;
+                } else {
+                    matchLabel.textContent = 'Passwords Do Not Match';
+                    matchLabel.className = 'text-red-500';
+                    return false;
+                }
+            } else {
+                matchText.classList.add('opacity-0');
+                return false;
             }
         }
 
@@ -368,10 +396,59 @@ if (isset($_SESSION['reset_success'])) {
         window.onload = function () {
             // Setup password strength checking
             const passwordInput = document.getElementById('new-password');
+            const form = document.getElementById('reset-password-form');
+            
             if (passwordInput) {
-                passwordInput.addEventListener('input', (e) => checkPasswordStrength(e.target.value));
+                const confirmInput = document.getElementById('confirm-password');
+                
+                passwordInput.addEventListener('input', (e) => {
+                    checkPasswordStrength(e.target.value);
+                    checkMatch();
+                });
+                
+                if (confirmInput) {
+                    confirmInput.addEventListener('input', checkMatch);
+                }
+
                 // Initial check if value is pre-populated
                 if (passwordInput.value) checkPasswordStrength(passwordInput.value);
+            }
+
+            if (form) {
+                form.onsubmit = function(e) {
+                    const passwordValue = passwordInput.value;
+                    const strength = checkPasswordStrength(passwordValue);
+                    const isMatch = checkMatch();
+                    
+                    if (strength < 4) {
+                        e.preventDefault();
+                        showSubmitError("Please fulfill all password requirements before updating.");
+                        return false;
+                    }
+                    
+                    if (!isMatch) {
+                        e.preventDefault();
+                        showSubmitError("Passwords do not match.");
+                        return false;
+                    }
+                };
+            }
+
+            function showSubmitError(msg) {
+                let alertDiv = document.getElementById('alert-message');
+                if (!alertDiv) {
+                    alertDiv = document.createElement('div');
+                    alertDiv.id = 'alert-message';
+                    alertDiv.className = 'mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] flex items-center gap-3 font-bold tracking-wide relative group animate-fade-in';
+                    form.parentNode.insertBefore(alertDiv, form);
+                }
+                alertDiv.innerHTML = `
+                    <span class="material-symbols-outlined text-lg">error</span>
+                    <span class="flex-1">${msg}</span>
+                    <button type="button" onclick="dismissAlert('alert-message')" class="opacity-50 hover:opacity-100 transition-opacity">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+                `;
             }
 
             // Auto-dismiss error alert after 10 seconds
@@ -383,7 +460,7 @@ if (isset($_SESSION['reset_success'])) {
             // Success Modal Redirection Logic
             const successModal = document.getElementById('success-modal');
             if (successModal) {
-                let timeLeft = 3;
+                let timeLeft = 10;
                 const countdownText = document.getElementById('countdown-text');
                 const progressBar = document.getElementById('redirect-progress');
                 
@@ -395,7 +472,7 @@ if (isset($_SESSION['reset_success'])) {
                         window.location.href = "../login.php" + gymParam;
                     } else {
                         if (countdownText) countdownText.textContent = Math.ceil(timeLeft) + 's';
-                        if (progressBar) progressBar.style.width = (timeLeft / 3 * 100) + '%';
+                        if (progressBar) progressBar.style.width = (timeLeft / 10 * 100) + '%';
                     }
                 }, 100);
             }
