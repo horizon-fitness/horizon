@@ -1,5 +1,10 @@
 <?php
-session_start();
+require_once 'db.php';
+
+// Fetch Active Website Plans
+$stmtPlans = $pdo->prepare("SELECT * FROM website_plans WHERE is_active = 1 ORDER BY price ASC");
+$stmtPlans->execute();
+$plans = $stmtPlans->fetchAll();
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -287,68 +292,28 @@ session_start();
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div class="plan-card rounded-2xl p-10 flex flex-col text-left">
-                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">6-Month Kickstart</h3>
-                        <p class="text-[9px] text-gray-600 font-bold uppercase tracking-widest mb-8">6 Months Billing</p>
+                    <?php foreach ($plans as $plan): 
+                        $isMomentum = strpos($plan['plan_name'], 'Momentum') !== false;
+                        $features = explode(',', $plan['features']);
+                    ?>
+                    <div class="plan-card rounded-2xl p-10 flex flex-col text-left <?= $isMomentum ? 'border-primary/50 bg-primary/5 scale-105' : '' ?>">
+                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
+                        <p class="text-[9px] <?= $isMomentum ? 'text-primary' : 'text-gray-600' ?> font-bold uppercase tracking-widest mb-8">
+                            <?= $isMomentum ? 'Most Popular' : htmlspecialchars($plan['billing_cycle']) ?>
+                        </p>
                         <div class="mb-10">
-                            <span class="text-4xl font-display font-black text-white">₱5,999</span>
-                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ Term</span>
+                            <span class="text-4xl font-display font-black text-white">₱<?= number_format($plan['price']) ?></span>
+                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ <?= ($plan['duration_months'] == 12) ? 'Yr' : 'Term' ?></span>
                         </div>
                         <ul class="space-y-4 mb-12 flex-grow">
+                            <?php foreach ($features as $feature): ?>
                             <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Multi-Tenant Management
+                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> <?= htmlspecialchars(trim($feature)) ?>
                             </li>
-                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Core Analytics
-                            </li>
-                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Gym Page Customizer
-                            </li>
+                            <?php endforeach; ?>
                         </ul>
-
                     </div>
-
-                    <div class="plan-card rounded-2xl p-10 flex flex-col text-left border-primary/50 bg-primary/5 scale-105">
-                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">1-Year Momentum</h3>
-                        <p class="text-[9px] text-primary font-bold uppercase tracking-widest mb-8">Most Popular</p>
-                        <div class="mb-10">
-                            <span class="text-4xl font-display font-black text-white">₱10,999</span>
-                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ Yr</span>
-                        </div>
-                        <ul class="space-y-4 mb-12 flex-grow">
-                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Revenue Reports
-                            </li>
-                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Priority Support
-                            </li>
-                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Gym Page Customizer
-                            </li>
-                        </ul>
-
-                    </div>
-
-                    <div class="plan-card rounded-2xl p-10 flex flex-col text-left">
-                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">3-Year Legacy</h3>
-                        <p class="text-[9px] text-gray-600 font-bold uppercase tracking-widest mb-8">3 Years Billing</p>
-                        <div class="mb-10">
-                            <span class="text-4xl font-display font-black text-white">₱27,999</span>
-                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ Term</span>
-                        </div>
-                        <ul class="space-y-4 mb-12 flex-grow">
-                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> White-Label Access
-                            </li>
-                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> API Integration
-                            </li>
-                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> Unlimited Team Accounts
-                            </li>
-                        </ul>
-
-                    </div>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </section>
