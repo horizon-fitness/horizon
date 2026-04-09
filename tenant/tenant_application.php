@@ -92,8 +92,8 @@ unset($_SESSION['application_data']);
 
 <header class="relative z-20 w-full px-8 py-6 flex justify-between items-center bg-transparent">
     <a href="../index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-        <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
-            <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
+        <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
+            <img src="../assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
         </div>
         <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
     </a>
@@ -168,7 +168,11 @@ unset($_SESSION['application_data']);
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Date of Birth</label>
-                            <input type="date" name="owner_dob" required max="<?php echo date('Y-m-d'); ?>" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="date" name="owner_dob" id="owner_dob" required max="<?php echo date('Y-m-d', strtotime('-18 years')); ?>" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <p id="age-error" class="text-[9px] font-bold text-red-400 mt-1 ml-1 hidden flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[10px]">error</span>
+                                You must be at least 18 years old.
+                            </p>
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Sex</label>
@@ -201,15 +205,36 @@ unset($_SESSION['application_data']);
                                 <div id="strength-bar-4" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
                             </div>
                             <p id="strength-text" class="text-[9px] font-bold uppercase tracking-widest text-gray-500 mt-1 ml-1">Strength: <span id="strength-label">None</span></p>
+
+                            <!-- Password Requirements Checklist -->
+                            <div class="grid grid-cols-2 gap-y-3 mt-5 px-1">
+                                <div id="req-length" class="flex items-center gap-2 text-gray-500 transition-colors">
+                                    <span class="material-symbols-outlined text-sm transition-all">radio_button_unchecked</span>
+                                    <span class="text-[9px] font-bold uppercase tracking-widest">8+ Characters</span>
+                                </div>
+                                <div id="req-upper" class="flex items-center gap-2 text-gray-500 transition-colors">
+                                    <span class="material-symbols-outlined text-sm transition-all">radio_button_unchecked</span>
+                                    <span class="text-[9px] font-bold uppercase tracking-widest">Uppercase</span>
+                                </div>
+                                <div id="req-number" class="flex items-center gap-2 text-gray-500 transition-colors">
+                                    <span class="material-symbols-outlined text-sm transition-all">radio_button_unchecked</span>
+                                    <span class="text-[9px] font-bold uppercase tracking-widest">Number</span>
+                                </div>
+                                <div id="req-special" class="flex items-center gap-2 text-gray-500 transition-colors">
+                                    <span class="material-symbols-outlined text-sm transition-all">radio_button_unchecked</span>
+                                    <span class="text-[9px] font-bold uppercase tracking-widest">Special Char</span>
+                                </div>
+                            </div>
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Confirm Password</label>
                             <div class="relative group">
-                                <input type="password" id="reg-confirm-password" name="confirm_password" required autocomplete="new-password" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                                <input type="password" id="reg-confirm-password" name="confirm_password" placeholder="••••••••" required autocomplete="new-password" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md pl-4 pr-12 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                                 <button type="button" onclick="togglePasswordVisibility('reg-confirm-password', 'eye-icon-confirm')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors">
                                     <span id="eye-icon-confirm" class="material-symbols-outlined text-[20px]">visibility</span>
                                 </button>
                             </div>
+                            <p id="match-text" class="text-[9px] font-bold uppercase tracking-widest text-gray-500 mt-2 ml-1 opacity-0 transition-opacity">Status: <span id="match-label">Not Matching</span></p>
                         </div>
                     </div>
                     
@@ -314,7 +339,7 @@ unset($_SESSION['application_data']);
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Upload Valid ID</label>
-                            <input type="file" name="owner_valid_id_file" required class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
+                            <input type="file" name="owner_valid_id_file" required accept=".pdf,image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">BIR Number (TIN)</label>
@@ -322,7 +347,7 @@ unset($_SESSION['application_data']);
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">BIR Document (0605 / COR)</label>
-                            <input type="file" name="bir_document" required class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
+                            <input type="file" name="bir_document" required accept=".pdf,image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Business Permit No.</label>
@@ -330,7 +355,7 @@ unset($_SESSION['application_data']);
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Mayor's Permit (File)</label>
-                            <input type="file" name="business_permit" required class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
+                            <input type="file" name="business_permit" required accept=".pdf,image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
                         </div>
                     </div>
 
@@ -340,15 +365,15 @@ unset($_SESSION['application_data']);
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                         <div class="space-y-1.5 md:col-span-2">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Bank Name</label>
-                            <input type="text" name="bank_name" placeholder="e.g. BDO, BPI, GCash" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
+                            <input type="text" name="bank_name" required placeholder="e.g. BDO, BPI, GCash" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Account Name</label>
-                            <input type="text" name="account_name" placeholder="Juan Dela Cruz" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
+                            <input type="text" name="account_name" required placeholder="Juan Dela Cruz" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Account Number</label>
-                            <input type="text" name="account_number" id="account_number" placeholder="e.g. 1234567890" maxlength="20" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none numeric-only">
+                            <input type="text" name="account_number" id="account_number" required placeholder="e.g. 1234567890" maxlength="20" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none numeric-only">
                         </div>
                     </div>
 
@@ -458,7 +483,26 @@ unset($_SESSION['application_data']);
     const confirmPasswordInput = document.getElementById('reg-confirm-password');
     const errorText = document.getElementById('password-error');
 
+    // Real-time password verification (Match & Strength)
     const validatePasswords = () => {
+        const p1 = passwordInput.value;
+        const p2 = confirmPasswordInput.value;
+        const matchText = document.getElementById('match-text');
+        const matchLabel = document.getElementById('match-label');
+        
+        if (p2.length > 0) {
+            matchText.classList.remove('opacity-0');
+            if (p1 === p2) {
+                matchLabel.textContent = 'Passwords Match';
+                matchLabel.className = 'text-green-500';
+            } else {
+                matchLabel.textContent = 'Passwords Do Not Match';
+                matchLabel.className = 'text-red-400';
+            }
+        } else {
+            matchText.classList.add('opacity-0');
+        }
+
         if (confirmPasswordInput.value && passwordInput.value !== confirmPasswordInput.value) {
             errorText.classList.remove('hidden');
         } else {
@@ -466,12 +510,7 @@ unset($_SESSION['application_data']);
         }
     };
 
-    passwordInput.addEventListener('input', validatePasswords);
-    confirmPasswordInput.addEventListener('input', validatePasswords);
-
-    // Password Strength Indicator Logic
-    passwordInput.addEventListener('input', function() {
-        const password = this.value;
+    function checkPasswordStrength(password) {
         const strengthLabel = document.getElementById('strength-label');
         const bars = [
             document.getElementById('strength-bar-1'),
@@ -480,11 +519,30 @@ unset($_SESSION['application_data']);
             document.getElementById('strength-bar-4')
         ];
 
+        // Requirements Checklist Indicators
+        const reqs = {
+            length: { el: document.getElementById('req-length'), check: password.length >= 8 },
+            upper: { el: document.getElementById('req-upper'), check: /[A-Z]/.test(password) },
+            number: { el: document.getElementById('req-number'), check: /[0-9]/.test(password) },
+            special: { el: document.getElementById('req-special'), check: /[^A-Za-z0-9]/.test(password) }
+        };
+
         let strength = 0;
-        if (password.length >= 8) strength++;
-        if (/[A-Z]/.test(password)) strength++;
-        if (/[0-9]/.test(password)) strength++;
-        if (/[^A-Za-z0-9]/.test(password)) strength++;
+        // Update UI for each requirement
+        Object.keys(reqs).forEach(key => {
+            const item = reqs[key];
+            const icon = item.el.querySelector('.material-symbols-outlined');
+            if (item.check) {
+                item.el.classList.remove('text-gray-500');
+                item.el.classList.add('text-primary');
+                icon.textContent = 'check_circle';
+                strength++;
+            } else {
+                item.el.classList.add('text-gray-500');
+                item.el.classList.remove('text-primary');
+                icon.textContent = 'radio_button_unchecked';
+            }
+        });
 
         // Reset bars
         bars.forEach(bar => {
@@ -495,16 +553,25 @@ unset($_SESSION['application_data']);
         const labels = ['Weak', 'Fair', 'Good', 'Strong'];
 
         if (password.length > 0) {
-            for (let i = 0; i < strength; i++) {
-                bars[i].className = 'flex-1 rounded-full ' + colors[strength - 1] + ' transition-colors';
+            const displayStrength = Math.max(1, strength);
+            for (let i = 0; i < displayStrength; i++) {
+                bars[i].className = 'flex-1 rounded-full ' + colors[displayStrength - 1] + ' transition-colors';
             }
-            strengthLabel.textContent = labels[strength - 1];
-            strengthLabel.className = colors[strength - 1].replace('bg-', 'text-');
+            strengthLabel.textContent = labels[displayStrength - 1];
+            strengthLabel.className = colors[displayStrength - 1].replace('bg-', 'text-');
         } else {
             strengthLabel.textContent = 'None';
             strengthLabel.className = 'text-gray-500';
         }
+        return strength;
+    }
+
+    passwordInput.addEventListener('input', () => {
+        checkPasswordStrength(passwordInput.value);
+        validatePasswords();
     });
+    
+    confirmPasswordInput.addEventListener('input', validatePasswords);
 
     nextBtn.addEventListener('click', () => {
         // Validate all required fields on the current step before proceeding
@@ -524,10 +591,32 @@ unset($_SESSION['application_data']);
 
         // Additional validation for Step 1
         if (currentStep === 1) {
+            const strength = checkPasswordStrength(passwordInput.value);
+            if (strength < 4) {
+                alert('Please fulfill all password requirements before proceeding.');
+                passwordInput.focus();
+                return;
+            }
+
             if (passwordInput.value !== confirmPasswordInput.value) {
                 errorText.classList.remove('hidden');
                 confirmPasswordInput.focus();
                 return;
+            }
+            
+            const dob = new Date(document.getElementById('owner_dob').value);
+            const today = new Date();
+            let age = today.getFullYear() - dob.getFullYear();
+            const m = today.getMonth() - dob.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+            
+            const ageError = document.getElementById('age-error');
+            if (age < 18) {
+                ageError.classList.remove('hidden');
+                document.getElementById('owner_dob').focus();
+                return;
+            } else {
+                ageError.classList.add('hidden');
             }
             
             const contact = document.getElementById('owner_contact').value;
@@ -598,7 +687,33 @@ unset($_SESSION['application_data']);
         }
     });
 
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', (e) => {
+        // Final validation for Step 3
+        const currentStepEl = document.querySelector(`.step-container[data-step="3"]`);
+        const inputs = currentStepEl.querySelectorAll('input, select');
+        
+        let allValid = true;
+        for (let input of inputs) {
+            if (!input.checkValidity()) {
+                input.reportValidity();
+                allValid = false;
+                break;
+            }
+        }
+
+        if (!allValid) {
+            e.preventDefault();
+            return;
+        }
+
+        const tin = document.getElementById('bir_number').value;
+        if (tin.length < 9 || tin.length > 12) {
+            e.preventDefault();
+            alert('Please enter a valid TIN number (9 to 12 digits)');
+            document.getElementById('bir_number').focus();
+            return;
+        }
+
         submitBtn.disabled = true;
         submitBtn.innerHTML = `Processing... <span class="material-symbols-outlined text-lg animate-spin">refresh</span>`;
     });

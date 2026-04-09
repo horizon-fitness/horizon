@@ -36,9 +36,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['owner_email'] ?? ''; 
     $contact_number = $_POST['owner_contact'] ?? ''; 
     $username = $_POST['username'] ?? '';
-    $owner_dob = $_POST['owner_dob'] ?? '';
     $owner_sex = $_POST['owner_sex'] ?? '';
+    $owner_dob = $_POST['owner_dob'] ?? '';
+    
+    // Age Validation (18+)
+    if (!empty($owner_dob)) {
+        $dob = new DateTime($owner_dob);
+        $today = new DateTime();
+        $age = $today->diff($dob)->y;
+        if ($age < 18) {
+            throw new Exception("Security Error: You must be at least 18 years old to apply.");
+        }
+    } else {
+        throw new Exception("Security Error: Date of birth is required.");
+    }
+
     $password = $_POST['password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
+    
+    // Strict Password Validation
+    $hasUppercase = preg_match('@[A-Z]@', $password);
+    $hasNumber    = preg_match('@[0-9]@', $password);
+    $hasSpecial   = preg_match('@[^\w]@', $password);
+    $isLongEnough = strlen($password) >= 8;
+
+    if (!$isLongEnough || !$hasUppercase || !$hasNumber || !$hasSpecial) {
+        throw new Exception("Security Error: Your password does not meet the complexity requirements (8+ characters, uppercase, number, and special character).");
+    }
+
+    if ($password !== $confirm_password) {
+        throw new Exception("Security Error: Passwords do not match.");
+    }
+
     $password_hash = password_hash($password, PASSWORD_BCRYPT);
     $current_date = date('Y-m-d H:i:s');
 
@@ -65,6 +94,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $bank_name = $_POST['bank_name'] ?? '';
     $account_name = $_POST['account_name'] ?? '';
     $account_number = $_POST['account_number'] ?? '';
+
+    // Data Integrity Checks
+    if (strlen($bir_number) < 9 || strlen($bir_number) > 12) {
+        throw new Exception("Security Error: BIR/TIN number must be between 9 and 12 digits.");
+    }
+
+    if (empty($bank_name) || empty($account_name) || empty($account_number)) {
+        throw new Exception("Security Error: Complete payout information (Bank, Account Name, Account Number) is required.");
+    }
     $platform_fee_preference = $_POST['platform_fee_preference'] ?? '';
 
     // Capture facility payload 

@@ -13,7 +13,7 @@ try {
         $hash = password_hash($defaultPassword, PASSWORD_DEFAULT);
         $date = date('Y-m-d H:i:s');
         
-        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) VALUES ('superadmin', 'admin@horizon.com', ?, 'Super', 'Admin', '00000000000', 1, 1, ?, ?)");
+        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) VALUES ('superadmin', 'horizonfitnesscorp@gmail.com', ?, 'Super', 'Admin', '00000000000', 1, 1, ?, ?)");
         $stmtUser->execute([$hash, $date, $date]);
         $superAdminId = $pdo->lastInsertId();
 

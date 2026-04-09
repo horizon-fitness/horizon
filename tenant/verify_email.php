@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if ($branding && !empty($branding['logo_path'])): ?>
                 <img src="<?= '../' . $branding['logo_path'] ?>" class="size-full object-contain">
             <?php else: ?>
-                <span class="material-symbols-outlined text-primary text-3xl">mark_email_read</span>
+                <img src="../assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
             <?php endif; ?>
         </div>
 

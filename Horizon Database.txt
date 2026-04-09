@@ -57,8 +57,6 @@ CREATE TABLE service_catalog (
 );
 
 -- System Configurations & Branding
--- user_id 0 = Global System Rules (Affects all gyms)
--- user_id > 0 = Personal Dashboard Branding (Per Superadmin)
 CREATE TABLE system_settings (
     user_id INT NOT NULL,
     setting_key VARCHAR(50) NOT NULL,
@@ -66,24 +64,6 @@ CREATE TABLE system_settings (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, setting_key)
 );
-
--- Initial Branding Setup (User ID 1 - Default Superadmin)
-INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
-(1, 'theme_color', '#8c2bee'),      -- [Main Color] Titles, primary buttons & accents
-(1, 'secondary_color', '#a1a1aa'),  -- [Icon Color] Sidebar icons & system symbols
-(1, 'text_color', '#d1d5db'),       -- [Text Color] All typography & nav labels
-(1, 'bg_color', '#0a090d'),         -- [Background] Main system canvas color
-(1, 'card_color', '#141216'),       -- [Surface Color] Manual card surface tint
-(1, 'auto_card_theme', '1'),        -- [Sync Toggle] 1=Sync with Theme, 0=Manual
-(1, 'font_family', 'Lexend');       -- [Typography] Global font selection
-
--- Global System Policies (User ID 0)
-INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
-(0, 'max_staff', '10'),             -- Max staff allowed per gym account
-(0, 'grace_period', '7'),           -- Days to wait before account suspension
-(0, 'default_status', 'Pending'),    -- Default status for new gym signups
-(0, 'system_name', 'Horizon System'),
-(0, 'system_logo', '');
 
 CREATE TABLE system_alerts (
     alert_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -456,43 +436,6 @@ CREATE TABLE audit_logs (
     created_at DATETIME NOT NULL
 );
 
-
-INSERT INTO roles (role_name) VALUES
-('Superadmin'),
-('Tenant'),
-('Admin'),
-('Coach'),
-('Member');
-
-INSERT INTO users (
-    username, email, password_hash, first_name, last_name,
-    contact_number, birth_date, sex, is_verified, is_active, created_at, updated_at
-) VALUES (
-    'superadmin',
-    'admin@horizon.com',
-    '$2y$10$sake0/pUmC5SFBXIKsY5WOWnBVJmIIguWAXwOBjena3JCc/LO7v/O',
-    'Super',
-    'Admin',
-    '00000000000',
-    '1990-01-01',
-    'Male',
-    1,
-    1,
-    NOW(),
-    NOW()
-);
-
-INSERT INTO user_roles (
-    user_id, role_id, gym_id, tenant_code, role_status, assigned_at
-) VALUES (
-    1, 1, NULL, NULL, 'Active', NOW()
-);
-
-INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, features) VALUES
-('6-Month Kickstart', 5999.00, '6 Months', 6, 'Multi-Tenant Management, Core Analytics, Gym Page Customizer'),
-('1-Year Momentum', 10999.00, '1 Year', 12, 'Revenue Reports, Priority Support, Gym Page Customizer'),
-('3-Year Legacy', 27999.00, '3 Years', 36, 'White-Label Access, API Integration, Unlimited Team Accounts');
-
 CREATE TABLE member_workouts (
     workout_id INT AUTO_INCREMENT PRIMARY KEY,
     member_id INT NOT NULL,
@@ -505,6 +448,70 @@ CREATE TABLE member_workouts (
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 );
+
+-- =========================================================================
+-- INITIAL DATA INSERTIONS
+-- =========================================================================
+
+-- Roles
+INSERT INTO roles (role_name) VALUES
+('Superadmin'),
+('Tenant'),
+('Admin'),
+('Coach'),
+('Member');
+
+-- Default Superadmin User
+INSERT INTO users (
+    username, email, password_hash, first_name, last_name,
+    contact_number, birth_date, sex, is_verified, is_active, created_at, updated_at
+) VALUES (
+    'superadmin',
+    'horizonfitnesscorp@gmail.com',
+    '$2y$10$sake0/pUmC5SFBXIKsY5WOWnBVJmIIguWAXwOBjena3JCc/LO7v/O',
+    'Super',
+    'Admin',
+    '09762411986',
+    '1990-01-01',
+    'Male',
+    1,
+    1,
+    NOW(),
+    NOW()
+);
+
+-- Assign Superadmin Role
+INSERT INTO user_roles (
+    user_id, role_id, gym_id, tenant_code, role_status, assigned_at
+) VALUES (
+    1, 1, NULL, NULL, 'Active', NOW()
+);
+
+-- System Configurations & Branding
+-- user_id 0 = Global System Rules (Affects all gyms)
+-- user_id > 0 = Personal Dashboard Branding (Per Superadmin)
+INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
+(1, 'theme_color', '#8c2bee'),      -- [Main Color] Titles, primary buttons & accents
+(1, 'secondary_color', '#a1a1aa'),  -- [Icon Color] Sidebar icons & system symbols
+(1, 'text_color', '#d1d5db'),       -- [Text Color] All typography & nav labels
+(1, 'bg_color', '#0a090d'),         -- [Background] Main system canvas color
+(1, 'card_color', '#141216'),       -- [Surface Color] Manual card surface tint
+(1, 'auto_card_theme', '1'),        -- [Sync Toggle] 1=Sync with Theme, 0=Manual
+(1, 'font_family', 'Lexend');       -- [Typography] Global font selection
+
+-- Global System Policies (User ID 0)
+INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
+(0, 'max_staff', '10'),             -- Max staff allowed per gym account
+(0, 'grace_period', '7'),           -- Days to wait before account suspension
+(0, 'default_status', 'Pending'),   -- Default status for new gym signups
+(0, 'system_name', 'Horizon System'),
+(0, 'system_logo', '');
+
+-- Website Plans
+INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, features) VALUES
+('6-Month Kickstart', 5999.00, '6 Months', 6, 'Multi-Tenant Management, Core Analytics, Gym Page Customizer, Revenue Reports, Priority Support, White-Label Access, API Integration'),
+('1-Year Momentum', 10999.00, '1 Year', 12, 'Multi-Tenant Management, Core Analytics, Gym Page Customizer, Revenue Reports, Priority Support, White-Label Access, API Integration'),
+('3-Year Legacy', 27999.00, '3 Years', 36, 'Multi-Tenant Management, Core Analytics, Gym Page Customizer, Revenue Reports, Priority Support, White-Label Access, API Integration');
 
 -- Standardized Global Membership Plans
 INSERT INTO membership_plan_types (type_name) VALUES ('Gym Membership');
