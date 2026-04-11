@@ -123,7 +123,7 @@
         min-width: 300px;
     }
 
-    .viewer-close {
+    .viewer-action-btn {
         width: 44px;
         height: 44px;
         background: rgba(255,255,255,0.05);
@@ -135,13 +135,30 @@
         cursor: pointer;
         transition: all 0.3s;
         border: 1px solid rgba(255,255,255,0.1);
+        text-decoration: none;
+    }
+    .viewer-action-btn:hover {
+        background: rgba(255,255,255,0.1);
+        transform: scale(1.05);
     }
     .viewer-close:hover {
         background: #ef4444;
         color: white;
-        transform: rotate(90deg);
+        transform: rotate(90deg) scale(1.05);
         border-color: #ef4444;
         box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+    }
+    .viewer-pdf {
+        width: 80vw;
+        max-width: 1200px; /* Give PDF room to breathe */
+        height: 80vh;
+        border-radius: 24px;
+        box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255,255,255,0.1);
+        background: #2a2a2e; /* Modern dark background for PDF frame edge */
+    }
+    .hidden {
+        display: none !important;
     }
 </style>
 
@@ -153,13 +170,19 @@
                 <span class="viewer-main-title">Document Verification</span>
                 <span id="viewer-subtitle" class="viewer-subtitle">Inspection View</span>
             </div>
-            <button class="viewer-close" onclick="closeImageViewer()">
-                <span class="material-symbols-outlined text-xl font-bold">close</span>
-            </button>
+            <div class="flex items-center gap-3">
+                <a id="viewer-open-tab" href="#" target="_blank" class="viewer-action-btn hidden" title="Open in new tab">
+                    <span class="material-symbols-outlined text-xl">open_in_new</span>
+                </a>
+                <button class="viewer-action-btn viewer-close" onclick="closeImageViewer()" title="Close viewer">
+                    <span class="material-symbols-outlined text-xl font-bold">close</span>
+                </button>
+            </div>
         </div>
         <div class="viewer-body">
             <div class="viewer-inner-content">
-                <img id="viewer-main-img" src="" alt="View Large" class="viewer-img">
+                <img id="viewer-main-img" src="" alt="View Large" class="viewer-img hidden">
+                <iframe id="viewer-main-pdf" src="" class="viewer-pdf hidden" title="PDF Document"></iframe>
                 <div id="viewer-footer-label" class="viewer-footer-label bg-primary/5 px-8 py-4 rounded-3xl border border-primary/20 backdrop-blur-xl opacity-0 transition-opacity duration-500 shadow-xl shadow-primary/5">
                     <p class="text-[10px] font-black uppercase text-primary tracking-[0.2em] mb-1.5 text-center italic">Authenticated Document</p>
                     <p id="viewer-document-name" class="text-sm font-black italic uppercase text-white text-center tracking-tight">Document Name</p>
@@ -174,13 +197,52 @@ function openImageViewer(src, title = '') {
     if (!src) return;
     const viewer = document.getElementById('global-image-viewer');
     const img = document.getElementById('viewer-main-img');
+    const pdf = document.getElementById('viewer-main-pdf');
+    const newTabBtn = document.getElementById('viewer-open-tab');
     const subtitle = document.getElementById('viewer-subtitle');
     const footerLabel = document.getElementById('viewer-footer-label');
     const docName = document.getElementById('viewer-document-name');
     
-    img.src = src;
     subtitle.textContent = title || 'Inspection View';
     docName.textContent = title || 'Document Inspection';
+    
+    // Handle opening in a new tab safely (especially for data: URIs blocked by modern browsers)
+    newTabBtn.onclick = function(e) {
+        e.preventDefault();
+        if (src.startsWith('data:')) {
+            // Convert data URI to Blob and generate a safe Object URL
+            fetch(src)
+                .then(res => res.blob())
+                .then(blob => {
+                    const blobUrl = URL.createObjectURL(blob);
+                    window.open(blobUrl, '_blank');
+                    // Revoke after a minute to prevent memory leaks
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                })
+                .catch(() => {
+                    // Fallback to downloading if fetch fails
+                    const a = document.createElement('a');
+                    a.href = src;
+                    a.download = 'document_' + Date.now();
+                    a.click();
+                });
+        } else {
+            window.open(src, '_blank');
+        }
+    };
+    newTabBtn.classList.remove('hidden');
+    
+    if (src.toLowerCase().endsWith('.pdf') || src.toLowerCase().startsWith('data:application/pdf')) {
+        img.classList.add('hidden');
+        img.src = '';
+        pdf.src = src;
+        pdf.classList.remove('hidden');
+    } else {
+        pdf.classList.add('hidden');
+        pdf.src = '';
+        img.src = src;
+        img.classList.remove('hidden');
+    }
     
     viewer.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -193,11 +255,18 @@ function openImageViewer(src, title = '') {
 
 function closeImageViewer() {
     const viewer = document.getElementById('global-image-viewer');
+    const img = document.getElementById('viewer-main-img');
+    const pdf = document.getElementById('viewer-main-pdf');
     const footerLabel = document.getElementById('viewer-footer-label');
     
     footerLabel.classList.replace('opacity-100', 'opacity-0');
     viewer.classList.remove('active');
     document.body.style.overflow = '';
+    
+    setTimeout(() => {
+        img.src = '';
+        pdf.src = '';
+    }, 300);
 }
 
 // Global click delegation for image popups

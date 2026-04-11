@@ -383,11 +383,7 @@ if ($is_ajax): ?>
                         <span
                             class="text-xs font-black text-white"><?= htmlspecialchars($app['account_number'] ?: '---') ?></span>
                     </div>
-                    <div class="flex justify-between items-center bg-white/[0.02] p-3 rounded-xl border border-white/5">
-                        <span class="text-[10px] text-gray-400 uppercase font-black tracking-widest">Settlement</span>
-                        <span
-                            class="text-[10px] font-black uppercase text-primary italic tracking-tight"><?= formatLabel($app['platform_fee_preference'], $friendlyNames) ?></span>
-                    </div>
+
                 </div>
             </div>
 
@@ -446,19 +442,25 @@ if ($is_ajax): ?>
                             $docPath = '../uploads/applications/' . $docPath;
                         }
                     }
+                    $isPdf = (strtolower(pathinfo($docPath, PATHINFO_EXTENSION)) === 'pdf') || str_starts_with(strtolower($docPath), 'data:application/pdf');
                     ?>
                     <div class="flex flex-col gap-3">
                         <div class="group relative bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden aspect-[4/3] cursor-zoom-in modal-img-preview shadow-lg hover:border-primary/50 transition-all"
                             data-src="<?= htmlspecialchars($docPath) ?>"
                             data-title="<?= htmlspecialchars($doc['document_type']) ?>">
                             <div class="absolute inset-0 p-2">
-                                <div class="w-full h-full rounded-xl overflow-hidden bg-background-dark/50">
-                                    <img src="<?= htmlspecialchars($docPath) ?>"
-                                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 group-hover:opacity-100">
+                                <div class="w-full h-full rounded-xl overflow-hidden bg-background-dark/50 <?= $isPdf ? 'relative' : '' ?>">
+                                    <?php if ($isPdf): ?>
+                                        <iframe src="<?= htmlspecialchars($docPath) ?>#toolbar=0&navpanes=0&scrollbar=0" class="w-full h-full object-cover pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity" style="border:none; overflow:hidden;" scrolling="no"></iframe>
+                                        <div class="absolute inset-0 bg-transparent z-10"></div>
+                                    <?php else: ?>
+                                        <img src="<?= htmlspecialchars($docPath) ?>"
+                                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-60 group-hover:opacity-100">
+                                    <?php endif; ?>
                                 </div>
                             </div>
                             <div
-                                class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-sm">
+                                class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 backdrop-blur-sm z-20">
                                 <span class="material-symbols-outlined text-primary text-3xl">fullscreen</span>
                             </div>
                         </div>
