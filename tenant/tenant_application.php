@@ -109,7 +109,7 @@ unset($_SESSION['application_data']);
         }
 
         /* Scrollable Portal Specifically for Dropdowns */
-        .scrollbar-visible::-webkit-scrollbar { display: block !important; width: 4px; }
+        .scrollbar-visible::-webkit-scrollbar { display: block !important; }
         .scrollbar-visible::-webkit-scrollbar-thumb { background: rgba(127, 19, 236, 0.4); border-radius: 10px; }
         .scrollbar-visible::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
 
@@ -419,7 +419,7 @@ unset($_SESSION['application_data']);
                         </div>
                         <div class="space-y-1.5">
                             <label id="account-number-label" class="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Account Number <span class="text-red-500">*</span></label>
-                            <input type="text" name="account_number" id="account_number" required placeholder="e.g. 1234567890" maxlength="12" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
+                            <input type="text" name="account_number" id="account_number" required placeholder="e.g. 1234567890" maxlength="20" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none">
                         </div>
                     </div>
 
@@ -562,7 +562,7 @@ unset($_SESSION['application_data']);
         "BDO Unibank", "BPI", "Land Bank of the Philippines",
         "Metrobank", "Security Bank", "Union Bank",
         "PNB", "China Bank", "RCBC", "EastWest Bank",
-        "GCash", "Maya", "GrabPay", "ShopeePay", "Coins.ph", "SeaBank"
+        "GCash", "Maya", "GrabPay", "ShopeePay", "Coins.ph"
     ];
 
     const bankSearch = document.getElementById('bank-search');
@@ -613,16 +613,33 @@ unset($_SESSION['application_data']);
     });
 
     function handleBankChange(name) {
-        if (name === "GCash" || name === "Maya") {
+        const eWallets = ["GCash", "Maya", "GrabPay", "ShopeePay", "Coins.ph"];
+        
+        // Bank configurations: [placeholder, maxLength]
+        const bankConfigs = {
+            "BDO Unibank": ["e.g. 001234567890", 12],
+            "BPI": ["e.g. 1234567890", 10],
+            "Metrobank": ["e.g. 1234567890", 10],
+            "Land Bank of the Philippines": ["e.g. 1234567890", 10],
+            "PNB": ["e.g. 123456789012", 12],
+            "Security Bank": ["e.g. 1234567890", 10],
+            "Union Bank": ["e.g. 123456789012", 12],
+            "China Bank": ["e.g. 1234567890", 10],
+            "RCBC": ["e.g. 1234567890", 10],
+            "EastWest Bank": ["e.g. 123456789012", 12]
+        };
+
+        if (eWallets.includes(name)) {
             accNumberLabel.innerHTML = `${name} Mobile Number <span class="text-red-500">*</span>`;
-            accNumberInput.placeholder = "0912-345-6789";
+            accNumberInput.placeholder = "09XX-XXX-XXXX";
             accNumberInput.classList.add('phone-mask');
-            accNumberInput.maxLength = 13;
+            accNumberInput.maxLength = 13; // 11 digits + 2 hyphens
         } else {
+            const config = bankConfigs[name] || ["e.g. 1234567890", 12];
             accNumberLabel.innerHTML = `Account Number <span class="text-red-500">*</span>`;
-            accNumberInput.placeholder = "e.g. 1234567890";
+            accNumberInput.placeholder = config[0];
+            accNumberInput.maxLength = config[1];
             accNumberInput.classList.remove('phone-mask');
-            accNumberInput.maxLength = 12;
             accNumberInput.value = accNumberInput.value.replace(/[^0-9]/g, '');
         }
     }
