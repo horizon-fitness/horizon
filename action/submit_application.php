@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($account_number) > 12) {
         throw new Exception("Security Error: Bank Account Number cannot exceed 12 digits (excluding dashes for e-wallets).");
     }
-    $platform_fee_preference = $_POST['platform_fee_preference'] ?? '';
+
 
     // Capture facility payload 
     $opening_time = $_POST['opening_time'] ?? '';
@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rules_text = $_POST['rules_text'] ?? '';
     
     // Combine facility and banking info into the `remarks` column so no data is lost
-    $facility_remarks = "PAYOUT PREF:\nBank: $bank_name | Acct Name: $account_name | Acct No: $account_number | Fee Pref: $platform_fee_preference\n\nFACILITY:\nOpening: $opening_time | Closing: $closing_time | Max Cap: $max_capacity | Lockers: $has_lockers | Shower: $has_shower | Parking: $has_parking | Wifi: $has_wifi \nAbout: $about_text \nRules: $rules_text";
+    $facility_remarks = "PAYOUT PREF:\nBank: $bank_name | Acct Name: $account_name | Acct No: $account_number\n\nFACILITY:\nOpening: $opening_time | Closing: $closing_time | Max Cap: $max_capacity | Lockers: $has_lockers | Shower: $has_shower | Parking: $has_parking | Wifi: $has_wifi \nAbout: $about_text \nRules: $rules_text";
 
     try {
         $pdo->beginTransaction();

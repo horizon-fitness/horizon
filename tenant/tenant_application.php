@@ -1,5 +1,31 @@
 <?php 
 session_start(); 
+require_once '../db.php';
+
+// Handle AJAX Field Checks
+if (isset($_GET['check_field']) && isset($_GET['value'])) {
+    header('Content-Type: application/json');
+    $field = $_GET['check_field'];
+    $value = trim($_GET['value']);
+    $exists = false;
+
+    if ($field === 'username') {
+        $stmt = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
+        $stmt->execute([$value]);
+        $exists = (bool)$stmt->fetch();
+    } elseif (in_array($field, ['email', 'gym_name', 'business_name', 'bir_number', 'business_permit_no'])) {
+        // Sanitize for DB check if it's bir_number
+        if ($field === 'bir_number') $value = str_replace('-', '', $value);
+        
+        $stmt = $pdo->prepare("SELECT application_id FROM gym_owner_applications WHERE `$field` = ? LIMIT 1");
+        $stmt->execute([$value]);
+        $exists = (bool)$stmt->fetch();
+    }
+    
+    echo json_encode(['exists' => $exists]);
+    exit;
+}
+
 $form_data = $_SESSION['application_data'] ?? [];
 unset($_SESSION['application_data']);
 ?>
@@ -82,6 +108,11 @@ unset($_SESSION['application_data']);
             opacity: 1;
         }
 
+        /* Scrollable Portal Specifically for Dropdowns */
+        .scrollbar-visible::-webkit-scrollbar { display: block !important; width: 4px; }
+        .scrollbar-visible::-webkit-scrollbar-thumb { background: rgba(127, 19, 236, 0.4); border-radius: 10px; }
+        .scrollbar-visible::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+
         /* Invisible Scroll System */
         *::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
@@ -129,8 +160,10 @@ unset($_SESSION['application_data']);
             <?php endif; ?>
             
             <div class="step-container" data-step="1">
-                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
-                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative">
+                    <div class="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                        <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+                    </div>
                     <div class="relative z-10">
                         <div class="flex items-center gap-4 mb-8">
                             <span class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">1</span>
@@ -248,8 +281,10 @@ unset($_SESSION['application_data']);
             </div>
 
             <div class="step-container step-hidden" data-step="2">
-                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
-                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative">
+                    <div class="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                        <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+                    </div>
                     <div class="relative z-10">
                         <div class="flex items-center gap-4 mb-8">
                             <span class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">2</span>
@@ -318,8 +353,10 @@ unset($_SESSION['application_data']);
             </div>
 
             <div class="step-container step-hidden" data-step="3">
-                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative overflow-hidden">
-                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+                <div class="dashboard-window rounded-2xl p-8 md:p-10 relative">
+                    <div class="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+                        <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+                    </div>
                     <div class="relative z-10">
                         <div class="flex items-center gap-4 mb-8">
                             <span class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">3</span>
@@ -351,7 +388,7 @@ unset($_SESSION['application_data']);
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Business Permit No. <span class="text-red-500">*</span></label>
-                            <input type="text" name="business_permit_no" id="business_permit_no" required placeholder="BIN-000-00-2026-000000" maxlength="22" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
+                            <input type="text" name="business_permit_no" id="business_permit_no" required placeholder="BIN-XXX-XX-YYYY-123456" maxlength="22" class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/50 transition-all outline-none">
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Mayor's Permit (File) <span class="text-red-500">*</span></label>
@@ -369,7 +406,7 @@ unset($_SESSION['application_data']);
                                 <input type="text" id="bank-search" placeholder="Search Bank or E-Wallet..." class="w-full h-12 rounded-xl border border-white/10 bg-white/5 backdrop-blur-md px-4 text-sm text-white focus:bg-white/10 focus:border-primary/50 transition-all outline-none" autocomplete="off">
                                 <input type="hidden" name="bank_name" id="bank_name_hidden" required>
                                 
-                                <div id="bank-options" class="absolute z-50 w-full mt-2 bg-[#08080a] border border-white/10 rounded-xl max-h-60 overflow-y-auto hidden shadow-2xl backdrop-blur-xl">
+                                <div id="bank-options" class="absolute z-50 w-full mt-2 bg-[#08080a] border border-white/10 rounded-xl max-h-60 overflow-y-auto hidden shadow-2xl backdrop-blur-xl scrollbar-visible">
                                     <div class="p-2 space-y-1" id="bank-list">
                                         <!-- Banks will be injected here -->
                                     </div>
@@ -386,19 +423,7 @@ unset($_SESSION['application_data']);
                         </div>
                     </div>
 
-                    <div class="space-y-1.5">
-                        <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Platform Fee Preference</label>
-                        <div class="flex flex-col sm:flex-row gap-4">
-                            <label class="flex-1 border border-white/10 bg-white/5 backdrop-blur-md p-3.5 rounded-xl cursor-pointer hover:bg-white/10 hover:border-primary/50 transition-all flex items-center">
-                                <input type="radio" name="platform_fee_preference" value="deduct_from_payout" checked class="text-primary bg-transparent border-white/20 focus:ring-primary focus:ring-offset-0">
-                                <span class="ml-3 text-sm font-semibold">Deduct from Payout</span>
-                            </label>
-                            <label class="flex-1 border border-white/10 bg-white/5 backdrop-blur-md p-3.5 rounded-xl cursor-pointer hover:bg-white/10 hover:border-primary/50 transition-all flex items-center">
-                                <input type="radio" name="platform_fee_preference" value="bill_separately" class="text-primary bg-transparent border-white/20 focus:ring-primary focus:ring-offset-0">
-                                <span class="ml-3 text-sm font-semibold">Bill Separately</span>
-                            </label>
-                        </div>
-                    </div>
+
                     </div>
                 </div>
             </div>
@@ -488,6 +513,10 @@ unset($_SESSION['application_data']);
             </div>
         `;
         container.insertAdjacentHTML('afterbegin', alertHtml);
+        
+        // Auto-scroll to top so user sees the notification
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
         setTimeout(() => dismissAlert(id), 15000); 
     }
 
@@ -499,6 +528,10 @@ unset($_SESSION['application_data']);
     // --- NEW NOTIFICATION SYSTEM END ---
 
     function updateUI() {
+        // Clear all active alerts when moving between steps to prevent stale notifications
+        const alertContainer = document.getElementById('dynamic-alert-container');
+        if (alertContainer) alertContainer.innerHTML = '';
+
         steps.forEach(step => {
             if(parseInt(step.dataset.step) === currentStep) {
                 step.classList.remove('step-hidden');
@@ -529,7 +562,7 @@ unset($_SESSION['application_data']);
         "BDO Unibank", "BPI", "Land Bank of the Philippines",
         "Metrobank", "Security Bank", "Union Bank",
         "PNB", "China Bank", "RCBC", "EastWest Bank",
-        "GCash", "Maya"
+        "GCash", "Maya", "GrabPay", "ShopeePay", "Coins.ph", "SeaBank"
     ];
 
     const bankSearch = document.getElementById('bank-search');
@@ -622,11 +655,11 @@ unset($_SESSION['application_data']);
         let digits = input.value.replace(/\D/g, '');
         let formatted = "BIN-";
         
-        // Exact format BIN-XXX-XX-2026-XXXXXX
+        // Target format: BIN-XXX-XX-YYYY-XXXXXX
         if (digits.length > 0) formatted += digits.substring(0, 3);
         if (digits.length > 3) formatted += "-" + digits.substring(3, 5);
-        if (digits.length > 5) formatted += "-2026-";
-        if (digits.length > 5) formatted += digits.substring(5, 11);
+        if (digits.length > 5) formatted += "-" + digits.substring(5, 9);
+        if (digits.length > 9) formatted += "-" + digits.substring(9, 15);
         
         input.value = formatted;
     }
@@ -654,45 +687,59 @@ unset($_SESSION['application_data']);
 
     // --- NEW FORMATTING & MASKING CODE END ---
 
-    // Real-time Username Check (Debounced)
-    const usernameInput = document.querySelector('input[name="username"]');
-    let usernameExists = false;
-    let isCheckingUsername = false;
-    let usernameTimeout = null;
+    // --- REAL-TIME AVAILABILITY CHECKS START ---
+    const fieldStates = {
+        username: { exists: false, checking: false, timeout: null, label: 'Username', dbField: 'username' },
+        gym_name: { exists: false, checking: false, timeout: null, label: 'Gym Name', dbField: 'gym_name' },
+        business_name: { exists: false, checking: false, timeout: null, label: 'Registered Business Name', dbField: 'business_name' },
+        gym_email: { exists: false, checking: false, timeout: null, label: 'Gym Email', dbField: 'email' },
+        bir_number: { exists: false, checking: false, timeout: null, label: 'BIR Number (TIN)', dbField: 'bir_number' },
+        business_permit_no: { exists: false, checking: false, timeout: null, label: 'Business Permit No.', dbField: 'business_permit_no' }
+    };
 
-    if (usernameInput) {
-        usernameInput.addEventListener('input', () => {
-            clearTimeout(usernameTimeout);
-            const val = usernameInput.value.trim();
-            
-            if (val.length < 3) {
-                usernameInput.classList.remove('border-red-500/50', 'bg-red-500/5');
-                return;
-            }
+    function setupRealTimeValidation(fieldName, selector) {
+        const input = document.querySelector(selector);
+        if (!input) return;
 
-            usernameTimeout = setTimeout(async () => {
-                isCheckingUsername = true;
+        input.addEventListener('input', () => {
+            const state = fieldStates[fieldName];
+            clearTimeout(state.timeout);
+            const val = input.value.trim();
+
+            // Reset state immediately on new input to prevent stale 'exists' flags
+            state.exists = false;
+            input.classList.remove('border-red-500/50', 'bg-red-500/5');
+
+            if (val.length < 3) return;
+
+            state.timeout = setTimeout(async () => {
+                state.checking = true;
                 try {
-                    const response = await fetch(`?check_username=${encodeURIComponent(val)}`);
+                    const response = await fetch(`?check_field=${state.dbField}&value=${encodeURIComponent(val)}`);
                     const data = await response.json();
-                    usernameExists = data.exists;
-                    
-                    if (usernameExists) {
-                        showAlert('You can\'t use the same username! "' + val + '" is already taken.', 'error');
-                        usernameInput.classList.add('border-red-500/50');
-                        usernameInput.classList.add('bg-red-500/5');
-                    } else {
-                        usernameInput.classList.remove('border-red-500/50');
-                        usernameInput.classList.remove('bg-red-500/5');
+                    state.exists = data.exists;
+
+                    if (state.exists) {
+                        showAlert(`The ${state.label} "${val}" is already registered. Please use another.`, 'error');
+                        input.classList.add('border-red-500/50', 'bg-red-500/5');
                     }
                 } catch (err) {
-                    console.error('Username check failed', err);
+                    console.error(`${state.label} check failed`, err);
                 } finally {
-                    isCheckingUsername = false;
+                    state.checking = false;
                 }
-            }, 700); // 700ms debounce
+            }, 700);
         });
     }
+
+    // Initialize checks
+    setupRealTimeValidation('username', 'input[name="username"]');
+    setupRealTimeValidation('gym_name', 'input[name="gym_name"]');
+    setupRealTimeValidation('business_name', 'input[name="business_name"]');
+    setupRealTimeValidation('gym_email', 'input[name="gym_email"]');
+    setupRealTimeValidation('bir_number', '#bir_number');
+    setupRealTimeValidation('business_permit_no', '#business_permit_no');
+    // --- REAL-TIME AVAILABILITY CHECKS END ---
 
     // Real-time password match feedback
     const passwordInput = document.getElementById('reg-password');
@@ -807,13 +854,13 @@ unset($_SESSION['application_data']);
 
         // Additional validation for Step 1
         if (currentStep === 1) {
-            if (isCheckingUsername) {
+            if (fieldStates.username.checking) {
                 showAlert('Verifying username availability...', 'success');
                 return;
             }
-            if (usernameExists) {
+            if (fieldStates.username.exists) {
                 showAlert('The chosen username is already taken. Please choose another.', 'error');
-                usernameInput.focus();
+                document.querySelector('input[name="username"]').focus();
                 return;
             }
 
@@ -857,6 +904,14 @@ unset($_SESSION['application_data']);
 
         // Additional validation for Step 2
         if (currentStep === 2) {
+            // Check availability flags
+            if (fieldStates.gym_name.exists || fieldStates.business_name.exists || fieldStates.gym_email.exists) {
+                const dupField = fieldStates.gym_name.exists ? 'gym_name' : (fieldStates.business_name.exists ? 'business_name' : 'gym_email');
+                showAlert(`Please resolve the duplicate ${fieldStates[dupField].label} before proceeding.`, 'error');
+                document.querySelector(`input[name="${dupField}"]`).focus();
+                return;
+            }
+
             const gymContactField = document.getElementById('gym_contact');
             const contact = gymContactField.value;
             const rawContact = contact.replace(/\D/g, '');
@@ -880,11 +935,7 @@ unset($_SESSION['application_data']);
         Object.keys(formData).forEach(key => {
             if (['password', 'confirm_password', 'username', 'gym_email'].includes(key)) return;
             
-            if (key === 'platform_fee_preference') {
-                const radio = document.querySelector(`input[name="${key}"][value="${formData[key]}"]`);
-                if (radio) radio.checked = true;
-                return;
-            }
+
 
             const checkbox = document.querySelector(`input[type="checkbox"][name="${key}"]`);
             if (checkbox) {
@@ -933,6 +984,15 @@ unset($_SESSION['application_data']);
 
         if (!allValid) {
             e.preventDefault();
+            return;
+        }
+
+        // Check Step 3 availability flags
+        if (fieldStates.bir_number.exists || fieldStates.business_permit_no.exists) {
+            e.preventDefault();
+            const dupField = fieldStates.bir_number.exists ? 'bir_number' : 'business_permit_no';
+            showAlert(`Please resolve the duplicate ${fieldStates[dupField].label} before submitting.`, 'error');
+            document.getElementById(dupField).focus();
             return;
         }
 
