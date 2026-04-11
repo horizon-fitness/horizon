@@ -25,7 +25,7 @@ $stmt = $pdo->prepare("
            g.gym_id 
     FROM gym_owner_applications a
     JOIN users u ON a.user_id = u.user_id
-    JOIN gym_addresses ad ON a.address_id = ad.address_id
+    JOIN addresses ad ON a.address_id = ad.address_id
     LEFT JOIN users r ON a.reviewed_by = r.user_id
     LEFT JOIN gyms g ON a.application_id = g.application_id
     WHERE a.application_id = ?

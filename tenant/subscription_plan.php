@@ -25,18 +25,28 @@ if ($active_sub) {
 $plansCheck = $pdo->query("SELECT COUNT(*) FROM website_plans")->fetchColumn();
 if ($plansCheck == 0) {
     $plans = [
-        ['6-Month Kickstart', 24999.00, '6 Months', 6, 'Multi-Tenant Management, Base64 Document Engine, Core Analytics'],
-        ['1-Year Momentum', 44999.00, '1 Year', 12, 'Advanced Revenue Reports, Priority Support, Gym Page Customizer'],
-        ['3-Year Legacy', 99999.00, '3 Years', 36, 'Full White-Label Access, API Integration, Unlimited Team Accounts']
+        ['6-Month Kickstart', 24999.00, '6 Months', 6, ['Multi-Tenant Management', 'Base64 Document Engine', 'Core Analytics']],
+        ['1-Year Momentum', 44999.00, '1 Year', 12, ['Advanced Revenue Reports', 'Priority Support', 'Gym Page Customizer']],
+        ['3-Year Legacy', 99999.00, '3 Years', 36, ['Full White-Label Access', 'API Integration', 'Unlimited Team Accounts']]
     ];
-    $stmtSeed = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, features) VALUES (?, ?, ?, ?, ?)");
+    $stmtSeed = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months) VALUES (?, ?, ?, ?)");
+    $stmtFeature = $pdo->prepare("INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES (?, ?)");
     foreach ($plans as $p) {
-        $stmtSeed->execute([$p[0], $p[1], $p[2], $p[3], $p[4]]);
+        $stmtSeed->execute([$p[0], $p[1], $p[2], $p[3]]);
+        $plan_id = $pdo->lastInsertId();
+        foreach ($p[4] as $feature) {
+            $stmtFeature->execute([$plan_id, $feature]);
+        }
     }
 }
 
 // Fetch Plans
 $plans = $pdo->query("SELECT * FROM website_plans WHERE is_active = 1")->fetchAll();
+foreach ($plans as &$p) {
+    $stmtF = $pdo->prepare("SELECT feature_name FROM website_plan_features WHERE website_plan_id = ?");
+    $stmtF->execute([$p['website_plan_id']]);
+    $p['features'] = $stmtF->fetchAll(PDO::FETCH_COLUMN);
+}
 
 // Check for recent rejection to show notice
 $stmtRecent = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? ORDER BY created_at DESC LIMIT 1");
@@ -251,10 +261,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
                 </div>
 
                 <ul class="space-y-4 mb-12 flex-grow">
-                    <?php foreach(explode(',', $plan['features']) as $feature): ?>
+                    <?php foreach($plan['features'] as $feature): ?>
                     <li class="flex items-start gap-3">
                         <span class="material-symbols-outlined text-primary text-lg">check_circle</span>
-                        <span class="text-xs text-gray-400 font-medium leading-tight italic"><?= trim(htmlspecialchars($feature)) ?></span>
+                        <span class="text-xs text-gray-400 font-medium leading-tight italic"><?= htmlspecialchars($feature) ?></span>
                     </li>
                     <?php endforeach; ?>
                 </ul>

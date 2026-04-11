@@ -105,7 +105,7 @@ $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 $stmtGym = $pdo->prepare("
     SELECT g.*, a.address_line, a.barangay, a.city, a.province, a.region 
     FROM gyms g
-    LEFT JOIN gym_addresses a ON g.address_id = a.address_id
+    LEFT JOIN addresses a ON g.address_id = a.address_id
     WHERE g.gym_id = ?
 ");
 $stmtGym->execute([$gym_id]);

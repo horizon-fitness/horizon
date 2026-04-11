@@ -44,9 +44,10 @@ if (isset($_GET['ajax_user_id'])) {
     // Fetch unique member data
     // Check if this member has booked with this coach
     $stmt = $pdo->prepare("
-        SELECT u.*, m.* 
+        SELECT u.*, m.*, a.address_line, a.barangay, a.city, a.province, a.region
         FROM users u 
         JOIN members m ON u.user_id = m.user_id 
+        LEFT JOIN addresses a ON m.address_id = a.address_id
         JOIN bookings b ON m.member_id = b.member_id
         WHERE u.user_id = ? AND m.gym_id = ? AND b.coach_id = ? AND b.booking_status IN ('Approved', 'Pending', 'Confirmed', 'Completed')
         LIMIT 1
@@ -92,7 +93,7 @@ if (isset($_GET['ajax_user_id'])) {
                             </div>
                             <div class="bg-white/[0.02] p-4 rounded-2xl border border-white/5">
                                 <p class="text-[8px] font-black uppercase text-gray-500 tracking-widest mb-1">Home Address</p>
-                                <p class="text-xs font-medium text-gray-300 leading-relaxed"><?= htmlspecialchars($u['address'] ?: 'No address listed') ?></p>
+                                <p class="text-xs font-medium text-gray-300 leading-relaxed"><?= htmlspecialchars($u['address_line'] ?: 'No address listed') ?></p>
                             </div>
                         </div>
                     </section>

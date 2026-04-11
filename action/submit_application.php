@@ -151,8 +151,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $contact_number, $owner_dob, $owner_sex, $current_date, $current_date]);
         $user_id = $pdo->lastInsertId();
 
-        // 2. Insert into `gym_addresses` table
-        $stmtAddr = $pdo->prepare("INSERT INTO gym_addresses (address_line, barangay, city, province, region, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        // 2. Insert into `addresses` table
+        $stmtAddr = $pdo->prepare("INSERT INTO addresses (address_line, barangay, city, province, region, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
         $stmtAddr->execute([$address_line, $barangay, $city, $province, $region, $current_date, $current_date]);
         $address_id = $pdo->lastInsertId();
 

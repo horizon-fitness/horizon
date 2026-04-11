@@ -23,7 +23,7 @@ CREATE TABLE roles (
     role_name VARCHAR(50) NOT NULL
 );
 
-CREATE TABLE gym_addresses (
+CREATE TABLE addresses (
     address_id INT AUTO_INCREMENT PRIMARY KEY,
     address_line VARCHAR(255) NOT NULL,
     barangay VARCHAR(100) NOT NULL,
@@ -40,8 +40,13 @@ CREATE TABLE website_plans (
     price DECIMAL(10,2) NOT NULL,
     billing_cycle VARCHAR(100) NOT NULL,
     duration_months INT NOT NULL,
-    features TEXT NOT NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 1
+);
+
+CREATE TABLE website_plan_features (
+    feature_id INT AUTO_INCREMENT PRIMARY KEY,
+    website_plan_id INT NOT NULL,
+    feature_name VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE membership_plan_types (
@@ -260,7 +265,6 @@ CREATE TABLE member_registrations (
     member_registration_id INT AUTO_INCREMENT PRIMARY KEY,
     gym_id INT NOT NULL,
     user_id INT NOT NULL,
-    email VARCHAR(150) NOT NULL,
     registration_source VARCHAR(100) NOT NULL,
     registered_by_user_id INT,
     verification_id INT,
@@ -274,10 +278,8 @@ CREATE TABLE members (
     user_id INT NOT NULL,
     gym_id INT NOT NULL,
     member_code VARCHAR(50) NOT NULL,
-    birth_date DATE NOT NULL,
-    sex VARCHAR(100) NOT NULL,
+    address_id INT,
     occupation VARCHAR(100),
-    address VARCHAR(255),
     emergency_contact_name VARCHAR(100) NOT NULL,
     emergency_contact_number VARCHAR(20) NOT NULL,
     medical_history TEXT,
@@ -508,10 +510,16 @@ INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES
 (0, 'system_logo', '');
 
 -- Website Plans
-INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, features) VALUES
-('6-Month Kickstart', 5999.00, '6 Months', 6, 'Core Analytics, Gym Page Customizer, Revenue Reports, White-Label Access, API Integration'),
-('1-Year Momentum', 10999.00, '1 Year', 12, 'Core Analytics, Gym Page Customizer, Revenue Reports, White-Label Access, API Integration'),
-('3-Year Legacy', 27999.00, '3 Years', 36, 'Core Analytics, Gym Page Customizer, Revenue Reports, White-Label Access, API Integration');
+INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months) VALUES
+('6-Month Kickstart', 5999.00, '6 Months', 6),
+('1-Year Momentum', 10999.00, '1 Year', 12),
+('3-Year Legacy', 27999.00, '3 Years', 36);
+
+-- Website Plan Features
+INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES
+(1, 'Core Analytics'), (1, 'Gym Page Customizer'), (1, 'Revenue Reports'), (1, 'White-Label Access'), (1, 'API Integration'),
+(2, 'Core Analytics'), (2, 'Gym Page Customizer'), (2, 'Revenue Reports'), (2, 'White-Label Access'), (2, 'API Integration'),
+(3, 'Core Analytics'), (3, 'Gym Page Customizer'), (3, 'Revenue Reports'), (3, 'White-Label Access'), (3, 'API Integration');
 
 -- Standardized Global Membership Plans
 INSERT INTO membership_plan_types (type_name) VALUES ('Gym Membership');

@@ -136,8 +136,8 @@ if (isset($_GET['ajax_user_id'])) {
 
     $sql = "SELECT u.*, r.role_name as role, ur.role_status ";
     if ($role_name === 'member') {
-        $sql .= ", m.member_code, m.birth_date, m.sex, m.occupation, m.address, m.medical_history, m.emergency_contact_name, m.emergency_contact_number ";
-        $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id ";
+        $sql .= ", m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.medical_history, m.emergency_contact_name, m.emergency_contact_number ";
+        $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id LEFT JOIN addresses a ON m.address_id = a.address_id ";
     } elseif ($role_name === 'staff' || $role_name === 'coach') {
         $sql .= ", s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN staff s ON u.user_id = s.user_id AND s.gym_id = ur.gym_id ";
@@ -274,10 +274,10 @@ if (isset($_GET['ajax_user_id'])) {
                                 <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-primary">call</span> Mobile Signal</p>
                                 <p class="text-base font-bold text-white tracking-widest"><?= htmlspecialchars($u['contact_number'] ?: 'UNKNOWN') ?></p>
                             </div>
-                            <?php if ($role_name === 'member' && !empty($u['address'])): ?>
+                            <?php if ($role_name === 'member' && !empty($u['address_line'])): ?>
                                 <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5 md:col-span-2">
                                     <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-primary">location_on</span> Registered Address</p>
-                                    <p class="text-sm font-bold text-gray-300"><?= htmlspecialchars($u['address']) ?></p>
+                                    <p class="text-sm font-bold text-gray-300"><?= htmlspecialchars($u['address_line']) ?></p>
                                 </div>
                             <?php endif; ?>
                         </div>

@@ -5,6 +5,13 @@ require_once 'db.php';
 $stmtPlans = $pdo->prepare("SELECT * FROM website_plans WHERE is_active = 1 ORDER BY price ASC");
 $stmtPlans->execute();
 $plans = $stmtPlans->fetchAll();
+
+// Fetch features for each plan (3NF Compatibility)
+foreach ($plans as &$p) {
+    $stmtF = $pdo->prepare("SELECT feature_name FROM website_plan_features WHERE website_plan_id = ?");
+    $stmtF->execute([$p['website_plan_id']]);
+    $p['features'] = $stmtF->fetchAll(PDO::FETCH_COLUMN);
+}
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -294,7 +301,6 @@ $plans = $stmtPlans->fetchAll();
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <?php foreach ($plans as $plan): 
                         $isMomentum = strpos($plan['plan_name'], 'Momentum') !== false;
-                        $features = explode(',', $plan['features']);
                     ?>
                     <div class="plan-card rounded-2xl p-10 flex flex-col text-left <?= $isMomentum ? 'border-primary/50 bg-primary/5 scale-105' : '' ?>">
                         <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
@@ -306,7 +312,7 @@ $plans = $stmtPlans->fetchAll();
                             <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ <?= ($plan['duration_months'] == 12) ? 'Yr' : 'Term' ?></span>
                         </div>
                         <ul class="space-y-4 mb-12 flex-grow">
-                            <?php foreach ($features as $feature): ?>
+                            <?php foreach ($plan['features'] as $feature): ?>
                             <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
                                 <span class="material-symbols-outlined text-primary text-sm">check_circle</span> <?= htmlspecialchars(trim($feature)) ?>
                             </li>

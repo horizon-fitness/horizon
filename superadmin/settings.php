@@ -88,27 +88,42 @@ $user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
 // 3. Merge (User settings take precedence for overlapping keys if any)
 $configs = array_merge($global_configs, $user_configs);
 
-// 4. Fetch Website Plans
+// 4. Fetch Website Plans (3NF Compatibility)
 $stmtPlans = $pdo->prepare("SELECT * FROM website_plans ORDER BY price ASC");
 $stmtPlans->execute();
 $website_plans = $stmtPlans->fetchAll();
+
+foreach ($website_plans as &$p) {
+    $stmtF = $pdo->prepare("SELECT feature_name FROM website_plan_features WHERE website_plan_id = ?");
+    $stmtF->execute([$p['website_plan_id']]);
+    $p['features'] = implode(', ', $stmtF->fetchAll(PDO::FETCH_COLUMN));
+}
 
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     unset($_POST['save_settings']);
     
-    // Handle Website Plans Update
+    // Handle Website Plans Update (3NF Compatibility)
     if (isset($_POST['plans']) && is_array($_POST['plans'])) {
-        $stmtUpdatePlan = $pdo->prepare("UPDATE website_plans SET plan_name = ?, price = ?, billing_cycle = ?, duration_months = ?, features = ? WHERE website_plan_id = ?");
+        $stmtUpdatePlan = $pdo->prepare("UPDATE website_plans SET plan_name = ?, price = ?, billing_cycle = ?, duration_months = ? WHERE website_plan_id = ?");
+        $stmtDelFeatures = $pdo->prepare("DELETE FROM website_plan_features WHERE website_plan_id = ?");
+        $stmtInsFeature = $pdo->prepare("INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES (?, ?)");
+
         foreach ($_POST['plans'] as $id => $data) {
             $stmtUpdatePlan->execute([
                 $data['name'],
                 $data['price'],
                 $data['billing'],
                 $data['duration'],
-                $data['features'],
                 $id
             ]);
+
+            // Sync Features
+            $stmtDelFeatures->execute([$id]);
+            $featuresList = array_filter(array_map('trim', explode(',', $data['features'])));
+            foreach ($featuresList as $fName) {
+                $stmtInsFeature->execute([$id, $fName]);
+            }
         }
     }
 

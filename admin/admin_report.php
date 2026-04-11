@@ -22,7 +22,7 @@ $stmtPage->execute([$gym_id]);
 $tenant_config = $stmtPage->fetch();
 
 // Also fetch address for report headers
-$stmtAddress = $pdo->prepare("SELECT * FROM gym_addresses WHERE address_id = ?");
+$stmtAddress = $pdo->prepare("SELECT * FROM addresses WHERE address_id = ?");
 $stmtAddress->execute([$gym['address_id'] ?? 0]);
 $gym_address = $stmtAddress->fetch();
 

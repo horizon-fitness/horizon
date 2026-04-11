@@ -65,8 +65,8 @@ try {
         }
 
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
-        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)");
-        $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $now, $now]);
+        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, birth_date, sex, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)");
+        $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $birth_date, $sex, $now, $now]);
         $new_user_id = $pdo->lastInsertId();
 
         $stmtRoleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
@@ -82,9 +82,14 @@ try {
         $stmtUR->execute([$new_user_id, $role_id, $gym_id, $tenant_code, $now]);
 
         if ($role_name === 'Member') {
+            // 3NF: Insert address into dedicated table
+            $stmtAddr = $pdo->prepare("INSERT INTO addresses (address_line, barangay, city, province, region, created_at, updated_at) VALUES (?, '', '', '', '', ?, ?)");
+            $stmtAddr->execute([$address, $now, $now]);
+            $address_id = $pdo->lastInsertId();
+
             $member_code = 'MBR-' . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
-            $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, birth_date, sex, occupation, address, medical_history, emergency_contact_name, emergency_contact_number, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-            $stmtMember->execute([$new_user_id, $gym_id, $member_code, $birth_date, $sex, $occupation, $address, $medical_history, $emergency_name, $emergency_phone, $now, $now]);
+            $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+            $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $now, $now]);
         } else {
             $stmtStaff = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, 'Full-Time', ?, 'Active', ?, ?)");
             $stmtStaff->execute([$new_user_id, $gym_id, $role_name, date('Y-m-d'), $now, $now]);
@@ -102,6 +107,10 @@ try {
         $stmtV->execute([$new_user_id, $gym_id, $otp_code, $expires, $now]);
 
         $pdo->commit();
+            // No separate logging table insertion for email here for 3NF
+            // The registration is tracked via the member_registrations table if needed, 
+            // but api/register.php doesn't seem to have a separate log entry for 'email' 
+            // besides the member_registrations which I should check.
 
         if (file_exists('../includes/mailer.php')) {
             require_once '../includes/mailer.php';
