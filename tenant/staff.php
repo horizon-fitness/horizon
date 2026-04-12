@@ -30,7 +30,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (!$is_sub_active) {
         $error = "Action restricted. Your subscription is currently $sub_status.";
     } else {
-        $fname = $_POST['first_name'] ?? '';
+        // --- MAX STAFF LIMIT CHECK ---
+        $stmtMaxStaff = $pdo->query("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'max_staff'");
+        $max_staff = (int) $stmtMaxStaff->fetchColumn();
+        if ($max_staff <= 0) $max_staff = 10; // Fallback default
+
+        $stmtCurrentStaff = $pdo->prepare("SELECT COUNT(*) FROM staff WHERE gym_id = ?");
+        $stmtCurrentStaff->execute([$gym_id]);
+        $current_staff_count = (int) $stmtCurrentStaff->fetchColumn();
+
+        if ($current_staff_count >= $max_staff) {
+            $error = "Action restricted. You have reached the maximum staff limit ($max_staff) set by the Superadmin.";
+        } else {
+            $fname = $_POST['first_name'] ?? '';
     $lname = $_POST['last_name'] ?? '';
     $email = $_POST['email'] ?? '';
     $contact = $_POST['contact_number'] ?? '0000000000';
@@ -105,6 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $error = "Error adding staff: " . $e->getMessage();
         }
     }
+}
 }
 }
 }
