@@ -45,13 +45,13 @@ $brand = array_merge($global_configs, $user_configs);
 $stmtTenants = $pdo->query("
     SELECT g.*, 
            u.first_name, u.last_name, u.email as owner_email,
-           tp.logo_path,
+           (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'system_logo') as logo_path,
+           (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'page_slug') as page_slug,
            cs.subscription_status as sub_status,
            wp.plan_name,
            IFNULL(m.member_count, 0) as member_count
     FROM gyms g
     JOIN users u ON g.owner_user_id = u.user_id
-    LEFT JOIN tenant_pages tp ON g.gym_id = tp.gym_id
     LEFT JOIN (
         SELECT cs1.gym_id, cs1.subscription_status, cs1.website_plan_id
         FROM client_subscriptions cs1

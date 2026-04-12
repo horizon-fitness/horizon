@@ -31,15 +31,50 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         'has_wifi' => 0
     ];
 } else {
-    $stmtPage = $pdo->prepare("SELECT tp.*, g.gym_name, g.gym_id, g.profile_picture as gym_logo, g.email as gym_email, g.contact_number as gym_contact 
-                               FROM tenant_pages tp 
-                               JOIN gyms g ON tp.gym_id = g.gym_id 
-                               WHERE tp.page_slug = ? AND tp.is_active = 1 LIMIT 1");
-    $stmtPage->execute([$gym_slug]);
-    $page = $stmtPage->fetch();
+    // Fetch User ID from page_slug in system_settings
+    $stmtSlug = $pdo->prepare("SELECT user_id FROM system_settings WHERE setting_key = 'page_slug' AND setting_value = ?");
+    $stmtSlug->execute([$gym_slug]);
+    $user_id = $stmtSlug->fetchColumn();
 
-    if (!$page) {
+    if (!$user_id) {
         die("Gym page not found or is currently inactive.");
+    }
+
+    // Fetch All Settings for this User
+    $stmtSettings = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+    $stmtSettings->execute([$user_id]);
+    $configs = $stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    // Fetch Gym Details linked to this owner
+    $stmtGym = $pdo->prepare("SELECT *, profile_picture as gym_logo, email as gym_email, contact_number as gym_contact FROM gyms WHERE owner_user_id = ? LIMIT 1");
+    $stmtGym->execute([$user_id]);
+    $gym_info = $stmtGym->fetch();
+
+    if (!$gym_info) {
+        die("Gym details not found.");
+    }
+
+    // Map system_settings to the $page structure used by existing logic
+    $page = [
+        'gym_id' => $gym_info['gym_id'],
+        'page_slug' => $gym_slug,
+        'page_title' => $configs['system_name'] ?? $gym_info['gym_name'],
+        'logo_path' => $configs['system_logo'] ?? $gym_info['gym_logo'],
+        'theme_color' => $configs['theme_color'] ?? '#8c2bee',
+        'secondary_color' => $configs['secondary_color'] ?? '#a1a1aa',
+        'text_color' => $configs['text_color'] ?? '#d1d5db',
+        'bg_color' => $configs['bg_color'] ?? '#0a090d',
+        'font_family' => $configs['font_family'] ?? 'Lexend',
+        'about_text' => $gym_info['description'] ?? '',
+        'app_download_link' => $configs['app_download_link'] ?? '',
+        'gym_logo' => $gym_info['gym_logo'],
+        'gym_email' => $gym_info['gym_email'],
+        'gym_contact' => $gym_info['gym_contact'],
+        'gym_name' => $gym_info['gym_name']
+    ];
+
+    if (($configs['is_active'] ?? '1') === '0') {
+        die("Gym page is currently inactive.");
     }
 
     // Fetch Operational Details
@@ -54,6 +89,52 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         'has_parking' => 0,
         'has_wifi' => 0
     ];
+
+    // Fetch Gym Membership Plans (Specific to Gym or Global)
+    $stmtMembership = $pdo->prepare("SELECT mp.*, mpt.type_name 
+                                    FROM membership_plans mp 
+                                    JOIN membership_plan_types mpt ON mp.plan_type_id = mpt.plan_type_id 
+                                    WHERE (mp.gym_id = ? OR mp.gym_id IS NULL) AND mp.is_active = 1 
+                                    ORDER BY mp.price ASC");
+    $stmtMembership->execute([$page['gym_id']]);
+    $membership_plans = $stmtMembership->fetchAll();
+}
+
+// Map CMS Content with Fallbacks
+$cms = [
+    'hero_title' => $configs['portal_hero_title'] ?? ('Elevate Your <br /> <span class="text-gradient px-4 -ml-4">Fitness</span> at <br class="md:hidden" /> ' . htmlspecialchars($page['page_title'] ?? $page['gym_name'])),
+    'hero_subtitle' => $configs['portal_hero_subtitle'] ?? 'Discover a premium workout experience powered by Horizon\'s elite technology and world-class coaching staff.',
+    'features_title' => $configs['portal_features_title'] ?? 'Premium Training.<br /> <span class="text-gradient">Elite Management.</span>',
+    'features_desc' => $configs['portal_features_desc'] ?? 'Access our elite workout tracking and world-class management platform. For membership inquiries and registrations, please visit our front desk or register online to get started.',
+    'philosophy_title' => $configs['portal_philosophy_title'] ?? ('Modern technology meets <br /> <span class="text-gradient">' . (strpos($configs['portal_philosophy_title'] ?? '', 'dedication') !== false ? '' : 'unwavering dedication.') . '</span>'),
+    'philosophy_desc' => $configs['portal_philosophy_desc'] ?? 'Experience fitness like never before with our cutting-edge multi-tenant facility.',
+    'hero_label' => $configs['portal_hero_label'] ?? 'Open for Membership',
+    'features_label' => $configs['portal_features_label'] ?? 'Experience the Difference',
+    'philosophy_label' => $configs['portal_philosophy_label'] ?? 'The Philosophy',
+    'plans_title' => $configs['portal_plans_title'] ?? 'Elite Membership Plans',
+    'plans_subtitle' => $configs['portal_plans_subtitle'] ?? ('Select a plan to start your journey at ' . htmlspecialchars($page['gym_name'])),
+    'footer_links_title' => $configs['portal_footer_links_title'] ?? 'Quick Links',
+    'footer_contact_title' => $configs['portal_footer_contact_title'] ?? 'Contact Facility',
+    'footer_app_title' => $configs['portal_footer_app_title'] ?? 'Get the App'
+];
+
+// Refined Logic for Philosophy Title Fallback
+if (empty($configs['portal_philosophy_title'])) {
+    $cms['philosophy_title'] = 'Modern technology meets <br /> <span class="text-gradient">unwavering dedication.</span>';
+} else {
+    $cms['philosophy_title'] = nl2br(htmlspecialchars($configs['portal_philosophy_title']));
+}
+
+if (empty($configs['portal_hero_title'])) {
+    $cms['hero_title'] = 'Elevate Your <br /> <span class="text-gradient px-4 -ml-4">Fitness</span> at <br class="md:hidden" /> ' . htmlspecialchars($page['page_title'] ?? $page['gym_name']);
+} else {
+    $cms['hero_title'] = nl2br($configs['portal_hero_title']);
+}
+
+if (empty($configs['portal_features_title'])) {
+    $cms['features_title'] = 'Premium Training.<br /> <span class="text-gradient">Elite Management.</span>';
+} else {
+    $cms['features_title'] = nl2br($configs['portal_features_title']);
 }
 
 $primary_color = $page['theme_color'] ?? '#8c2bee';
@@ -552,25 +633,23 @@ $primary_rgb = hexToRgb($primary_color);
             <div
                 class="max-w-7xl w-full grid md:grid-cols-2 gap-20 items-center relative z-10 text-center md:text-left">
                 <div>
-                    <div
+                    <div id="hero-label-display"
                         class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
                         <span class="relative flex h-2 w-2">
                             <span
                                 class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                         </span>
-                        Open for Membership
+                        <?= htmlspecialchars($cms['hero_label']) ?>
                     </div>
 
-                    <h1
+                    <h1 id="hero-title-display"
                         class="text-6xl md:text-8xl font-display font-black leading-[0.95] tracking-tighter text-white uppercase italic mb-8">
-                        Elevate Your <br />
-                        <span class="text-gradient px-4 -ml-4">Fitness</span> at <br class="md:hidden" />
-                        <?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?>
+                        <?= $cms['hero_title'] ?>
                     </h1>
 
-                    <p class="text-lg text-gray-400 font-medium leading-relaxed max-w-2xl mx-auto md:mx-0 mb-10 italic">
-                        <?= htmlspecialchars($page['about_text'] ?? 'Discover a premium workout experience powered by Horizon\'s elite technology and world-class coaching staff.') ?>
+                    <p id="hero-subtitle-display" class="text-lg text-gray-400 font-medium leading-relaxed max-w-2xl mx-auto md:mx-0 mb-10 italic">
+                        <?= htmlspecialchars($cms['hero_subtitle']) ?>
                     </p>
 
                     <div class="flex flex-wrap items-center justify-center md:justify-start gap-4">
@@ -722,17 +801,15 @@ $primary_rgb = hexToRgb($primary_color);
 
                 <div class="grid lg:grid-cols-2 gap-16 items-center relative z-10">
                     <div>
-                        <div
+                        <div id="features-label-display"
                             class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6">
-                            Experience the Difference
+                            <?= htmlspecialchars($cms['features_label']) ?>
                         </div>
-                        <h2 class="text-4xl font-display font-black text-white uppercase italic leading-tight mb-8">
-                            Premium Training.<br />
-                            <span class="text-gradient">Elite Management.</span>
+                        <h2 id="features-title-display" class="text-4xl font-display font-black text-white uppercase italic leading-tight mb-8">
+                            <?= $cms['features_title'] ?>
                         </h2>
-                        <p class="text-gray-400 italic leading-relaxed mb-10">
-                            Access our elite workout tracking and world-class management platform. For membership
-                            inquiries and registrations, please visit our front desk or register online to get started.
+                        <p id="features-desc-display" class="text-gray-400 italic leading-relaxed mb-10">
+                            <?= nl2br(htmlspecialchars($cms['features_desc'])) ?>
                         </p>
                     </div>
 
@@ -799,19 +876,77 @@ $primary_rgb = hexToRgb($primary_color);
         <section id="about"
             class="py-32 px-6 relative border-t border-white/5 bg-gradient-to-b from-transparent to-black/50">
             <div class="max-w-7xl mx-auto text-center">
-                <div
+                <div id="philosophy-label-display"
                     class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-12">
-                    The Philosophy
+                    <?= htmlspecialchars($cms['philosophy_label']) ?>
                 </div>
-                <h2
+                <h2 id="philosophy-title-display"
                     class="text-5xl md:text-7xl font-display font-black text-white uppercase italic leading-tight mb-12">
-                    Modern technology meets <br />
-                    <span class="text-gradient">unwavering dedication.</span>
+                    <?= $cms['philosophy_title'] ?>
                 </h2>
                 <div class="max-w-3xl mx-auto text-gray-400 italic text-xl leading-relaxed">
-                    <p id="about-text-display">
-                        <?= nl2br(htmlspecialchars($page['about_text'] ?? 'Experience fitness like never before with our cutting-edge multi-tenant facility.')) ?>
+                    <p id="philosophy-desc-display">
+                        <?= nl2br(htmlspecialchars($cms['philosophy_desc'])) ?>
                     </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- New Section: Elite Membership Plans -->
+        <section id="plans" class="py-32 px-6 relative border-t border-white/5">
+            <div class="max-w-7xl mx-auto text-center">
+                <div class="mb-16">
+                    <div class="inline-flex items-center justify-center p-3 rounded-xl bg-primary/10 border border-primary/20 mb-6">
+                        <span class="material-symbols-outlined text-primary">workspace_premium</span>
+                    </div>
+                    <h2 id="plans-title-display" class="text-4xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
+                        <?= $cms['plans_title'] ?>
+                    </h2>
+                    <p id="plans-subtitle-display" class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]"><?= htmlspecialchars($cms['plans_subtitle']) ?></p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <?php if (empty($membership_plans)): ?>
+                        <div class="col-span-full py-20 dashboard-window rounded-3xl opacity-50">
+                            <span class="material-symbols-outlined text-4xl mb-4">info</span>
+                            <p class="text-xs font-bold uppercase tracking-widest">No membership plans available at this time.</p>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach ($membership_plans as $plan): 
+                            $isElite = strpos(strtoupper($plan['plan_name']), 'ELITE') !== false || strpos(strtoupper($plan['plan_name']), 'VIP') !== false;
+                        ?>
+                        <div class="dashboard-window rounded-2xl p-10 flex flex-col text-left transition-all hover:scale-[1.02] hover:border-primary/40 duration-500 <?= $isElite ? 'border-primary/30 relative' : '' ?>">
+                            <?php if ($isElite): ?>
+                                <div class="absolute -top-3 right-8 bg-primary text-white text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full shadow-lg shadow-primary/20">Recommended</div>
+                            <?php endif; ?>
+                            
+                            <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
+                            <p class="text-[9px] text-primary font-black uppercase tracking-widest mb-8"><?= htmlspecialchars($plan['type_name']) ?></p>
+                            
+                            <div class="mb-10">
+                                <span class="text-4xl font-display font-black text-white">₱<?= number_format($plan['price'], 2) ?></span>
+                                <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ <?= htmlspecialchars($plan['duration_value']) ?> Days</span>
+                            </div>
+                            
+                            <ul class="space-y-4 mb-12 flex-grow">
+                                <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
+                                    <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
+                                    <?= !empty($plan['description']) ? htmlspecialchars($plan['description']) : 'Full access to all facility equipment and amenities.' ?>
+                                </li>
+                                <?php if ($plan['session_limit']): ?>
+                                <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
+                                    <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
+                                    <?= htmlspecialchars($plan['session_limit']) ?> Total Sessions included
+                                </li>
+                                <?php endif; ?>
+                            </ul>
+                            
+                            <a href="member/member_register.php?gym=<?= $gym_slug ?>" class="w-full py-4 bg-white/5 border border-white/10 hover:bg-primary hover:border-primary hover:text-white text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-center">
+                                Choose This Plan
+                            </a>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
         </section>
@@ -838,9 +973,9 @@ $primary_rgb = hexToRgb($primary_color);
                 </div>
 
                 <div class="flex flex-col gap-8">
-                    <h4
+                    <h4 id="footer-links-title"
                         class="text-sm font-display font-black text-white uppercase italic tracking-[0.2em] relative inline-block">
-                        Quick Links
+                        <?= htmlspecialchars($cms['footer_links_title']) ?>
                         <span class="absolute -bottom-2 left-0 w-8 h-0.5 bg-primary"></span>
                     </h4>
                     <div class="flex flex-col gap-6 text-xs font-bold text-gray-500 uppercase tracking-widest">
@@ -853,9 +988,9 @@ $primary_rgb = hexToRgb($primary_color);
                 </div>
 
                 <div class="flex flex-col gap-8">
-                    <h4
+                    <h4 id="footer-contact-title"
                         class="text-sm font-display font-black text-white uppercase italic tracking-[0.2em] relative inline-block">
-                        Contact Facility
+                        <?= htmlspecialchars($cms['footer_contact_title']) ?>
                         <span class="absolute -bottom-2 left-0 w-8 h-0.5 bg-primary"></span>
                     </h4>
                     <div class="space-y-8">
@@ -913,9 +1048,9 @@ $primary_rgb = hexToRgb($primary_color);
                     <span class="material-symbols-outlined text-4xl relative">qr_code_scanner</span>
                 </div>
 
-                <h3
+                <h3 id="footer-app-title"
                     class="text-3xl font-display font-black text-white mb-3 tracking-tighter text-center uppercase italic">
-                    Get the <span class="text-primary">App</span></h3>
+                    <?= htmlspecialchars($cms['footer_app_title']) ?></h3>
                 <p class="text-gray-500 text-sm mb-10 leading-relaxed text-center italic">
                     Scan the code below to unlock your premium training experience on the go.
                 </p>
@@ -1005,6 +1140,68 @@ $primary_rgb = hexToRgb($primary_color);
                 if (data.contact_text !== undefined) {
                     const contactDisp = document.getElementById('contact-text-display');
                     if (contactDisp) contactDisp.innerText = data.contact_text;
+                }
+
+                // CMS Content Real-time Sync
+                if (data.portal_hero_title !== undefined) {
+                    const el = document.getElementById('hero-title-display');
+                    if (el) el.innerText = data.portal_hero_title || 'Elevate Your Fitness at ' + (data.page_title || 'Facility');
+                }
+                if (data.portal_hero_subtitle !== undefined) {
+                    const el = document.getElementById('hero-subtitle-display');
+                    if (el) el.innerText = data.portal_hero_subtitle || 'Discover a premium workout experience powered by Horizon\'s elite technology and world-class coaching staff.';
+                }
+                if (data.portal_features_title !== undefined) {
+                    const el = document.getElementById('features-title-display');
+                    if (el) el.innerText = data.portal_features_title || 'Premium Training. Elite Management.';
+                }
+                if (data.portal_features_desc !== undefined) {
+                    const el = document.getElementById('features-desc-display');
+                    if (el) el.innerText = data.portal_features_desc || 'Access our elite workout tracking and world-class management platform...';
+                }
+                if (data.portal_philosophy_title !== undefined) {
+                    const el = document.getElementById('philosophy-title-display');
+                    if (el) el.innerText = data.portal_philosophy_title || 'Modern technology meets unwavering dedication.';
+                }
+                if (data.portal_philosophy_desc !== undefined) {
+                    const el = document.getElementById('philosophy-desc-display');
+                    if (el) el.innerText = data.portal_philosophy_desc || 'Experience fitness like never before with our cutting-edge multi-tenant facility.';
+                }
+                if (data.portal_hero_label !== undefined) {
+                    const el = document.getElementById('hero-label-display');
+                    if (el) {
+                        const span = el.querySelector('span.relative');
+                        el.innerText = data.portal_hero_label || 'Open for Membership';
+                        if (span) el.prepend(span);
+                    }
+                }
+                if (data.portal_features_label !== undefined) {
+                    const el = document.getElementById('features-label-display');
+                    if (el) el.innerText = data.portal_features_label || 'Experience the Difference';
+                }
+                if (data.portal_philosophy_label !== undefined) {
+                    const el = document.getElementById('philosophy-label-display');
+                    if (el) el.innerText = data.portal_philosophy_label || 'The Philosophy';
+                }
+                if (data.portal_plans_title !== undefined) {
+                    const el = document.getElementById('plans-title-display');
+                    if (el) el.innerText = data.portal_plans_title || 'Elite Membership Plans';
+                }
+                if (data.portal_plans_subtitle !== undefined) {
+                    const el = document.getElementById('plans-subtitle-display');
+                    if (el) el.innerText = data.portal_plans_subtitle || 'Select a plan to start your journey...';
+                }
+                if (data.portal_footer_links_title !== undefined) {
+                    const el = document.getElementById('footer-links-title');
+                    if (el) el.innerText = data.portal_footer_links_title || 'Quick Links';
+                }
+                if (data.portal_footer_contact_title !== undefined) {
+                    const el = document.getElementById('footer-contact-title');
+                    if (el) el.innerText = data.portal_footer_contact_title || 'Contact Facility';
+                }
+                if (data.portal_footer_app_title !== undefined) {
+                    const el = document.getElementById('footer-app-title');
+                    if (el) el.innerText = data.portal_footer_app_title || 'Get the App';
                 }
 
                 if (data.opening_time) {

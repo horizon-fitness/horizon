@@ -13,11 +13,7 @@ $gym_id = $_SESSION['gym_id'];
 $user_id = $_SESSION['user_id'];
 $active_page = "settings";
 
-// --- Database Refresh (Ensure secondary_color and rules_text exist) ---
-try {
-    $pdo->exec("ALTER TABLE tenant_pages ADD COLUMN secondary_color VARCHAR(100) DEFAULT '#a1a1aa' AFTER theme_color");
-} catch (Exception $e) { /* Column already exists */ }
-
+// --- Database Refresh (Rules_text exist) ---
 try {
     $pdo->exec("ALTER TABLE gym_details ADD COLUMN rules_text TEXT AFTER about_text");
 } catch (Exception $e) { /* Column already exists */ }
@@ -36,10 +32,16 @@ if (!$gym) {
     die("Gym profile not found. Please contact support.");
 }
 
-// Fetch Branding Data
-$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
-$stmtPage->execute([$gym_id]);
-$page = $stmtPage->fetch();
+// Fetch Branding Data from system_settings
+$stmtPage = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtPage->execute([$user_id]);
+$page = $stmtPage->fetchAll(PDO::FETCH_KEY_PAIR);
+// Map system_settings keys to expected names for UI if necessary
+$page['logo_path'] = $page['system_logo'] ?? '';
+$page['theme_color'] = $page['theme_color'] ?? '#8c2bee';
+$page['bg_color'] = $page['bg_color'] ?? '#0a090d';
+$page['page_slug'] = $page['page_slug'] ?? '';
+$page['page_title'] = $page['system_name'] ?? '';
 
 $stmtSub = $pdo->prepare("
     SELECT ws.plan_name 
@@ -58,6 +60,65 @@ $stmtSubStatus->execute([$gym_id]);
 $sub_status = $stmtSubStatus->fetchColumn() ?: 'None';
 $is_sub_active = (strtolower($sub_status) === 'active');
 
+// Hex to RGB helper
+function hexToRgb($hex) {
+    if (!$hex) return "0, 0, 0";
+    $hex = str_replace("#", "", $hex);
+    if (strlen($hex) == 3) {
+        $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+        $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+        $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+    } else {
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+    }
+    return "$r, $g, $b";
+}
+
+// Fetch Tenant System Settings
+$stmtSync = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtSync->execute([$user_id]);
+$user_configs = $stmtSync->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// --- AUTO-MIGRATION FROM TENANT_PAGES (Legacy Support) ---
+if (empty($user_configs)) {
+    try {
+        $stmtOld = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
+        $stmtOld->execute([$gym_id]);
+        $old = $stmtOld->fetch();
+        if ($old) {
+            $migration_map = [
+                'page_slug' => $old['page_slug'],
+                'system_name' => $old['page_title'],
+                'system_logo' => $old['logo_path'],
+                'theme_color' => $old['theme_color'],
+                'secondary_color' => $old['secondary_color'] ?? '#a1a1aa',
+                'bg_color' => $old['bg_color'],
+                'font_family' => $old['font_family'],
+                'is_active' => $old['is_active']
+            ];
+            $stmtMigrate = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?)");
+            foreach ($migration_map as $mk => $mv) {
+                $stmtMigrate->execute([$user_id, $mk, $mv]);
+            }
+            $user_configs = $migration_map; // Use migrated data
+        }
+    } catch (Exception $e) { /* Table might already be deleted */ }
+}
+
+$configs = [
+    'system_name' => $gym['gym_name'] ?? 'Horizon System',
+    'theme_color' => '#8c2bee',
+    'secondary_color' => '#a1a1aa',
+    'text_color' => '#d1d5db',
+    'bg_color' => '#0a090d',
+    'card_color' => '#141216',
+    'auto_card_theme' => '1',
+    'font_family' => 'Lexend'
+];
+$configs = array_merge($configs, $user_configs);
+
 $success = null;
 $error = null;
 
@@ -71,12 +132,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$is_sub_active) {
         $error = "Action restricted. Your subscription is currently $sub_status.";
     } else {
-        // Branding Data
-        $page_title = $_POST['page_title'] ?? $gym['gym_name'];
-    $theme_color = $_POST['theme_color'] ?? '#8c2bee';
-    $secondary_color = $_POST['secondary_color'] ?? '#a1a1aa';
-    $bg_color = $_POST['bg_color'] ?? '#0a090d';
-    $font_family = $_POST['font_family'] ?? 'Lexend';
+        // System Settings Data
+        $system_keys = [
+            'system_name' => $_POST['system_name'] ?? $gym['gym_name'],
+            'theme_color' => $_POST['theme_color'] ?? '#8c2bee',
+            'secondary_color' => $_POST['secondary_color'] ?? '#a1a1aa',
+            'text_color' => $_POST['text_color'] ?? '#d1d5db',
+            'bg_color' => $_POST['bg_color'] ?? '#0a090d',
+            'font_family' => $_POST['font_family'] ?? 'Lexend',
+            'card_color' => $_POST['card_color'] ?? '#141216',
+            'auto_card_theme' => $_POST['auto_card_theme'] ?? '0',
+            'is_active' => '1', // Default to active
+            'page_slug' => $page['page_slug'] ?? strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name'])),
+            'portal_hero_title' => $_POST['portal_hero_title'] ?? '',
+            'portal_hero_subtitle' => $_POST['portal_hero_subtitle'] ?? '',
+            'portal_features_title' => $_POST['portal_features_title'] ?? '',
+            'portal_features_desc' => $_POST['portal_features_desc'] ?? '',
+            'portal_philosophy_title' => $_POST['portal_philosophy_title'] ?? '',
+            'portal_philosophy_desc' => $_POST['portal_philosophy_desc'] ?? '',
+            'portal_hero_label' => $_POST['portal_hero_label'] ?? '',
+            'portal_features_label' => $_POST['portal_features_label'] ?? '',
+            'portal_philosophy_label' => $_POST['portal_philosophy_label'] ?? '',
+            'portal_plans_title' => $_POST['portal_plans_title'] ?? '',
+            'portal_plans_title' => $_POST['portal_plans_title'] ?? '',
+            'portal_plans_subtitle' => $_POST['portal_plans_subtitle'] ?? '',
+            'portal_footer_links_title' => $_POST['portal_footer_links_title'] ?? '',
+            'portal_footer_contact_title' => $_POST['portal_footer_contact_title'] ?? '',
+            'portal_footer_app_title' => $_POST['portal_footer_app_title'] ?? ''
+        ];
+
+        // Logo Processing
+        if (isset($_FILES['logo']) && $_FILES['logo']['error'] == 0) {
+            $type = pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
+            $data = file_get_contents($_FILES['logo']['tmp_name']);
+            $system_keys['system_logo'] = 'data:image/' . $type . ';base64,' . base64_encode($data);
+        } else {
+            $system_keys['system_logo'] = $page['system_logo'] ?? '';
+        }
     
     // Facility Data (Required for saving)
     $opening_time = !empty($_POST['opening_time']) ? $_POST['opening_time'] : null;
@@ -87,7 +179,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $has_shower = isset($_POST['has_shower']) ? 1 : 0;
     $has_parking = isset($_POST['has_parking']) ? 1 : 0;
     $has_wifi = isset($_POST['has_wifi']) ? 1 : 0;
-    $gym_description = $_POST['gym_description'] ?? '';
     $rules_text = $_POST['rules_text'] ?? '';
 
     $now = date('Y-m-d H:i:s');
@@ -100,26 +191,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $pdo->beginTransaction();
 
-        // 1. Update/Create Branding (tenant_pages)
-        $logo_path = $page['logo_path'] ?? '';
-        if (isset($_FILES['logo']) && $_FILES['logo']['error'] == 0) {
-            $type = pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
-            $data = file_get_contents($_FILES['logo']['tmp_name']);
-            $logo_path = 'data:image/' . $type . ';base64,' . base64_encode($data);
+        // 1. Update/Create System Settings
+        $stmtUpdateSettings = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+        foreach ($system_keys as $key => $value) {
+            $stmtUpdateSettings->execute([$user_id, $key, $value]);
         }
 
-        if ($page) {
-            $stmtUpdatePage = $pdo->prepare("UPDATE tenant_pages SET page_title = ?, logo_path = ?, theme_color = ?, secondary_color = ?, bg_color = ?, font_family = ?, updated_at = ? WHERE gym_id = ?");
-            $stmtUpdatePage->execute([$page_title, $logo_path, $theme_color, $secondary_color, $bg_color, $font_family, $now, $gym_id]);
-        } else {
-            $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name']));
-            $stmtInsertPage = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, secondary_color, bg_color, font_family, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmtInsertPage->execute([$gym_id, $page_slug, $page_title, $logo_path, $theme_color, $secondary_color, $bg_color, $font_family, $now]);
-        }
-
-        // 2. Update Gym Description
-        $stmtUpdateGymDesc = $pdo->prepare("UPDATE gyms SET description = ?, updated_at = ? WHERE gym_id = ?");
-        $stmtUpdateGymDesc->execute([$gym_description, $now, $gym_id]);
+        // Update local configs immediately for the preview/render
+        $configs = array_merge($configs, $system_keys);
 
         // 3. Update/Create Gym Details
         $stmtCheckDetails = $pdo->prepare("SELECT 1 FROM gym_details WHERE gym_id = ?");
@@ -137,8 +216,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $success = "All configurations saved and synchronized successfully!";
         
         // Refresh local data
+        // Refresh local data
         $stmtGym->execute([$gym_id]); $gym = $stmtGym->fetch();
-        $stmtPage->execute([$gym_id]); $page = $stmtPage->fetch();
+        $stmtSync->execute([$user_id]); $configs = $stmtSync->fetchAll(PDO::FETCH_KEY_PAIR);
+        $page = $configs; // For UI consistency
+        $page['logo_path'] = $page['system_logo'] ?? '';
+        $page['page_title'] = $page['system_name'] ?? '';
     } catch (Exception $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -165,11 +248,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </script>
     <style>
         :root {
-            --primary: <?= $page['theme_color'] ?? '#8c2bee' ?>;
-            --background: <?= $bg_color ?? '#0a090d' ?>;
+            --primary: <?= $configs['theme_color'] ?? '#8c2bee' ?>;
+            --primary-rgb: <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>;
+            --background: <?= $configs['bg_color'] ?? '#0a090d' ?>;
+            --highlight: <?= $configs['secondary_color'] ?? '#a1a1aa' ?>;
+            --text-main: <?= $configs['text_color'] ?? '#d1d5db' ?>;
+            --card-blur: 20px;
+            --card-bg: <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#14121a') ?>;
         }
-        body { font-family: 'Lexend', sans-serif; background-color: var(--background); color: white; overflow: hidden; }
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        body { font-family: '<?= $configs['font_family'] ?? 'Lexend' ?>', sans-serif; background-color: var(--background); color: var(--text-main); overflow: hidden; }
+        .glass-card { background: var(--card-bg); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(var(--card-blur)); }
         
         .side-nav {
             width: 110px;
@@ -270,8 +358,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 4px 0 0 4px;
         }
 
-        .input-dark { background: #0a090d; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; color: white; padding: 12px 16px; font-size: 12px; width: 100%; outline: none; transition: all 0.2s; }
-        .input-dark:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(140, 43, 238, 0.1); }
+        .input-dark { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: white; padding: 12px 16px; font-size: 12px; width: 100%; outline: none; transition: all 0.2s; backdrop-filter: blur(10px); }
+        .input-dark:focus { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.05); box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.1); }
+        .input-dark option { background-color: #0d0c12; color: white; }
         /* Invisible Scroll System */
         *::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
@@ -456,67 +545,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <!-- BOTTOM GRID -->
         <div class="grid grid-cols-1 xl:grid-cols-2 gap-10 items-start">
             
-            <!-- Branding Panel (Reduced Size/Scale) -->
-            <div class="glass-card p-8">
-                <h4 class="text-[12px] font-black italic uppercase tracking-widest text-primary mb-10 flex items-center gap-4">
-                    <span class="material-symbols-outlined text-xl">brush</span> 1. Global Branding
-                </h4>
-                <div class="space-y-10">
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Gym Display Name</label>
-                        <input type="text" name="page_title" oninput="updateMockup()" value="<?= htmlspecialchars($page['page_title'] ?? $gym['gym_name']) ?>" class="input-dark font-bold italic uppercase tracking-tight" placeholder="Name on Portal">
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Primary Theme Color</label>
-                            <div class="flex items-center gap-4 bg-black p-3 rounded-2xl border border-white/5">
-                                <input type="color" name="theme_color" oninput="updateMockup()" value="<?= htmlspecialchars($page['theme_color'] ?? '#8c2bee') ?>" class="size-10 rounded-xl cursor-pointer bg-transparent border-none">
-                                <span id="colorHex" class="text-[11px] font-black italic uppercase text-gray-400 tracking-widest"><?= $page['theme_color'] ?? '#8c2bee' ?></span>
-                            </div>
+            <!-- System Appearance Panel (Sync with Superadmin) -->
+            <div class="glass-card p-8 h-full">
+                <div class="flex items-center justify-between mb-8 text-primary">
+                    <div class="flex items-center gap-4">
+                        <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary">brush</span>
                         </div>
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Secondary Accent Color</label>
-                            <div class="flex items-center gap-4 bg-black p-3 rounded-2xl border border-white/5">
-                                <input type="color" name="secondary_color" oninput="updateMockup()" value="<?= htmlspecialchars($page['secondary_color'] ?? '#a1a1aa') ?>" class="size-10 rounded-xl cursor-pointer bg-transparent border-none">
-                                <span id="secondaryHex" class="text-[11px] font-black italic uppercase text-gray-400 tracking-widest"><?= $page['secondary_color'] ?? '#a1a1aa' ?></span>
-                            </div>
+                        <div>
+                            <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">1. System Appearance</h3>
+                            <p class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight line-clamp-1">Brand identity & glassmorphism</p>
                         </div>
                     </div>
+                </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Page Background Color</label>
-                            <div class="flex items-center gap-4 bg-black p-3 rounded-2xl border border-white/5">
-                                <input type="color" name="bg_color" oninput="updateMockup()" value="<?= htmlspecialchars($page['bg_color'] ?? '#0a090d') ?>" class="size-10 rounded-xl cursor-pointer bg-transparent border-none">
-                                <span id="bgHex" class="text-[11px] font-black italic uppercase text-gray-400 tracking-widest"><?= $page['bg_color'] ?? '#0a090d' ?></span>
-                            </div>
+                <div class="space-y-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">System Name</label>
+                            <input type="text" name="system_name" oninput="updateMockup()" value="<?= htmlspecialchars($configs['system_name'] ?? $gym['gym_name']) ?>" class="input-dark">
                         </div>
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Typography Identity</label>
-                            <select name="font_family" onchange="updateMockup()" class="input-dark">
-                                <option value="Lexend" <?= ($page['font_family'] ?? 'Lexend') == 'Lexend' ? 'selected' : '' ?>>Lexend (Default)</option>
-                                <option value="Inter" <?= ($page['font_family'] ?? '') == 'Inter' ? 'selected' : '' ?>>Inter</option>
-                                <option value="Outfit" <?= ($page['font_family'] ?? '') == 'Outfit' ? 'selected' : '' ?>>Outfit</option>
-                                <option value="Plus Jakarta Sans" <?= ($page['font_family'] ?? '') == 'Plus Jakarta Sans' ? 'selected' : '' ?>>Plus Jakarta Sans</option>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Font Style</label>
+                            <select name="font_family" onchange="updateMockup()" class="input-dark cursor-pointer">
+                                <option value="Lexend" <?= ($configs['font_family'] ?? '') === 'Lexend' ? 'selected' : '' ?>>Lexend (Default)</option>
+                                <option value="Inter" <?= ($configs['font_family'] ?? '') === 'Inter' ? 'selected' : '' ?>>Inter</option>
+                                <option value="Outfit" <?= ($configs['font_family'] ?? '') === 'Outfit' ? 'selected' : '' ?>>Outfit</option>
+                                <option value="Plus Jakarta Sans" <?= ($configs['font_family'] ?? '') === 'Plus Jakarta Sans' ? 'selected' : '' ?>>Plus Jakarta Sans</option>
                             </select>
                         </div>
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Portal Description</label>
-                        <textarea name="gym_description" rows="3" oninput="updateMockup()" class="input-dark" placeholder="About your facility..."><?= htmlspecialchars($gym['description'] ?? '') ?></textarea>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Main Color</label>
+                            <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                <input type="color" name="theme_color" oninput="updateMockup()" value="<?= htmlspecialchars($configs['theme_color'] ?? '#8c2bee') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                <span id="colorHex" class="text-[10px] font-black uppercase text-gray-400"><?= $configs['theme_color'] ?? '#8c2bee' ?></span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Icon Color</label>
+                            <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                <input type="color" name="secondary_color" oninput="updateMockup()" value="<?= htmlspecialchars($configs['secondary_color'] ?? '#a1a1aa') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                <span id="secondaryHex" class="text-[10px] font-black uppercase text-gray-400"><?= $configs['secondary_color'] ?? '#a1a1aa' ?></span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Text Color</label>
+                            <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                <input type="color" name="text_color" oninput="updateMockup()" value="<?= htmlspecialchars($configs['text_color'] ?? '#d1d5db') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                <span id="textHex" class="text-[10px] font-black uppercase text-gray-400"><?= $configs['text_color'] ?? '#d1d5db' ?></span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Background Color</label>
+                            <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                <input type="color" name="bg_color" oninput="updateMockup()" value="<?= htmlspecialchars($configs['bg_color'] ?? '#0a090d') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                <span id="bgHex" class="text-[10px] font-black uppercase text-gray-400"><?= $configs['bg_color'] ?? '#0a090d' ?></span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="pt-8 border-t border-white/5">
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Brand Logo</label>
-                            <div class="flex items-center gap-6">
-                                <div class="size-24 rounded-2xl bg-black border border-white/5 flex items-center justify-center overflow-hidden shrink-0 shadow-lg">
-                                    <img id="logoPreview" src="<?= $page['logo_path'] ?? '' ?>" class="size-full object-contain p-4 <?= empty($page['logo_path']) ? 'hidden' : '' ?>">
-                                    <span id="logoPlaceholder" class="material-symbols-outlined text-gray-800 text-2xl <?= !empty($page['logo_path']) ? 'hidden' : '' ?>">photo_library</span>
+                    <!-- Card Appearance Section -->
+                    <div class="mt-6 pt-6 border-t border-white/5 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Card Appearance</h4>
+                            <label class="flex items-center gap-3 cursor-pointer group">
+                                <span class="text-[8px] font-bold uppercase tracking-widest text-[#d1d5db] opacity-70 group-hover:text-primary transition-colors">Sync Theme</span>
+                                <div class="relative inline-flex items-center">
+                                    <input type="hidden" name="auto_card_theme" value="0">
+                                    <input type="checkbox" name="auto_card_theme" value="1" onchange="updateMockup()" <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'checked' : '' ?> class="sr-only peer">
+                                    <div class="w-10 h-5 bg-white/5 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/20 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary/30 peer-checked:after:bg-primary transition-all border border-white/5"></div>
                                 </div>
-                                <input type="file" name="logo" onchange="previewImg(this, 'logoPreview', 'logoPlaceholder')" class="text-[10px] text-gray-500 file:bg-primary/10 file:text-primary file:border-none file:px-5 file:py-2 file:rounded-lg file:font-black file:uppercase file:mr-4 file:cursor-pointer hover:file:bg-primary/20 transition-all">
+                            </label>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="flex flex-col gap-1.5">
+                                <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Surface Color</label>
+                                <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                    <input type="color" name="card_color" oninput="updateMockup()" value="<?= htmlspecialchars($configs['card_color'] ?? '#141216') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                    <span id="cardHex" class="text-[10px] font-black uppercase text-gray-400"><?= $configs['card_color'] ?? '#141216' ?></span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -577,6 +688,106 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
 
+        <!-- Section 3: Portal Content Customization -->
+        <div class="glass-card p-8 mt-10">
+            <h4 class="text-[12px] font-black italic uppercase tracking-widest text-primary mb-10 flex items-center gap-4">
+                <span class="material-symbols-outlined text-xl">edit_document</span> 3. Portal Content Customization
+            </h4>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <!-- Hero Section -->
+                <div class="space-y-6">
+                    <h5 class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">Hero Section</h5>
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Hero Label</label>
+                            <input type="text" name="portal_hero_label" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_hero_label'] ?? '') ?>" class="input-dark" placeholder="Open for Membership">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Hero Title</label>
+                            <input type="text" name="portal_hero_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_hero_title'] ?? '') ?>" class="input-dark" placeholder="Elevate Your Fitness at <?= htmlspecialchars($gym['gym_name']) ?>">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Hero Subtitle</label>
+                            <textarea name="portal_hero_subtitle" oninput="updateMockup()" rows="3" class="input-dark" placeholder="Discover a premium workout experience powered by Horizon's elite technology..."><?= htmlspecialchars($configs['portal_hero_subtitle'] ?? '') ?></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Features Section -->
+                <div class="space-y-6">
+                    <h5 class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">Features Highlight</h5>
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Features Label</label>
+                            <input type="text" name="portal_features_label" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_features_label'] ?? '') ?>" class="input-dark" placeholder="Experience the Difference">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Features Title</label>
+                            <input type="text" name="portal_features_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_features_title'] ?? '') ?>" class="input-dark" placeholder="Premium Training. Elite Management.">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Features Description</label>
+                            <textarea name="portal_features_desc" oninput="updateMockup()" rows="3" class="input-dark" placeholder="Access our elite workout tracking and world-class management platform..."><?= htmlspecialchars($configs['portal_features_desc'] ?? '') ?></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Philosophy Section -->
+                <div class="space-y-6 md:col-span-2">
+                    <h5 class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">Facility Philosophy</h5>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Philosophy Label</label>
+                            <input type="text" name="portal_philosophy_label" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_philosophy_label'] ?? '') ?>" class="input-dark" placeholder="The Philosophy">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Philosophy Title</label>
+                            <input type="text" name="portal_philosophy_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_philosophy_title'] ?? '') ?>" class="input-dark" placeholder="Modern technology meets unwavering dedication.">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Philosophy Description</label>
+                            <textarea name="portal_philosophy_desc" oninput="updateMockup()" rows="3" class="input-dark" placeholder="Experience fitness like never before with our cutting-edge multi-tenant facility."><?= htmlspecialchars($configs['portal_philosophy_desc'] ?? '') ?></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Membership Plans Section -->
+                <div class="space-y-6 md:col-span-2">
+                    <h5 class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">Membership Plans Content</h5>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Plans Section Title</label>
+                            <input type="text" name="portal_plans_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_plans_title'] ?? '') ?>" class="input-dark" placeholder="Elite Membership Plans">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Plans Section Subtitle</label>
+                            <input type="text" name="portal_plans_subtitle" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_plans_subtitle'] ?? '') ?>" class="input-dark" placeholder="Select a plan to start your journey...">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Titles Section -->
+                <div class="space-y-6 md:col-span-2">
+                    <h5 class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">Footer Labels</h5>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Links Label</label>
+                            <input type="text" name="portal_footer_links_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_footer_links_title'] ?? '') ?>" class="input-dark" placeholder="Quick Links">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Contact Label</label>
+                            <input type="text" name="portal_footer_contact_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_footer_contact_title'] ?? '') ?>" class="input-dark" placeholder="Contact Facility">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">App Label</label>
+                            <input type="text" name="portal_footer_app_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_footer_app_title'] ?? '') ?>" class="input-dark" placeholder="Get the App">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- SAVE COMMAND FOOTER (Reduced Size) -->
         <div class="flex items-center justify-end pt-8 border-t border-white/5">
             <button type="submit" class="h-16 px-12 rounded-2xl bg-primary hover:bg-opacity-90 shadow-2xl shadow-primary/40 transition-all text-[12px] font-black italic uppercase tracking-[0.3em] flex items-center justify-center gap-4 group hover:scale-[1.02] active:scale-95">
@@ -617,31 +828,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     function updateMockup() {
-        const titleInput = document.querySelector('input[name="page_title"]');
+        const titleInput = document.querySelector('input[name="system_name"]');
         const colorInput = document.querySelector('input[name="theme_color"]');
         const secondaryInput = document.querySelector('input[name="secondary_color"]');
+        const textInput = document.querySelector('input[name="text_color"]');
         const bgInput = document.querySelector('input[name="bg_color"]');
+        const cardInput = document.querySelector('input[name="card_color"]');
+        const syncInput = document.querySelector('input[name="auto_card_theme"]:checked');
         const fontInput = document.querySelector('select[name="font_family"]');
-        const aboutInput = document.querySelector('textarea[name="gym_description"]');
-        const logoImg = document.getElementById('logoPreview');
         
-        if (!titleInput || !colorInput) return;
+        if (!colorInput) return;
+
+        // Convert Hex to RGB manually for the preview
+        const hexToRgbVals = (hex) => {
+            let h = hex.replace('#', '');
+            if(h.length === 3) h = h.split('').map(x => x+x).join('');
+            return `${parseInt(h.substr(0,2),16)}, ${parseInt(h.substr(2,2),16)}, ${parseInt(h.substr(4,2),16)}`;
+        };
 
         // REAL-TIME DASHBOARD SYNC
         document.documentElement.style.setProperty('--primary', colorInput.value);
+        document.documentElement.style.setProperty('--primary-rgb', hexToRgbVals(colorInput.value));
+        
+        if (textInput) {
+            document.documentElement.style.setProperty('--text-main', textInput.value);
+            document.body.style.color = textInput.value;
+        }
+
         if (bgInput) {
             document.documentElement.style.setProperty('--background', bgInput.value);
             document.body.style.backgroundColor = bgInput.value;
+        }
+        
+        if (cardInput && syncInput) {
+            if (syncInput.value === '1') {
+                document.documentElement.style.setProperty('--card-bg', `rgba(${hexToRgbVals(colorInput.value)}, 0.05)`);
+            } else {
+                document.documentElement.style.setProperty('--card-bg', cardInput.value);
+            }
+        }
+
+        if (fontInput) {
+            document.body.style.fontFamily = `"${fontInput.value}", sans-serif`;
         }
 
         const data = {
             page_title: titleInput ? titleInput.value : '',
             theme_color: colorInput ? colorInput.value : '#8c2bee',
             secondary_color: secondaryInput ? secondaryInput.value : '#a1a1aa',
+            text_color: textInput ? textInput.value : '#d1d5db',
             bg_color: bgInput ? bgInput.value : '#0a090d',
             font_family: fontInput ? fontInput.value : 'Lexend',
-            about_text: aboutInput ? aboutInput.value : '',
-            logo_url: (logoImg && !logoImg.classList.contains('hidden')) ? logoImg.src : null,
+            card_color: cardInput ? cardInput.value : '#141216',
+            auto_card_theme: syncInput ? syncInput.value : '0',
             // Operational Data Sync
             opening_time: document.querySelector('input[name="opening_time"]')?.value || '',
             closing_time: document.querySelector('input[name="closing_time"]')?.value || '',
@@ -649,7 +888,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             has_lockers: document.querySelector('input[name="has_lockers"]')?.checked ? 1 : 0,
             has_shower: document.querySelector('input[name="has_shower"]')?.checked ? 1 : 0,
             has_parking: document.querySelector('input[name="has_parking"]')?.checked ? 1 : 0,
-            has_wifi: document.querySelector('input[name="has_wifi"]')?.checked ? 1 : 0
+            has_wifi: document.querySelector('input[name="has_wifi"]')?.checked ? 1 : 0,
+            // CMS Content Sync
+            portal_hero_title: document.querySelector('input[name="portal_hero_title"]')?.value || '',
+            portal_hero_subtitle: document.querySelector('textarea[name="portal_hero_subtitle"]')?.value || '',
+            portal_features_title: document.querySelector('input[name="portal_features_title"]')?.value || '',
+            portal_features_desc: document.querySelector('textarea[name="portal_features_desc"]')?.value || '',
+            portal_philosophy_title: document.querySelector('input[name="portal_philosophy_title"]')?.value || '',
+            portal_philosophy_desc: document.querySelector('textarea[name="portal_philosophy_desc"]')?.value || '',
+            // Expanded CMS Content Sync
+            portal_hero_label: document.querySelector('input[name="portal_hero_label"]')?.value || '',
+            portal_features_label: document.querySelector('input[name="portal_features_label"]')?.value || '',
+            portal_philosophy_label: document.querySelector('input[name="portal_philosophy_label"]')?.value || '',
+            portal_plans_title: document.querySelector('input[name="portal_plans_title"]')?.value || '',
+            portal_plans_title: document.querySelector('input[name="portal_plans_title"]')?.value || '',
+            portal_plans_subtitle: document.querySelector('input[name="portal_plans_subtitle"]')?.value || '',
+            portal_footer_links_title: document.querySelector('input[name="portal_footer_links_title"]')?.value || '',
+            portal_footer_contact_title: document.querySelector('input[name="portal_footer_contact_title"]')?.value || '',
+            portal_footer_app_title: document.querySelector('input[name="portal_footer_app_title"]')?.value || ''
         };
         
         // Update Hex Displays
@@ -657,8 +913,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (phex) phex.textContent = data.theme_color.toUpperCase();
         const shex = document.getElementById('secondaryHex');
         if (shex && data.secondary_color) shex.textContent = data.secondary_color.toUpperCase();
+        const thex = document.getElementById('textHex');
+        if (thex && data.text_color) thex.textContent = data.text_color.toUpperCase();
         const bhex = document.getElementById('bgHex');
         if (bhex && data.bg_color) bhex.textContent = data.bg_color.toUpperCase();
+        const chex = document.getElementById('cardHex');
+        if (chex && data.card_color) chex.textContent = data.card_color.toUpperCase();
 
         const portalFrame = document.getElementById('portalFrame');
         if (portalFrame && portalFrame.contentWindow) {

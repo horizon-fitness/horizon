@@ -36,10 +36,16 @@ $owner_user_id = $gym_data['owner_user_id'] ?? 0;
 $active_page = "dashboard";
 
 
-// Fetch Branding Data from tenant_pages (logo_path, colors are here)
-$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ?");
-$stmtPage->execute([$gym_id]);
-$page = $stmtPage->fetch();
+// Fetch Branding Data from system_settings
+$stmtPage = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtPage->execute([$user_id]);
+$page = $stmtPage->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// Map keys for UI consistency
+$page['logo_path'] = $page['system_logo'] ?? '';
+$page['theme_color'] = $page['theme_color'] ?? '#8c2bee';
+$page['bg_color'] = $page['bg_color'] ?? '#0a090d';
+$page['page_slug'] = $page['page_slug'] ?? '';
 
 // Set default fallback values
 $theme_color = ($page && isset($page['theme_color'])) ? $page['theme_color'] : '#8c2bee';

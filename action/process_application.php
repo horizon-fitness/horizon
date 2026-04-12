@@ -68,10 +68,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['app
             $stmtRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', ?)");
             $stmtRole->execute([$app['user_id'], $roleId, $gym_id, $now]);
 
-            // 5. Generate a Tenant Page for Page Customize
-            $stmtPage = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, updated_at) VALUES (?, ?, ?, ?, '#7f13ec', ?)");
-            $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']));
-            $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $gymLogo, $now]);
+            // 5. Generate System Settings for Branding
+            $system_keys = [
+                'page_slug' => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name'])),
+                'system_name' => $app['gym_name'],
+                'system_logo' => $gymLogo,
+                'theme_color' => '#7f13ec',
+                'bg_color' => '#0a090d',
+                'font_family' => 'Lexend',
+                'is_active' => '1',
+                'portal_hero_title' => '',
+                'portal_hero_subtitle' => '',
+                'portal_features_title' => '',
+                'portal_features_desc' => '',
+                'portal_philosophy_title' => '',
+                'portal_philosophy_desc' => '',
+                'portal_hero_label' => '',
+                'portal_features_label' => '',
+                'portal_philosophy_label' => '',
+                'portal_plans_title' => '',
+                'portal_plans_subtitle' => ''
+            ];
+
+            $stmtUpdateSettings = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?)");
+            foreach ($system_keys as $key => $value) {
+                $stmtUpdateSettings->execute([$app['user_id'], $key, $value]);
+            }
             
             // 6. Generate System Alert for Approval
             $alertMsg = "New Gym Onboarded: " . $app['gym_name'] . " (Code: " . $tenant_code . ")";

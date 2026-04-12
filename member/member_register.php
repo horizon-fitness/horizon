@@ -13,17 +13,48 @@ if (empty($gym_slug)) {
     die("Direct access not allowed. Please register through the facility portal.");
 }
 
-// Exactly match portal.php logic for tenant data
-$stmtPage = $pdo->prepare("SELECT tp.*, g.gym_name, g.gym_id, g.profile_picture as gym_logo, g.email as gym_email, g.contact_number as gym_contact 
-                           FROM tenant_pages tp 
-                           JOIN gyms g ON tp.gym_id = g.gym_id 
-                           WHERE tp.page_slug = ? AND tp.is_active = 1 LIMIT 1");
-$stmtPage->execute([$gym_slug]);
-$page = $stmtPage->fetch();
+// Fetch User ID from page_slug in system_settings
+$stmtSlug = $pdo->prepare("SELECT user_id FROM system_settings WHERE setting_key = 'page_slug' AND setting_value = ?");
+$stmtSlug->execute([$gym_slug]);
+$user_id = $stmtSlug->fetchColumn();
 
-if (!$page) {
+if (!$user_id) {
     die("Gym page not found or is currently inactive.");
 }
+
+// Fetch All Settings for this User
+$stmtSettings = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtSettings->execute([$user_id]);
+$configs = $stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR);
+
+if (($configs['is_active'] ?? '1') === '0') {
+    die("Gym page is currently inactive.");
+}
+
+// Fetch Gym Details linked to this owner
+$stmtGym = $pdo->prepare("SELECT *, profile_picture as gym_logo, email as gym_email, contact_number as gym_contact FROM gyms WHERE owner_user_id = ? LIMIT 1");
+$stmtGym->execute([$user_id]);
+$gym_info = $stmtGym->fetch();
+
+if (!$gym_info) {
+    die("Gym details not found.");
+}
+
+// Map system_settings to the $page structure used by existing logic
+$page = [
+    'gym_id' => $gym_info['gym_id'],
+    'gym_name' => $gym_info['gym_name'],
+    'page_slug' => $gym_slug,
+    'page_title' => $configs['system_name'] ?? $gym_info['gym_name'],
+    'logo_path' => $configs['system_logo'] ?? $gym_info['gym_logo'],
+    'theme_color' => $configs['theme_color'] ?? '#8c2bee',
+    'secondary_color' => $configs['secondary_color'] ?? '#a1a1aa',
+    'bg_color' => $configs['bg_color'] ?? '#0a090d',
+    'font_family' => $configs['font_family'] ?? 'Lexend',
+    'gym_logo' => $gym_info['gym_logo'],
+    'gym_email' => $gym_info['gym_email'],
+    'gym_contact' => $gym_info['gym_contact']
+];
 
 $gym_id = $page['gym_id'];
 $gym_name = $page['gym_name'];
