@@ -626,17 +626,23 @@ foreach ($logs as $log) {
         </div>
 
         <?php if (isset($_SESSION['success_msg'])): ?>
-            <div class="mb-8 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-4 animate-fadeIn">
+            <div id="successAlert" class="mb-8 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-4 animate-fadeIn transition-all duration-500">
                 <span class="material-symbols-outlined text-emerald-500">check_circle</span>
-                <p class="text-xs font-black uppercase tracking-widest text-emerald-400"><?= $_SESSION['success_msg'] ?></p>
+                <p class="text-xs font-bold text-emerald-400"><?= $_SESSION['success_msg'] ?></p>
+                <button onclick="document.getElementById('successAlert').style.opacity='0'; setTimeout(()=>document.getElementById('successAlert').remove(), 500)" class="ml-auto opacity-50 hover:opacity-100 transition-opacity">
+                    <span class="material-symbols-outlined text-sm">close</span>
+                </button>
                 <?php unset($_SESSION['success_msg']); ?>
             </div>
         <?php endif; ?>
 
         <?php if (isset($_SESSION['error_msg'])): ?>
-            <div class="mb-8 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-4 animate-fadeIn">
+            <div id="errorAlert" class="mb-8 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-4 animate-fadeIn transition-all duration-500">
                 <span class="material-symbols-outlined text-rose-500">error</span>
-                <p class="text-xs font-black uppercase tracking-widest text-rose-400"><?= $_SESSION['error_msg'] ?></p>
+                <p class="text-xs font-bold text-rose-400"><?= $_SESSION['error_msg'] ?></p>
+                <button onclick="document.getElementById('errorAlert').style.opacity='0'; setTimeout(()=>document.getElementById('errorAlert').remove(), 500)" class="ml-auto opacity-50 hover:opacity-100 transition-opacity">
+                    <span class="material-symbols-outlined text-sm">close</span>
+                </button>
                 <?php unset($_SESSION['error_msg']); ?>
             </div>
         <?php endif; ?>
@@ -968,6 +974,20 @@ foreach ($logs as $log) {
 </div>
 
 <script>
+    // Auto-dismiss alerts after 10 seconds
+    setTimeout(() => {
+        const successAlert = document.getElementById('successAlert');
+        const errorAlert = document.getElementById('errorAlert');
+        if (successAlert) {
+            successAlert.style.opacity = '0';
+            setTimeout(() => successAlert.remove(), 500);
+        }
+        if (errorAlert) {
+            errorAlert.style.opacity = '0';
+            setTimeout(() => errorAlert.remove(), 500);
+        }
+    }, 10000);
+
     function confirmAdminAction(form, title, message) {
         const modal = document.getElementById('adminActionModal');
         const modalTitle = document.getElementById('modalTitle');

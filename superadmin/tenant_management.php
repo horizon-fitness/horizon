@@ -30,6 +30,23 @@ if (!function_exists('hexToRgb')) {
     }
 }
 
+// Helper for robust logo pathing
+if (!function_exists('getLogoPath')) {
+    function getLogoPath($path)
+    {
+        if (empty($path))
+            return '';
+        if (strpos($path, 'data:') === 0 || strpos($path, 'http') === 0)
+            return $path;
+        if (strpos($path, 'uploads/') === 0)
+            return '../' . $path;
+        if (strpos($path, '../') === 0)
+            return $path;
+        return '../uploads/applications/' . $path;
+    }
+}
+
+
 // 1. Fetch Global Settings (user_id = 0)
 $stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
 $global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -43,33 +60,33 @@ $user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
 $brand = array_merge($global_configs, $user_configs);
 
 $stmtTenants = $pdo->query("
-    SELECT g.*, 
-           u.first_name, u.last_name, u.email as owner_email,
-           (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'system_logo') as logo_path,
-           (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'page_slug') as page_slug,
-           cs.subscription_status as sub_status,
-           wp.plan_name,
-           IFNULL(m.member_count, 0) as member_count
-    FROM gyms g
-    JOIN users u ON g.owner_user_id = u.user_id
-    LEFT JOIN (
-        SELECT cs1.gym_id, cs1.subscription_status, cs1.website_plan_id
-        FROM client_subscriptions cs1
-        INNER JOIN (
-            SELECT gym_id, MAX(created_at) as max_created
-            FROM client_subscriptions
+        SELECT g.*, 
+            u.first_name, u.last_name, u.email as owner_email,
+            (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'system_logo') as logo_path,
+            (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'page_slug') as page_slug,
+            cs.subscription_status as sub_status,
+            wp.plan_name,
+            IFNULL(m.member_count, 0) as member_count
+        FROM gyms g
+        JOIN users u ON g.owner_user_id = u.user_id
+        LEFT JOIN (
+            SELECT cs1.gym_id, cs1.subscription_status, cs1.website_plan_id
+            FROM client_subscriptions cs1
+            INNER JOIN (
+                SELECT gym_id, MAX(created_at) as max_created
+                FROM client_subscriptions
+                GROUP BY gym_id
+            ) cs2 ON cs1.gym_id = cs2.gym_id AND cs1.created_at = cs2.max_created
+        ) cs ON g.gym_id = cs.gym_id
+        LEFT JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+        LEFT JOIN (
+            SELECT gym_id, COUNT(*) as member_count 
+            FROM members 
             GROUP BY gym_id
-        ) cs2 ON cs1.gym_id = cs2.gym_id AND cs1.created_at = cs2.max_created
-    ) cs ON g.gym_id = cs.gym_id
-    LEFT JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
-    LEFT JOIN (
-        SELECT gym_id, COUNT(*) as member_count 
-        FROM members 
-        GROUP BY gym_id
-    ) m ON g.gym_id = m.gym_id
-    WHERE g.status IN (CAST('Active' AS CHAR CHARACTER SET latin1), CAST('Suspended' AS CHAR CHARACTER SET latin1), CAST('Deleted' AS CHAR CHARACTER SET latin1), CAST('Deactivated' AS CHAR CHARACTER SET latin1))
-    ORDER BY g.created_at DESC
-");
+        ) m ON g.gym_id = m.gym_id
+        WHERE g.status IN (CAST('Active' AS CHAR CHARACTER SET latin1), CAST('Suspended' AS CHAR CHARACTER SET latin1), CAST('Deleted' AS CHAR CHARACTER SET latin1), CAST('Deactivated' AS CHAR CHARACTER SET latin1))
+        ORDER BY g.created_at DESC
+    ");
 $tenants = $stmtTenants->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch Total Members across all tenants
@@ -78,25 +95,25 @@ $total_members_count = $stmtTotalMembers->fetchColumn();
 
 // Fetch Pending Applications
 $stmtPending = $pdo->query("
-    SELECT a.*, u.first_name, u.last_name, u.email,
-           ad.file_path as gym_logo
-    FROM gym_owner_applications a 
-    JOIN users u ON a.user_id = u.user_id 
-    LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = CAST('Gym Logo' AS CHAR CHARACTER SET latin1)
-    WHERE a.application_status = CAST('Pending' AS CHAR CHARACTER SET latin1)
-    ORDER BY a.submitted_at DESC
-");
+        SELECT a.*, u.first_name, u.last_name, u.email,
+            ad.file_path as gym_logo
+        FROM gym_owner_applications a 
+        JOIN users u ON a.user_id = u.user_id 
+        LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = CAST('Gym Logo' AS CHAR CHARACTER SET latin1)
+        WHERE a.application_status = CAST('Pending' AS CHAR CHARACTER SET latin1)
+        ORDER BY a.submitted_at DESC
+    ");
 $pending_apps = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
 
 $rejected_stmt = $pdo->query("
-    SELECT a.*, u.first_name, u.last_name, u.email,
-           ad.file_path as gym_logo
-    FROM gym_owner_applications a 
-    JOIN users u ON a.user_id = u.user_id 
-    LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = CAST('Gym Logo' AS CHAR CHARACTER SET latin1)
-    WHERE a.application_status = CAST('Rejected' AS CHAR CHARACTER SET latin1)
-    ORDER BY a.reviewed_at DESC
-");
+        SELECT a.*, u.first_name, u.last_name, u.email,
+            ad.file_path as gym_logo
+        FROM gym_owner_applications a 
+        JOIN users u ON a.user_id = u.user_id 
+        LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = CAST('Gym Logo' AS CHAR CHARACTER SET latin1)
+        WHERE a.application_status = CAST('Rejected' AS CHAR CHARACTER SET latin1)
+        ORDER BY a.reviewed_at DESC
+    ");
 $rejected_apps = $rejected_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $total_tenants = count($tenants);
@@ -579,24 +596,35 @@ $deactivated_count = count($deactivated_tenants);
                         class="text-[--text-main] font-black italic text-2xl leading-none transition-colors hover:text-primary uppercase tracking-tighter mb-2">
                         00:00:00 AM</p>
                     <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none">
-                        <?= date('l, M d, Y') ?></p>
+                        <?= date('l, M d, Y') ?>
+                    </p>
                 </div>
             </header>
 
             <?php if (isset($_SESSION['success_msg'])): ?>
-                <div
-                    class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold flex items-center gap-3">
-                    <span class="material-symbols-outlined">check_circle</span>
-                    <?= htmlspecialchars($_SESSION['success_msg']) ?>
+                <div id="successAlert"
+                    class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-semibold flex items-center justify-between transition-all duration-500">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined">check_circle</span>
+                        <span><?= htmlspecialchars($_SESSION['success_msg']) ?></span>
+                    </div>
+                    <button type="button" onclick="this.parentElement.remove()" class="hover:opacity-70 transition-opacity">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
                 </div>
                 <?php unset($_SESSION['success_msg']); ?>
             <?php endif; ?>
 
             <?php if (isset($_SESSION['error_msg'])): ?>
-                <div
-                    class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-semibold flex items-center gap-3">
-                    <span class="material-symbols-outlined">error</span>
-                    <?= htmlspecialchars($_SESSION['error_msg']) ?>
+                <div id="errorAlert"
+                    class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-semibold flex items-center justify-between transition-all duration-500">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined">error</span>
+                        <span><?= htmlspecialchars($_SESSION['error_msg']) ?></span>
+                    </div>
+                    <button type="button" onclick="this.parentElement.remove()" class="hover:opacity-70 transition-opacity">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
                 </div>
                 <?php unset($_SESSION['error_msg']); ?>
             <?php endif; ?>
@@ -626,7 +654,8 @@ $deactivated_count = count($deactivated_tenants);
                         class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-primary group-hover:scale-110 transition-transform">groups</span>
                     <p class="text-[10px] font-black uppercase text-primary/70 mb-2 tracking-widest">Total Members</p>
                     <h3 class="text-2xl font-black italic uppercase text-primary">
-                        <?= number_format($total_members_count) ?></h3>
+                        <?= number_format($total_members_count) ?>
+                    </h3>
                     <p class="text-primary/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Platform
                         Global</p>
                 </div>
@@ -634,7 +663,7 @@ $deactivated_count = count($deactivated_tenants);
                 <div class="glass-card p-8 status-card-yellow relative overflow-hidden group">
                     <span
                         class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-amber-500 group-hover:scale-110 transition-transform">pending_actions</span>
-                    <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending Apps</p>
+                    <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending</p>
                     <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_count ?></h3>
                     <p class="text-amber-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Review
                         Required</p>
@@ -660,7 +689,7 @@ $deactivated_count = count($deactivated_tenants);
                 </button>
                 <button onclick="switchTab('pending')" id="tabBtn-pending"
                     class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100 <?= ($pending_count > 0) ? 'mr-4' : '' ?>">
-                    Pending Apps
+                    Pending
                     <div id="tabIndicator-pending"
                         class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0">
                     </div>
@@ -721,8 +750,10 @@ $deactivated_count = count($deactivated_tenants);
                                                 <div class="flex items-center gap-3">
                                                     <div
                                                         class="size-10 rounded-lg bg-amber-500/10 flex items-center justify-center overflow-hidden border border-amber-500/20 shadow-inner shrink-0">
-                                                        <?php if (!empty($app['gym_logo'])): ?>
-                                                            <img src="<?= $app['gym_logo'] ?>"
+                                                        <?php if (!empty($app['gym_logo'])):
+                                                            $p_logo = getLogoPath($app['gym_logo']);
+                                                            ?>
+                                                            <img src="<?= $p_logo ?>"
                                                                 class="size-full object-contain transition-transform hover:scale-110">
                                                         <?php else: ?>
                                                             <span
@@ -731,7 +762,8 @@ $deactivated_count = count($deactivated_tenants);
                                                     </div>
                                                     <div>
                                                         <p class="text-sm font-bold italic">
-                                                            <?= htmlspecialchars($app['gym_name']) ?></p>
+                                                            <?= htmlspecialchars($app['gym_name']) ?>
+                                                        </p>
                                                         <p
                                                             class="text-[10px] text-[--text-main] opacity-50 uppercase tracking-wider font-bold">
                                                             <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? '')) ?>
@@ -741,9 +773,11 @@ $deactivated_count = count($deactivated_tenants);
                                             </td>
                                             <td class="px-8 py-5">
                                                 <p class="text-xs font-medium text-white">
-                                                    <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
+                                                    <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?>
+                                                </p>
                                                 <p class="text-[10px] text-[--text-main] opacity-50">
-                                                    <?= htmlspecialchars($app['email']) ?></p>
+                                                    <?= htmlspecialchars($app['email']) ?>
+                                                </p>
                                             </td>
                                             <td class="px-8 py-5 text-xs font-medium text-gray-400">
                                                 <?= date('M d, Y h:i A', strtotime($app['submitted_at'])) ?>
@@ -780,8 +814,11 @@ $deactivated_count = count($deactivated_tenants);
                         </div>
                     </div>
                     <!-- Pagination Container for Pending -->
-                    <div id="pagination-pending" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
-                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                    <div id="pagination-pending"
+                        class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
+                        <p
+                            class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text">
+                        </p>
                         <div class="flex gap-2 controls-container"></div>
                     </div>
                 <?php else: ?>
@@ -823,13 +860,13 @@ $deactivated_count = count($deactivated_tenants);
                                         <tr class="hover:bg-white/5 transition-all">
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-3">
-                                                        <?php 
-                                                        $logo_src = !empty($t['logo_path']) ? ((strpos($t['logo_path'], 'data:image') === 0) ? $t['logo_path'] : '../' . $t['logo_path']) : '';
-                                                        ?>
-                                                        <div
-                                                        class="size-16 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0 cursor-zoom-in modal-img-preview"
-                                                        data-src="<?= $logo_src ?>" data-title="<?= htmlspecialchars($t['gym_name']) ?>">
-                                                        <?php if (!empty($t['logo_path'])):
+                                                    <?php
+                                                    $logo_src = getLogoPath($t['logo_path']);
+                                                    ?>
+                                                    <div class="size-16 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0 cursor-zoom-in modal-img-preview"
+                                                        data-src="<?= $logo_src ?>"
+                                                        data-title="<?= htmlspecialchars($t['gym_name']) ?>">
+                                                        <?php if (!empty($logo_src)):
                                                             ?>
                                                             <img src="<?= $logo_src ?>"
                                                                 class="size-full object-contain transition-transform hover:scale-110">
@@ -840,7 +877,8 @@ $deactivated_count = count($deactivated_tenants);
                                                     </div>
                                                     <div>
                                                         <p class="text-sm font-bold italic">
-                                                            <?= htmlspecialchars($t['gym_name']) ?></p>
+                                                            <?= htmlspecialchars($t['gym_name']) ?>
+                                                        </p>
                                                         <p class="text-[10px] text-primary uppercase tracking-wider font-bold">
                                                             Code: <?= htmlspecialchars($t['tenant_code']) ?></p>
                                                     </div>
@@ -848,15 +886,18 @@ $deactivated_count = count($deactivated_tenants);
                                             </td>
                                             <td class="px-8 py-5">
                                                 <p class="text-xs font-medium text-white">
-                                                    <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
+                                                    <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?>
+                                                </p>
                                                 <p class="text-[10px] text-[--text-main] opacity-50">
-                                                    <?= htmlspecialchars($t['owner_email']) ?></p>
+                                                    <?= htmlspecialchars($t['owner_email']) ?>
+                                                </p>
                                             </td>
                                             <td class="px-8 py-5">
                                                 <div class="flex flex-col gap-1.5">
                                                     <p
                                                         class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest">
-                                                        <?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
+                                                        <?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?>
+                                                    </p>
                                                     <?php
                                                     $sub = $t['sub_status'] ?? 'None';
                                                     if ($sub === 'Active'):
@@ -881,7 +922,8 @@ $deactivated_count = count($deactivated_tenants);
                                                         <span
                                                             class="material-symbols-outlined text-sm text-primary">groups</span>
                                                         <p class="text-xs font-black italic">
-                                                            <?= number_format($t['member_count']) ?></p>
+                                                            <?= number_format($t['member_count']) ?>
+                                                        </p>
                                                     </div>
                                                     <?php if ($t['status'] === 'Active'): ?>
                                                         <div class="flex items-center gap-2 text-emerald-400">
@@ -964,8 +1006,11 @@ $deactivated_count = count($deactivated_tenants);
                         </table>
                     </div>
                     <!-- Pagination Container for Registered -->
-                    <div id="pagination-registered" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
-                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                    <div id="pagination-registered"
+                        class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
+                        <p
+                            class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text">
+                        </p>
                         <div class="flex gap-2 controls-container"></div>
                     </div>
                 </div>
@@ -1003,15 +1048,16 @@ $deactivated_count = count($deactivated_tenants);
                                         <tr class="hover:bg-white/5 transition-all">
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-3">
-                                                        <?php 
-                                                        $logo_src = !empty($t['logo_path']) ? ((strpos($t['logo_path'], 'data:image') === 0) ? $t['logo_path'] : '../' . $t['logo_path']) : '';
-                                                        ?>
-                                                        <div
-                                                        class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 grayscale cursor-zoom-in modal-img-preview"
-                                                        data-src="<?= $logo_src ?>" data-title="<?= htmlspecialchars($t['gym_name']) ?>">
-                                                        <?php if (!empty($t['logo_path'])):
+                                                    <?php
+                                                    $logo_src = getLogoPath($t['logo_path']);
+                                                    ?>
+                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 grayscale cursor-zoom-in modal-img-preview"
+                                                        data-src="<?= $logo_src ?>"
+                                                        data-title="<?= htmlspecialchars($t['gym_name']) ?>">
+                                                        <?php if (!empty($logo_src)):
                                                             ?>
-                                                            <img src="<?= $logo_src ?>" class="size-full object-contain opacity-50 transition-transform hover:scale-110">
+                                                            <img src="<?= $logo_src ?>"
+                                                                class="size-full object-contain opacity-50 transition-transform hover:scale-110">
                                                         <?php else: ?>
                                                             <span
                                                                 class="text-[--text-main] opacity-50 font-black text-xs"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
@@ -1019,18 +1065,22 @@ $deactivated_count = count($deactivated_tenants);
                                                     </div>
                                                     <div>
                                                         <p class="text-sm font-bold italic text-[--text-main] opacity-40">
-                                                            <?= htmlspecialchars($t['gym_name']) ?></p>
+                                                            <?= htmlspecialchars($t['gym_name']) ?>
+                                                        </p>
                                                         <p
                                                             class="text-[10px] text-[--text-main] opacity-60 uppercase tracking-wider font-bold">
-                                                            <?= htmlspecialchars($t['tenant_code']) ?></p>
+                                                            <?= htmlspecialchars($t['tenant_code']) ?>
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td class="px-8 py-5">
                                                 <p class="text-xs font-medium text-[--text-main] opacity-40">
-                                                    <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
+                                                    <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?>
+                                                </p>
                                                 <p class="text-[10px] text-[--text-main] opacity-60">
-                                                    <?= htmlspecialchars($t['owner_email']) ?></p>
+                                                    <?= htmlspecialchars($t['owner_email']) ?>
+                                                </p>
                                             </td>
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-2 text-red-500/50">
@@ -1061,8 +1111,11 @@ $deactivated_count = count($deactivated_tenants);
                         </table>
                     </div>
                     <!-- Pagination Container for Deactivated -->
-                    <div id="pagination-deactivated" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
-                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                    <div id="pagination-deactivated"
+                        class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
+                        <p
+                            class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text">
+                        </p>
                         <div class="flex gap-2 controls-container"></div>
                     </div>
                 </div>
@@ -1072,7 +1125,8 @@ $deactivated_count = count($deactivated_tenants);
                 <?php if (!empty($rejected_apps)): ?>
                     <div class="glass-card overflow-hidden mb-10 border border-white/5">
                         <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                            <h4 class="font-black italic uppercase text-sm tracking-tighter opacity-50 flex items-center gap-2">
+                            <h4
+                                class="font-black italic uppercase text-sm tracking-tighter opacity-50 flex items-center gap-2">
                                 <span class="material-symbols-outlined">history</span>
                                 Rejected Applications
                             </h4>
@@ -1080,7 +1134,8 @@ $deactivated_count = count($deactivated_tenants);
                         <div class="overflow-x-auto no-scrollbar">
                             <table class="w-full text-left">
                                 <thead>
-                                    <tr class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
+                                    <tr
+                                        class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
                                         <th class="px-8 py-4">Gym Name</th>
                                         <th class="px-8 py-4">Applicant</th>
                                         <th class="px-8 py-4">Rejected Date</th>
@@ -1092,22 +1147,35 @@ $deactivated_count = count($deactivated_tenants);
                                         <tr class="hover:bg-white/5 transition-all">
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-3">
-                                                    <div class="size-10 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0 grayscale opacity-40">
-                                                        <?php if (!empty($app['gym_logo'])): ?>
-                                                            <img src="<?= $app['gym_logo'] ?>" class="size-full object-contain">
+                                                    <div
+                                                        class="size-10 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0 grayscale opacity-40">
+                                                        <?php if (!empty($app['gym_logo'])):
+                                                            $r_logo = getLogoPath($app['gym_logo']);
+                                                            ?>
+                                                            <img src="<?= $r_logo ?>" class="size-full object-contain">
                                                         <?php else: ?>
-                                                            <span class="text-gray-500 font-black text-sm"><?= strtoupper(substr($app['gym_name'], 0, 2)) ?></span>
+                                                            <span
+                                                                class="text-gray-500 font-black text-sm"><?= strtoupper(substr($app['gym_name'], 0, 2)) ?></span>
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-sm font-bold italic text-gray-500"><?= htmlspecialchars($app['gym_name']) ?></p>
-                                                        <p class="text-[10px] text-[--text-main] opacity-40 uppercase tracking-wider font-bold"><?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? '')) ?></p>
+                                                        <p class="text-sm font-bold italic text-gray-500">
+                                                            <?= htmlspecialchars($app['gym_name']) ?>
+                                                        </p>
+                                                        <p
+                                                            class="text-[10px] text-[--text-main] opacity-40 uppercase tracking-wider font-bold">
+                                                            <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? '')) ?>
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td class="px-8 py-5">
-                                                <p class="text-xs font-medium text-gray-500"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
-                                                <p class="text-[10px] text-[--text-main] opacity-40"><?= htmlspecialchars($app['email']) ?></p>
+                                                <p class="text-xs font-medium text-gray-500">
+                                                    <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?>
+                                                </p>
+                                                <p class="text-[10px] text-[--text-main] opacity-40">
+                                                    <?= htmlspecialchars($app['email']) ?>
+                                                </p>
                                             </td>
                                             <td class="px-8 py-5 text-xs font-medium text-gray-600 italic">
                                                 <?= date('M d, Y', strtotime($app['reviewed_at'])) ?>
@@ -1125,14 +1193,19 @@ $deactivated_count = count($deactivated_tenants);
                         </div>
                     </div>
                     <!-- Pagination Container for Rejected -->
-                    <div id="pagination-rejected" class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
-                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
+                    <div id="pagination-rejected"
+                        class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
+                        <p
+                            class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text">
+                        </p>
                         <div class="flex gap-2 controls-container"></div>
                     </div>
                 <?php else: ?>
                     <div class="glass-card p-12 text-center border border-white/5 bg-white/5 rounded-[32px]">
-                        <span class="material-symbols-outlined text-4xl text-[--text-main] opacity-40 mb-4 uppercase">history_toggle_off</span>
-                        <p class="text-xs font-black uppercase text-[--text-main] opacity-40 tracking-widest italic">No rejected applications in history.</p>
+                        <span
+                            class="material-symbols-outlined text-4xl text-[--text-main] opacity-40 mb-4 uppercase">history_toggle_off</span>
+                        <p class="text-xs font-black uppercase text-[--text-main] opacity-40 tracking-widest italic">No
+                            rejected applications in history.</p>
                     </div>
                 <?php endif; ?>
             </div>
@@ -1221,7 +1294,7 @@ $deactivated_count = count($deactivated_tenants);
 
                 // Render Controls
                 controlsContainer.innerHTML = '';
-                
+
                 // Prev Button
                 const prevBtn = document.createElement('button');
                 prevBtn.className = `size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] transition-all ${currentPage === 1 ? 'opacity-20 pointer-events-none' : 'opacity-50 hover:opacity-100 hover:bg-white/10'}`;
@@ -1292,7 +1365,8 @@ $deactivated_count = count($deactivated_tenants);
                     <div class="absolute inset-0 border-[1px] border-t-primary rounded-full animate-spin"></div>
                     <span class="material-symbols-outlined text-primary/30 text-2xl">database</span>
                 </div>
-                <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] italic animate-pulse">Synchronizing Data...</p>
+                <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] italic animate-pulse">
+                    Synchronizing Data...</p>
             </div>
             <div id="modalContent"
                 class="flex-1 p-8 md:p-10 opacity-0 transition-opacity duration-500 overflow-y-auto no-scrollbar"></div>
@@ -1402,6 +1476,20 @@ $deactivated_count = count($deactivated_tenants);
 
         document.getElementById('modalBackdrop').addEventListener('click', closeApplicationModal);
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeApplicationModal(); });
+
+        // Auto-hide Alerts Logic (10 seconds)
+        window.addEventListener('DOMContentLoaded', () => {
+            ['successAlert', 'errorAlert'].forEach(id => {
+                const alert = document.getElementById(id);
+                if (alert) {
+                    setTimeout(() => {
+                        alert.style.opacity = '0';
+                        alert.style.transform = 'translateY(-10px)';
+                        setTimeout(() => alert.remove(), 500);
+                    }, 10000);
+                }
+            });
+        });
     </script>
 
     <?php include '../includes/image_viewer.php'; ?>

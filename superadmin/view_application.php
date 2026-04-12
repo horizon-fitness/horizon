@@ -477,7 +477,7 @@ if ($is_ajax): ?>
 
         <?php if ($app['application_status'] === 'Pending'): ?>
             <div class="flex gap-3 pt-6 border-t border-white/5">
-                <form method="POST" action="action/process_application.php" class="flex-1">
+                <form method="POST" action="../action/process_application.php" class="flex-1">
                     <input type="hidden" name="application_id" value="<?= $app_id ?>">
                     <input type="hidden" name="action" value="">
                     <button type="button"
@@ -486,7 +486,7 @@ if ($is_ajax): ?>
                         Approve Now
                     </button>
                 </form>
-                <form method="POST" action="action/process_application.php" class="flex-1">
+                <form method="POST" action="../action/process_application.php" class="flex-1">
                     <input type="hidden" name="application_id" value="<?= $app_id ?>">
                     <input type="hidden" name="action" value="">
                     <button type="button"
@@ -1195,7 +1195,7 @@ endif;
 
     <?php if ($app['application_status'] === 'Pending'): ?>
         <div class="flex flex-col sm:flex-row gap-4">
-            <form method="POST" action="action/process_application.php" class="flex-1">
+            <form method="POST" action="../action/process_application.php" class="flex-1">
                 <input type="hidden" name="application_id" value="<?= $app_id ?>">
                 <input type="hidden" name="action" value="">
                 <button type="button"
@@ -1204,7 +1204,7 @@ endif;
                     <span class="material-symbols-outlined">verified</span> Approve Application
                 </button>
             </form>
-            <form method="POST" action="action/process_application.php" class="flex-1">
+            <form method="POST" action="../action/process_application.php" class="flex-1">
                 <input type="hidden" name="application_id" value="<?= $app_id ?>">
                 <input type="hidden" name="action" value="">
                 <button type="button"

@@ -614,7 +614,7 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
                 <a href="tenant_management.php?tab=pending" class="glass-card p-8 relative overflow-hidden group border border-amber-500/20 bg-amber-500/5 block hover:scale-[1.02] transition-all">
                     <span
                         class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">pending_actions</span>
-                    <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending Apps</p>
+                    <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending</p>
                     <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_apps_count ?></h3>
                     <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Action Required</p>
                 </a>
