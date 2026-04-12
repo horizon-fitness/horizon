@@ -16,9 +16,23 @@ $is_auto_approved = false;
 
 if (isset($_GET['gym'])) {
     $slug = $_GET['gym'];
-    $stmtBranding = $pdo->prepare("SELECT tp.*, g.gym_name FROM tenant_pages tp JOIN gyms g ON tp.gym_id = g.gym_id WHERE tp.page_slug = ? LIMIT 1");
-    $stmtBranding->execute([$slug]);
-    $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
+    // In the new schema, we find the gym by slug (from gyms table or system_settings)
+    // Here we can find the gym owner first, then their settings.
+    $stmtGym = $pdo->prepare("SELECT owner_user_id, gym_name FROM gyms WHERE LOWER(REPLACE(gym_name, ' ', '')) = ? LIMIT 1");
+    $stmtGym->execute([strtolower($slug)]);
+    $gym_info = $stmtGym->fetch(PDO::FETCH_ASSOC);
+
+    if ($gym_info) {
+        $stmtBranding = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+        $stmtBranding->execute([$gym_info['owner_user_id']]);
+        $branding = $stmtBranding->fetchAll(PDO::FETCH_KEY_PAIR);
+        $branding['gym_name'] = $gym_info['gym_name'];
+        
+        // Map keys
+        $branding['logo_path'] = $branding['system_logo'] ?? '';
+        $branding['theme_color'] = $branding['theme_color'] ?? '#7f13ec';
+        $branding['bg_color'] = $branding['bg_color'] ?? '#0a090d';
+    }
 }
 
 if (isset($_SESSION['verify_success'])) {
@@ -94,10 +108,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmtRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', ?)");
                     $stmtRole->execute([$app['user_id'], $roleId, $gym_id, $now]);
 
-                    // 5. Tenant Page
+                    // 5. Tenant System Settings (Branding & Config)
                     $page_slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $app['gym_name']));
-                    $stmtPage = $pdo->prepare("INSERT INTO tenant_pages (gym_id, page_slug, page_title, logo_path, theme_color, updated_at) VALUES (?, ?, ?, ?, '#7f13ec', ?)");
-                    $stmtPage->execute([$gym_id, $page_slug, $app['gym_name'], $gymLogo, $now]);
+                    $stmtConfig = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value, updated_at) VALUES 
+                        (?, 'theme_color', '#7f13ec', ?),
+                        (?, 'bg_color', '#0a090d', ?),
+                        (?, 'system_logo', ?, ?),
+                        (?, 'system_name', ?, ?),
+                        (?, 'page_slug', ?, ?)");
+                    $stmtConfig->execute([
+                        $app['user_id'], $now,
+                        $app['user_id'], $now,
+                        $app['user_id'], $gymLogo, $now,
+                        $app['user_id'], $app['gym_name'], $now,
+                        $app['user_id'], $page_slug, $now
+                    ]);
 
                     // 6. Welcome Email
                     require_once '../includes/mailer.php';

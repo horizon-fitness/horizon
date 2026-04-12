@@ -3,6 +3,10 @@ session_start();
 require_once '../db.php';
 require_once '../includes/mailer.php';
 
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 // Security Check
 if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'tenant') {
     header("Location: ../login.php");
@@ -24,6 +28,7 @@ $stmtSubStatus = $pdo->prepare("SELECT subscription_status FROM client_subscript
 $stmtSubStatus->execute([$gym_id]);
 $sub_status = $stmtSubStatus->fetchColumn() ?: 'None';
 $is_sub_active = (strtolower($sub_status) === 'active');
+$is_restricted = (!$is_sub_active && strpos($sub_status, 'Pending') === false);
 
 // --- ADD STAFF LOGIC ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_staff') {
@@ -127,13 +132,18 @@ $stmtGym = $pdo->prepare("SELECT gym_name, profile_picture as logo_path FROM gym
 $stmtGym->execute([$gym_id]);
 $gym = $stmtGym->fetch();
 
-// Fetch Branding Data
-$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ?");
-$stmtPage->execute([$gym_id]);
-$page = $stmtPage->fetch();
+// Fetch Branding Data from system_settings
+$stmtPage = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtPage->execute([$user_id]);
+$page = $stmtPage->fetchAll(PDO::FETCH_KEY_PAIR);
 
-$theme_color = ($page && isset($page['theme_color'])) ? $page['theme_color'] : '#8c2bee';
-$bg_color = ($page && isset($page['bg_color'])) ? $page['bg_color'] : '#0a090d';
+// Map system_settings keys to expected names
+$page['logo_path'] = $page['system_logo'] ?? '';
+$page['theme_color'] = $page['theme_color'] ?? '#8c2bee';
+$page['bg_color'] = $page['bg_color'] ?? '#0a090d';
+
+$theme_color = $page['theme_color'];
+$bg_color = $page['bg_color'];
 
 // Fetch Statistics
 $stmtTotal = $pdo->prepare("SELECT COUNT(*) FROM staff WHERE gym_id = ?");
@@ -489,7 +499,7 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
         function closeSubModal() { document.getElementById('subModal').classList.remove('active'); }
 
         window.addEventListener('DOMContentLoaded', () => {
-            <?php if (!$is_sub_active): ?>
+            <?php if ($is_restricted): ?>
             showSubWarning();
             <?php endif; ?>
         });
@@ -573,8 +583,9 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
         </div>
     </nav>
 
-    <main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar pb-10 <?= !$is_sub_active ? 'blur-overlay' : '' ?>">
-    <div class="<?= !$is_sub_active ? 'blur-overlay-content' : '' ?>">
+    <main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar pb-10 <?= $is_restricted ? 'blur-overlay' : '' ?>">
+    <div class="<?= $is_restricted ? 'blur-overlay-content' : '' ?>">
+
         <header class="mb-10 flex justify-between items-end">
             <div>
                 <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic">Staff <span

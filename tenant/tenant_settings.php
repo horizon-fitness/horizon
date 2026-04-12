@@ -60,6 +60,9 @@ $stmtSubStatus->execute([$gym_id]);
 $sub_status = $stmtSubStatus->fetchColumn() ?: 'None';
 $is_sub_active = (strtolower($sub_status) === 'active');
 
+// Determine if we show the restriction modal (Only for non-active AND non-pending)
+$is_restricted = (!$is_sub_active && strpos($sub_status, 'Pending') === false);
+
 // Hex to RGB helper
 function hexToRgb($hex) {
     if (!$hex) return "0, 0, 0";
@@ -154,7 +157,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'portal_features_label' => $_POST['portal_features_label'] ?? '',
             'portal_philosophy_label' => $_POST['portal_philosophy_label'] ?? '',
             'portal_plans_title' => $_POST['portal_plans_title'] ?? '',
-            'portal_plans_title' => $_POST['portal_plans_title'] ?? '',
             'portal_plans_subtitle' => $_POST['portal_plans_subtitle'] ?? '',
             'portal_footer_links_title' => $_POST['portal_footer_links_title'] ?? '',
             'portal_footer_contact_title' => $_POST['portal_footer_contact_title'] ?? '',
@@ -170,64 +172,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $system_keys['system_logo'] = $page['system_logo'] ?? '';
         }
     
-    // Facility Data (Required for saving)
-    $opening_time = !empty($_POST['opening_time']) ? $_POST['opening_time'] : null;
-    $closing_time = !empty($_POST['closing_time']) ? $_POST['closing_time'] : null;
-    $max_capacity = !empty($_POST['max_capacity']) ? (int)$_POST['max_capacity'] : null;
+        // Facility Data (Required for saving)
+        $opening_time = !empty($_POST['opening_time']) ? $_POST['opening_time'] : null;
+        $closing_time = !empty($_POST['closing_time']) ? $_POST['closing_time'] : null;
+        $max_capacity = !empty($_POST['max_capacity']) ? (int)$_POST['max_capacity'] : null;
+        
+        $has_lockers = isset($_POST['has_lockers']) ? 1 : 0;
+        $has_shower = isset($_POST['has_shower']) ? 1 : 0;
+        $has_parking = isset($_POST['has_parking']) ? 1 : 0;
+        $has_wifi = isset($_POST['has_wifi']) ? 1 : 0;
+        $rules_text = $_POST['rules_text'] ?? '';
     
-    $has_lockers = isset($_POST['has_lockers']) ? 1 : 0;
-    $has_shower = isset($_POST['has_shower']) ? 1 : 0;
-    $has_parking = isset($_POST['has_parking']) ? 1 : 0;
-    $has_wifi = isset($_POST['has_wifi']) ? 1 : 0;
-    $rules_text = $_POST['rules_text'] ?? '';
-
-    $now = date('Y-m-d H:i:s');
-
-    try {
-        // Server-side validation
-        if (!$opening_time || !$closing_time || !$max_capacity) {
-            throw new Exception("Opening Time, Closing Time, and Max Capacity are required.");
+        $now = date('Y-m-d H:i:s');
+    
+        try {
+            // Server-side validation
+            if (!$opening_time || !$closing_time || !$max_capacity) {
+                throw new Exception("Opening Time, Closing Time, and Max Capacity are required.");
+            }
+    
+            $pdo->beginTransaction();
+    
+            // 1. Update/Create System Settings
+            $stmtUpdateSettings = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+            foreach ($system_keys as $key => $value) {
+                $stmtUpdateSettings->execute([$user_id, $key, $value]);
+            }
+    
+            // Update local configs immediately for the preview/render
+            $configs = array_merge($configs, $system_keys);
+    
+            // 3. Update/Create Gym Details
+            $stmtCheckDetails = $pdo->prepare("SELECT 1 FROM gym_details WHERE gym_id = ?");
+            $stmtCheckDetails->execute([$gym_id]);
+            
+            if ($stmtCheckDetails->fetch()) {
+                $stmtUpdateDetails = $pdo->prepare("UPDATE gym_details SET opening_time = ?, closing_time = ?, max_capacity = ?, has_lockers = ?, has_shower = ?, has_parking = ?, has_wifi = ?, rules_text = ?, updated_at = ? WHERE gym_id = ?");
+                $stmtUpdateDetails->execute([$opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now, $gym_id]);
+            } else {
+                $stmtInsertDetails = $pdo->prepare("INSERT INTO gym_details (gym_id, opening_time, closing_time, max_capacity, has_lockers, has_shower, has_parking, has_wifi, rules_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmtInsertDetails->execute([$gym_id, $opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now]);
+            }
+    
+            $pdo->commit();
+            $success = "All configurations saved and synchronized successfully!";
+            
+            // Refresh local data
+            $stmtGym->execute([$gym_id]); $gym = $stmtGym->fetch();
+            $stmtSync->execute([$user_id]); $configs = $stmtSync->fetchAll(PDO::FETCH_KEY_PAIR);
+            $page = $configs; // For UI consistency
+            $page['logo_path'] = $page['system_logo'] ?? '';
+            $page['page_title'] = $page['system_name'] ?? '';
+        } catch (Exception $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $error = "Update Error: " . $e->getMessage();
         }
-
-        $pdo->beginTransaction();
-
-        // 1. Update/Create System Settings
-        $stmtUpdateSettings = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
-        foreach ($system_keys as $key => $value) {
-            $stmtUpdateSettings->execute([$user_id, $key, $value]);
-        }
-
-        // Update local configs immediately for the preview/render
-        $configs = array_merge($configs, $system_keys);
-
-        // 3. Update/Create Gym Details
-        $stmtCheckDetails = $pdo->prepare("SELECT 1 FROM gym_details WHERE gym_id = ?");
-        $stmtCheckDetails->execute([$gym_id]);
-        
-        if ($stmtCheckDetails->fetch()) {
-            $stmtUpdateDetails = $pdo->prepare("UPDATE gym_details SET opening_time = ?, closing_time = ?, max_capacity = ?, has_lockers = ?, has_shower = ?, has_parking = ?, has_wifi = ?, rules_text = ?, updated_at = ? WHERE gym_id = ?");
-            $stmtUpdateDetails->execute([$opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now, $gym_id]);
-        } else {
-            $stmtInsertDetails = $pdo->prepare("INSERT INTO gym_details (gym_id, opening_time, closing_time, max_capacity, has_lockers, has_shower, has_parking, has_wifi, rules_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmtInsertDetails->execute([$gym_id, $opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now]);
-        }
-
-        $pdo->commit();
-        $success = "All configurations saved and synchronized successfully!";
-        
-        // Refresh local data
-        // Refresh local data
-        $stmtGym->execute([$gym_id]); $gym = $stmtGym->fetch();
-        $stmtSync->execute([$user_id]); $configs = $stmtSync->fetchAll(PDO::FETCH_KEY_PAIR);
-        $page = $configs; // For UI consistency
-        $page['logo_path'] = $page['system_logo'] ?? '';
-        $page['page_title'] = $page['system_name'] ?? '';
-    } catch (Exception $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        $error = "Update Error: " . $e->getMessage();
-    }
     }
 }
 ?>
@@ -403,7 +404,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         function closeSubModal() { document.getElementById('subModal').classList.remove('active'); }
 
         window.addEventListener('DOMContentLoaded', () => {
-            <?php if (!$is_sub_active): ?>
+            <?php if ($is_restricted): ?>
             showSubWarning();
             <?php endif; ?>
         });
@@ -482,7 +483,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </nav>
 
-<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar">
+<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar <?= $is_restricted ? 'blur-overlay' : '' ?>">
+    <div class="<?= $is_restricted ? 'blur-overlay-content' : '' ?>">
     <!-- Header synchronized with my_users.php -->
     <header class="mb-10 flex justify-between items-end px-2">
         <div>
@@ -940,7 +942,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </script>
 
     <!-- Restriction Modal (Sidebar-Aware) -->
-    <div id="subModal">
+    <div id="subModal" class="<?= $is_restricted ? 'active hard-lock' : '' ?>">
         <div class="glass-card max-w-md w-full p-10 text-center animate-in zoom-in duration-300 relative shadow-[0_0_100px_rgba(140,43,238,0.15)] border-primary/20">
             <div class="size-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-8">
                 <span class="material-symbols-outlined text-4xl text-primary">lock</span>

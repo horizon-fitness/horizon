@@ -392,6 +392,18 @@ for ($i = 5; $i >= 0; $i--) {
 
 <main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar">
 
+    <header class="mb-10 flex justify-between items-end">
+        <div>
+            <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic">Welcome Back, <span class="text-primary italic"><?= htmlspecialchars($first_name) ?></span></h2>
+            <p class="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1 italic"><?= htmlspecialchars($gym_name) ?> Management System</p>
+        </div>
+
+        <div class="text-right">
+            <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
+            <p class="text-primary text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80"><?= date('l, M d, Y') ?></p>
+        </div>
+    </header>
+
     <?php if (strpos($sub_status, 'Pending Approval') !== false): ?>
         <div class="glass-card p-6 border-amber-500/30 bg-amber-500/5 mb-8 flex items-center gap-6">
             <div class="size-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
@@ -419,18 +431,6 @@ for ($i = 5; $i >= 0; $i--) {
             </a>
         </div>
     <?php endif; ?>
-
-    <header class="mb-10 flex justify-between items-end">
-        <div>
-            <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic">Welcome Back, <span class="text-primary italic"><?= htmlspecialchars($first_name) ?></span></h2>
-            <p class="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1 italic"><?= htmlspecialchars($gym_name) ?> Management System</p>
-        </div>
-
-        <div class="text-right">
-            <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
-            <p class="text-primary text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80"><?= date('l, M d, Y') ?></p>
-        </div>
-    </header>
 
 
 

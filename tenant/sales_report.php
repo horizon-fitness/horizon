@@ -2,6 +2,10 @@
 session_start();
 require_once '../db.php';
 
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 // Security Check
 $role = strtolower($_SESSION['role'] ?? '');
 if (!isset($_SESSION['user_id']) || !in_array($role, ['tenant', 'admin'])) {
@@ -52,19 +56,26 @@ $stmtGym->execute([$gym_id]);
 $gym_data = $stmtGym->fetch();
 $gym_name = $gym_data['gym_name'] ?? 'Horizon Gym';
 
-// Fetch Custom Branding from tenant_pages
-$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ?");
-$stmtPage->execute([$gym_id]);
-$page = $stmtPage->fetch();
+// Fetch Branding Data from system_settings
+$user_id = $_SESSION['user_id'];
+$stmtPage = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtPage->execute([$user_id]);
+$page = $stmtPage->fetchAll(PDO::FETCH_KEY_PAIR);
 
-$theme_color = $page['theme_color'] ?? '#8c2bee';
-$bg_color = $page['bg_color'] ?? '#0a090d';
+// Map system_settings keys to expected names
+$page['logo_path'] = $page['system_logo'] ?? '';
+$page['theme_color'] = $page['theme_color'] ?? '#8c2bee';
+$page['bg_color'] = $page['bg_color'] ?? '#0a090d';
+
+$theme_color = $page['theme_color'];
+$bg_color = $page['bg_color'];
 
 // --- SUBSCRIPTION CHECK FOR RESTRICTION ---
 $stmtSubStatus = $pdo->prepare("SELECT subscription_status FROM client_subscriptions WHERE gym_id = ? ORDER BY created_at DESC LIMIT 1");
 $stmtSubStatus->execute([$gym_id]);
 $sub_status = $stmtSubStatus->fetchColumn() ?: 'None';
 $is_sub_active = (strtolower($sub_status) === 'active');
+$is_restricted = (!$is_sub_active && strpos($sub_status, 'Pending') === false);
 
 $active_page = "sales";
 ?>
@@ -148,7 +159,7 @@ $active_page = "sales";
         function closeSubModal() { document.getElementById('subModal').classList.remove('active'); }
 
         window.addEventListener('DOMContentLoaded', () => {
-            <?php if (!$is_sub_active): ?>
+            <?php if ($is_restricted): ?>
             showSubWarning();
             <?php endif; ?>
             updateTopClock();
@@ -239,8 +250,9 @@ $active_page = "sales";
     </div>
 </nav>
 
-<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar <?= !$is_sub_active ? 'blur-overlay' : '' ?>">
-    <div class="<?= !$is_sub_active ? 'blur-overlay-content' : '' ?>">
+<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar <?= $is_restricted ? 'blur-overlay' : '' ?>">
+    <div class="<?= $is_restricted ? 'blur-overlay-content' : '' ?>">
+
 
     <header class="mb-10 flex justify-between items-end">
         <div>

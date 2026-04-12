@@ -20,10 +20,19 @@ $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]);
 $gym = $stmtGym->fetch();
 
-// Fetch CMS Page
-$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
-$stmtPage->execute([$gym_id]);
-$page = $stmtPage->fetch();
+// Fetch Branding Data from system_settings
+$user_id = $_SESSION['user_id'];
+$stmtPage = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtPage->execute([$user_id]);
+$page = $stmtPage->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// Map system_settings keys to expected names
+$page['logo_path'] = $page['system_logo'] ?? '';
+$page['theme_color'] = $page['theme_color'] ?? '#8c2bee';
+$page['bg_color'] = $page['bg_color'] ?? '#0a090d';
+
+$theme_color = $page['theme_color'];
+$bg_color = $page['bg_color'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $first_name = trim($_POST['first_name'] ?? '');
@@ -150,15 +159,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "#8c2bee", "background-dark": "#0a090d", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
+            theme: { extend: { colors: { "primary": "<?= $theme_color ?>", "background-dark": "<?= $bg_color ?>", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}}
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: #0a090d; color: white; overflow: hidden; }
+        body { font-family: 'Lexend', sans-serif; background-color: <?= $bg_color ?>; color: white; overflow: hidden; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         .nav-link { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s; white-space: nowrap; }
 
-        .active-nav { color: #8c2bee !important; position: relative; }
+        .active-nav { color: <?= $theme_color ?> !important; position: relative; }
 
         .active-nav::after { 
 
@@ -176,7 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             height: 20px; 
 
-            background: #8c2bee; 
+            background: <?= $theme_color ?>; 
 
             border-radius: 99px; 
 
@@ -224,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .input-field { background: #1a1721; border: 1px solid #2d2838; border-radius: 12px; color: white; padding: 12px 16px; width: 100%; transition: all 0.2s; font-size: 13px; font-weight: 500; }
-        .input-field:focus { border-color: #8c2bee; outline: none; box-shadow: 0 0 0 2px rgba(140, 43, 238, 0.2); }
+        .input-field:focus { border-color: <?= $theme_color ?>; outline: none; box-shadow: 0 0 0 2px rgba(140, 43, 238, 0.2); }
 
         /* Power User Features */
         .pass-container { position: relative; }

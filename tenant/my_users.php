@@ -2,6 +2,10 @@
 session_start();
 require_once '../db.php';
 
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 // Security Check
 if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'tenant') {
     header("Location: ../login.php");
@@ -31,20 +35,25 @@ $first_name = $gym_data['first_name'] ?? 'Owner';
 $owner_user_id = $gym_data['owner_user_id'] ?? 0;
 $active_page = "users";
 
-// Fetch Branding Data from tenant_pages
-$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ?");
-$stmtPage->execute([$gym_id]);
-$page = $stmtPage->fetch();
+// Fetch Branding Data from system_settings (Updated from legacy tenant_pages)
+$stmtPage = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtPage->execute([$user_id]);
+$page = $stmtPage->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// Map system_settings keys to expected names for UI consistency
+$page['logo_path'] = $page['system_logo'] ?? '';
+$page['theme_color'] = $page['theme_color'] ?? '#8c2bee';
+$page['bg_color'] = $page['bg_color'] ?? '#0a090d';
 
 // Set default fallback values
-$theme_color = ($page && isset($page['theme_color'])) ? $page['theme_color'] : '#8c2bee';
-$bg_color = ($page && isset($page['bg_color'])) ? $page['bg_color'] : '#0a090d';
+$theme_color = $page['theme_color'];
+$bg_color = $page['bg_color'];
 
-// Fetch Active Subscription / Plan
+// Fetch Active Subscription / Plan (Updated with LEFT JOIN for broad coverage)
 $stmtSub = $pdo->prepare("
     SELECT cs.subscription_status, wp.plan_name 
     FROM client_subscriptions cs 
-    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id 
+    LEFT JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id 
     WHERE cs.gym_id = ? 
     ORDER BY cs.created_at DESC LIMIT 1
 ");
@@ -54,6 +63,10 @@ $subscription = $stmtSub->fetch();
 $plan_name = $subscription['plan_name'] ?? 'No Plan';
 $sub_status = $subscription['subscription_status'] ?? 'None';
 $is_sub_active = (strtolower($sub_status) === 'active');
+
+// Determine if we show the restriction modal (Only for non-active AND non-pending)
+// If it's pending, we show a banner instead of a hard lock.
+$is_restricted = (!$is_sub_active && strpos($sub_status, 'Pending') === false);
 
 // --- AJAX USER PROFILE FETCH (View Details) ---
 if (isset($_GET['ajax_user_id'])) {
@@ -365,9 +378,14 @@ $stmtUsers = $pdo->prepare("
 $stmtUsers->execute($params);
 $users_list = $stmtUsers->fetchAll();
 
-// Statistics (Unfiltered)
-$total_members = $pdo->query("SELECT COUNT(*) FROM members WHERE gym_id = $gym_id")->fetchColumn();
-$total_coaches = $pdo->query("SELECT COUNT(*) FROM coaches WHERE gym_id = $gym_id")->fetchColumn();
+// Statistics (Unfiltered) - Fixed SQL Injection
+$total_members = $pdo->prepare("SELECT COUNT(*) FROM members WHERE gym_id = ?");
+$total_members->execute([$gym_id]);
+$total_members = $total_members->fetchColumn();
+
+$total_coaches = $pdo->prepare("SELECT COUNT(*) FROM coaches WHERE gym_id = ?");
+$total_coaches->execute([$gym_id]);
+$total_coaches = $total_coaches->fetchColumn();
 
 $page_title = "User Database";
 ?>
@@ -637,7 +655,7 @@ $page_title = "User Database";
         function closeSubModal() { document.getElementById('subModal').classList.remove('active'); }
 
         window.addEventListener('DOMContentLoaded', () => {
-            <?php if (!$is_sub_active): ?>
+            <?php if ($is_restricted): ?>
             showSubWarning();
             <?php endif; ?>
         });
@@ -773,6 +791,7 @@ $page_title = "User Database";
     </nav>
 
     <main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar">
+
 
         <header class="mb-10 flex justify-between items-end">
             <div>
