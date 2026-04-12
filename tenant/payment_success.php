@@ -93,23 +93,38 @@ if ($verification_success) {
         $now = date('Y-m-d H:i:s');
         $start_date = date('Y-m-d');
         $end_date = date('Y-m-d', strtotime("+$duration months"));
+        
+        $payment_term = $_GET['payment_term'] ?? 'Full';
+        $next_billing_date = null;
+        if ($payment_term === 'Monthly') {
+            $next_billing_date = date('Y-m-d', strtotime("+1 month"));
+        }
+        
+        $amount_paid = $plan['price'];
+        if ($payment_term === 'Monthly' && $duration > 0) {
+            $amount_paid = $plan['price'] / $duration;
+        }
 
         try {
             $pdo->beginTransaction();
 
+            $pdo->prepare("DELETE FROM client_subscriptions WHERE gym_id = ? AND subscription_status = 'Pending Approval'")->execute([$gym_id]);
+
             // 1. Update/Add Subscription (Status: Pending Approval, Payment: Pending)
-            $stmtSub = $pdo->prepare("INSERT INTO client_subscriptions (gym_id, owner_user_id, website_plan_id, start_date, end_date, subscription_status, payment_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'Pending Approval', 'Pending', ?, ?)");
-            $stmtSub->execute([$gym_id, $user_id, $plan_id, $start_date, $end_date, $now, $now]);
+            $stmtSub = $pdo->prepare("INSERT INTO client_subscriptions (gym_id, owner_user_id, website_plan_id, start_date, end_date, next_billing_date, payment_term, subscription_status, payment_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending Approval', 'Pending', ?, ?)");
+            $stmtSub->execute([$gym_id, $user_id, $plan_id, $start_date, $end_date, $next_billing_date, $payment_term, $now, $now]);
             $client_subscription_id = $pdo->lastInsertId();
 
             // 2. Record Payment (Status: Pending)
+            $payment_type = ($payment_term === 'Full') ? 'Subscription' : 'Subscription Installment';
             $remarks = ($verification_method === "Signature Fallback") ? "Verified via fallback signature due to gateway ID displacement. Original Session: $session_id" : "Verified via PayMongo API. Session: $session_id";
-            $stmtPay = $pdo->prepare("INSERT INTO payments (gym_id, subscription_id, client_subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at, remarks) VALUES (?, ?, ?, ?, 'PayMongo Checkout', 'Subscription', ?, 'Pending', ?, ?, ?)");
+            $stmtPay = $pdo->prepare("INSERT INTO payments (gym_id, subscription_id, client_subscription_id, amount, payment_method, payment_type, reference_number, payment_status, payment_date, created_at, remarks) VALUES (?, ?, ?, ?, 'PayMongo Checkout', ?, ?, 'Pending', ?, ?, ?)");
             $stmtPay->execute([
                 $gym_id, 
                 $client_subscription_id, // Also fill subscription_id for visibility
                 $client_subscription_id, 
-                $plan['price'], 
+                $amount_paid, 
+                $payment_type,
                 $reference_to_save, 
                 date('Y-m-d'), 
                 $now,

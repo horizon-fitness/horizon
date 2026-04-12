@@ -67,7 +67,7 @@ $monthly_rev = $stmtRev->fetchColumn() ?: 0;
 
 // Fetch Active Subscription / Plan
 $stmtSub = $pdo->prepare("
-    SELECT cs.subscription_status, wp.plan_name 
+    SELECT cs.subscription_status, cs.payment_term, cs.next_billing_date, cs.end_date, wp.plan_name 
     FROM client_subscriptions cs 
     JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id 
     WHERE cs.gym_id = ? 
@@ -78,7 +78,44 @@ $subscription = $stmtSub->fetch();
 
 $plan_name = $subscription['plan_name'] ?? 'No Plan';
 $sub_status = $subscription['subscription_status'] ?? 'None';
+$payment_term = $subscription['payment_term'] ?? 'Full';
+$next_billing_date = $subscription['next_billing_date'] ?? null;
+$plan_end_date = $subscription['end_date'] ?? null;
 $is_sub_active = (strtolower($sub_status) === 'active');
+
+$billing_status_color = 'text-gray-500';
+$billing_label = '';
+$is_suspended = false;
+
+if ($is_sub_active && $payment_term === 'Monthly' && $next_billing_date) {
+    // Determine start of current day and due day
+    $now_time = strtotime('today');
+    $due_time = strtotime($next_billing_date);
+    $diff_days = ($due_time - $now_time) / (60 * 60 * 24);
+    
+    if ($diff_days > 0 && $diff_days <= 7) {
+        $billing_status_color = 'text-yellow-500'; // Yellow when near due
+        $billing_label = "Due in " . $diff_days . " days";
+    } elseif ($diff_days === 0) {
+        $billing_status_color = 'text-yellow-500';
+        $billing_label = "Due Today";
+    } elseif ($diff_days < 0) {
+        $billing_status_color = 'text-red-500'; // Red when overdue
+        $abs_days = abs($diff_days);
+        $billing_label = "Past Due (" . $abs_days . " days)";
+        
+        // 3 Days Extension Logic
+        if ($abs_days > 3) {
+            $is_suspended = true;
+            $sub_status = 'Suspended (Overdue)';
+            $is_sub_active = false;
+        }
+    } else {
+        $billing_label = "Due " . date('M d', $due_time);
+    }
+} elseif ($is_sub_active && $payment_term === 'Full' && $plan_end_date) {
+    $billing_label = "Active till " . date('M d', strtotime($plan_end_date));
+}
 
 $page_title = "Owner Dashboard";
 
@@ -226,11 +263,22 @@ for ($i = 5; $i >= 0; $i--) {
         }
         #subModal.active { display: flex !important; }
         .side-nav:hover ~ #subModal { left: 300px; }
+        
+        /* Hard Suspension Override */
+        #subModal.hard-lock {
+            left: 0 !important;
+            z-index: 9999 !important;
+            background: rgba(10, 9, 13, 0.95);
+        }
     </style>
 
     <script>
         function showSubWarning() { document.getElementById('subModal').classList.add('active'); }
-        function closeSubModal() { document.getElementById('subModal').classList.remove('active'); }
+        function closeSubModal() { 
+            if(!document.getElementById('subModal').classList.contains('hard-lock')) {
+                document.getElementById('subModal').classList.remove('active'); 
+            }
+        }
     </script>
 
     <script>
@@ -338,7 +386,7 @@ for ($i = 5; $i >= 0; $i--) {
 
 <main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar">
 
-    <?php if ($sub_status === 'Pending Approval'): ?>
+    <?php if (strpos($sub_status, 'Pending Approval') !== false): ?>
         <div class="glass-card p-6 border-amber-500/30 bg-amber-500/5 mb-8 flex items-center gap-6">
             <div class="size-12 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
                 <span class="material-symbols-outlined text-2xl">hourglass_empty</span>
@@ -351,17 +399,17 @@ for ($i = 5; $i >= 0; $i--) {
                 <span class="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-[9px] font-black uppercase tracking-widest border border-amber-500/30">Verification In Progress</span>
             </div>
         </div>
-    <?php elseif ($sub_status === 'None' || $sub_status === 'Expired' || $sub_status === 'Inactive'): ?>
+    <?php elseif ($sub_status === 'None' || $sub_status === 'Expired' || $sub_status === 'Inactive' || strpos($sub_status, 'Suspended') !== false): ?>
         <div class="glass-card p-6 border-rose-500/30 bg-rose-500/5 mb-8 flex items-center gap-6">
             <div class="size-12 rounded-2xl bg-rose-500/20 flex items-center justify-center text-rose-500 shrink-0">
                 <span class="material-symbols-outlined text-2xl">priority_high</span>
             </div>
             <div class="flex-1">
-                <h4 class="text-sm font-black uppercase italic tracking-tight text-rose-400">No Active Subscription</h4>
+                <h4 class="text-sm font-black uppercase italic tracking-tight text-rose-400"><?= $is_suspended ? 'System Access Suspended' : 'No Active Subscription' ?></h4>
                 <p class="text-[10px] font-bold text-rose-500/70 uppercase tracking-widest mt-1">Activate a growth plan to unlock the full potential of your gym's digital infrastructure.</p>
             </div>
             <a href="subscription_plan.php" class="h-10 px-6 rounded-xl bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center hover:opacity-90 transition-all">
-                Select Plan
+                <?= $is_suspended ? 'Pay Overdue Balance' : 'Select Plan' ?>
             </a>
         </div>
     <?php endif; ?>
@@ -419,8 +467,16 @@ for ($i = 5; $i >= 0; $i--) {
                 <span class="material-symbols-outlined text-2xl">card_membership</span>
             </div>
             <div>
-                <p class="text-[10px] font-bold uppercase text-gray-500 tracking-widest"><?= htmlspecialchars($plan_name) ?></p>
-                <h3 class="text-xl font-extrabold mt-1 tracking-tight uppercase <?= (strtolower($sub_status) === 'active') ? 'text-emerald-500' : 'text-rose-500' ?> italic"><?= htmlspecialchars($sub_status) ?></h3>
+                <p class="text-[10px] font-bold uppercase text-gray-500 tracking-widest flex items-center gap-1">
+                    <?= htmlspecialchars($plan_name) ?> 
+                    <?php if($payment_term === 'Monthly'): ?><span class="px-1.5 py-0.5 rounded-sm bg-blue-500/20 text-blue-400 text-[7px] font-black">1/Mo</span><?php endif; ?>
+                </p>
+                <div class="flex items-center gap-2 mt-1">
+                    <h3 class="text-xl font-extrabold tracking-tight uppercase <?= ($is_sub_active && strtolower($sub_status) === 'active') ? 'text-emerald-500' : 'text-rose-500' ?> italic leading-none"><?= htmlspecialchars($sub_status) ?></h3>
+                </div>
+                <?php if ($billing_label): ?>
+                <p class="text-[9px] font-black uppercase tracking-widest mt-1 <?= $billing_status_color ?>"><?= $billing_label ?></p>
+                <?php endif; ?>
             </div>
             <div class="absolute -right-4 -bottom-4 size-24 bg-blue-500/5 rounded-full blur-2xl"></div>
         </div>
@@ -627,27 +683,33 @@ for ($i = 5; $i >= 0; $i--) {
         });
     </script>
 
-    <!-- Restriction Modal (Sidebar-Aware) -->
-    <div id="subModal">
+    <!-- Restriction Modal (Sidebar-Aware & Capable of Hard Locking) -->
+    <div id="subModal" class="<?= $is_suspended ? 'active hard-lock' : '' ?>">
         <div class="glass-card max-w-md w-full p-10 text-center animate-in zoom-in duration-300 relative shadow-[0_0_100px_rgba(140,43,238,0.15)] border-primary/20">
+            <?php if (!$is_suspended): ?>
             <button onclick="closeSubModal()" class="absolute top-6 right-6 text-gray-400 hover:text-white transition-all size-10 rounded-xl hover:bg-white/5 flex items-center justify-center">
                 <span class="material-symbols-outlined">close</span>
             </button>
-            <div class="size-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-8">
-                <span class="material-symbols-outlined text-4xl text-primary">lock</span>
+            <?php endif; ?>
+            
+            <div class="size-20 rounded-3xl <?= $is_suspended ? 'bg-red-500/10 border-red-500/20' : 'bg-primary/10 border-primary/20' ?> border flex items-center justify-center mx-auto mb-8">
+                <span class="material-symbols-outlined text-4xl <?= $is_suspended ? 'text-red-500' : 'text-primary' ?>">lock</span>
             </div>
-            <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-3">Subscription Required</h3>
+            <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-3"><?= $is_suspended ? 'System Suspended' : 'Subscription Required' ?></h3>
             <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-10 leading-relaxed italic px-4">
-                Your public gym portal is currently offline or restricted. Your status is <span class="text-primary italic animate-pulse"><?= $sub_status ?></span>. Please activate a growth plan to go live.
+                <?= $is_suspended ? 'Your subscription is critically overdue and your 3-day extension has lapsed. Access to the gym system and your public portal has been restricted.' : 'Your public gym portal is currently offline or restricted. Please activate a growth plan to go live.' ?>
+                <br><br>Status: <span class="<?= $is_suspended ? 'text-red-500' : 'text-primary' ?> italic animate-pulse"><?= $sub_status ?></span>
             </p>
             <div class="flex flex-col gap-4">
-                <a href="subscription_plan.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+                <a href="subscription_plan.php" class="h-14 rounded-2xl <?= $is_suspended ? 'bg-red-600 shadow-red-500/20' : 'bg-primary shadow-primary/20' ?> text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl group">
                     <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">payments</span>
-                    Select Growth Plan
+                    <?= $is_suspended ? 'Settle Overdue Balance' : 'Select Growth Plan' ?>
                 </a>
+                <?php if (!$is_suspended): ?>
                 <button onclick="closeSubModal()" class="h-14 rounded-2xl bg-white/5 border border-white/10 text-gray-400 text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center hover:bg-white/10 transition-all">
                     Dismiss
                 </button>
+                <?php endif; ?>
             </div>
         </div>
     </div>

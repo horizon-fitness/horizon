@@ -172,6 +172,8 @@ CREATE TABLE client_subscriptions (
     website_plan_id INT NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE,
+    next_billing_date DATE,
+    payment_term VARCHAR(50) NOT NULL DEFAULT 'Full',
     subscription_status VARCHAR(50) NOT NULL,
     payment_status VARCHAR(50) NOT NULL,
     created_at DATETIME NOT NULL,

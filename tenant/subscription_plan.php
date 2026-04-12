@@ -41,7 +41,7 @@ if ($plansCheck == 0) {
 }
 
 // Fetch Plans
-$plans = $pdo->query("SELECT * FROM website_plans WHERE is_active = 1")->fetchAll();
+$plans = $pdo->query("SELECT * FROM website_plans WHERE is_active = 1 ORDER BY price ASC")->fetchAll();
 foreach ($plans as &$p) {
     $stmtF = $pdo->prepare("SELECT feature_name FROM website_plan_features WHERE website_plan_id = ?");
     $stmtF->execute([$p['website_plan_id']]);
@@ -55,68 +55,95 @@ $recent_sub = $stmtRecent->fetch();
 $show_rejection_notice = ($recent_sub && $recent_sub['payment_status'] === 'Rejected');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
-    require_once '../includes/paymongo-helper.php';
     $plan_id = (int)$_POST['plan_id'];
+    $payment_term = $_POST['payment_term'] ?? 'Full';
+    $payment_method = $_POST['payment_method'] ?? 'Online';
     
-    // Find plan details
     $selected_plan = null;
     foreach($plans as $p) if($p['website_plan_id'] == $plan_id) $selected_plan = $p;
     
     if (!$selected_plan) {
         $error = "Invalid plan selected.";
     } else {
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-        $host = $_SERVER['HTTP_HOST'];
-        
-        // Since we're in /tenant/, we want the full path to it
-        $current_dir = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
-        $base_url = rtrim($protocol . $host . $current_dir, '/');
+        $amount_to_pay = $selected_plan['price'];
+        if ($payment_term === 'Monthly' && $selected_plan['duration_months'] > 0) {
+            $amount_to_pay = $selected_plan['price'] / $selected_plan['duration_months'];
+        }
 
-        // Security Signature for fallback verification
-        $salt = "FitPlatform_Secure_2026!";
-        $signature = hash('sha256', $gym_id . $user_id . $plan_id . $salt);
+        if ($payment_method === 'Cash') {
+            // Manual OTC Process
+            $start_date = date('Y-m-d');
+            $end_date = date('Y-m-d', strtotime("+{$selected_plan['duration_months']} months"));
+            $next_billing_date = null;
+            if ($payment_term === 'Monthly') {
+                $next_billing_date = date('Y-m-d', strtotime("+1 month"));
+            }
+            
+            // Check if existing pending
+            $pdo->prepare("DELETE FROM client_subscriptions WHERE gym_id = ? AND subscription_status = 'Pending Approval'")->execute([$gym_id]);
 
-        $success_url = $base_url . "/payment_success.php?plan_id=" . $plan_id . "&user_id=" . $user_id . "&gym_id=" . $gym_id . "&sig=" . $signature . "&session_id={CHECKOUT_SESSION_ID}";
-        $cancel_url = $base_url . "/payment_cancel.php";
+            $stmtIns = $pdo->prepare("
+                INSERT INTO client_subscriptions (gym_id, owner_user_id, website_plan_id, start_date, end_date, next_billing_date, payment_term, subscription_status, payment_status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending Approval', 'Pending', NOW(), NOW())
+            ");
+            $stmtIns->execute([$gym_id, $user_id, $plan_id, $start_date, $end_date, $next_billing_date, $payment_term]);
+            $subscription_id = $pdo->lastInsertId();
 
-        // 1. Fetch Billing/Metadata Details for better PayMongo dashboard reflection
-        $stmtDetails = $pdo->prepare("
-            SELECT u.first_name, u.last_name, u.email, u.contact_number, g.gym_name 
-            FROM users u 
-            JOIN gyms g ON g.owner_user_id = u.user_id 
-            WHERE u.user_id = ? AND g.gym_id = ?
-        ");
-        $stmtDetails->execute([$user_id, $gym_id]);
-        $details = $stmtDetails->fetch();
+            $stmtPay = $pdo->prepare("INSERT INTO payments (gym_id, client_subscription_id, amount, payment_method, payment_type, reference_number, payment_status, created_at) VALUES (?, ?, ?, 'Cash', ?, 'OTC-MANUAL', 'Pending', NOW())");
+            $stmtPay->execute([$gym_id, $subscription_id, $amount_to_pay, $payment_term === 'Full' ? 'Subscription' : 'Subscription Installment']);
 
-        $billing = [
-            'name'  => ($details['first_name'] ?? 'User') . ' ' . ($details['last_name'] ?? ''),
-            'email' => $details['email'] ?? '',
-            'phone' => $details['contact_number'] ?? ''
-        ];
-
-        $metadata = [
-            'gym_id'    => $gym_id,
-            'gym_name'  => $details['gym_name'] ?? 'Unknown Gym',
-            'plan_name' => $selected_plan['plan_name'],
-            'user_id'   => $user_id
-        ];
-
-        $response = create_checkout_session(
-            $selected_plan['price'], 
-            "Horizon Subscription: " . $selected_plan['plan_name'], 
-            $success_url, 
-            $cancel_url,
-            $billing,
-            $metadata
-        );
-
-        if ($response['status'] >= 200 && $response['status'] < 300) {
-            $checkout_url = $response['body']['data']['attributes']['checkout_url'];
-            header("Location: " . $checkout_url);
+            header("Location: tenant_dashboard.php");
             exit;
+
         } else {
-            $error = "PayMongo Error: " . ($response['body']['errors'][0]['detail'] ?? 'Failed to initiate payment.');
+            // PayMongo Online Process
+            require_once '../includes/paymongo-helper.php';
+            
+            $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+            $host = $_SERVER['HTTP_HOST'];
+            $current_dir = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
+            $base_url = rtrim($protocol . $host . $current_dir, '/');
+
+            $salt = "FitPlatform_Secure_2026!";
+            $signature = hash('sha256', $gym_id . $user_id . $plan_id . $salt);
+
+            $success_url = $base_url . "/payment_success.php?plan_id=" . $plan_id . "&user_id=" . $user_id . "&gym_id=" . $gym_id . "&sig=" . $signature . "&payment_term=" . $payment_term . "&session_id={CHECKOUT_SESSION_ID}";
+            $cancel_url = $base_url . "/payment_cancel.php";
+
+            $stmtDetails = $pdo->prepare("
+                SELECT u.first_name, u.last_name, u.email, u.contact_number, g.gym_name 
+                FROM users u 
+                JOIN gyms g ON g.owner_user_id = u.user_id 
+                WHERE u.user_id = ? AND g.gym_id = ?
+            ");
+            $stmtDetails->execute([$user_id, $gym_id]);
+            $details = $stmtDetails->fetch();
+
+            $billing = [
+                'name'  => ($details['first_name'] ?? 'User') . ' ' . ($details['last_name'] ?? ''),
+                'email' => $details['email'] ?? '',
+                'phone' => $details['contact_number'] ?? ''
+            ];
+
+            $metadata = [
+                'gym_id'       => $gym_id,
+                'gym_name'     => $details['gym_name'] ?? 'Unknown Gym',
+                'plan_name'    => $selected_plan['plan_name'],
+                'user_id'      => $user_id,
+                'payment_term' => $payment_term
+            ];
+            
+            $product_name = "Horizon Subscription: " . $selected_plan['plan_name'] . ($payment_term === 'Monthly' ? ' (Monthly Installment)' : '');
+
+            $response = create_checkout_session($amount_to_pay, $product_name, $success_url, $cancel_url, $billing, $metadata);
+
+            if ($response['status'] >= 200 && $response['status'] < 300) {
+                $checkout_url = $response['body']['data']['attributes']['checkout_url'];
+                header("Location: " . $checkout_url);
+                exit;
+            } else {
+                $error = "PayMongo Error: " . ($response['body']['errors'][0]['detail'] ?? 'Failed to initiate payment.');
+            }
         }
     }
 }
@@ -269,13 +296,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
                     <?php endforeach; ?>
                 </ul>
 
-                <form method="POST">
-                    <input type="hidden" name="plan_id" value="<?= $plan['website_plan_id'] ?>">
-                    <button type="submit" class="w-full h-14 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white hover:bg-primary hover:border-primary hover:scale-[1.02] active:scale-95 transition-all group flex items-center justify-center gap-3 italic">
-                        <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">payments</span>
-                        Select Plan
-                    </button>
-                </form>
+                <button type="button" onclick="openCheckoutModal(<?= $plan['website_plan_id'] ?>, '<?= htmlspecialchars(addslashes($plan['plan_name'])) ?>', <?= $plan['price'] ?>, <?= $plan['duration_months'] ?>)" class="w-full h-14 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white hover:bg-primary hover:border-primary hover:scale-[1.02] active:scale-95 transition-all group flex items-center justify-center gap-3 italic">
+                    <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">payments</span>
+                    Select Plan
+                </button>
             </div>
             <?php endforeach; ?>
         </div>
@@ -287,6 +311,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
         © 2026 HORIZON SYSTEM. SECURE ENVIRONMENT. PROUDLY PARTNERED.
     </p>
 </footer>
+
+<!-- Checkout Modal -->
+<div id="checkoutModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-md p-4">
+    <div class="dashboard-window max-w-lg w-full p-8 rounded-3xl relative">
+        <button type="button" onclick="closeCheckoutModal()" class="absolute top-6 right-6 text-gray-400 hover:text-white transition-all size-10 rounded-xl hover:bg-white/5 flex items-center justify-center">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+        
+        <h3 class="text-2xl font-display font-black text-white uppercase italic tracking-tighter mb-2">Checkout Details</h3>
+        <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mb-8" id="modalPlanName">Selected Plan</p>
+        
+        <form method="POST">
+            <input type="hidden" name="plan_id" id="modalPlanId" value="">
+            
+            <div class="mb-6">
+                <p class="text-[9px] font-black uppercase text-primary tracking-[0.2em] mb-3">1. Payment Term</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="cursor-pointer">
+                        <input type="radio" name="payment_term" value="Full" class="peer sr-only" checked onchange="updateCheckoutTotal()">
+                        <div class="p-4 rounded-xl border border-white/10 bg-white/5 peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex flex-col justify-center items-center h-full">
+                            <span class="text-xs font-bold text-white uppercase tracking-tighter mb-1">Full Payment</span>
+                            <span class="text-[10px] text-primary font-black uppercase italic tracking-widest" id="lblFullPrice">₱0</span>
+                        </div>
+                    </label>
+                    <label class="cursor-pointer">
+                        <input type="radio" name="payment_term" value="Monthly" class="peer sr-only" onchange="updateCheckoutTotal()">
+                        <div class="p-4 rounded-xl border border-white/10 bg-white/5 peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex flex-col justify-center items-center h-full text-center">
+                            <span class="text-xs font-bold text-white uppercase tracking-tighter mb-1">Monthly</span>
+                            <span class="text-[10px] text-primary font-black uppercase italic tracking-widest" id="lblMonthlyPrice">₱0 / mo</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" class="w-full h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+                <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform" id="btnIcon">lock</span>
+                <span id="btnText">Proceed to Payment</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openCheckoutModal(id, name, price, duration) {
+        document.getElementById('modalPlanId').value = id;
+        document.getElementById('modalPlanName').textContent = name;
+        
+        let monthly = price / duration;
+        
+        document.getElementById('lblFullPrice').textContent = '₱ ' + price.toLocaleString(undefined, {minimumFractionDigits: 0});
+        document.getElementById('lblMonthlyPrice').textContent = '₱ ' + monthly.toLocaleString(undefined, {minimumFractionDigits: 0}) + ' / MO';
+        
+        document.querySelector('input[name="payment_term"][value="Full"]').checked = true;
+        
+        const modal = document.getElementById('checkoutModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeCheckoutModal() {
+        const modal = document.getElementById('checkoutModal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+</script>
 
 </body>
 </html>
