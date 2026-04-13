@@ -9,6 +9,50 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
     exit;
 }
 
+// --- HANDLE AJAX PAYMONGO REFERENCE FETCH ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'fetch_paymongo_ref') {
+    header('Content-Type: application/json');
+    require_once '../includes/paymongo-helper.php';
+    
+    $payment_id = $_POST['payment_id'] ?? 0;
+    try {
+        $stmtP = $pdo->prepare("SELECT payment_id, remarks, reference_number FROM payments WHERE payment_id = ?");
+        $stmtP->execute([$payment_id]);
+        $payment = $stmtP->fetch();
+
+        if (!$payment) throw new Exception("Payment record not found.");
+
+        // Extract Session ID from remarks (Expected: "... Session: cs_...")
+        if (preg_match('/Session:\s*(cs_[a-zA-Z0-9]+)/', $payment['remarks'], $matches)) {
+            $session_id = $matches[1];
+            $response = retrieve_checkout_session($session_id);
+            
+            if ($response['status'] === 200) {
+                $attributes = $response['body']['data']['attributes'];
+                if (isset($attributes['payments'][0]['id'])) {
+                    $real_ref = $attributes['payments'][0]['id'];
+                    
+                    // Update DB to persist the real reference
+                    $stmtUpdate = $pdo->prepare("UPDATE payments SET reference_number = ? WHERE payment_id = ?");
+                    $stmtUpdate->execute([$real_ref, $payment_id]);
+                    
+                    echo json_encode(['success' => true, 'ref_no' => $real_ref]);
+                    exit;
+                } else {
+                    throw new Exception("Payment ID not found in checkout session attributes.");
+                }
+            } else {
+                throw new Exception("PayMongo API Error: " . ($response['body']['errors'][0]['detail'] ?? 'Unknown error'));
+            }
+        } else {
+            throw new Exception("No PayMongo Session ID found in payment remarks.");
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit;
+    }
+}
+
 // --- HANDLE POST ACTIONS (Approve/Reject) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['subscription_id'])) {
     $sub_id = $_POST['subscription_id'];
@@ -38,8 +82,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
             $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Paid', subscription_status = 'Active' WHERE client_subscription_id = ?");
             $stmt->execute([$sub_id]);
 
-            // Sync with payments table (Strictly based on client_subscription_id and payment_type = 'Subscription')
-            $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Paid', verified_by = ?, verified_at = NOW() WHERE client_subscription_id = ? AND payment_type = 'Subscription'");
+            // Sync with payments table (Handle both Full and Installment types)
+            $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Paid', verified_by = ?, verified_at = NOW() WHERE client_subscription_id = ? AND payment_type IN ('Subscription', 'Subscription Installment')");
             $stmtPay->execute([$admin_id, $sub_id]);
 
             $msg = "Approved payment for Subscription #$sub_id (" . $subData['gym_name'] . ")";
@@ -63,8 +107,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
             $stmt = $pdo->prepare("UPDATE client_subscriptions SET payment_status = 'Rejected', subscription_status = 'Inactive' WHERE client_subscription_id = ?");
             $stmt->execute([$sub_id]);
 
-            // Sync with payments table (Strictly based on client_subscription_id and payment_type = 'Subscription')
-            $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Rejected', verified_by = ?, verified_at = NOW() WHERE client_subscription_id = ? AND payment_type = 'Subscription'");
+            // Sync with payments table (Handle both Full and Installment types)
+            $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Rejected', verified_by = ?, verified_at = NOW() WHERE client_subscription_id = ? AND payment_type IN ('Subscription', 'Subscription Installment')");
             $stmtPay->execute([$admin_id, $sub_id]);
 
             $msg = "Rejected subscription payment for #" . $sub_id . " (" . $subData['gym_name'] . ")";
@@ -119,6 +163,7 @@ $sub_status = $_GET['sub_status'] ?? 'all';
 $pay_status = $_GET['pay_status'] ?? 'all';
 $date_from = $_GET['date_from'] ?? date('Y-m-01');
 $date_to = $_GET['date_to'] ?? date('Y-m-d');
+$active_tab = $_GET['tab'] ?? 'recent'; // Track active tab for persistence
 
 // 4-Color Elite Branding System: Fetching & Merging Settings
 if (!function_exists('hexToRgb')) {
@@ -172,11 +217,14 @@ $query = "
     SELECT cs.*, 
            g.gym_name, g.tenant_code, g.owner_user_id,
            wp.plan_name, wp.price as plan_price, wp.billing_cycle,
-           (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'system_logo') as gym_logo,
-           (SELECT reference_number FROM payments WHERE client_subscription_id = cs.client_subscription_id AND payment_type = 'Subscription' ORDER BY created_at DESC LIMIT 1) as ref_no
+            (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'system_logo') as gym_logo,
+            p.reference_number as ref_no,
+            p.payment_id,
+            p.remarks as payment_remarks
     FROM client_subscriptions cs
     JOIN gyms g ON cs.gym_id = g.gym_id
     JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+    LEFT JOIN payments p ON cs.client_subscription_id = p.client_subscription_id AND p.payment_type IN ('Subscription', 'Subscription Installment')
     WHERE cs.created_at BETWEEN :start AND :end
 ";
 
@@ -398,8 +446,8 @@ foreach ($logs as $log) {
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* 2. Sidebar-Aware Responsive Modal (Target Style: tenant_management.php) */
-        #adminActionModal {
+        /* 2. Sidebar-Aware Responsive Modal Architecture */
+        .sidebar-aware-modal {
             position: fixed;
             top: 0;
             right: 0;
@@ -409,23 +457,23 @@ foreach ($logs as $log) {
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             background: rgba(10, 9, 13, 0.8);
             backdrop-filter: blur(20px);
-            display: none; /* Controlled via JS */
+            display: none;
         }
 
-        #adminActionModal.flex-important {
+        .sidebar-aware-modal.flex-important {
             display: flex !important;
             align-items: center;
             justify-content: center;
         }
 
-        /* 3. Sync Shift with Sidebar expansion */
-        .sidebar-nav:hover ~ #adminActionModal {
+        /* Sync Shift with Sidebar expansion */
+        .sidebar-nav:hover ~ .sidebar-aware-modal {
             left: 300px; /* Expanded Sidebar Width */
         }
 
         /* Responsive Mobile Breakpoint */
         @media (max-width: 1023px) {
-            #adminActionModal {
+            .sidebar-aware-modal {
                 left: 0 !important;
             }
         }
@@ -483,6 +531,21 @@ foreach ($logs as $log) {
                 activeBtn.classList.remove('text-[--text-main]', 'opacity-50');
             }
             if (activeIndicator) activeIndicator.classList.replace('opacity-0', 'opacity-100');
+
+            // Sync with hidden filter input
+            const tabInput = document.getElementById('activeTabInput');
+            if (tabInput) tabInput.value = tabId;
+
+            // Context-Aware Filter Visibility
+            const subFilter = document.getElementById('filterGroupSubStatus');
+            const payFilter = document.getElementById('filterGroupPayStatus');
+            if (tabId === 'pending') {
+                if (subFilter) subFilter.classList.add('hidden');
+                if (payFilter) payFilter.classList.add('hidden');
+            } else {
+                if (subFilter) subFilter.classList.remove('hidden');
+                if (payFilter) payFilter.classList.remove('hidden');
+            }
         }
 
         function confirmAdminAction(form, title, message) {
@@ -508,101 +571,7 @@ foreach ($logs as $log) {
 </head>
 <body class="antialiased flex flex-row min-h-screen">
 
-<nav class="sidebar-nav h-screen sticky top-0 z-50 shrink-0 flex flex-col no-scrollbar">
-    <div class="px-7 py-5 mb-2 shrink-0">
-        <div class="flex items-center gap-4">
-            <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($brand['system_logo'])): ?>
-                    <img src="<?= htmlspecialchars($brand['system_logo']) ?>" class="size-full object-contain rounded-xl">
-                <?php else: ?>
-                    <img src="../assests/horizon logo.png" class="size-full object-contain rounded-xl transition-transform duration-500 hover:scale-110" alt="Horizon Logo">
-                <?php endif; ?>
-            </div>
-            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">
-                <?= htmlspecialchars($brand['system_name'] ?? 'Horizon System') ?>
-            </h1>
-        </div>
-    </div>
-    
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pb-4">
-        <div class="nav-section-header px-7 mb-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span>
-        </div>
-        <a href="superadmin_dashboard.php" class="nav-link <?= ($active_page == 'dashboard') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
-            <span class="nav-text">Dashboard</span>
-        </a>
-        
-        <div class="nav-section-header px-7 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span>
-        </div>
-        <a href="tenant_management.php" class="nav-link <?= ($active_page == 'tenants') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">business</span> 
-            <span class="nav-text">Tenant Management</span>
-        </a>
-
-        <a href="subscription_logs.php" class="nav-link <?= ($active_page == 'subscriptions') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
-            <span class="nav-text">Subscription Logs</span>
-        </a>
-
-        <a href="real_time_occupancy.php" class="nav-link <?= ($active_page == 'occupancy') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">group</span> 
-            <span class="nav-text">Real-Time Occupancy</span>
-        </a>
-
-        <a href="recent_transaction.php" class="nav-link <?= ($active_page == 'transactions') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
-            <span class="nav-text">Recent Transactions</span>
-        </a>
-
-        <div class="nav-section-header px-7 mb-2 mt-4">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">System</span>
-        </div>
-        <a href="system_alerts.php" class="nav-link <?= ($active_page == 'alerts') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
-            <span class="nav-text">System Alerts</span>
-        </a>
-
-        <a href="system_reports.php" class="nav-link <?= ($active_page == 'reports') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
-            <span class="nav-text">Reports</span>
-        </a>
-
-        <a href="sales_report.php" class="nav-link <?= ($active_page == 'sales_report') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">monitoring</span> 
-            <span class="nav-text">Sales Reports</span>
-        </a>
-
-        <a href="audit_logs.php" class="nav-link <?= ($active_page == 'audit_logs') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">assignment</span> 
-            <span class="nav-text">Audit Logs</span>
-        </a>
-
-        <a href="backup.php" class="nav-link <?= ($active_page == 'backup') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
-            <span class="nav-text">Backup</span>
-        </a>
-    </div>
-
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
-        <div class="nav-section-header px-7 mb-0">
-            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span>
-        </div>
-        <a href="settings.php" class="nav-link <?= ($active_page == 'settings') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
-            <span class="nav-text">Settings</span>
-        </a>
-        <a href="profile.php" class="nav-link <?= ($active_page == 'profile') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">person</span> 
-            <span class="nav-text">Profile</span>
-        </a>
-        <a href="../logout.php" class="nav-link !text-gray-400 hover:!text-rose-500 transition-all group">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0 group-hover:!text-rose-500">logout</span>
-            <span class="nav-text group-hover:!text-rose-500">Sign Out</span>
-        </a>
-    </div>
-</nav>
+<?php include '../includes/superadmin_sidebar.php'; ?>
 
 <div class="flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
     <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
@@ -671,8 +640,9 @@ foreach ($logs as $log) {
         
         <!-- DYNAMIC FILTERS (Restored & Corrected Position) -->
         <div class="glass-card p-6 mb-8 border-white/5 shadow-2xl relative overflow-hidden">
-            <form method="GET" class="flex flex-wrap items-end gap-6 relative z-10">
-                <div class="flex-1 min-w-[280px]">
+            <form method="GET" class="flex flex-wrap items-end gap-6 relative z-10" id="filterForm">
+                <input type="hidden" name="tab" id="activeTabInput" value="<?= htmlspecialchars($active_tab) ?>">
+                <div class="w-[320px]">
                     <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Search Identifier</label>
                     <div class="relative group">
                         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary transition-transform group-hover:scale-110">search</span>
@@ -682,18 +652,18 @@ foreach ($logs as $log) {
                     </div>
                 </div>
 
-                <div class="w-[180px]">
+                <div id="filterGroupSubStatus" class="w-[180px] <?= $active_tab === 'pending' ? 'hidden' : '' ?>">
                     <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Sub Status</label>
-                    <select name="sub_status" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
+                    <select name="sub_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
                         <option value="all" <?= $sub_status === 'all' ? 'selected' : '' ?>>All Status</option>
                         <option value="Active" <?= $sub_status === 'Active' ? 'selected' : '' ?>>Active Only</option>
                         <option value="Expired" <?= $sub_status === 'Expired' ? 'selected' : '' ?>>Expired Only</option>
                     </select>
                 </div>
 
-                <div class="w-[180px]">
+                <div id="filterGroupPayStatus" class="w-[180px] <?= $active_tab === 'pending' ? 'hidden' : '' ?>">
                     <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Payment Status</label>
-                    <select name="pay_status" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
+                    <select name="pay_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
                         <option value="all" <?= $pay_status === 'all' ? 'selected' : '' ?> class="text-white">All Payments</option>
                         <option value="Paid" <?= $pay_status === 'Paid' ? 'selected' : '' ?> class="text-emerald-400">Paid</option>
                         <option value="Pending" <?= $pay_status === 'Pending' ? 'selected' : '' ?> class="text-amber-400">Pending</option>
@@ -704,21 +674,18 @@ foreach ($logs as $log) {
                 <div class="flex gap-4">
                     <div class="w-[150px]">
                         <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">From</label>
-                        <input type="date" name="date_from" value="<?= $date_from ?>" 
+                        <input type="date" name="date_from" value="<?= $date_from ?>" onchange="this.form.submit()" 
                                class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none">
                     </div>
                     <div class="w-[150px]">
                         <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">To</label>
-                        <input type="date" name="date_to" value="<?= $date_to ?>" 
+                        <input type="date" name="date_to" value="<?= $date_to ?>" onchange="this.form.submit()" 
                                class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none">
                     </div>
                 </div>
 
-                <div class="flex gap-2">
-                    <button type="submit" class="p-3 rounded-xl bg-primary text-white shadow-lg shadow-primary/20 hover:scale-[1.05] active:scale-95 transition-all flex items-center justify-center">
-                        <span class="material-symbols-outlined text-sm">filter_alt</span>
-                    </button>
-                    <a href="subscription_logs.php" class="p-3 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center">
+                <div class="ml-auto">
+                    <a href="subscription_logs.php" title="Reset Filters" class="size-11 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center">
                         <span class="material-symbols-outlined text-sm">refresh</span>
                     </a>
                 </div>
@@ -1131,7 +1098,7 @@ foreach ($logs as $log) {
 </script>
 
 <!-- 4. Sidebar-Aware Modal UI Skeleton (Targeting Requirement) -->
-<div id="adminActionModal" class="p-4 overflow-y-auto">
+<div id="adminActionModal" class="sidebar-aware-modal p-4 overflow-y-auto">
     <div class="glass-card max-w-md w-full p-8 border-primary/20 shadow-2xl shadow-primary/10 mx-auto">
         <h3 id="modalTitle" class="text-xl font-black italic uppercase italic text-white mb-2 leading-none">Confirm Action</h3>
         <p id="modalMessage" class="text-[10px] text-[--text-main] opacity-60 font-bold uppercase tracking-widest leading-relaxed mb-10">Are you sure you want to proceed with this administrative task?</p>
@@ -1150,7 +1117,7 @@ foreach ($logs as $log) {
 </div>
 
 <!-- Subscription Details Modal -->
-<div id="subscriptionDetailModal" class="fixed inset-0 z-[300] hidden flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+<div id="subscriptionDetailModal" class="sidebar-aware-modal p-4 overflow-y-auto">
     <div class="glass-card max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden border-white/10 shadow-2xl">
         <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/5">
             <h3 class="text-xl font-black italic uppercase text-white flex items-center gap-3">
@@ -1252,7 +1219,38 @@ foreach ($logs as $log) {
         document.getElementById('detailStart').textContent = data.start_date ? new Date(data.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '---';
         document.getElementById('detailEnd').textContent = data.end_date ? new Date(data.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '---';
         document.getElementById('detailPayStatus').textContent = data.payment_status;
-        document.getElementById('detailRefNo').textContent = data.ref_no || 'NOT_FOUND';
+        
+        const refEl = document.getElementById('detailRefNo');
+        refEl.textContent = data.ref_no || 'NOT_FOUND';
+        
+        // Auto-fetch from PayMongo if Reference is missing or is just a Session ID
+        if ((!data.ref_no || data.ref_no === 'NOT_FOUND' || data.ref_no.startsWith('cs_')) && data.payment_id) {
+            refEl.innerHTML = '<span class="flex items-center gap-2 text-primary opacity-60"><span class="material-symbols-outlined text-xs animate-spin">refresh</span> Fetching Ref...</span>';
+            
+            const formData = new FormData();
+            formData.append('action', 'fetch_paymongo_ref');
+            formData.append('payment_id', data.payment_id);
+            
+            fetch('subscription_logs.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(res => {
+                if (res.success) {
+                    refEl.textContent = res.ref_no;
+                    // Update the local object so it doesn't refetch if closed and reopened
+                    data.ref_no = res.ref_no;
+                } else {
+                    refEl.textContent = data.ref_no || 'NOT_FOUND';
+                    console.error('PayMongo Fetch Error:', res.message);
+                }
+            })
+            .catch(err => {
+                refEl.textContent = data.ref_no || 'NOT_FOUND';
+                console.error('AJAX Error:', err);
+            });
+        }
         
         // Handle Sub Status badge
         const subStatus = document.getElementById('detailSubStatus');
@@ -1273,7 +1271,7 @@ foreach ($logs as $log) {
             iconPlaceholder.classList.remove('hidden');
         }
 
-        modal.classList.remove('hidden');
+        modal.classList.add('flex-important');
     }
 
     function getLogoPathJS(path) {
@@ -1285,7 +1283,7 @@ foreach ($logs as $log) {
     }
 
     function closeDetailModal() {
-        document.getElementById('subscriptionDetailModal').classList.add('hidden');
+        document.getElementById('subscriptionDetailModal').classList.remove('flex-important');
     }
 </script>
 </body>

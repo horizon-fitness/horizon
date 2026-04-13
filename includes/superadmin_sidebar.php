@@ -1,54 +1,115 @@
-<nav class="sidebar-nav flex flex-col bg-[#0a090d] border-r border-white/5 sticky top-0 h-screen px-7 py-8 z-50 shrink-0">
-    <div class="mb-12">
-        <div class="flex items-center gap-4 mb-6">
-            <div class="size-10 rounded-xl bg-[#7f13ec] flex items-center justify-center shadow-lg shrink-0">
-                <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+<?php
+// Centralized Superadmin Sidebar with Pending Count Logic
+// Required variables: $pdo, $active_page, $brand
+
+// Count Pending Subscription Payments for the Badge
+$pending_sub_count = 0;
+if (isset($pdo)) {
+    try {
+        $stmtBadge = $pdo->query("SELECT COUNT(*) FROM client_subscriptions WHERE payment_status = 'Pending'");
+        $pending_sub_count = $stmtBadge->fetchColumn();
+    } catch (Exception $e) {
+        // Silently fail if query fails
+    }
+}
+?>
+<nav class="sidebar-nav h-screen sticky top-0 z-50 shrink-0 flex flex-col no-scrollbar">
+    <div class="px-7 py-5 mb-2 shrink-0">
+        <div class="flex items-center gap-4">
+            <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
+                <?php if (!empty($brand['system_logo'])): ?>
+                    <img src="<?= htmlspecialchars($brand['system_logo']) ?>" class="size-full object-contain rounded-xl">
+                <?php else: ?>
+                    <img src="../assests/horizon logo.png" class="size-full object-contain rounded-xl transition-transform duration-500 hover:scale-110" alt="Horizon Logo">
+                <?php endif; ?>
             </div>
-            <h1 class="nav-text text-xl font-black italic uppercase tracking-tighter text-white">Horizon System</h1>
+            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">
+                <?= htmlspecialchars($brand['system_name'] ?? 'Horizon System') ?>
+            </h1>
         </div>
     </div>
     
-    <div class="flex flex-col gap-6 flex-1 overflow-y-auto no-scrollbar pr-2">
-        <a href="superadmin_dashboard.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'dashboard') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">grid_view</span> 
+    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1 pb-4">
+        <div class="nav-section-header px-7 mb-2">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span>
+        </div>
+        <a href="superadmin_dashboard.php" class="nav-link <?= ($active_page == 'dashboard') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-text">Dashboard</span>
         </a>
         
-        <a href="tenant_management.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'tenants') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">business</span> 
+        <div class="nav-section-header px-7 mb-2 mt-4">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span>
+        </div>
+        <a href="tenant_management.php" class="nav-link <?= ($active_page == 'tenants') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">business</span> 
             <span class="nav-text">Tenant Management</span>
         </a>
 
-        <a href="system_reports.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'reports') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">analytics</span> 
+        <a href="subscription_logs.php" class="nav-link <?= ($active_page == 'subscriptions') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
+            <span class="nav-text">Subscription Logs</span>
+            <?php if ($pending_sub_count > 0): ?>
+                <span class="ml-auto size-5 rounded-full bg-rose-500 text-[9px] font-black flex items-center justify-center text-white alert-pulse shadow-lg shadow-rose-500/20">
+                    <?= $pending_sub_count ?>
+                </span>
+            <?php endif; ?>
+        </a>
+
+        <a href="real_time_occupancy.php" class="nav-link <?= ($active_page == 'occupancy') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">group</span> 
+            <span class="nav-text">Real-Time Occupancy</span>
+        </a>
+
+        <a href="recent_transaction.php" class="nav-link <?= ($active_page == 'transactions') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
+            <span class="nav-text">Recent Transactions</span>
+        </a>
+
+        <div class="nav-section-header px-7 mb-2 mt-4">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">System</span>
+        </div>
+        <a href="system_alerts.php" class="nav-link <?= ($active_page == 'alerts') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
+            <span class="nav-text">System Alerts</span>
+        </a>
+
+        <a href="system_reports.php" class="nav-link <?= ($active_page == 'reports') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
             <span class="nav-text">Reports</span>
         </a>
 
-        <a href="sales_report.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'sales_report') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">monitoring</span> 
+        <a href="sales_report.php" class="nav-link <?= ($active_page == 'sales_report') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">monitoring</span> 
             <span class="nav-text">Sales Reports</span>
         </a>
 
-        <a href="audit_logs.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'audit_logs') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">assignment</span> 
+        <a href="audit_logs.php" class="nav-link <?= ($active_page == 'audit_logs') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">assignment</span> 
             <span class="nav-text">Audit Logs</span>
         </a>
 
-        <a href="backup.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'backup') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">cloud_upload</span> 
-            <span class="nav-text">System Backup</span>
-        </a>
-
-        <a href="settings.php" class="nav-link flex items-center gap-4 py-2 <?= ($active_page == 'settings') ? 'active-nav text-primary' : 'text-gray-400 hover:text-white' ?>">
-            <span class="material-symbols-outlined text-2xl shrink-0">settings</span> 
-            <span class="nav-text">Settings</span>
+        <a href="backup.php" class="nav-link <?= ($active_page == 'backup') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
+            <span class="nav-text">Backup</span>
         </a>
     </div>
 
-    <div class="mt-auto pt-8 border-t border-white/10 flex flex-col gap-8">
-        <a href="../logout.php" class="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-4 group">
-            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-2xl shrink-0">logout</span>
-            <span class="nav-link nav-text text-[10px] font-black uppercase tracking-widest">Sign Out</span>
+    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
+        <div class="nav-section-header px-7 mb-0">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span>
+        </div>
+        <a href="settings.php" class="nav-link <?= ($active_page == 'settings') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
+            <span class="nav-text">Settings</span>
+        </a>
+        <a href="profile.php" class="nav-link <?= ($active_page == 'profile') ? 'active-nav' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">person</span> 
+            <span class="nav-text">Profile</span>
+        </a>
+        <a href="../logout.php" class="nav-link !text-gray-400 hover:!text-rose-500 transition-all group">
+            <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0 group-hover:!text-rose-500">logout</span>
+            <span class="nav-text group-hover:!text-rose-500">Sign Out</span>
         </a>
     </div>
 </nav>
