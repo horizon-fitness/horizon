@@ -61,7 +61,7 @@ $sub_status = $stmtSubStatus->fetchColumn() ?: 'None';
 $is_sub_active = (strtolower($sub_status) === 'active');
 
 // Determine if we show the restriction modal (Only for non-active AND non-pending)
-$is_restricted = (!$is_sub_active && strpos($sub_status, 'Pending') === false);
+$is_restricted = (!$is_sub_active);
 
 // Hex to RGB helper
 function hexToRgb($hex) {
@@ -952,10 +952,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 Access to branding and facility configuration is restricted. Your status is <span class="text-primary italic animate-pulse"><?= $sub_status ?></span>. Please activate a growth plan to unlock.
             </p>
             <div class="flex flex-col gap-4">
-                <a href="subscription_plan.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
-                    <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">payments</span>
-                    Select Growth Plan
-                </a>
+                <?php if (strpos($sub_status, 'Pending') !== false): ?>
+                    <a href="tenant_dashboard.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+                        <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">grid_view</span>
+                        Back to Dashboard
+                    </a>
+                <?php else: ?>
+                    <a href="subscription_plan.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+                        <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">payments</span>
+                        Select Growth Plan
+                    </a>
+                <?php endif; ?>
             </div>
         </div>
     </div>
