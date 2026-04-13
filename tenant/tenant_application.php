@@ -562,7 +562,7 @@ unset($_SESSION['application_data']);
         "BDO Unibank", "BPI", "Land Bank of the Philippines",
         "Metrobank", "Security Bank", "Union Bank",
         "PNB", "China Bank", "RCBC", "EastWest Bank",
-        "GCash", "Maya", "GrabPay", "ShopeePay", "Coins.ph"
+        "GCash", "Maya"
     ];
 
     const bankSearch = document.getElementById('bank-search');
@@ -613,7 +613,7 @@ unset($_SESSION['application_data']);
     });
 
     function handleBankChange(name) {
-        const eWallets = ["GCash", "Maya", "GrabPay", "ShopeePay", "Coins.ph"];
+        const eWallets = ["GCash", "Maya"];
         
         // Bank configurations: [placeholder, maxLength]
         const bankConfigs = {
