@@ -39,6 +39,7 @@ foreach ($plans as &$p) {
     $stmtF->execute([$p['website_plan_id']]);
     $p['features'] = $stmtF->fetchAll(PDO::FETCH_COLUMN);
 }
+unset($p); // Break the reference to the last element
 
 // Check for recent rejection to show notice
 $stmtRecent = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? ORDER BY created_at DESC LIMIT 1");
@@ -202,14 +203,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             transform: translateY(-5px);
         }
 
-        /* Scrollbar Styling */
-        .no-scrollbar::-webkit-scrollbar { display: none !important; }
-        .no-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
-
-        .custom-scrollbar::-webkit-scrollbar { height: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(127, 19, 236, 0.1); border-radius: 10px; transition: all 0.3s ease; }
-        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(127, 19, 236, 0.4); }
+        /* 100% Invisible, 100% Active Scroll System */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
     </style>
 </head>
 
@@ -267,7 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             <?php endif; ?>
         </div>
 
-        <div class="flex overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 custom-scrollbar scroll-smooth">
+        <div class="flex overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 scroll-smooth">
             <?php foreach($plans as $plan): 
                 $isMomentum = strpos($plan['plan_name'], 'Momentum') !== false;
             ?>
