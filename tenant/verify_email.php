@@ -175,249 +175,263 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html class="dark" lang="en">
 <head>
     <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
     <title>Verify Email | Horizon Systems</title>
 
-    <link href="https://fonts.googleapis.com" rel="preconnect"/>
-    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=Lexend:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-
     <script id="tailwind-config">
-    tailwind.config = {
-        darkMode: "class",
-        theme: {
-            extend: {
-                colors: {
-                    "primary": "<?= $branding['theme_color'] ?? '#7f13ec' ?>",
-                    "primary-hover": "<?= $branding['theme_color'] ?? '#6a11c9' ?>",
-                    "background-dark": "<?= $branding['bg_color'] ?? '#0a090d' ?>",
-                    "input-border": "#2d2838",
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "<?= $branding['theme_color'] ?? '#7f13ec' ?>",
+                        "primary-dark": "<?= ($branding['theme_color'] ?? '#7f13ec') === '#7f13ec' ? '#5e0eb3' : $branding['theme_color'] ?>",
+                        "background-dark": "<?= $branding['bg_color'] ?? '#050505' ?>", 
+                        "surface-dark": "rgba(21, 21, 24, 0.4)",
+                        "text-secondary": "#ab9db9"
+                    },
+                    fontFamily: { 
+                        "display": ["<?= $branding['font_family'] ?? 'Lexend' ?>", "sans-serif"],
+                        "sans": ["Plus Jakarta Sans", "Inter", "sans-serif"]
+                    },
+                    borderRadius: { 'custom': '12px' }
                 },
-                fontFamily: { "display": ["<?= $branding['font_family'] ?? 'Lexend' ?>", "sans-serif"] },
             },
-        },
-    }
+        }
     </script>
     <style>
-        .otp-box {
-            background-color: #08080a !important;
-            color: #ffffff !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            appearance: none;
-            -webkit-appearance: none;
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+
+        html, body { 
+            background-color: #050505 !important; 
+            color: #f3f4f6;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
         }
-        .otp-box:focus {
-            background-color: rgba(127, 19, 236, 0.05) !important;
-            border-color: #7f13ec !important;
-            box-shadow: 0 0 15px rgba(127, 19, 236, 0.2) !important;
-            transform: translateY(-2px);
-            outline: none !important;
+        
+        .hero-glow {
+            background-image: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.18), transparent 70%);
         }
-        /* Anti-Autofill and forced background fix */
-        .otp-box:-webkit-autofill,
-        .otp-box:-webkit-autofill:hover, 
-        .otp-box:-webkit-autofill:focus {
-            -webkit-text-fill-color: #ffffff !important;
-            -webkit-box-shadow: 0 0 0px 1000px #08080a inset !important;
-            transition: background-color 5000s ease-in-out 0s;
+
+        /* Gym Photo Integration - Synced with login.php */
+        .login-bg-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, rgba(5,5,5,0.8), #050505), url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop');
+            background-size: cover;
+            background-position: center;
+            opacity: 0.4;
+            z-index: -1;
         }
+
+        .dashboard-window {
+            background: rgba(8, 8, 10, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
+        }
+
+        .input-gradient-focus:focus-within {
+            border-color: #7f13ec;
+            box-shadow: 0 0 0 1px rgba(127, 19, 236, 0.3);
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
     </style>
 </head>
 
-<body class="bg-background-dark text-white font-display min-h-screen flex flex-col antialiased relative overflow-hidden">
+<body class="font-sans antialiased min-h-screen flex flex-col hero-glow relative overflow-x-hidden">
+    <div class="login-bg-overlay"></div>
 
-<div class="fixed inset-0 z-0">
-    <div class="absolute inset-0 bg-[#0a090d]/85 backdrop-blur-sm"></div>
-    <div class="absolute inset-0 bg-gradient-to-t from-primary/10 to-transparent"></div>
-</div>
-
-<main class="flex-1 flex items-center justify-center p-4 relative z-10">
-    <div class="w-full max-w-[420px] rounded-[32px] border border-white/5 bg-[#121017]/80 backdrop-blur-xl shadow-[0_0_50px_rgba(127,19,236,0.15)] p-10 text-center">
+    <nav class="w-full px-8 py-6 flex justify-between items-center relative z-20">
+        <a href="../index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
+                <?php if ($branding && !empty($branding['logo_path'])): ?>
+                    <img src="<?= '../' . $branding['logo_path'] ?>" class="size-full object-contain">
+                <?php else: ?>
+                    <img src="../assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
+                <?php endif; ?>
+            </div>
+            <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>
+        </a>
         
-        <div class="mx-auto size-16 bg-primary/20 rounded-full flex items-center justify-center mb-6 overflow-hidden border border-primary/30">
-            <?php if ($branding && !empty($branding['logo_path'])): ?>
-                <img src="<?= '../' . $branding['logo_path'] ?>" class="size-full object-contain">
-            <?php else: ?>
-                <img src="../assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
-            <?php endif; ?>
+        <div class="flex items-center gap-3">
+            <a href="../login.php<?= isset($_GET['gym']) ? '?gym='.urlencode($_GET['gym']) : '' ?>" class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-400 hover:text-white transition-all flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                Cancel Verification
+            </a>
         </div>
+    </nav>
 
-        <div class="space-y-3 mb-8">
-            <h2 class="text-2xl font-black tracking-tight uppercase italic">Verify Identity</h2>
-            <p class="text-gray-400 text-sm font-medium">We've sent a 6-digit verification code to <br><span class="text-white"><?= htmlspecialchars($email) ?></span></p>
-        </div>
+    <main class="flex-1 flex items-center justify-center p-6 relative z-10">
+        <div class="dashboard-window w-full max-w-[440px] rounded-2xl p-10 md:p-12 relative overflow-hidden text-center">
+            <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
+            
+            <div class="relative z-10">
+                <div class="mb-10">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
+                        Secure Authentication
+                    </div>
+                    <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
+                        Verify <span class="text-primary">Identity</span>
+                    </h1>
+                    <p class="text-[11px] text-gray-500 font-bold uppercase tracking-widest leading-relaxed">
+                        We've sent a 6-digit security code to <br>
+                        <span class="text-white"><?= htmlspecialchars($email) ?></span>
+                    </p>
+                </div>
 
-        <?php if (!empty($error)): ?>
-        <div class="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center justify-center gap-2 font-semibold">
-            <span class="material-symbols-outlined text-[16px]">error</span>
-            <?= $error ?>
-        </div>
-        <?php endif; ?>
+                <?php if (!empty($error)): ?>
+                <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] flex items-center justify-center gap-3 font-bold uppercase tracking-wider">
+                    <span class="material-symbols-outlined text-base">security</span>
+                    <?= $error ?>
+                </div>
+                <?php endif; ?>
 
-        <!-- Premium Success Modal popup overlay -->
-        <?php if (!empty($success)): ?>
-            <div id="success-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0a090d]/90 backdrop-blur-sm animate-fade-in">
-                <div class="w-full max-w-[400px] rounded-[32px] border border-white/5 bg-[#121017]/95 p-8 text-center relative overflow-hidden shadow-2xl">
-                    <div class="absolute -top-24 -right-24 w-48 h-48 <?= $is_auto_approved ? 'bg-primary/10' : 'bg-emerald-500/10' ?> blur-[60px] rounded-full pointer-events-none"></div>
-                    
-                    <div class="relative z-10">
-                        <div class="size-20 <?= $is_auto_approved ? 'bg-primary/10 border-primary/20' : 'bg-emerald-500/10 border-emerald-500/20' ?> rounded-full flex items-center justify-center border mx-auto mb-6">
-                            <span class="material-symbols-outlined text-4xl <?= $is_auto_approved ? 'text-primary' : 'text-emerald-400' ?> animate-bounce">verified</span>
-                        </div>
-                        
-                        <h3 class="text-2xl font-black text-white uppercase italic tracking-tight mb-4">
-                            <?= $is_auto_approved ? 'Portal <span class="text-primary">Activated</span>' : 'Identity <span class="text-emerald-400">Verified</span>' ?>
-                        </h3>
-                        
-                        <p class="text-[13px] text-gray-400 font-medium leading-relaxed mb-8">
-                            <?php if($is_auto_approved): ?>
-                                Verification successful! Your gym infrastructure is now live and synced.
-                            <?php else: ?>
-                                Identity confirmed! Your application is in the priority queue for final audit.
-                            <?php endif; ?>
-                        </p>
-                        
-                        <div class="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-2">
-                            <div id="redirect-progress" class="absolute inset-y-0 left-0 <?= $is_auto_approved ? 'bg-primary' : 'bg-emerald-500' ?> transition-all duration-100 ease-linear" style="width: 100%"></div>
-                        </div>
-                        <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-gray-600">
-                            <span>Redirecting to Login</span>
-                            <span id="countdown-text">10s</span>
+                <!-- Premium Success Modal popup overlay -->
+                <?php if (!empty($success)): ?>
+                    <div id="success-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#050505]/95 backdrop-blur-md animate-fade-in">
+                        <div class="w-full max-w-[400px] rounded-2xl border border-white/5 bg-[#08080a] p-10 text-center relative overflow-hidden shadow-2xl">
+                            <div class="absolute -top-24 -right-24 w-48 h-48 <?= $is_auto_approved ? 'bg-primary/10' : 'bg-emerald-500/10' ?> blur-[60px] rounded-full pointer-events-none"></div>
+                            
+                            <div class="relative z-10">
+                                <div class="size-20 <?= $is_auto_approved ? 'bg-primary/10 border-primary/20' : 'bg-emerald-500/10 border-emerald-500/20' ?> rounded-full flex items-center justify-center border mx-auto mb-6">
+                                    <span class="material-symbols-outlined text-4xl <?= $is_auto_approved ? 'text-primary' : 'text-emerald-400' ?> animate-bounce">verified</span>
+                                </div>
+                                
+                                <h3 class="text-2xl font-black text-white uppercase italic tracking-tight mb-4">
+                                    <?= $is_auto_approved ? 'Portal <span class="text-primary">Activated</span>' : 'Identity <span class="text-emerald-400">Verified</span>' ?>
+                                </h3>
+                                
+                                <p class="text-[12px] text-gray-400 font-bold uppercase tracking-widest leading-relaxed mb-10">
+                                    <?php if($is_auto_approved): ?>
+                                        Success! Your gym portal is now live.
+                                    <?php else: ?>
+                                        Confirmed! Redirecting you to login...
+                                    <?php endif; ?>
+                                </p>
+                                
+                                <div class="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-3">
+                                    <div id="redirect-progress" class="absolute inset-y-0 left-0 <?= $is_auto_approved ? 'bg-primary' : 'bg-emerald-500' ?> transition-all duration-100 ease-linear" style="width: 100%"></div>
+                                </div>
+                                <div class="flex justify-between items-center text-[9px] font-black uppercase tracking-[0.2em] text-gray-600">
+                                    <span>Syncing Session</span>
+                                    <span id="countdown-text">10s</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                <?php endif; ?>
+
+                <form method="POST" action="?<?= http_build_query($_GET) ?>" class="space-y-8">
+                    <div class="space-y-3 text-left">
+                        <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Verification Code</label>
+                        <div class="relative group input-gradient-focus rounded-xl transition-all">
+                            <span class="absolute left-5 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">pin</span>
+                            <input
+                                class="flex h-16 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-14 pr-4 text-center text-2xl tracking-[0.5em] text-white placeholder:text-gray-800 focus:outline-none transition-all font-black uppercase"
+                                name="otp_code"
+                                placeholder="••••••"
+                                maxlength="6"
+                                required
+                                type="text"
+                                inputmode="numeric"
+                                pattern="\d*"
+                                autocomplete="one-time-code"
+                            />
+                        </div>
+                    </div>
+
+                    <button
+                        class="w-full h-16 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98]"
+                        type="submit">
+                        Verify My Account
+                        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+                    </button>
+                </form>
+
+                <div class="text-center mt-12 pt-8 border-t border-white/5">
+                    <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                        Didn't receive the code? 
+                        <a id="resendLink" class="text-primary hover:text-white transition-all ml-1 pointer-events-none opacity-40" href="../action/resend_otp.php<?= isset($_GET['gym']) ? '?gym='.urlencode($_GET['gym']) : '' ?>">
+                            Resend Code<span id="resendCountdown" class="ml-1 text-gray-700">(60s)</span>
+                        </a>
+                    </p>
                 </div>
             </div>
-        <?php endif; ?>
-
-        <form method="POST" action="?<?= http_build_query($_GET) ?>" class="space-y-6">
-            <div class="space-y-4">
-                <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Secure Code</label>
-                <div class="flex gap-3 justify-between" id="otp-inputs">
-                    <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                    <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                    <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                    <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                    <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                    <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                </div>
-                <input type="hidden" name="otp_code" id="otp_full_code" required>
-            </div>
-
-            <button
-                class="w-full h-14 mt-4 rounded-xl bg-primary hover:bg-primary-hover text-white font-black uppercase tracking-widest text-sm transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-3 hover:scale-[1.01] active:scale-[0.99]"
-                type="submit">
-                Verify Account
-                <span class="material-symbols-outlined text-xl">verified_user</span>
-            </button>
-        </form>
-
-        <div class="text-center pt-8 border-t border-white/5 mt-8">
-            <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
-                Didn't receive the code? 
-                <a id="resendLink" class="text-primary hover:text-white transition-colors ml-1 pointer-events-none opacity-50" href="../action/resend_otp.php<?= isset($_GET['gym']) ? '?gym='.urlencode($_GET['gym']) : '' ?>">
-                    Resend Code<span id="resendCountdown"> (60s)</span>
-                </a>
-            </p>
         </div>
-    </div>
-</main>
-<script>
-    function setupOTP() {
-        const container = document.getElementById('otp-inputs');
-        if (!container) return;
-        const inputs = container.querySelectorAll('input');
-        const hiddenField = document.getElementById('otp_full_code');
+    </main>
 
-        inputs.forEach((input, index) => {
-            // Handle typing
-            input.addEventListener('input', (e) => {
-                input.value = input.value.replace(/\D/g, '');
-                if (input.value.length === 1) {
-                    if (index < inputs.length - 1) inputs[index + 1].focus();
-                }
-                updateHiddenField();
-            });
+    <footer class="relative z-20 w-full py-6 text-center -mt-10">
+        <p class="text-[9px] font-display font-bold text-gray-700 uppercase tracking-[0.4em]">
+            © 2026 HORIZON SYSTEM. SECURE ENVIRONMENT.
+        </p>
+    </footer>
 
-            // Handle backspace
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Backspace' && input.value.length === 0 && index > 0) {
-                    inputs[index - 1].focus();
-                }
-            });
+    <script>
+        function startResendTimer() {
+            let seconds = 60;
+            const resendLink = document.getElementById('resendLink');
+            const resendCountdown = document.getElementById('resendCountdown');
+            if(!resendLink || !resendCountdown) return;
 
-            // Handle paste
-            input.addEventListener('paste', (e) => {
-                e.preventDefault();
-                const data = e.clipboardData.getData('text').slice(0, 6);
-                if (/^\d+$/.test(data)) {
-                    data.split('').forEach((char, i) => {
-                        if (index + i < inputs.length) {
-                            inputs[index + i].value = char;
-                        }
-                    });
-                    const nextIndex = Math.min(index + data.length, inputs.length - 1);
-                    inputs[nextIndex].focus();
-                    updateHiddenField();
-                }
-            });
-        });
-
-        function updateHiddenField() {
-            const val = Array.from(inputs).map(i => i.value).join('');
-            hiddenField.value = val;
-        }
-    }
-
-    function startResendTimer() {
-        let seconds = 60;
-        const resendLink = document.getElementById('resendLink');
-        const resendCountdown = document.getElementById('resendCountdown');
-        
-        if(!resendLink || !resendCountdown) return;
-
-        const timer = setInterval(() => {
-            seconds--;
-            if (seconds > 0) {
-                resendCountdown.textContent = ` (${seconds}s)`;
-            } else {
-                clearInterval(timer);
-                resendLink.classList.remove('pointer-events-none', 'opacity-50');
-                resendCountdown.textContent = '';
-            }
-        }, 1000);
-    }
-
-    const originalWaitLoad = window.onload;
-    window.onload = function(e) {
-        if(originalWaitLoad) {
-            originalWaitLoad(e);
-        }
-        startResendTimer();
-        setupOTP();
-
-        // Success Modal Redirection Logic
-        const successModal = document.getElementById('success-modal');
-        if (successModal) {
-            let timeLeft = 10;
-            const countdownText = document.getElementById('countdown-text');
-            const progressBar = document.getElementById('redirect-progress');
-            
-            const interval = setInterval(() => {
-                timeLeft -= 0.1;
-                if (timeLeft <= 0) {
-                    clearInterval(interval);
-                    const gymParam = "<?= isset($_GET['gym']) ? '?gym=' . urlencode($_GET['gym']) : '' ?>";
-                    window.location.href = "../login.php" + gymParam;
+            const timer = setInterval(() => {
+                seconds--;
+                if (seconds > 0) {
+                    resendCountdown.textContent = `(${seconds}s)`;
                 } else {
-                    if (countdownText) countdownText.textContent = Math.ceil(timeLeft) + 's';
-                    if (progressBar) progressBar.style.width = (timeLeft / 10 * 100) + '%';
+                    clearInterval(timer);
+                    resendLink.classList.remove('pointer-events-none', 'opacity-40');
+                    resendLink.classList.add('hover:text-primary');
+                    resendCountdown.textContent = '';
                 }
-            }, 100);
+            }, 1000);
         }
-    };
-</script>
+
+        window.onload = function() {
+            startResendTimer();
+
+            // Success Modal Redirection Logic
+            const successModal = document.getElementById('success-modal');
+            if (successModal) {
+                let timeLeft = 10;
+                const countdownText = document.getElementById('countdown-text');
+                const progressBar = document.getElementById('redirect-progress');
+                
+                const interval = setInterval(() => {
+                    timeLeft -= 0.1;
+                    if (timeLeft <= 0) {
+                        clearInterval(interval);
+                        const gymParam = "<?= isset($_GET['gym']) ? '?gym=' . urlencode($_GET['gym']) : '' ?>";
+                        window.location.href = "../login.php" + gymParam;
+                    } else {
+                        if (countdownText) countdownText.textContent = Math.ceil(timeLeft) + 's';
+                        if (progressBar) progressBar.style.width = (timeLeft / 10 * 100) + '%';
+                    }
+                }, 100);
+            }
+
+            // Input masking/cleaning
+            const otpInput = document.querySelector('input[name="otp_code"]');
+            if (otpInput) {
+                otpInput.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.replace(/\D/g, '');
+                });
+            }
+        };
+    </script>
 </body>
 </html>

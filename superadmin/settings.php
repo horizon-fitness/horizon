@@ -103,7 +103,7 @@ foreach ($website_plans as &$p) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     unset($_POST['save_settings']);
     
-    // Handle Website Plans Update (3NF Compatibility)
+    // 2. Handle EXISTING Plans Update (Metadata Only)
     if (isset($_POST['plans']) && is_array($_POST['plans'])) {
         $stmtUpdatePlan = $pdo->prepare("UPDATE website_plans SET plan_name = ?, price = ?, billing_cycle = ?, duration_months = ? WHERE website_plan_id = ?");
         $stmtDelFeatures = $pdo->prepare("DELETE FROM website_plan_features WHERE website_plan_id = ?");
@@ -127,13 +127,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         }
     }
 
+    // 2.5 Handle ARCHIVE / UNARCHIVE Changes
+    if (isset($_POST['delete_plans']) && is_array($_POST['delete_plans'])) {
+        $stmtDeactivate = $pdo->prepare("UPDATE website_plans SET is_active = 0 WHERE website_plan_id = ?");
+        foreach ($_POST['delete_plans'] as $del_id) {
+            $stmtDeactivate->execute([$del_id]);
+        }
+    }
+
+    if (isset($_POST['unarchive_plans']) && is_array($_POST['unarchive_plans'])) {
+        $stmtReactivate = $pdo->prepare("UPDATE website_plans SET is_active = 1 WHERE website_plan_id = ?");
+        foreach ($_POST['unarchive_plans'] as $un_id) {
+            $stmtReactivate->execute([$un_id]);
+        }
+    }
+
+    // 2.7 Handle PERMANENT Deletion
+    if (isset($_POST['perm_delete_plans']) && is_array($_POST['perm_delete_plans'])) {
+        $stmtDelSubFeatures = $pdo->prepare("DELETE FROM website_plan_features WHERE website_plan_id = ?");
+        $stmtDelPlan = $pdo->prepare("DELETE FROM website_plans WHERE website_plan_id = ?");
+        foreach ($_POST['perm_delete_plans'] as $perm_id) {
+            $stmtDelSubFeatures->execute([$perm_id]);
+            $stmtDelPlan->execute([$perm_id]);
+        }
+    }
+
+    // 3. Handle NEW Plans Creation
+    if (isset($_POST['new_plans']) && is_array($_POST['new_plans'])) {
+        $stmtInsPlan = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, is_active) VALUES (?, ?, ?, ?, 1)");
+        $stmtInsFeature = $pdo->prepare("INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES (?, ?)");
+
+        foreach ($_POST['new_plans'] as $data) {
+            if (empty($data['name'])) continue; // Skip empty new plan fields
+
+            $stmtInsPlan->execute([
+                $data['name'],
+                $data['price'],
+                $data['billing'],
+                $data['duration']
+            ]);
+            $new_id = $pdo->lastInsertId();
+
+            $featuresList = array_filter(array_map('trim', explode(',', $data['features'])));
+            foreach ($featuresList as $fName) {
+                $stmtInsFeature->execute([$new_id, $fName]);
+            }
+        }
+    }
+
+    // 4. Handle Global & User Settings (Theme, Names, etc.)
     $stmtUpdate = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
 
     try {
         $pdo->beginTransaction();
         foreach ($_POST as $key => $value) {
-            if (is_array($value))
-                continue; // Skip arrays (like the 'plans' data)
+            if (is_array($value) || in_array($key, ['delete_plans', 'unarchive_plans', 'perm_delete_plans']))
+                continue; 
+            
             $scope_id = in_array($key, $global_keys) ? 0 : $_SESSION['user_id'];
             $stmtUpdate->execute([$scope_id, $key, $value]);
             $configs[$key] = $value;
@@ -773,7 +823,8 @@ $active_page = "settings";
                 </div>
             </div>
 
-            <form action="" method="POST" enctype="multipart/form-data">
+            <form action="" method="POST" enctype="multipart/form-data" id="mainSettingsForm">
+                <input type="hidden" name="active_tab" id="activeTabInput" value="<?= htmlspecialchars($_POST['active_tab'] ?? 'look') ?>">
                 <div id="content-look" class="tab-content active space-y-8">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <!-- Global Customization Section -->
@@ -806,8 +857,8 @@ $active_page = "settings";
                                             class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">System
                                             Name</label>
                                         <input type="text" id="system_name_input" name="system_name" class="input-field"
-                                            value="<?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>"
-                                            readonly>
+                                            oninput="updateLiveBranding()"
+                                            value="<?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>">
                                     </div>
                                     <div class="flex flex-col gap-1.5">
                                         <label
@@ -973,27 +1024,63 @@ $active_page = "settings";
                 </div>
 
                 <div id="content-plans" class="tab-content space-y-8">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <?php foreach($website_plans as $plan): ?>
-                        <div class="glass-card p-8 flex flex-col gap-6">
-                            <div class="flex items-center gap-4 text-primary">
-                                <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                    <span class="material-symbols-outlined text-primary">workspace_premium</span>
+                    <div class="flex justify-between items-center bg-white/5 p-6 rounded-2xl border border-white/5">
+                        <div>
+                            <h4 class="text-xs font-black italic uppercase tracking-widest text-white">System Subscription Plans</h4>
+                            <p class="text-[9px] text-gray-500 font-bold uppercase tracking-tight mt-1">Manage what plans are available for new gyms</p>
+                        </div>
+                        <button type="button" onclick="addNewPlanCard()" class="px-5 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all flex items-center gap-2 group">
+                            <span class="material-symbols-outlined text-sm group-hover:scale-110 transition-transform">add_circle</span>
+                            Add New Plan
+                        </button>
+                    </div>
+
+                    <div id="planCardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <?php foreach($website_plans as $plan): 
+                            $isActive = ($plan['is_active'] ?? 1) == 1;
+                        ?>
+                        <div class="glass-card p-8 flex flex-col gap-6 relative group/plan transition-all duration-300 <?= !$isActive ? 'opacity-40 grayscale' : '' ?>" id="plan-card-<?= $plan['website_plan_id'] ?>">
+                            <?php if (!$isActive): ?>
+                            <div class="absolute inset-x-0 -top-3 flex justify-center z-20">
+                                <div class="px-4 py-1.5 rounded-full bg-amber-500 text-black text-[9px] font-black uppercase tracking-widest shadow-xl">Archived</div>
+                            </div>
+                            <?php endif; ?>
+
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-4">
+                                    <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                        <span class="material-symbols-outlined text-primary">workspace_premium</span>
+                                    </div>
+                                    <h3 class="text-sm font-black italic uppercase tracking-widest text-primary plan-title-preview">
+                                        <?= htmlspecialchars($plan['plan_name']) ?>
+                                    </h3>
                                 </div>
-                                <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">
-                                    <?= htmlspecialchars($plan['plan_name']) ?>
-                                </h3>
+                                <?php if ($isActive): ?>
+                                <div class="flex items-center gap-2 opacity-0 group-hover/plan:opacity-100 transition-all">
+                                    <button type="button" onclick="markPlanForArchival(<?= $plan['website_plan_id'] ?>)" class="size-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center hover:bg-amber-500 hover:text-white" title="Archive Plan">
+                                        <span class="material-symbols-outlined text-base">archive</span>
+                                    </button>
+                                    <button type="button" onclick="permanentlyDeletePlan(<?= $plan['website_plan_id'] ?>)" class="size-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white" title="Delete Forever">
+                                        <span class="material-symbols-outlined text-base">delete_forever</span>
+                                    </button>
+                                </div>
+                                <?php else: ?>
+                                <button type="button" onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)" class="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-[9px] font-black uppercase tracking-widest gap-2">
+                                    <span class="material-symbols-outlined text-sm">unarchive</span>
+                                    Unarchive
+                                </button>
+                                <?php endif; ?>
                             </div>
 
                             <div class="space-y-4">
                                 <div class="flex flex-col gap-1.5">
                                     <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
-                                    <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][name]" value="<?= htmlspecialchars($plan['plan_name']) ?>" class="input-field">
+                                    <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][name]" value="<?= htmlspecialchars($plan['plan_name']) ?>" class="input-field" oninput="this.closest('.glass-card').querySelector('.plan-title-preview').innerText = this.value">
                                 </div>
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="flex flex-col gap-1.5">
                                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price (₱)</label>
-                                        <input type="number" step="0.01" name="plans[<?= $plan['website_plan_id'] ?>][price]" value="<?= htmlspecialchars($plan['price']) ?>" class="input-field">
+                                        <input type="number" step="0.1" name="plans[<?= $plan['website_plan_id'] ?>][price]" value="<?= htmlspecialchars($plan['price']) ?>" class="input-field">
                                     </div>
                                     <div class="flex flex-col gap-1.5">
                                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Months)</label>
@@ -1248,6 +1335,22 @@ $active_page = "settings";
     </div>
     <!-- END OF MODALS -->
     <script>
+        function switchTab(tabId) {
+            // Update UI
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            const activeContent = document.getElementById(`content-${tabId}`);
+            
+            if (activeBtn) activeBtn.classList.add('active');
+            if (activeContent) activeContent.classList.add('active');
+            
+            // Update Hidden Input for Persistence
+            const tabInput = document.getElementById('activeTabInput');
+            if (tabInput) tabInput.value = tabId;
+        }
+
         function toggleSuperadminModal(show) {
             const modal = document.getElementById('superadminModal');
             if (modal) {
@@ -1478,7 +1581,7 @@ $active_page = "settings";
                 'Update system configurations? This will apply new branding and rules across all platforms immediately.',
                 'save',
                 () => {
-                    const form = document.querySelector('form');
+                    const form = document.getElementById('mainSettingsForm');
                     const hiddenInput = document.createElement('input');
                     hiddenInput.type = 'hidden';
                     hiddenInput.name = 'save_settings';
@@ -1619,6 +1722,10 @@ $active_page = "settings";
             if (errorMsg && errorMsg.includes('creating account')) {
                 toggleSuperadminModal(true);
             }
+
+            // Restore Active Tab
+            const initialTab = "<?= htmlspecialchars($_POST['active_tab'] ?? 'look') ?>";
+            switchTab(initialTab);
         });
 
         function resetToDefaults() {
@@ -1641,6 +1748,128 @@ $active_page = "settings";
                     if (isAutoTabInput) isAutoTabInput.checked = true;
 
                     updateLiveBranding();
+                    toggleActionModal(false);
+                }
+            );
+        }
+
+        let newPlanCount = 0;
+        function addNewPlanCard() {
+            const container = document.getElementById('planCardsContainer');
+            const newId = `new_plan_${newPlanCount++}`;
+            
+            const card = document.createElement('div');
+            card.className = "glass-card p-8 flex flex-col gap-6 relative group/plan animate-in fade-in slide-in-from-bottom-4 duration-500";
+            card.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-emerald-500">add_circle</span>
+                        </div>
+                        <h3 class="text-sm font-black italic uppercase tracking-widest text-emerald-500 plan-title-preview">New Plan</h3>
+                    </div>
+                    <button type="button" onclick="this.closest('.glass-card').remove()" class="size-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
+                        <input type="text" name="new_plans[${newId}][name]" placeholder="e.g. Starter Pack" class="input-field" oninput="this.closest('.glass-card').querySelector('.plan-title-preview').innerText = this.value || 'New Plan'" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price (₱)</label>
+                            <input type="number" step="0.1" name="new_plans[${newId}][price]" class="input-field" required>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Months)</label>
+                            <input type="number" name="new_plans[${newId}][duration]" class="input-field" required>
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle Text</label>
+                        <input type="text" name="new_plans[${newId}][billing]" placeholder="e.g. Yearly" class="input-field" required>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features (Comma-separated)</label>
+                        <textarea name="new_plans[${newId}][features]" rows="4" class="input-field no-scrollbar resize-none" placeholder="Feature 1, Feature 2..."></textarea>
+                    </div>
+                </div>
+            `;
+            container.prepend(card);
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function markPlanForArchival(planId) {
+            showActionModal(
+                'Archive Plan',
+                'Are you sure you want to archive this plan? It will be hidden from new gyms but existing subscribers will not be affected.',
+                'archive',
+                () => {
+                    const card = document.getElementById(`plan-card-${planId}`);
+                    card.classList.add('opacity-40', 'grayscale');
+                    
+                    // Add to hidden delete array
+                    let input = document.querySelector(`input[name="delete_plans[]"][value="${planId}"]`);
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'delete_plans[]';
+                        input.value = planId;
+                        document.getElementById('mainSettingsForm').appendChild(input);
+                    }
+                    
+                    toggleActionModal(false);
+                }
+            );
+        }
+
+        function permanentlyDeletePlan(planId) {
+            showActionModal(
+                'Delete Forever',
+                'CRITICAL: This will permanently remove this plan and all associated features from the database. This action is IRREVERSIBLE. Continue?',
+                'warning',
+                () => {
+                    const card = document.getElementById(`plan-card-${planId}`);
+                    card.style.transform = 'scale(0.9)';
+                    card.style.opacity = '0';
+                    setTimeout(() => card.remove(), 300);
+                    
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'perm_delete_plans[]';
+                    hiddenInput.value = planId;
+                    document.getElementById('mainSettingsForm').appendChild(hiddenInput);
+                    
+                    toggleActionModal(false);
+                },
+                true // isError style
+            );
+        }
+
+        function unarchivePlan(planId) {
+            showActionModal(
+                'Unarchive Plan',
+                'Restore this plan? it will be immediately available for new gyms to purchase.',
+                'unarchive',
+                () => {
+                    const card = document.getElementById(`plan-card-${planId}`);
+                    card.classList.remove('opacity-40', 'grayscale');
+                    
+                    // Remove from hidden delete array if it was just added in this session
+                    const input = document.querySelector(`input[name="delete_plans[]"][value="${planId}"]`);
+                    if (input) {
+                        input.remove();
+                    } else {
+                        // If it was already archived in DB, we need an explicit unarchive array
+                        let unInput = document.createElement('input');
+                        unInput.type = 'hidden';
+                        unInput.name = 'unarchive_plans[]';
+                        unInput.value = planId;
+                        document.getElementById('mainSettingsForm').appendChild(unInput);
+                    }
+                    
                     toggleActionModal(false);
                 }
             );

@@ -11,6 +11,14 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role'] ?? '') !== 'ten
 $user_id = $_SESSION['user_id'];
 $gym_id = $_SESSION['gym_id'] ?? 0;
 
+// --- BRANDING LOGIC ---
+$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtUser->execute([$user_id]);
+$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+$configs = array_merge($global_configs, $user_configs);
+
 // Check if already subscribed or pending
 $stmtSub = $pdo->prepare("SELECT * FROM client_subscriptions WHERE gym_id = ? AND subscription_status IN ('Active', 'Pending Approval') LIMIT 1");
 $stmtSub->execute([$gym_id]);
@@ -21,27 +29,11 @@ if ($active_sub) {
     exit;
 }
 
-// --- SEED PLANS IF EMPTY ---
-$plansCheck = $pdo->query("SELECT COUNT(*) FROM website_plans")->fetchColumn();
-if ($plansCheck == 0) {
-    $plans = [
-        ['6-Month Kickstart', 24999.00, '6 Months', 6, ['Multi-Tenant Management', 'Base64 Document Engine', 'Core Analytics']],
-        ['1-Year Momentum', 44999.00, '1 Year', 12, ['Advanced Revenue Reports', 'Priority Support', 'Gym Page Customizer']],
-        ['3-Year Legacy', 99999.00, '3 Years', 36, ['Full White-Label Access', 'API Integration', 'Unlimited Team Accounts']]
-    ];
-    $stmtSeed = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months) VALUES (?, ?, ?, ?)");
-    $stmtFeature = $pdo->prepare("INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES (?, ?)");
-    foreach ($plans as $p) {
-        $stmtSeed->execute([$p[0], $p[1], $p[2], $p[3]]);
-        $plan_id = $pdo->lastInsertId();
-        foreach ($p[4] as $feature) {
-            $stmtFeature->execute([$plan_id, $feature]);
-        }
-    }
-}
-
 // Fetch Plans
-$plans = $pdo->query("SELECT * FROM website_plans WHERE is_active = 1 ORDER BY price ASC")->fetchAll();
+$stmtPlans = $pdo->prepare("SELECT * FROM website_plans WHERE is_active = 1 ORDER BY price ASC");
+$stmtPlans->execute();
+$plans = $stmtPlans->fetchAll();
+
 foreach ($plans as &$p) {
     $stmtF = $pdo->prepare("SELECT feature_name FROM website_plan_features WHERE website_plan_id = ?");
     $stmtF->execute([$p['website_plan_id']]);
@@ -67,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
     } else {
         $amount_to_pay = $selected_plan['price'];
         if ($payment_term === 'Monthly' && $selected_plan['duration_months'] > 0) {
-            $amount_to_pay = $selected_plan['price'] / $selected_plan['duration_months'];
+            $amount_to_pay = round($selected_plan['price'] / $selected_plan['duration_months'], 2);
         }
 
         if ($payment_method === 'Cash') {
@@ -166,14 +158,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             theme: {
                 extend: {
                     colors: {
-                        "primary": "#7f13ec",
-                        "primary-dark": "#5e0eb3",
-                        "background-dark": "#050505", 
+                        "primary": "<?= $configs['theme_color'] ?? '#7f13ec' ?>",
+                        "primary-dark": "<?= $configs['theme_color'] ?? '#5e0eb3' ?>",
+                        "background-dark": "<?= $configs['bg_color'] ?? '#050505' ?>", 
                         "surface-dark": "rgba(21, 21, 24, 0.4)",
                         "text-secondary": "#ab9db9"
                     },
                     fontFamily: { 
-                        "display": ["Lexend", "sans-serif"],
+                        "display": ["<?= $configs['font_family'] ?? 'Lexend' ?>", "sans-serif"],
                         "sans": ["Plus Jakarta Sans", "Inter", "sans-serif"]
                     },
                     borderRadius: { 'custom': '12px' }
@@ -210,9 +202,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             transform: translateY(-5px);
         }
 
-        /* Invisible Scroll System */
-        *::-webkit-scrollbar { display: none !important; }
-        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+        /* Scrollbar Styling */
+        .no-scrollbar::-webkit-scrollbar { display: none !important; }
+        .no-scrollbar { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+
+        .custom-scrollbar::-webkit-scrollbar { height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(127, 19, 236, 0.1); border-radius: 10px; transition: all 0.3s ease; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(127, 19, 236, 0.4); }
     </style>
 </head>
 
@@ -220,8 +217,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
 
 <header class="relative z-20 w-full px-8 py-6 flex justify-between items-center bg-transparent">
     <a href="../index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-        <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30">
-            <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
+        <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
+            <img src="../assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain">
         </div>
         <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
     </a>
@@ -270,27 +267,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             <?php endif; ?>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <?php foreach($plans as $plan): ?>
-            <div class="dashboard-window rounded-2xl p-10 flex flex-col text-left hover:border-primary/50 transition-all group relative overflow-hidden">
-                <?php if($plan['plan_name'] == '1-Year Momentum'): ?>
+        <div class="flex overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 custom-scrollbar scroll-smooth">
+            <?php foreach($plans as $plan): 
+                $isMomentum = strpos($plan['plan_name'], 'Momentum') !== false;
+            ?>
+            <div class="plan-card rounded-2xl p-10 flex flex-col text-left shrink-0 w-[calc(100%-2rem)] md:w-[400px] snap-start hover:border-primary/50 transition-all group relative overflow-hidden <?= $isMomentum ? 'border-primary/50 bg-primary/5 scale-105 shadow-2xl shadow-primary/20' : 'dashboard-window' ?>">
+                <?php if($isMomentum): ?>
                     <div class="absolute top-0 right-0 bg-primary text-white text-[8px] font-black uppercase px-4 py-2 rounded-bl-xl tracking-widest">Most Popular</div>
                 <?php endif; ?>
 
                 <div class="mb-8">
                     <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
-                    <p class="text-[9px] text-gray-600 font-bold uppercase tracking-[0.2em] italic"><?= htmlspecialchars($plan['billing_cycle']) ?> Billing</p>
+                    <p class="text-[9px] <?= $isMomentum ? 'text-primary' : 'text-gray-600' ?> font-bold uppercase tracking-[0.2em] italic"><?= htmlspecialchars($plan['billing_cycle']) ?> Billing</p>
                 </div>
 
                 <div class="mb-10 flex items-baseline gap-1">
-                    <span class="text-4xl font-display font-black text-white italic">₱<?= number_format($plan['price'], 0) ?></span>
+                    <span class="text-4xl font-display font-black text-white italic">₱<?= number_format($plan['price']) ?></span>
                     <span class="text-[10px] text-gray-500 font-black uppercase tracking-widest">/ Term</span>
                 </div>
 
                 <ul class="space-y-4 mb-12 flex-grow">
                     <?php foreach($plan['features'] as $feature): ?>
-                    <li class="flex items-start gap-3">
-                        <span class="material-symbols-outlined text-primary text-lg">check_circle</span>
+                    <li class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-primary text-lg font-black">check_circle</span>
                         <span class="text-xs text-gray-400 font-medium leading-tight italic"><?= htmlspecialchars($feature) ?></span>
                     </li>
                     <?php endforeach; ?>
@@ -331,14 +330,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
                     <label class="cursor-pointer">
                         <input type="radio" name="payment_term" value="Full" class="peer sr-only" checked onchange="updateCheckoutTotal()">
                         <div class="p-4 rounded-xl border border-white/10 bg-white/5 peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex flex-col justify-center items-center h-full">
-                            <span class="text-xs font-bold text-white uppercase tracking-tighter mb-1">Full Payment</span>
+                            <span class="text-xs font-bold text-white uppercase tracking-normal mb-1">Full Payment</span>
                             <span class="text-[10px] text-primary font-black uppercase italic tracking-widest" id="lblFullPrice">₱0</span>
                         </div>
                     </label>
-                    <label class="cursor-pointer">
+                    <label class="cursor-pointer" id="monthlyOptionContainer">
                         <input type="radio" name="payment_term" value="Monthly" class="peer sr-only" onchange="updateCheckoutTotal()">
                         <div class="p-4 rounded-xl border border-white/10 bg-white/5 peer-checked:border-primary peer-checked:bg-primary/10 transition-all flex flex-col justify-center items-center h-full text-center">
-                            <span class="text-xs font-bold text-white uppercase tracking-tighter mb-1">Monthly</span>
+                            <span class="text-xs font-bold text-white uppercase tracking-normal mb-1">Monthly</span>
                             <span class="text-[10px] text-primary font-black uppercase italic tracking-widest" id="lblMonthlyPrice">₱0 / mo</span>
                         </div>
                     </label>
@@ -354,16 +353,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
 </div>
 
 <script>
+    function updateCheckoutTotal() {
+        const term = document.querySelector('input[name="payment_term"]:checked').value;
+        const btnText = document.getElementById('btnText');
+        const btnIcon = document.getElementById('btnIcon');
+        
+        if (term === 'Monthly') {
+            btnText.textContent = 'Pay Monthly Installment';
+            btnIcon.textContent = 'calendar_month';
+        } else {
+            btnText.textContent = 'Proceed to Full Payment';
+            btnIcon.textContent = 'lock';
+        }
+    }
+
     function openCheckoutModal(id, name, price, duration) {
         document.getElementById('modalPlanId').value = id;
         document.getElementById('modalPlanName').textContent = name;
         
-        let monthly = price / duration;
+        let monthly = duration > 0 ? (price / duration) : price;
         
-        document.getElementById('lblFullPrice').textContent = '₱ ' + price.toLocaleString(undefined, {minimumFractionDigits: 0});
-        document.getElementById('lblMonthlyPrice').textContent = '₱ ' + monthly.toLocaleString(undefined, {minimumFractionDigits: 0}) + ' / MO';
+        document.getElementById('lblFullPrice').textContent = '₱ ' + price.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+        document.getElementById('lblMonthlyPrice').textContent = monthly.toLocaleString(undefined, {style: 'currency', currency: 'PHP'});
         
+        // Hide monthly option if it is only a 1-month plan
+        const monthlyContainer = document.getElementById('monthlyOptionContainer');
+        if (duration <= 1) {
+            monthlyContainer.style.display = 'none';
+            monthlyContainer.parentElement.classList.remove('grid-cols-2');
+            monthlyContainer.parentElement.classList.add('grid-cols-1');
+        } else {
+            monthlyContainer.style.display = 'block';
+            monthlyContainer.parentElement.classList.add('grid-cols-2');
+            monthlyContainer.parentElement.classList.remove('grid-cols-1');
+        }
+
         document.querySelector('input[name="payment_term"][value="Full"]').checked = true;
+        updateCheckoutTotal(); // Sync UI state
         
         const modal = document.getElementById('checkoutModal');
         modal.classList.remove('hidden');

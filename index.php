@@ -48,9 +48,17 @@ foreach ($plans as &$p) {
         }
     </script>
     <style>
-        /* Invisible Scroll System */
-        *::-webkit-scrollbar { display: none; }
-        * { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Scrollbar Styling */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .custom-scrollbar::-webkit-scrollbar { height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(127, 19, 236, 0.1); border-radius: 10px; transition: all 0.3s ease; }
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(127, 19, 236, 0.4); }
+
+        #plansSlider { cursor: grab; user-select: none; }
+        #plansSlider:active { cursor: grabbing; }
 
         html { scroll-behavior: smooth; }
         body { background-color: #050505; color: #f3f4f6; }
@@ -298,11 +306,11 @@ foreach ($plans as &$p) {
                     <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">Select a plan to activate your gym's digital infrastructure</p>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div id="plansSlider" class="flex overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 custom-scrollbar scroll-smooth">
                     <?php foreach ($plans as $plan): 
                         $isMomentum = strpos($plan['plan_name'], 'Momentum') !== false;
                     ?>
-                    <div class="plan-card rounded-2xl p-10 flex flex-col text-left <?= $isMomentum ? 'border-primary/50 bg-primary/5 scale-105' : '' ?>">
+                    <div class="plan-card rounded-2xl p-10 flex flex-col text-left shrink-0 w-[calc(100%-2rem)] md:w-[400px] snap-start <?= $isMomentum ? 'border-primary/50 bg-primary/5 scale-105 shadow-2xl shadow-primary/20' : '' ?>">
                         <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
                         <p class="text-[9px] <?= $isMomentum ? 'text-primary' : 'text-gray-600' ?> font-bold uppercase tracking-widest mb-8">
                             <?= $isMomentum ? 'Most Popular' : htmlspecialchars($plan['billing_cycle']) ?>
@@ -413,6 +421,37 @@ foreach ($plans as &$p) {
     </footer>
 
     <script>
+        // --- Drag-to-Scroll Engine ---
+        const slider = document.getElementById('plansSlider');
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        slider.addEventListener('mousedown', (e) => {
+            isDown = true;
+            slider.style.scrollSnapType = 'none'; // Temporarily disable snapping for smooth dragging
+            slider.style.scrollBehavior = 'auto'; 
+            startX = e.pageX - slider.offsetLeft;
+            scrollLeft = slider.scrollLeft;
+        });
+        slider.addEventListener('mouseleave', () => {
+            isDown = false;
+            slider.style.scrollSnapType = 'x mandatory';
+            slider.style.scrollBehavior = 'smooth';
+        });
+        slider.addEventListener('mouseup', () => {
+            isDown = false;
+            slider.style.scrollSnapType = 'x mandatory';
+            slider.style.scrollBehavior = 'smooth';
+        });
+        slider.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            const walk = (x - startX) * 2; 
+            slider.scrollLeft = scrollLeft - walk;
+        });
+
         const nav = document.getElementById('topNav');
         window.onscroll = function() {
             if (window.scrollY > 50) {
