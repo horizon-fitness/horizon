@@ -77,6 +77,58 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         die("Gym page is currently inactive.");
     }
 
+    // NEW: Subscription Verification Logic (Takedown Check)
+    $stmtSub = $pdo->prepare("SELECT subscription_status, next_billing_date, payment_term FROM client_subscriptions WHERE gym_id = ? AND subscription_status IN ('Active', 'Suspended') ORDER BY created_at DESC LIMIT 1");
+    $stmtSub->execute([$page['gym_id']]);
+    $sub = $stmtSub->fetch();
+
+    $portal_suspended = false;
+    if (!$sub || strtolower($sub['subscription_status']) !== 'active') {
+        $portal_suspended = true;
+    } else {
+        // Redundant check for safety: Even if status is "Active", check if payment is >3 days overdue
+        if ($sub['payment_term'] === 'Monthly' && $sub['next_billing_date']) {
+            $now = strtotime('today');
+            $due = strtotime($sub['next_billing_date']);
+            if (($now - $due) / (60 * 60 * 24) > 3) {
+                $portal_suspended = true;
+            }
+        }
+    }
+
+    if ($portal_suspended) {
+        $theme_color = $configs['theme_color'] ?? '#8c2bee';
+        $bg_color = $configs['bg_color'] ?? '#0a090d';
+        ?>
+        <!DOCTYPE html>
+        <html class="dark" lang="en">
+        <head>
+            <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+            <title>Service Unavailable | Horizon Systems</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700;900&display=swap" rel="stylesheet"/>
+            <style>body { font-family: 'Lexend', sans-serif; background: <?= $bg_color ?>; }</style>
+        </head>
+        <body class="min-h-screen flex items-center justify-center p-6 text-center">
+            <div class="max-w-md w-full">
+                <div class="size-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-8">
+                    <span class="text-3xl">🔒</span>
+                </div>
+                <h1 class="text-3xl font-black text-white uppercase italic tracking-tighter mb-4">Service <span style="color: <?= $theme_color ?>">Unavailable</span></h1>
+                <p class="text-xs text-gray-500 font-bold uppercase tracking-widest leading-relaxed">
+                    This gym portal is currently undergoing administrative maintenance or the professional subscription has been suspended. 
+                    <br><br>Please contact the gym management or check back later.
+                </p>
+                <div class="mt-12 pt-8 border-t border-white/5">
+                    <p class="text-[9px] font-black text-gray-700 uppercase tracking-[0.4em]">Powered by Horizon System</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        <?php
+        exit;
+    }
+
     // Fetch Operational Details
     $stmtDetails = $pdo->prepare("SELECT * FROM gym_details WHERE gym_id = ?");
     $stmtDetails->execute([$page['gym_id']]);

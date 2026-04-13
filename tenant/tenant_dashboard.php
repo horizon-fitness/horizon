@@ -94,33 +94,32 @@ $billing_label = '';
 $is_suspended = false;
 
 if ($is_sub_active && $payment_term === 'Monthly' && $next_billing_date) {
-    // Determine start of current day and due day
     $now_time = strtotime('today');
     $due_time = strtotime($next_billing_date);
-    $diff_days = ($due_time - $now_time) / (60 * 60 * 24);
+    $diff_days = floor(($due_time - $now_time) / (60 * 60 * 24));
 
-    if ($diff_days > 0 && $diff_days <= 7) {
-        $billing_status_color = 'text-yellow-500'; // Yellow when near due
-        $billing_label = "Due in " . $diff_days . " days";
-    } elseif ($diff_days === 0) {
-        $billing_status_color = 'text-yellow-500';
-        $billing_label = "Due Today";
+    if ($diff_days >= 0 && $diff_days <= 7) {
+        $billing_status_color = 'text-yellow-400'; 
+        $billing_label = $diff_days === 0 ? "Due Today" : "Due in $diff_days days";
     } elseif ($diff_days < 0) {
-        $billing_status_color = 'text-red-500'; // Red when overdue
+        $billing_status_color = 'text-rose-500';
         $abs_days = abs($diff_days);
-        $billing_label = "Past Due (" . $abs_days . " days)";
+        $billing_label = "Past Due ($abs_days days)";
 
-        // 3 Days Extension Logic
+        // 3 Days Extension Logic (Takedown)
         if ($abs_days > 3) {
             $is_suspended = true;
-            $sub_status = 'Suspended (Overdue)';
+            $sub_status = 'Suspended';
             $is_sub_active = false;
+            
+            // Persist Suspension in Database
+            $pdo->prepare("UPDATE client_subscriptions SET subscription_status = 'Suspended', updated_at = NOW() WHERE gym_id = ? AND subscription_status = 'Active'")->execute([$gym_id]);
         }
     } else {
-        $billing_label = "Due " . date('M d', $due_time);
+        $billing_label = "Next Payment: " . date('M d', $due_time);
     }
 } elseif ($is_sub_active && $payment_term === 'Full' && $plan_end_date) {
-    $billing_label = "Active till " . date('M d', strtotime($plan_end_date));
+    $billing_label = "Active till " . date('M d, Y', strtotime($plan_end_date));
 }
 
 $page_title = "Owner Dashboard";

@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
         $error = "Invalid plan selected.";
     } else {
         $amount_to_pay = $selected_plan['price'];
-        if ($payment_term === 'Monthly' && $selected_plan['duration_months'] > 0) {
+        if ($payment_term === 'Monthly' && $selected_plan['duration_months'] > 1) {
             $amount_to_pay = round($selected_plan['price'] / $selected_plan['duration_months'], 2);
         }
 
@@ -457,23 +457,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
         
         let monthly = duration > 0 ? (price / duration) : price;
         
-        document.getElementById('lblFullPrice').textContent = '₱ ' + price.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
-        document.getElementById('lblMonthlyPrice').textContent = monthly.toLocaleString(undefined, {style: 'currency', currency: 'PHP'});
+        document.getElementById('lblFullPrice').textContent = '₱' + price.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+        document.getElementById('lblMonthlyPrice').textContent = '₱' + monthly.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' / mo';
         
-        // Hide monthly option if it is only a 1-month plan
+        // Disable monthly option if it is only a 1-month plan
         const monthlyContainer = document.getElementById('monthlyOptionContainer');
+        const monthlyRadio = document.querySelector('input[name="payment_term"][value="Monthly"]');
+        
         if (duration <= 1) {
-            monthlyContainer.style.display = 'none';
-            monthlyContainer.parentElement.classList.remove('grid-cols-2');
-            monthlyContainer.parentElement.classList.add('grid-cols-1');
+            monthlyContainer.classList.add('opacity-30', 'grayscale', 'cursor-not-allowed');
+            monthlyRadio.disabled = true;
+            document.querySelector('input[name="payment_term"][value="Full"]').checked = true;
         } else {
-            monthlyContainer.style.display = 'block';
-            monthlyContainer.parentElement.classList.add('grid-cols-2');
-            monthlyContainer.parentElement.classList.remove('grid-cols-1');
+            monthlyContainer.classList.remove('opacity-30', 'grayscale', 'cursor-not-allowed');
+            monthlyRadio.disabled = false;
         }
 
-        document.querySelector('input[name="payment_term"][value="Full"]').checked = true;
-        
         // Reset Terms Agreement
         const agreement = document.getElementById('termsAgreement');
         agreement.checked = false;

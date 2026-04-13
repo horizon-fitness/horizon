@@ -139,6 +139,22 @@ if (!function_exists('hexToRgb')) {
     }
 }
 
+// Helper for robust logo pathing
+if (!function_exists('getLogoPath')) {
+    function getLogoPath($path)
+    {
+        if (empty($path))
+            return '';
+        if (strpos($path, 'data:') === 0 || strpos($path, 'http') === 0)
+            return $path;
+        if (strpos($path, 'uploads/') === 0)
+            return '../' . $path;
+        if (strpos($path, '../') === 0)
+            return $path;
+        return '../uploads/applications/' . $path;
+    }
+}
+
 // 1. Fetch Global Settings (user_id = 0)
 $stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
 $global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -154,8 +170,10 @@ $brand = array_merge($global_configs, $user_configs);
 // --- FETCH LOGS WITH FILTERS ---
 $query = "
     SELECT cs.*, 
-           g.gym_name, g.tenant_code,
-           wp.plan_name, wp.price as plan_price, wp.billing_cycle
+           g.gym_name, g.tenant_code, g.owner_user_id,
+           wp.plan_name, wp.price as plan_price, wp.billing_cycle,
+           (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'system_logo') as gym_logo,
+           (SELECT reference_number FROM payments WHERE client_subscription_id = cs.client_subscription_id AND payment_type = 'Subscription' ORDER BY created_at DESC LIMIT 1) as ref_no
     FROM client_subscriptions cs
     JOIN gyms g ON cs.gym_id = g.gym_id
     JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
@@ -255,9 +273,13 @@ foreach ($logs as $log) {
             backdrop-filter: blur(var(--card-blur));
         }
 
-        /* Dark Mode Date Picker Support */
-        input[type="date"] {
+        input[type="date"], select {
             color-scheme: dark;
+        }
+
+        select option {
+            background-color: var(--background);
+            color: var(--text-main);
         }
         
         /* Unified Sidebar Width Variable Scoping */
@@ -662,7 +684,7 @@ foreach ($logs as $log) {
 
                 <div class="w-[180px]">
                     <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Sub Status</label>
-                    <select name="sub_status" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none">
+                    <select name="sub_status" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
                         <option value="all" <?= $sub_status === 'all' ? 'selected' : '' ?>>All Status</option>
                         <option value="Active" <?= $sub_status === 'Active' ? 'selected' : '' ?>>Active Only</option>
                         <option value="Expired" <?= $sub_status === 'Expired' ? 'selected' : '' ?>>Expired Only</option>
@@ -671,7 +693,7 @@ foreach ($logs as $log) {
 
                 <div class="w-[180px]">
                     <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Payment Status</label>
-                    <select name="pay_status" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none text-amber-400">
+                    <select name="pay_status" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
                         <option value="all" <?= $pay_status === 'all' ? 'selected' : '' ?> class="text-white">All Payments</option>
                         <option value="Paid" <?= $pay_status === 'Paid' ? 'selected' : '' ?> class="text-emerald-400">Paid</option>
                         <option value="Pending" <?= $pay_status === 'Pending' ? 'selected' : '' ?> class="text-amber-400">Pending</option>
@@ -746,6 +768,7 @@ foreach ($logs as $log) {
                                 <th class="px-8 py-4 border-b border-white/5">Start Date</th>
                                 <th class="px-8 py-4 border-b border-white/5">Subscription Status</th>
                                 <th class="px-8 py-4 border-b border-white/5">Payment Status</th>
+                                <th class="px-8 py-4 border-b border-white/5 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="recentTableBody" class="divide-y divide-white/5">
@@ -763,8 +786,12 @@ foreach ($logs as $log) {
                                     <tr class="hover:bg-white/5 transition-all">
                                         <td class="px-8 py-5">
                                             <div class="flex items-center gap-4">
-                                                <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-                                                    <span class="material-symbols-outlined text-primary text-xl">fitness_center</span>
+                                                <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden">
+                                                    <?php if (!empty($log['gym_logo'])): ?>
+                                                        <img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain">
+                                                    <?php else: ?>
+                                                        <span class="material-symbols-outlined text-primary text-xl">fitness_center</span>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <div>
                                                     <p class="text-sm font-black italic uppercase leading-none mb-1"><?= htmlspecialchars($log['gym_name']) ?></p>
@@ -799,6 +826,12 @@ foreach ($logs as $log) {
                                             <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest <?= $payClass ?>">
                                                 <?= $log['payment_status'] ?>
                                             </span>
+                                        </td>
+                                        <td class="px-8 py-5 text-right">
+                                            <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" 
+                                                    class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-all">
+                                                View Details
+                                            </button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -847,8 +880,12 @@ foreach ($logs as $log) {
                                     <tr class="hover:bg-white/5 transition-all">
                                         <td class="px-8 py-5">
                                             <div class="flex items-center gap-4">
-                                                <div class="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0 border border-amber-500/20">
-                                                    <span class="material-symbols-outlined text-amber-500 text-xl">payments</span>
+                                                <div class="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0 border border-amber-500/20 overflow-hidden">
+                                                    <?php if (!empty($log['gym_logo'])): ?>
+                                                        <img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain">
+                                                    <?php else: ?>
+                                                        <span class="material-symbols-outlined text-amber-500 text-xl">payments</span>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <div>
                                                     <p class="text-sm font-black italic uppercase leading-none mb-1 text-white"><?= htmlspecialchars($log['gym_name']) ?></p>
@@ -861,6 +898,10 @@ foreach ($logs as $log) {
                                         </td>
                                         <td class="px-8 py-5 text-right">
                                             <div class="inline-flex gap-2">
+                                                <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" 
+                                                        class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-all mr-2">
+                                                    Details
+                                                </button>
                                                 <form method="POST" class="confirm-form">
                                                     <input type="hidden" name="subscription_id" value="<?= $log['client_subscription_id'] ?>">
                                                     <input type="hidden" name="action" value="approve_payment">
@@ -911,6 +952,7 @@ foreach ($logs as $log) {
                                 <th class="px-8 py-4 border-b border-white/5">Transaction Date</th>
                                 <th class="px-8 py-4 border-b border-white/5">Status</th>
                                 <th class="px-8 py-4 border-b border-white/5">Payment</th>
+                                <th class="px-8 py-4 border-b border-white/5 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="historyTableBody" class="divide-y divide-white/5">
@@ -928,8 +970,12 @@ foreach ($logs as $log) {
                                     <tr class="hover:bg-white/5 transition-all">
                                         <td class="px-8 py-5">
                                             <div class="flex items-center gap-4">
-                                                <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10 opacity-60">
-                                                    <span class="material-symbols-outlined text-md">receipt</span>
+                                                <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10 overflow-hidden">
+                                                    <?php if (!empty($log['gym_logo'])): ?>
+                                                        <img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain">
+                                                    <?php else: ?>
+                                                        <span class="material-symbols-outlined text-md">receipt</span>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <div>
                                                     <p class="text-xs font-bold italic uppercase leading-none mb-1 text-white"><?= htmlspecialchars($log['gym_name']) ?></p>
@@ -956,6 +1002,12 @@ foreach ($logs as $log) {
                                             <span class="text-[10px] font-black uppercase tracking-tighter <?= $log['payment_status'] === 'Paid' ? 'text-emerald-400' : ($log['payment_status'] === 'Rejected' ? 'text-rose-400' : 'text-amber-400') ?>">
                                                 <?= $log['payment_status'] ?>
                                             </span>
+                                        </td>
+                                        <td class="px-8 py-5 text-right">
+                                            <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" 
+                                                    class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-all">
+                                                Details
+                                            </button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -1097,5 +1149,144 @@ foreach ($logs as $log) {
     </div>
 </div>
 
+<!-- Subscription Details Modal -->
+<div id="subscriptionDetailModal" class="fixed inset-0 z-[300] hidden flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div class="glass-card max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden border-white/10 shadow-2xl">
+        <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/5">
+            <h3 class="text-xl font-black italic uppercase text-white flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary">info</span>
+                Subscription Details
+            </h3>
+            <button onclick="closeDetailModal()" class="size-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all">
+                <span class="material-symbols-outlined text-sm">close</span>
+            </button>
+        </div>
+        
+        <div class="p-8 overflow-y-auto no-scrollbar space-y-8">
+            <!-- Gym Overview -->
+            <div class="flex items-center gap-6 p-6 rounded-2xl bg-white/5 border border-white/5">
+                <div class="size-20 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 overflow-hidden shrink-0">
+                    <img id="detailLogo" src="" class="size-full object-contain hidden">
+                    <span id="detailIcon" class="material-symbols-outlined text-primary text-4xl">fitness_center</span>
+                </div>
+                <div>
+                    <h4 id="detailGymName" class="text-2xl font-black italic uppercase text-white leading-none mb-2">Gym Name</h4>
+                    <p id="detailTenantCode" class="text-[10px] font-black uppercase text-primary tracking-[0.2em]">TENANT_CODE</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <!-- Plan Information -->
+                <div class="space-y-4">
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest pl-1">Plan Information</p>
+                    <div class="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-[10px] font-bold text-[--text-main] opacity-50 uppercase">Plan Name</span>
+                            <span id="detailPlanName" class="text-[10px] font-black uppercase text-white">---</span>
+                        </div>
+                        <div class="flex justify-between border-t border-white/5 pt-3">
+                            <span class="text-[10px] font-bold text-[--text-main] opacity-50 uppercase">Price</span>
+                            <span id="detailPrice" class="text-[10px] font-black uppercase text-emerald-400">---</span>
+                        </div>
+                        <div class="flex justify-between border-t border-white/5 pt-3">
+                            <span class="text-[10px] font-bold text-[--text-main] opacity-50 uppercase">Billing Cycle</span>
+                            <span id="detailBilling" class="text-[10px] font-black uppercase text-primary">---</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status & Timing -->
+                <div class="space-y-4">
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest pl-1">Subscription Validity</p>
+                    <div class="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-[10px] font-bold text-[--text-main] opacity-50 uppercase">Status</span>
+                            <span id="detailSubStatus" class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border border-white/10">---</span>
+                        </div>
+                        <div class="flex justify-between border-t border-white/5 pt-3">
+                            <span class="text-[10px] font-bold text-[--text-main] opacity-50 uppercase">Start Date</span>
+                            <span id="detailStart" class="text-[10px] font-black uppercase text-white">---</span>
+                        </div>
+                        <div class="flex justify-between border-t border-white/5 pt-3">
+                            <span class="text-[10px] font-bold text-[--text-main] opacity-50 uppercase">Expiry Date</span>
+                            <span id="detailEnd" class="text-[10px] font-black uppercase text-rose-400">---</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Details -->
+            <div class="space-y-4">
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest pl-1">Payment Verification</p>
+                <div class="p-6 rounded-2xl bg-amber-500/[0.03] border border-amber-500/10 flex items-center justify-between">
+                    <div>
+                        <p class="text-[9px] font-black text-amber-500/50 uppercase tracking-widest mb-1">Payment Status</p>
+                        <p id="detailPayStatus" class="text-sm font-black italic uppercase text-amber-400">---</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[9px] font-black text-white/20 uppercase tracking-widest mb-1">Reference Number</p>
+                        <p id="detailRefNo" class="text-sm font-black italic uppercase text-white">---</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-8 py-6 border-t border-white/5 bg-white/5">
+            <button onclick="closeDetailModal()" class="w-full py-4 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all">
+                Dismiss Details
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function viewSubscriptionDetails(data) {
+        const modal = document.getElementById('subscriptionDetailModal');
+        
+        // Populating basic text data
+        document.getElementById('detailGymName').textContent = data.gym_name;
+        document.getElementById('detailTenantCode').textContent = data.tenant_code;
+        document.getElementById('detailPlanName').textContent = data.plan_name;
+        document.getElementById('detailPrice').textContent = '₱' + Number(data.plan_price).toLocaleString();
+        document.getElementById('detailBilling').textContent = data.billing_cycle;
+        document.getElementById('detailStart').textContent = data.start_date ? new Date(data.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '---';
+        document.getElementById('detailEnd').textContent = data.end_date ? new Date(data.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '---';
+        document.getElementById('detailPayStatus').textContent = data.payment_status;
+        document.getElementById('detailRefNo').textContent = data.ref_no || 'NOT_FOUND';
+        
+        // Handle Sub Status badge
+        const subStatus = document.getElementById('detailSubStatus');
+        subStatus.textContent = data.subscription_status;
+        subStatus.className = 'px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ' + 
+            (data.subscription_status === 'Active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20');
+
+        // Handle Logo
+        const logoImg = document.getElementById('detailLogo');
+        const iconPlaceholder = document.getElementById('detailIcon');
+        
+        if (data.gym_logo) {
+            logoImg.src = getLogoPathJS(data.gym_logo);
+            logoImg.classList.remove('hidden');
+            iconPlaceholder.classList.add('hidden');
+        } else {
+            logoImg.classList.add('hidden');
+            iconPlaceholder.classList.remove('hidden');
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    function getLogoPathJS(path) {
+        if (!path) return '';
+        if (path.startsWith('data:') || path.startsWith('http')) return path;
+        if (path.startsWith('uploads/')) return '../' + path;
+        if (path.startsWith('../')) return path;
+        return '../uploads/applications/' + path;
+    }
+
+    function closeDetailModal() {
+        document.getElementById('subscriptionDetailModal').classList.add('hidden');
+    }
+</script>
 </body>
 </html>
