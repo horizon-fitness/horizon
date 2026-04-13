@@ -113,8 +113,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 // 4. Conditional insertion into staff or coaches table
                 if (strtolower($staff_role) === 'coach') {
-                    $stmtCoach = $pdo->prepare("INSERT INTO coaches (user_id, gym_id, coach_type, specialization, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, 'General Trainer', CURDATE(), 'Active', ?, ?)");
-                    $stmtCoach->execute([$new_user_id, $gym_id, $employment_type, $now, $now]);
+                    // Create an automatic application record for direct hires to maintain 3NF
+                    $stmtApp = $pdo->prepare("INSERT INTO coach_applications (user_id, gym_id, coach_type, specialization, certification_file, application_status, submitted_at, reviewed_by, reviewed_at, remarks) VALUES (?, ?, ?, 'General Trainer', 'SYSTEM_DIRECT_HIRE', 'Approved', ?, ?, ?, 'Directly added by Tenant/Admin')");
+                    $stmtApp->execute([$new_user_id, $gym_id, $employment_type, $now, $user_id, $now]);
+                    $application_id = $pdo->lastInsertId();
+
+                    $stmtCoach = $pdo->prepare("INSERT INTO coaches (user_id, gym_id, coach_application_id, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, CURDATE(), 'Active', ?, ?)");
+                    $stmtCoach->execute([$new_user_id, $gym_id, $application_id, $now, $now]);
                 } else {
                     $stmtStaff = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, CURDATE(), 'Active', ?, ?)");
                     $stmtStaff->execute([$new_user_id, $gym_id, $staff_role, $employment_type, $now, $now]);

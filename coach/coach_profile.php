@@ -99,9 +99,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_password'])) {
 
 // FETCH Comprehensive Data
 $stmtUser = $pdo->prepare("
-    SELECT u.*, c.coach_type, c.specialization, c.status as coach_status
+    SELECT u.*, ca.coach_type, ca.specialization, c.status as coach_status
     FROM users u
     INNER JOIN coaches c ON u.user_id = c.user_id
+    INNER JOIN coach_applications ca ON c.coach_application_id = ca.coach_application_id
     WHERE u.user_id = ? AND c.gym_id = ?
 ");
 $stmtUser->execute([$user_id, $gym_id]);

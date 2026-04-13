@@ -227,6 +227,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
 
         #plansSlider { cursor: grab; user-select: none; }
         #plansSlider:active { cursor: grabbing; }
+
+        .terms-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            scrollbar-width: thin;
+            scrollbar-color: rgba(127, 19, 236, 0.3) transparent;
+        }
+        .terms-box::-webkit-scrollbar {
+            width: 4px;
+        }
+        .terms-box::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .terms-box::-webkit-scrollbar-thumb {
+            background: rgba(127, 19, 236, 0.3);
+            border-radius: 10px;
+        }
     </style>
 </head>
 
@@ -365,7 +382,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
                 </div>
             </div>
 
-            <button type="submit" class="w-full h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+            <div class="mb-6 p-5 rounded-2xl terms-box">
+                <p class="text-[9px] font-black uppercase text-primary tracking-[0.2em] mb-3">2. Payment Terms & Conditions</p>
+                <div class="max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                    <p class="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">Please review the summary below before proceeding.</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-[10px] font-black text-white uppercase italic mb-1">1. Payment Authorization</p>
+                            <p class="text-[10px] text-gray-500 font-medium leading-relaxed uppercase tracking-widest">By linking your payment method or clicking "Pay," you authorize us to charge the total amount displayed. For subscription plans, you authorize recurring charges (monthly or annually) until you manually cancel.</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black text-white uppercase italic mb-1">2. Billing Cycle & Automatic Renewal</p>
+                            <ul class="text-[10px] text-gray-500 font-medium leading-relaxed uppercase tracking-widest list-disc pl-4 space-y-1">
+                                <li>Renewal: Your account will be charged automatically at the start of every billing period.</li>
+                                <li>Notice: Any price changes will be sent to your registered email at least 30 days before the next charge.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black text-white uppercase italic mb-1">3. Cancellation & Refund Policy</p>
+                            <ul class="text-[10px] text-gray-500 font-medium leading-relaxed uppercase tracking-widest list-disc pl-4 space-y-1">
+                                <li>Cancellation: You can cancel anytime via your Dashboard/Settings. You will keep access until your current paid period ends.</li>
+                                <li>Refunds: All sales are final. We do not offer pro-rated refunds for unused portions of a billing cycle unless there was a technical error on our part.</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-black text-white uppercase italic mb-1">4. Security & Data Privacy</p>
+                            <p class="text-[10px] text-gray-500 font-medium leading-relaxed uppercase tracking-widest">We do not store your full credit card or e-wallet credentials on our servers. All transactions are processed through secure, encrypted third-party payment gateways.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-white/5">
+                    <label class="flex gap-3 cursor-pointer group">
+                        <div class="relative flex items-center">
+                            <input type="checkbox" id="termsAgreement" class="peer sr-only" onchange="togglePayButton()">
+                            <div class="size-5 rounded-md border border-white/10 bg-white/5 peer-checked:bg-primary peer-checked:border-primary transition-all flex items-center justify-center">
+                                <span class="material-symbols-outlined text-white text-sm scale-0 peer-checked:scale-100 transition-transform">check</span>
+                            </div>
+                        </div>
+                        <span class="text-[9px] text-gray-500 font-bold uppercase tracking-widest group-hover:text-gray-300 transition-colors">
+                            I have read and understood the informative summary above. I agree to the Terms of Service and Payment Policy, and I authorize this transaction and future recurring charges under these terms.
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" id="btnProceed" disabled class="w-full h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed disabled:hover:scale-100">
                 <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform" id="btnIcon">lock</span>
                 <span id="btnText">Proceed to Payment</span>
             </button>
@@ -410,11 +473,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
         }
 
         document.querySelector('input[name="payment_term"][value="Full"]').checked = true;
+        
+        // Reset Terms Agreement
+        const agreement = document.getElementById('termsAgreement');
+        agreement.checked = false;
+        togglePayButton();
+
         updateCheckoutTotal(); // Sync UI state
         
         const modal = document.getElementById('checkoutModal');
         modal.classList.remove('hidden');
         modal.classList.add('flex');
+    }
+
+    function togglePayButton() {
+        const checkbox = document.getElementById('termsAgreement');
+        const btn = document.getElementById('btnProceed');
+        btn.disabled = !checkbox.checked;
     }
 
     function closeCheckoutModal() {

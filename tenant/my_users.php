@@ -64,9 +64,8 @@ $plan_name = $subscription['plan_name'] ?? 'No Plan';
 $sub_status = $subscription['subscription_status'] ?? 'None';
 $is_sub_active = (strtolower($sub_status) === 'active');
 
-// Determine if we show the restriction modal (Only for non-active AND non-pending)
-// If it's pending, we show a banner instead of a hard lock.
-$is_restricted = (!$is_sub_active && strpos($sub_status, 'Pending') === false);
+// Determine if we show the restriction modal (Only for non-active)
+$is_restricted = (!$is_sub_active);
 
 // --- AJAX USER PROFILE FETCH (View Details) ---
 if (isset($_GET['ajax_user_id'])) {
@@ -85,8 +84,12 @@ if (isset($_GET['ajax_user_id'])) {
         $sql .= ", s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN staff s ON u.user_id = s.user_id AND s.gym_id = ur.gym_id ";
     } elseif ($role_name === 'coach') {
-        $sql .= ", c.coach_type as employment_type, c.specialization as staff_role, c.hire_date, c.status as staff_status ";
-        $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN coaches c ON u.user_id = c.user_id AND c.gym_id = ur.gym_id ";
+        $sql .= ", ca.coach_type as employment_type, ca.specialization as staff_role, c.hire_date, c.status as staff_status ";
+        $sql .= " FROM users u 
+                  JOIN user_roles ur ON u.user_id = ur.user_id 
+                  JOIN roles r ON ur.role_id = r.role_id 
+                  LEFT JOIN coaches c ON u.user_id = c.user_id AND c.gym_id = ur.gym_id 
+                  LEFT JOIN coach_applications ca ON c.coach_application_id = ca.coach_application_id ";
     } else {
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id ";
     }
@@ -364,12 +367,13 @@ $where_sql = "WHERE " . implode(" AND ", $where);
 $stmtUsers = $pdo->prepare("
     SELECT u.user_id, u.first_name, u.last_name, u.email, r.role_name as role, u.is_active, u.created_at,
            CASE WHEN r.role_name = 'Member' THEN m.member_status ELSE c.status END as active_status,
-           CASE WHEN r.role_name = 'Member' THEN IFNULL(mp.plan_name, 'No Plan') ELSE c.specialization END as detail_info
+           CASE WHEN r.role_name = 'Member' THEN IFNULL(mp.plan_name, 'No Plan') ELSE ca.specialization END as detail_info
     FROM users u
     JOIN user_roles ur ON u.user_id = ur.user_id
     JOIN roles r ON ur.role_id = r.role_id
     LEFT JOIN members m ON u.user_id = m.user_id
     LEFT JOIN coaches c ON u.user_id = c.user_id
+    LEFT JOIN coach_applications ca ON c.coach_application_id = ca.coach_application_id
     LEFT JOIN member_subscriptions ms ON m.member_id = ms.member_id AND ms.subscription_status = 'Active'
     LEFT JOIN membership_plans mp ON ms.membership_plan_id = mp.membership_plan_id
     $where_sql
@@ -993,10 +997,17 @@ $page_title = "User Database";
                 Access to user management and platform analytics is restricted. Your status is <span class="text-primary italic animate-pulse"><?= $sub_status ?></span>. Please activate a growth plan to unlock.
             </p>
             <div class="flex flex-col gap-4">
-                <a href="subscription_plan.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
-                    <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">payments</span>
-                    Select Growth Plan
-                </a>
+                <?php if (strpos($sub_status, 'Pending') !== false): ?>
+                    <a href="tenant_dashboard.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+                        <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">grid_view</span>
+                        Back to Dashboard
+                    </a>
+                <?php else: ?>
+                    <a href="subscription_plan.php" class="h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 group">
+                        <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">payments</span>
+                        Select Growth Plan
+                    </a>
+                <?php endif; ?>
             </div>
         </div>
     </div>
