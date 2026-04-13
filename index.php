@@ -48,14 +48,9 @@ foreach ($plans as &$p) {
         }
     </script>
     <style>
-        /* Scrollbar Styling */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        .custom-scrollbar::-webkit-scrollbar { height: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(127, 19, 236, 0.1); border-radius: 10px; transition: all 0.3s ease; }
-        .custom-scrollbar:hover::-webkit-scrollbar-thumb { background: rgba(127, 19, 236, 0.4); }
+        /* Invisible Scroll System (CSS Reset) */
+        *::-webkit-scrollbar { display: none; }
+        * { -ms-overflow-style: none; scrollbar-width: none; }
 
         #plansSlider { cursor: grab; user-select: none; }
         #plansSlider:active { cursor: grabbing; }
@@ -306,7 +301,7 @@ foreach ($plans as &$p) {
                     <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">Select a plan to activate your gym's digital infrastructure</p>
                 </div>
 
-                <div id="plansSlider" class="flex overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 custom-scrollbar scroll-smooth">
+                <div id="plansSlider" class="flex justify-center overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 custom-scrollbar scroll-smooth">
                     <?php foreach ($plans as $plan): 
                         $isMomentum = strpos($plan['plan_name'], 'Momentum') !== false;
                     ?>

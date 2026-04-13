@@ -203,7 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             transform: translateY(-5px);
         }
 
-        /* 100% Invisible, 100% Active Scroll System */
+        /* Invisible Scroll System (CSS Reset) */
         *::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
     </style>
@@ -263,7 +263,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             <?php endif; ?>
         </div>
 
-        <div class="flex overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 scroll-smooth">
+        <div class="flex justify-center overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 scroll-smooth">
             <?php foreach($plans as $plan): 
                 $isMomentum = strpos($plan['plan_name'], 'Momentum') !== false;
             ?>

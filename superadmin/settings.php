@@ -75,33 +75,11 @@ $global_defaults = [
 foreach ($global_defaults as $s)
     $stmtSeed->execute([0, $s[0], $s[1]]);
 
-// Fetch and Merge Settings
-// 1. Fetch Global Settings
-$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
-$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
-
-// 2. Fetch User-Specific Settings
-$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
-$stmtUser->execute([$_SESSION['user_id']]);
-$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
-
-// 3. Merge (User settings take precedence for overlapping keys if any)
-$configs = array_merge($global_configs, $user_configs);
-
-// 4. Fetch Website Plans (3NF Compatibility)
-$stmtPlans = $pdo->prepare("SELECT * FROM website_plans ORDER BY price ASC");
-$stmtPlans->execute();
-$website_plans = $stmtPlans->fetchAll();
-
-foreach ($website_plans as &$p) {
-    $stmtF = $pdo->prepare("SELECT feature_name FROM website_plan_features WHERE website_plan_id = ?");
-    $stmtF->execute([$p['website_plan_id']]);
-    $p['features'] = implode(', ', $stmtF->fetchAll(PDO::FETCH_COLUMN));
-}
-
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     unset($_POST['save_settings']);
+    $pdo->beginTransaction();
+    try {
     
     // 2. Handle EXISTING Plans Update (Metadata Only)
     if (isset($_POST['plans']) && is_array($_POST['plans'])) {
@@ -147,8 +125,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         $stmtDelSubFeatures = $pdo->prepare("DELETE FROM website_plan_features WHERE website_plan_id = ?");
         $stmtDelPlan = $pdo->prepare("DELETE FROM website_plans WHERE website_plan_id = ?");
         foreach ($_POST['perm_delete_plans'] as $perm_id) {
-            $stmtDelSubFeatures->execute([$perm_id]);
-            $stmtDelPlan->execute([$perm_id]);
+            try {
+                $stmtDelSubFeatures->execute([$perm_id]);
+                $stmtDelPlan->execute([$perm_id]);
+            } catch (PDOException $e) {
+                if ($e->getCode() == '23000') {
+                    throw new Exception("Cannot delete Plan ID #$perm_id: It is currently assigned to active gym accounts. Please archive it instead.");
+                }
+                throw $e;
+            }
         }
     }
 
@@ -178,22 +163,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     // 4. Handle Global & User Settings (Theme, Names, etc.)
     $stmtUpdate = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
 
-    try {
-        $pdo->beginTransaction();
-        foreach ($_POST as $key => $value) {
-            if (is_array($value) || in_array($key, ['delete_plans', 'unarchive_plans', 'perm_delete_plans']))
-                continue; 
-            
-            $scope_id = in_array($key, $global_keys) ? 0 : $_SESSION['user_id'];
-            $stmtUpdate->execute([$scope_id, $key, $value]);
-            $configs[$key] = $value;
-        }
-        $pdo->commit();
+    foreach ($_POST as $key => $value) {
+        if (is_array($value) || in_array($key, ['delete_plans', 'unarchive_plans', 'perm_delete_plans']))
+            continue; 
+        
+        $scope_id = in_array($key, $global_keys) ? 0 : $_SESSION['user_id'];
+        $stmtUpdate->execute([$scope_id, $key, $value]);
+        $configs[$key] = $value;
+    }
+
+    $pdo->commit();
         $success_msg = "System configurations updated successfully!";
-    } catch (PDOException $e) {
-        if ($pdo->inTransaction())
-            $pdo->rollBack();
-        $error_msg = "Error updating settings: " . $e->getMessage();
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $error_msg = $e->getMessage();
     }
 }
 
@@ -283,6 +266,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_superadmin'])) {
             $pdo->rollBack();
         $error_msg = "Error creating account: " . $e->getMessage();
     }
+}
+
+// Fetch and Merge Settings (Fetch AFTER potential updates for UI consistency)
+// 1. Fetch Global Settings
+$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 2. Fetch User-Specific Settings
+$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtUser->execute([$_SESSION['user_id']]);
+$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// 3. Merge (User settings take precedence for overlapping keys if any)
+$configs = array_merge($global_configs, $user_configs);
+
+// 4. Fetch Website Plans (3NF Compatibility)
+$stmtPlans = $pdo->prepare("SELECT * FROM website_plans ORDER BY price ASC");
+$stmtPlans->execute();
+$website_plans = $stmtPlans->fetchAll();
+
+foreach ($website_plans as &$p) {
+    $stmtF = $pdo->prepare("SELECT feature_name FROM website_plan_features WHERE website_plan_id = ?");
+    $stmtF->execute([$p['website_plan_id']]);
+    $p['features'] = implode(', ', $stmtF->fetchAll(PDO::FETCH_COLUMN));
 }
 
 $active_page = "settings";
@@ -789,6 +796,20 @@ $active_page = "settings";
                     </div>
                     <button type="button" onclick="this.parentElement.remove()"
                         class="text-emerald-500/50 hover:text-emerald-500 transition-colors p-2 shrink-0 outline-none">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+                </div>
+            <?php endif; ?>
+
+            <?php if (isset($error_msg)): ?>
+                <div id="errorAlert"
+                    class="mb-6 px-8 h-[46px] bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center justify-between transition-all duration-700 select-none">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-sm text-rose-500">warning</span>
+                        <span><?= $error_msg ?></span>
+                    </div>
+                    <button type="button" onclick="this.parentElement.remove()"
+                        class="text-rose-500/50 hover:text-rose-500 transition-colors p-2 shrink-0 outline-none">
                         <span class="material-symbols-outlined text-base">close</span>
                     </button>
                 </div>
@@ -1606,8 +1627,8 @@ $active_page = "settings";
                 document.getElementById('confirmIcon').classList.add('text-rose-500');
                 document.getElementById('confirmIcon').classList.remove('text-primary');
 
-                confirmBtn.textContent = "Okay, I'll fix it";
-                confirmBtn.onclick = () => toggleActionModal(false);
+                confirmBtn.textContent = isError && !onConfirm ? "Okay, I'll fix it" : "Confirm Action";
+                confirmBtn.onclick = onConfirm || (() => toggleActionModal(false));
             } else {
                 iconContainer.classList.add('bg-primary/10');
                 iconContainer.classList.remove('bg-rose-500/10');
