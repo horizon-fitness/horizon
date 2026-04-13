@@ -203,9 +203,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             transform: translateY(-5px);
         }
 
-        /* Invisible Scroll System (CSS Reset) */
-        *::-webkit-scrollbar { display: none !important; }
-        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+        /* Minimalist "Hinde Ganong Kakita" Scrollbar */
+        #plansSlider::-webkit-scrollbar {
+            height: 4px;
+            display: block !important;
+        }
+        #plansSlider::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 10px;
+        }
+        #plansSlider::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        #plansSlider::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* IE/Firefox Hide (keeping only custom webkit one) */
+        * { -ms-overflow-style: none; scrollbar-width: none; }
+        #plansSlider { scrollbar-width: thin !important; scrollbar-color: rgba(255, 255, 255, 0.1) transparent !important; }
 
         #plansSlider { cursor: grab; user-select: none; }
         #plansSlider:active { cursor: grabbing; }
@@ -266,40 +284,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             <?php endif; ?>
         </div>
 
-        <div id="plansSlider" class="flex justify-center overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 scroll-smooth">
-            <?php foreach($plans as $plan): 
-                $isMomentum = strpos($plan['plan_name'], 'Momentum') !== false;
-            ?>
-            <div class="plan-card rounded-2xl p-10 flex flex-col text-left shrink-0 w-[calc(100%-2rem)] md:w-[400px] snap-start hover:border-primary/50 transition-all group relative overflow-hidden <?= $isMomentum ? 'border-primary/50 bg-primary/5 scale-105 shadow-2xl shadow-primary/20' : 'dashboard-window' ?>">
-                <?php if($isMomentum): ?>
-                    <div class="absolute top-0 right-0 bg-primary text-white text-[8px] font-black uppercase px-4 py-2 rounded-bl-xl tracking-widest">Most Popular</div>
-                <?php endif; ?>
+        <!-- Scrollable Wrapper -->
+        <div id="plansSlider" class="w-full overflow-x-auto snap-x snap-mandatory py-24 scroll-smooth no-scrollbar">
+            <!-- Nested Flex Container for Safe Centering & Complete Visibility -->
+            <div class="flex items-center min-w-max mx-auto px-12 gap-10">
+                <?php foreach($plans as $plan): 
+                    $isFeatured = !empty($plan['badge_text']);
+                ?>
+                <div class="plan-card rounded-2xl p-10 flex flex-col text-left shrink-0 w-[calc(100vw-4rem)] md:w-[400px] snap-start hover:border-primary/50 transition-all group relative overflow-hidden <?= $isFeatured ? 'border-primary/50 bg-primary/5 scale-105 shadow-2xl shadow-primary/20' : 'dashboard-window' ?>">
+                    <?php if($isFeatured): ?>
+                        <div class="absolute top-0 right-0 bg-primary text-white text-[8px] font-black uppercase px-4 py-2 rounded-bl-xl tracking-widest"><?= htmlspecialchars($plan['badge_text']) ?></div>
+                    <?php endif; ?>
 
-                <div class="mb-8">
-                    <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
-                    <p class="text-[9px] <?= $isMomentum ? 'text-primary' : 'text-gray-600' ?> font-bold uppercase tracking-[0.2em] italic"><?= htmlspecialchars($plan['billing_cycle']) ?> Billing</p>
+                    <div class="mb-8">
+                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
+                        <p class="text-[9px] <?= $isFeatured ? 'text-primary' : 'text-gray-600' ?> font-bold uppercase tracking-[0.2em] italic"><?= htmlspecialchars($plan['billing_cycle']) ?> Billing</p>
+                    </div>
+
+                    <div class="mb-10 flex items-baseline gap-1">
+                        <span class="text-4xl font-display font-black text-white italic">₱<?= number_format($plan['price']) ?></span>
+                        <span class="text-[10px] text-gray-500 font-black uppercase tracking-widest">/ Term</span>
+                    </div>
+
+                    <ul class="space-y-4 mb-12 flex-grow">
+                        <?php foreach($plan['features'] as $feature): ?>
+                        <li class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-primary text-lg font-black">check_circle</span>
+                            <span class="text-xs text-gray-400 font-medium leading-tight italic"><?= htmlspecialchars($feature) ?></span>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+
+                    <button type="button" onclick="openCheckoutModal(<?= $plan['website_plan_id'] ?>, '<?= htmlspecialchars(addslashes($plan['plan_name'])) ?>', <?= $plan['price'] ?>, <?= $plan['duration_months'] ?>)" class="w-full h-14 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white hover:bg-primary hover:border-primary hover:scale-[1.02] active:scale-95 transition-all group flex items-center justify-center gap-3 italic">
+                        <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">payments</span>
+                        Select Plan
+                    </button>
                 </div>
-
-                <div class="mb-10 flex items-baseline gap-1">
-                    <span class="text-4xl font-display font-black text-white italic">₱<?= number_format($plan['price']) ?></span>
-                    <span class="text-[10px] text-gray-500 font-black uppercase tracking-widest">/ Term</span>
-                </div>
-
-                <ul class="space-y-4 mb-12 flex-grow">
-                    <?php foreach($plan['features'] as $feature): ?>
-                    <li class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-primary text-lg font-black">check_circle</span>
-                        <span class="text-xs text-gray-400 font-medium leading-tight italic"><?= htmlspecialchars($feature) ?></span>
-                    </li>
-                    <?php endforeach; ?>
-                </ul>
-
-                <button type="button" onclick="openCheckoutModal(<?= $plan['website_plan_id'] ?>, '<?= htmlspecialchars(addslashes($plan['plan_name'])) ?>', <?= $plan['price'] ?>, <?= $plan['duration_months'] ?>)" class="w-full h-14 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-white hover:bg-primary hover:border-primary hover:scale-[1.02] active:scale-95 transition-all group flex items-center justify-center gap-3 italic">
-                    <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">payments</span>
-                    Select Plan
-                </button>
+                <?php endforeach; ?>
             </div>
-            <?php endforeach; ?>
         </div>
     </div>
 </main>

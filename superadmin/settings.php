@@ -12,6 +12,42 @@ if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role']) !== 'superadmi
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Handle Immediate Plan Actions (Archive/Restore)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['immediate_plan_action'])) {
+    try {
+        $plan_id = intval($_POST['target_plan_id']);
+        $action = $_POST['immediate_plan_action'];
+
+        if ($action === 'archive') {
+            $stmt = $pdo->prepare("UPDATE website_plans SET is_active = 0 WHERE website_plan_id = ?");
+            $stmt->execute([$plan_id]);
+            $_SESSION['success_msg'] = "Plan successfully archived immediately!";
+        } elseif ($action === 'restore') {
+            $stmt = $pdo->prepare("UPDATE website_plans SET is_active = 1 WHERE website_plan_id = ?");
+            $stmt->execute([$plan_id]);
+            $_SESSION['success_msg'] = "Plan successfully restored immediately!";
+        }
+    } catch (Exception $e) {
+        $_SESSION['error_msg'] = "Immediate action failed: " . $e->getMessage();
+    }
+
+    header("Location: " . $_SERVER['PHP_SELF'] . "?tab=plans");
+    exit;
+}
+
+// Pull messages from session if exists
+if (isset($_SESSION['success_msg'])) {
+    $success_msg = $_SESSION['success_msg'];
+    unset($_SESSION['success_msg']);
+}
+if (isset($_SESSION['error_msg'])) {
+    $error_msg = $_SESSION['error_msg'];
+    unset($_SESSION['error_msg']);
+}
+
+// Current Active Tab Detection for Zero-Flash Rendering
+$current_tab = $_GET['tab'] ?? ($_POST['active_tab'] ?? 'look');
+
 // Hex to RGB helper for dynamic transparency
 function hexToRgb($hex)
 {
@@ -602,6 +638,29 @@ $active_page = "settings";
             display: none;
             /* Chrome, Safari, and Opera */
         }
+
+        /* Plan Card View Mode Styles */
+        .plan-edit-state { display: none; }
+        .glass-card.is-editing .plan-edit-state { display: block; }
+        .glass-card.is-editing .plan-preview-state { display: none; }
+
+        .view-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            padding: 0.85rem 1.25rem;
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+        }
+        .view-box-long {
+            align-items: flex-start;
+            line-height: 1.6;
+            min-height: 100px;
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -796,10 +855,10 @@ $active_page = "settings";
             <div class="flex justify-between items-center mb-10 gap-6 transition-all">
                 <!-- Tab Switcher -->
                 <div class="flex items-center gap-2 p-1 bg-white/5 border border-white/10 rounded-xl w-fit shrink-0 h-[46px]">
-                    <button type="button" onclick="switchTab('look')" id="tab-look" class="tab-btn active px-8 h-full rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">
+                    <button type="button" onclick="switchTab('look')" id="tab-look" class="tab-btn <?= $current_tab === 'look' ? 'active' : '' ?> px-8 h-full rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">
                         System Look
                     </button>
-                    <button type="button" onclick="switchTab('plans')" id="tab-plans" class="tab-btn px-8 h-full rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">
+                    <button type="button" onclick="switchTab('plans')" id="tab-plans" class="tab-btn <?= $current_tab === 'plans' ? 'active' : '' ?> px-8 h-full rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">
                         System Plan
                     </button>
                 </div>
@@ -823,8 +882,8 @@ $active_page = "settings";
             </div>
 
             <form action="" method="POST" enctype="multipart/form-data" id="mainSettingsForm">
-                <input type="hidden" name="active_tab" id="activeTabInput" value="<?= htmlspecialchars($_POST['active_tab'] ?? 'look') ?>">
-                <div id="content-look" class="tab-content active space-y-8">
+                <input type="hidden" name="active_tab" id="activeTabInput" value="<?= htmlspecialchars($current_tab) ?>">
+                <div id="content-look" class="tab-content <?= $current_tab === 'look' ? 'active' : '' ?> space-y-8">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <!-- Global Customization Section -->
                         <div class="glass-card p-8 h-full">
@@ -1022,7 +1081,7 @@ $active_page = "settings";
                     </div>
                 </div>
 
-                <div id="content-plans" class="tab-content space-y-8">
+                <div id="content-plans" class="tab-content <?= $current_tab === 'plans' ? 'active' : '' ?> space-y-8">
                     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white/5 p-6 rounded-2xl border border-white/5 gap-6">
                         <div>
                             <h4 class="text-xs font-black italic uppercase tracking-widest text-white">System Subscription Plans</h4>
@@ -1061,13 +1120,54 @@ $active_page = "settings";
                                     </h3>
                                 </div>
                                 <div class="flex items-center gap-2 transition-all">
+                                    <button type="button" onclick="toggleEditPlan(<?= $plan['website_plan_id'] ?>)" class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-95" title="Edit Plan">
+                                        <span class="material-symbols-outlined text-base">edit</span>
+                                    </button>
                                     <button type="button" onclick="markPlanForArchival(<?= $plan['website_plan_id'] ?>)" class="size-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all active:scale-95" title="Archive Plan">
                                         <span class="material-symbols-outlined text-base">archive</span>
                                     </button>
                                 </div>
                             </div>
 
-                            <div class="space-y-4">
+                            <!-- PREVIEW STATE: Structured View mirroring Edit Mode -->
+                            <div class="plan-preview-state space-y-4">
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
+                                    <div class="view-box text-white"><?= htmlspecialchars($plan['plan_name']) ?></div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price (₱)</label>
+                                        <div class="view-box"><?= number_format($plan['price']) ?>.00</div>
+                                    </div>
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Months)</label>
+                                        <div class="view-box"><?= htmlspecialchars($plan['duration_months']) ?></div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle Text</label>
+                                        <div class="view-box"><?= htmlspecialchars($plan['billing_cycle']) ?></div>
+                                    </div>
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Featured Badge Text</label>
+                                        <div class="view-box opacity-60 italic"><?= !empty($plan['badge_text']) ? htmlspecialchars($plan['badge_text']) : 'None' ?></div>
+                                    </div>
+                                </div>
+
+                                <div class="flex flex-col gap-1.5">
+                                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features</label>
+                                    <div class="view-box view-box-long text-[10px] text-gray-400 font-medium">
+                                        <?= !empty($plan['features']) ? htmlspecialchars($plan['features']) : 'No features listed' ?>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- EDIT STATE: Hidden inputs -->
+                            <div class="plan-edit-state space-y-4">
                                 <div class="flex flex-col gap-1.5">
                                     <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
                                     <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][name]" value="<?= htmlspecialchars($plan['plan_name']) ?>" class="input-field" oninput="this.closest('.glass-card').querySelector('.plan-title-preview').innerText = this.value">
@@ -1095,6 +1195,9 @@ $active_page = "settings";
                                 <div class="flex flex-col gap-1.5">
                                     <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features (Comma-separated)</label>
                                     <textarea name="plans[<?= $plan['website_plan_id'] ?>][features]" rows="4" class="input-field no-scrollbar resize-none"><?= htmlspecialchars($plan['features']) ?></textarea>
+                                </div>
+                                <div class="pt-4 border-t border-white/5">
+                                    <p class="text-[8px] font-black uppercase tracking-widest text-primary opacity-60">Manual save required via 'Save Changes'</p>
                                 </div>
                             </div>
                         </div>
@@ -1147,8 +1250,8 @@ $active_page = "settings";
                                                 </p>
                                             </td>
                                             <td class="px-8 py-6 text-right">
-                                                <button type="button" onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)" class="px-6 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95 inline-flex">
-                                                    <span class="material-symbols-outlined text-sm">unarchive</span>
+                                                <button type="button" onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)" class="px-6 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95 inline-flex" title="Restore Immediately">
+                                                    <span class="material-symbols-outlined text-sm">settings_backup_restore</span>
                                                     Restore
                                                 </button>
                                             </td>
@@ -1888,10 +1991,9 @@ $active_page = "settings";
         }
         // --- Initialization & Lifecycle ---
         document.addEventListener('DOMContentLoaded', () => {
-            // Apply initial branding state
+            initPagination();
             updateLiveBranding();
-
-            // Auto-hide success alerts
+            
             const successAlert = document.getElementById('successAlert');
             if (successAlert) {
                 setTimeout(() => {
@@ -1901,15 +2003,16 @@ $active_page = "settings";
                 }, 15000);
             }
 
+            // Restore Active Tab (Check GET then POST then default)
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialTab = urlParams.get('tab') || "<?= htmlspecialchars($_POST['active_tab'] ?? 'look') ?>";
+            switchTab(initialTab);
+
             // Error handling for Superadmin Creation
             const errorMsg = "<?= addslashes($error_msg ?? '') ?>";
             if (errorMsg && errorMsg.includes('creating account')) {
                 toggleSuperadminModal(true);
             }
-
-            // Restore Active Tab
-            const initialTab = "<?= htmlspecialchars($_POST['active_tab'] ?? 'look') ?>";
-            switchTab(initialTab);
         });
 
         function resetToDefaults() {
@@ -1937,13 +2040,21 @@ $active_page = "settings";
             );
         }
 
+        function toggleEditPlan(planId) {
+            const card = document.getElementById(`plan-card-${planId}`);
+            if (card) {
+                card.classList.toggle('is-editing');
+            }
+        }
+
         let newPlanCount = 0;
         function addNewPlanCard() {
             const container = document.getElementById('activePlansContainer');
             const newId = `new_plan_${newPlanCount++}`;
             
             const card = document.createElement('div');
-            card.className = "glass-card p-8 flex flex-col gap-6 relative group/plan animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-2xl";
+            // Starts with .is-editing by default
+            card.className = "glass-card p-8 flex flex-col gap-6 relative group/plan animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-2xl is-editing";
             card.innerHTML = `
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-4">
@@ -1952,11 +2063,54 @@ $active_page = "settings";
                         </div>
                         <h3 class="text-sm font-black italic uppercase tracking-widest text-emerald-500 plan-title-preview">Draft Plan</h3>
                     </div>
-                    <button type="button" onclick="this.closest('.glass-card').remove(); horizonPaginators['activePlansContainer'].update();" class="size-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
-                        <span class="material-symbols-outlined text-base">close</span>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="this.closest('.glass-card').classList.toggle('is-editing')" class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-95" title="Toggle Edit Mode">
+                            <span class="material-symbols-outlined text-base">edit</span>
+                        </button>
+                        <button type="button" onclick="this.closest('.glass-card').remove(); horizonPaginators['activePlansContainer'].update();" class="size-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
+                            <span class="material-symbols-outlined text-base">close</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="space-y-4">
+
+                <!-- PREVIEW STATE: Structured View mirroring Edit Mode -->
+                <div class="plan-preview-state space-y-4">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
+                        <div class="view-box text-white opacity-60 italic">Drafting...</div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price (₱)</label>
+                            <div class="view-box opacity-40">--</div>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Months)</label>
+                            <div class="view-box opacity-40">--</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle Text</label>
+                            <div class="view-box opacity-40">--</div>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Featured Badge Text</label>
+                            <div class="view-box opacity-40">--</div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features</label>
+                        <div class="view-box view-box-long text-[10px] text-gray-500 italic opacity-40">
+                            Drafting features...
+                        </div>
+                    </div>
+                </div>
+
+                <div class="plan-edit-state space-y-4">
                     <div class="flex flex-col gap-1.5">
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
                         <input type="text" name="new_plans[${newId}][name]" placeholder="e.g. Starter Pack" class="input-field" oninput="this.closest('.glass-card').querySelector('.plan-title-preview').innerText = this.value || 'Draft Plan'" required>
@@ -1985,6 +2139,10 @@ $active_page = "settings";
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features (Comma-separated)</label>
                         <textarea name="new_plans[${newId}][features]" rows="4" class="input-field no-scrollbar resize-none" placeholder="Feature 1, Feature 2..."></textarea>
                     </div>
+                    
+                    <div class="pt-4 border-t border-white/5">
+                        <p class="text-[8px] font-black uppercase tracking-widest text-primary opacity-60">Manual save required via 'Save Changes'</p>
+                    </div>
                 </div>
             `;
             container.prepend(card);
@@ -1998,88 +2156,47 @@ $active_page = "settings";
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
+        function triggerImmediatePlanUpdate(planId, action) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '';
+            form.style.display = 'none';
+
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'immediate_plan_action';
+            actionInput.value = action;
+
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'target_plan_id';
+            idInput.value = planId;
+
+            form.appendChild(actionInput);
+            form.appendChild(idInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
         function markPlanForArchival(planId) {
             showActionModal(
-                'Archive Plan',
-                'Are you sure you want to archive this plan? It will be hidden from new gyms but existing subscribers will not be affected.',
+                'Archive Plan Immediately',
+                'Are you sure? This will instantly archive the plan and update the system. No manual save required.',
                 'archive',
                 () => {
-                    const card = document.getElementById(`plan-card-${planId}`);
-                    if (card) {
-                        card.style.transform = 'scale(0.9) translateY(20px)';
-                        card.style.opacity = '0';
-                        setTimeout(() => {
-                            card.remove();
-                            if (horizonPaginators['activePlansContainer']) {
-                                horizonPaginators['activePlansContainer'].update();
-                            }
-                        }, 400);
-                    }
-                    
-                    // Add to hidden archive array
-                    let input = document.querySelector(`input[name="delete_plans[]"][value="${planId}"]`);
-                    if (!input) {
-                        input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = 'delete_plans[]';
-                        input.value = planId;
-                        document.getElementById('mainSettingsForm').appendChild(input);
-                    }
-                    
+                    triggerImmediatePlanUpdate(planId, 'archive');
                     toggleActionModal(false);
                 }
             );
         }
 
-
-
         function unarchivePlan(planId) {
             showActionModal(
-                'Unarchive Plan',
-                'Restore this plan? it will be immediately available for new gyms to purchase.',
+                'Restore Plan Immediately',
+                'Are you sure? This will instantly restore the plan and make it active. No manual save required.',
                 'unarchive',
                 () => {
-                    // In archived view, the target is a table row in the tbody
-                    const rows = document.querySelectorAll('#archivedPlansTableBody tr');
-                    let targetRow = null;
-                    
-                    // Find the row that contains the restoration button for this planId
-                    // Or we can just find it by traversing from event.target if available
-                    // but since this is inside a modal callback, we need to find it by logic
-                    // Actually, the easiest is to just find the row that matches the context
-                    // Or we could have passed the row index.
-                    // For now, let's find the row that has the unarchive button with this planId
-                    rows.forEach(r => {
-                        if (r.innerHTML.includes(`unarchivePlan(${planId})`)) {
-                            targetRow = r;
-                        }
-                    });
-
-                    if (targetRow) {
-                        targetRow.style.opacity = '0';
-                        targetRow.style.transform = 'translateX(20px)';
-                        targetRow.style.transition = 'all 0.4s';
-                        setTimeout(() => {
-                            targetRow.remove();
-                            if (horizonPaginators['archivedPlansTableBody']) {
-                                horizonPaginators['archivedPlansTableBody'].update();
-                            }
-                        }, 400);
-                    }
-                    
-                    // Remove from hidden archive array if it was just added in this session
-                    const input = document.querySelector(`input[name="delete_plans[]"][value="${planId}"]`);
-                    if (input) {
-                        input.remove();
-                    } else {
-                        // If it was already archived in DB, we need an explicit unarchive array
-                        let unInput = document.createElement('input');
-                        unInput.type = 'hidden';
-                        unInput.name = 'unarchive_plans[]';
-                        unInput.value = planId;
-                        document.getElementById('mainSettingsForm').appendChild(unInput);
-                    }
-                    
+                    triggerImmediatePlanUpdate(planId, 'restore');
                     toggleActionModal(false);
                 }
             );
