@@ -226,26 +226,111 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             transition: all 0.3s ease;
         }
 
-        .sidebar-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; bottom: 0; z-index: 50; }
-        .sidebar-nav:hover { width: 300px; }
-        .main-content { margin-left: 110px; flex: 1; min-width: 0; transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .sidebar-nav:hover~.main-content { margin-left: 300px; }
-        .sidebar-scroll-container { flex: 1; overflow-y: auto; overflow-x: hidden; }
-        .sidebar-scroll-container::-webkit-scrollbar { width: 4px; }
-        .sidebar-scroll-container::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb, 140, 43, 238), 0.1); border-radius: 10px; }
-        .sidebar-nav:hover .sidebar-scroll-container::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb, 140, 43, 238), 0.4); }
+        /* Unified Sidebar Navigation Styles from Admin Portal */
+        .side-nav {
+            width: 110px;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            left: 0;
+            top: 0;
+            height: 100vh;
+            z-index: 50;
+        }
 
-        .nav-text { opacity: 0; transform: translateX(-15px); transition: all 0.3s ease-in-out; white-space: nowrap; pointer-events: none; }
-        .sidebar-nav:hover .nav-text { opacity: 1; transform: translateX(0); pointer-events: auto; }
-        .nav-section-header { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); margin: 0 !important; padding: 0 38px; pointer-events: none; }
-        .sidebar-nav:hover .nav-section-header { max-height: 20px; opacity: 1; margin-bottom: 8px !important; pointer-events: auto; }
+        .side-nav:hover {
+            width: 300px;
+        }
 
-        .nav-link { display: flex; align-items: center; gap: 16px; padding: 10px 38px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); white-space: nowrap; font-size: 11px; font-weight: 800; letter-spacing: 0.05em; color: var(--text-main); text-decoration: none; }
-        .nav-link span.material-symbols-outlined { color: var(--highlight); transition: all 0.3s ease; }
-        .nav-link:hover { opacity: 0.7; transform: scale(1.02); }
-        .active-nav { color: var(--primary) !important; position: relative; }
-        .active-nav span.material-symbols-outlined { color: var(--primary) !important; }
-        .active-nav::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: var(--primary); border-radius: 4px 0 0 4px; opacity: 1; transition: opacity 0.3s ease; }
+        .main-content {
+            margin-left: 110px;
+            flex: 1;
+            min-width: 0;
+            transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .side-nav:hover~.main-content {
+            margin-left: 300px;
+        }
+
+        .nav-label {
+            opacity: 0;
+            transform: translateX(-15px);
+            transition: all 0.3s ease-in-out;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .side-nav:hover .nav-label {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .nav-section-label {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 0 !important;
+            pointer-events: none;
+        }
+
+        .side-nav:hover .nav-section-label {
+            max-height: 20px;
+            opacity: 1;
+            margin-bottom: 8px !important;
+            pointer-events: auto;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 38px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            white-space: nowrap;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .nav-item.active {
+            color: var(--primary) !important;
+            position: relative;
+        }
+
+        .nav-item.active::after {
+            content: '';
+            position: absolute;
+            right: 0px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 24px;
+            background: var(--primary);
+            border-radius: 4px 0 0 4px;
+        }
+
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar {
+            display: none !important;
+        }
+
+        * {
+            -ms-overflow-style: none !important;
+            scrollbar-width: none !important;
+        }
 
         .profile-input { background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-main); transition: all 0.3s ease; }
         .profile-input:disabled { background-color: transparent !important; border-color: transparent !important; color: #9ca3af !important; cursor: default !important; }
@@ -281,37 +366,84 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
         #custom-modal { position: fixed; top: 0; right: 0; bottom: 0; left: 110px; z-index: 200; display: none; align-items: center; justify-content: center; background: rgba(10, 9, 13, 0.8); backdrop-filter: blur(8px); padding: 20px; transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .sidebar-nav:hover~#custom-modal { left: 300px; }
+        .side-nav:hover~#custom-modal { left: 300px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 
 <body class="antialiased flex h-screen overflow-hidden no-scrollbar">
-    <nav class="sidebar-nav bg-[--background] border-r border-white/5 z-[150] flex flex-col no-scrollbar">
-        <div class="px-7 py-5 mb-2 shrink-0">
+    <nav class="side-nav bg-[--background] border-r border-white/5 z-50">
+        <div class="px-7 py-8 mb-4 shrink-0">
             <div class="flex items-center gap-4">
-                <div class="size-10 rounded-xl flex items-center justify-center shadow-lg shrink-0 overflow-hidden bg-primary/20">
-                    <?php if (!empty($configs['system_logo'])): ?><img src="<?= htmlspecialchars($configs['system_logo']) ?>" class="size-full object-contain rounded-xl"><?php else: ?><img src="../assests/horizon logo.png" class="size-full object-contain rounded-xl" alt="Horizon Logo"><?php endif; ?>
+                <div
+                    class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($configs['system_logo']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
+                    <?php if (!empty($configs['system_logo'])): ?>
+                        <img src="<?= htmlspecialchars($configs['system_logo']) ?>" class="size-full object-cover">
+                    <?php else: ?>
+                        <span class="material-symbols-outlined text-white text-2xl">bolt</span>
+                    <?php endif; ?>
                 </div>
-                <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?></h1>
+                <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Owner Portal</h1>
             </div>
         </div>
-        <div class="sidebar-scroll-container no-scrollbar space-y-1 pb-4">
-            <div class="nav-section-header mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span></div>
-            <a href="tenant_dashboard.php" class="nav-link"><span class="material-symbols-outlined text-xl shrink-0">grid_view</span><span class="nav-text">Dashboard</span></a>
-            <a href="my_users.php" class="nav-link"><span class="material-symbols-outlined text-xl shrink-0">group</span><span class="nav-text">Users</span></a>
-            <a href="transactions.php" class="nav-link"><span class="material-symbols-outlined text-xl shrink-0">receipt_long</span><span class="nav-text">Transactions</span></a>
-            <a href="attendance.php" class="nav-link"><span class="material-symbols-outlined text-xl shrink-0">history</span><span class="nav-text">Attendance</span></a>
-            <div class="nav-section-header mb-2 mt-4"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
-            <a href="staff.php" class="nav-link"><span class="material-symbols-outlined text-xl shrink-0">badge</span><span class="nav-text">Staff</span></a>
-            <a href="reports.php" class="nav-link"><span class="material-symbols-outlined text-xl shrink-0">analytics</span><span class="nav-text">Reports</span></a>
-            <a href="sales_report.php" class="nav-link"><span class="material-symbols-outlined text-xl shrink-0">monitoring</span><span class="nav-text">Sales Reports</span></a>
+
+        <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
+            <div class="nav-section-label px-[38px] mb-2"><span
+                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Main Menu</span></div>
+            <a href="tenant_dashboard.php" class="nav-item <?= ($active_page == 'dashboard') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">grid_view</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+
+            <a href="my_users.php" class="nav-item <?= ($active_page == 'users') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">group</span>
+                <span class="nav-label">Users</span>
+            </a>
+
+            <a href="transactions.php" class="nav-item <?= ($active_page == 'transactions') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
+                <span class="nav-label">Transactions</span>
+            </a>
+
+            <a href="attendance.php" class="nav-item <?= ($active_page == 'attendance') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">history</span>
+                <span class="nav-label">Attendance</span>
+            </a>
+
+            <div class="nav-section-label px-[38px] mb-2 mt-6"><span
+                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
+
+            <a href="staff.php" class="nav-item <?= ($active_page == 'staff') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">badge</span>
+                <span class="nav-label">Staff</span>
+            </a>
+
+            <a href="reports.php" class="nav-item <?= ($active_page == 'reports') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">analytics</span>
+                <span class="nav-label">Reports</span>
+            </a>
+
+            <a href="sales_report.php" class="nav-item <?= ($active_page == 'sales') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">payments</span>
+                <span class="nav-label">Sales Reports</span>
+            </a>
         </div>
-        <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
-            <div class="nav-section-header mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
-            <a href="tenant_settings.php" class="nav-link"><span class="material-symbols-outlined text-xl shrink-0">settings</span><span class="nav-text">Settings</span></a>
-            <a href="profile.php" class="nav-link active-nav"><span class="material-symbols-outlined text-xl shrink-0">person</span><span class="nav-text">Profile</span></a>
-            <a href="../logout.php" class="nav-link !text-gray-400 hover:!text-rose-500 group"><span class="material-symbols-outlined text-xl shrink-0 group-hover:!text-rose-500">logout</span><span class="nav-text group-hover:!text-rose-500">Sign Out</span></a>
+
+        <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
+            <div class="nav-section-label px-[38px] mb-2"><span
+                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
+            <a href="tenant_settings.php" class="nav-item <?= ($active_page == 'settings') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">settings</span>
+                <span class="nav-label">Settings</span>
+            </a>
+            <a href="profile.php" class="nav-item <?= ($active_page == 'profile') ? 'active' : '' ?>">
+                <span class="material-symbols-outlined text-xl shrink-0">account_circle</span>
+                <span class="nav-label">Profile</span>
+            </a>
+            <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors">
+                <span class="material-symbols-outlined text-xl shrink-0">logout</span>
+                <span class="nav-label">Sign Out</span>
+            </a>
         </div>
     </nav>
 
