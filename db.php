@@ -18,3 +18,13 @@ try {
     echo json_encode(['success' => false, 'message' => 'DB Connection Failed']);
     exit;
 }
+
+// Migration: Ensure website_plans has badge_text column for custom labeling
+try {
+    $resPlan = $pdo->query("SHOW COLUMNS FROM website_plans LIKE 'badge_text'");
+    if (!$resPlan->fetch()) {
+        $pdo->exec("ALTER TABLE website_plans ADD COLUMN badge_text VARCHAR(50) DEFAULT NULL AFTER billing_cycle");
+    }
+} catch (Exception $e) {
+    // Fail silently to avoid breaking the app if user lacks ALTER permissions
+}

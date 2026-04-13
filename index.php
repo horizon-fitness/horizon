@@ -52,6 +52,28 @@ foreach ($plans as &$p) {
         *::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
 
+        /* Premium Visible Scrollbar Override */
+        .custom-scrollbar::-webkit-scrollbar {
+            display: block !important;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 20px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .custom-scrollbar {
+            scrollbar-width: thin !important;
+            scrollbar-color: rgba(255, 255, 255, 0.1) transparent !important;
+        }
+
         #plansSlider { cursor: grab; user-select: none; }
         #plansSlider:active { cursor: grabbing; }
 
@@ -301,28 +323,34 @@ foreach ($plans as &$p) {
                     <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">Select a plan to activate your gym's digital infrastructure</p>
                 </div>
 
-                <div id="plansSlider" class="flex justify-center overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 custom-scrollbar scroll-smooth">
-                    <?php foreach ($plans as $plan): 
-                        $isMomentum = strpos($plan['plan_name'], 'Momentum') !== false;
-                    ?>
-                    <div class="plan-card rounded-2xl p-10 flex flex-col text-left shrink-0 w-[calc(100%-2rem)] md:w-[400px] snap-start <?= $isMomentum ? 'border-primary/50 bg-primary/5 scale-105 shadow-2xl shadow-primary/20' : '' ?>">
-                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
-                        <p class="text-[9px] <?= $isMomentum ? 'text-primary' : 'text-gray-600' ?> font-bold uppercase tracking-widest mb-8">
-                            <?= $isMomentum ? 'Most Popular' : htmlspecialchars($plan['billing_cycle']) ?>
-                        </p>
-                        <div class="mb-10">
-                            <span class="text-4xl font-display font-black text-white">₱<?= number_format($plan['price']) ?></span>
-                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ <?= ($plan['duration_months'] == 12) ? 'Yr' : 'Term' ?></span>
-                        </div>
-                        <ul class="space-y-4 mb-12 flex-grow">
-                            <?php foreach ($plan['features'] as $feature): ?>
-                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span> <?= htmlspecialchars(trim($feature)) ?>
-                            </li>
+                <div id="plansSlider" class="overflow-x-auto snap-x snap-mandatory custom-scrollbar scroll-smooth">
+                    <!-- Centering Wrapper: Ensures small content lists are centered -->
+                    <div class="flex justify-center min-w-full w-max">
+                        <!-- Content Wrapper: Handles gap and padding, and keeps items aligned to start when overflowing -->
+                        <div class="flex justify-start items-stretch gap-10 py-12 px-10">
+                            <?php foreach ($plans as $plan): 
+                                $hasBadge = !empty($plan['badge_text']);
+                            ?>
+                            <div class="plan-card rounded-2xl p-10 flex flex-col text-left shrink-0 w-[calc(100%-2rem)] md:w-[400px] snap-start <?= $hasBadge ? 'border-primary/50 bg-primary/5 scale-105 shadow-2xl shadow-primary/20' : '' ?>">
+                                <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
+                                <p class="text-[9px] <?= $hasBadge ? 'text-primary' : 'text-gray-600' ?> font-bold uppercase tracking-widest mb-8">
+                                    <?= $hasBadge ? htmlspecialchars($plan['badge_text']) : htmlspecialchars($plan['billing_cycle']) ?>
+                                </p>
+                                <div class="mb-10">
+                                    <span class="text-4xl font-display font-black text-white">₱<?= number_format($plan['price']) ?></span>
+                                    <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ <?= ($plan['duration_months'] == 12) ? 'Yr' : 'Term' ?></span>
+                                </div>
+                                <ul class="space-y-4 mb-12 flex-grow">
+                                    <?php foreach ($plan['features'] as $feature): ?>
+                                    <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
+                                        <span class="material-symbols-outlined text-primary text-sm">check_circle</span> <?= htmlspecialchars(trim($feature)) ?>
+                                    </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
                             <?php endforeach; ?>
-                        </ul>
+                        </div>
                     </div>
-                    <?php endforeach; ?>
                 </div>
             </div>
         </section>

@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     
     // 2. Handle EXISTING Plans Update (Metadata Only)
     if (isset($_POST['plans']) && is_array($_POST['plans'])) {
-        $stmtUpdatePlan = $pdo->prepare("UPDATE website_plans SET plan_name = ?, price = ?, billing_cycle = ?, duration_months = ? WHERE website_plan_id = ?");
+        $stmtUpdatePlan = $pdo->prepare("UPDATE website_plans SET plan_name = ?, price = ?, billing_cycle = ?, duration_months = ?, badge_text = ? WHERE website_plan_id = ?");
         $stmtDelFeatures = $pdo->prepare("DELETE FROM website_plan_features WHERE website_plan_id = ?");
         $stmtInsFeature = $pdo->prepare("INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES (?, ?)");
 
@@ -93,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 $data['price'],
                 $data['billing'],
                 $data['duration'],
+                $data['badge_text'] ?? null,
                 $id
             ]);
 
@@ -139,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 
     // 3. Handle NEW Plans Creation
     if (isset($_POST['new_plans']) && is_array($_POST['new_plans'])) {
-        $stmtInsPlan = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, is_active) VALUES (?, ?, ?, ?, 1)");
+        $stmtInsPlan = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, badge_text, is_active) VALUES (?, ?, ?, ?, ?, 1)");
         $stmtInsFeature = $pdo->prepare("INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES (?, ?)");
 
         foreach ($_POST['new_plans'] as $data) {
@@ -149,7 +150,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 $data['name'],
                 $data['price'],
                 $data['billing'],
-                $data['duration']
+                $data['duration'],
+                $data['badge_text'] ?? null
             ]);
             $new_id = $pdo->lastInsertId();
 
@@ -284,12 +286,21 @@ $configs = array_merge($global_configs, $user_configs);
 // 4. Fetch Website Plans (3NF Compatibility)
 $stmtPlans = $pdo->prepare("SELECT * FROM website_plans ORDER BY price ASC");
 $stmtPlans->execute();
-$website_plans = $stmtPlans->fetchAll();
+$all_plans = $stmtPlans->fetchAll();
 
-foreach ($website_plans as &$p) {
+$active_website_plans = [];
+$archived_website_plans = [];
+
+foreach ($all_plans as $p) {
     $stmtF = $pdo->prepare("SELECT feature_name FROM website_plan_features WHERE website_plan_id = ?");
     $stmtF->execute([$p['website_plan_id']]);
     $p['features'] = implode(', ', $stmtF->fetchAll(PDO::FETCH_COLUMN));
+    
+    if (($p['is_active'] ?? 1) == 1) {
+        $active_website_plans[] = $p;
+    } else {
+        $archived_website_plans[] = $p;
+    }
 }
 
 $active_page = "settings";
@@ -1045,28 +1056,34 @@ $active_page = "settings";
                 </div>
 
                 <div id="content-plans" class="tab-content space-y-8">
-                    <div class="flex justify-between items-center bg-white/5 p-6 rounded-2xl border border-white/5">
+                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white/5 p-6 rounded-2xl border border-white/5 gap-6">
                         <div>
                             <h4 class="text-xs font-black italic uppercase tracking-widest text-white">System Subscription Plans</h4>
                             <p class="text-[9px] text-gray-500 font-bold uppercase tracking-tight mt-1">Manage what plans are available for new gyms</p>
                         </div>
-                        <button type="button" onclick="addNewPlanCard()" class="px-5 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all flex items-center gap-2 group">
-                            <span class="material-symbols-outlined text-sm group-hover:scale-110 transition-transform">add_circle</span>
-                            Add New Plan
-                        </button>
+                        
+                        <div class="flex items-center gap-3 w-full lg:w-auto">
+                            <!-- View Toggle Switcher -->
+                            <div class="flex items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-xl">
+                                <button type="button" id="planViewToggleActive" onclick="switchPlanView('active')" class="px-5 py-2 rounded-lg bg-primary text-black text-[9px] font-black uppercase tracking-widest transition-all">
+                                    Active
+                                </button>
+                                <button type="button" id="planViewToggleArchived" onclick="switchPlanView('archived')" class="px-5 py-2 rounded-lg text-[--secondary] hover:text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                                    Archived (<?= count($archived_website_plans) ?>)
+                                </button>
+                            </div>
+
+                            <button type="button" onclick="addNewPlanCard()" class="px-5 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all flex items-center gap-2 group ml-auto">
+                                <span class="material-symbols-outlined text-sm group-hover:scale-110 transition-transform">add_circle</span>
+                                Add New Plan
+                            </button>
+                        </div>
                     </div>
 
-                    <div id="planCardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <?php foreach($website_plans as $plan): 
-                            $isActive = ($plan['is_active'] ?? 1) == 1;
-                        ?>
-                        <div class="glass-card p-8 flex flex-col gap-6 relative group/plan transition-all duration-300 <?= !$isActive ? 'opacity-40 grayscale' : '' ?>" id="plan-card-<?= $plan['website_plan_id'] ?>">
-                            <?php if (!$isActive): ?>
-                            <div class="absolute inset-x-0 -top-3 flex justify-center z-20">
-                                <div class="px-4 py-1.5 rounded-full bg-amber-500 text-black text-[9px] font-black uppercase tracking-widest shadow-xl">Archived</div>
-                            </div>
-                            <?php endif; ?>
-
+                    <!-- Active Plans Container -->
+                    <div id="activePlansContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        <?php foreach($active_website_plans as $plan): ?>
+                        <div class="glass-card p-8 flex flex-col gap-6 relative group/plan transition-all duration-300" id="plan-card-<?= $plan['website_plan_id'] ?>">
                             <div class="flex items-center justify-between">
                                 <div class="flex items-center gap-4">
                                     <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -1076,21 +1093,11 @@ $active_page = "settings";
                                         <?= htmlspecialchars($plan['plan_name']) ?>
                                     </h3>
                                 </div>
-                                <?php if ($isActive): ?>
-                                <div class="flex items-center gap-2 opacity-0 group-hover/plan:opacity-100 transition-all">
-                                    <button type="button" onclick="markPlanForArchival(<?= $plan['website_plan_id'] ?>)" class="size-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center hover:bg-amber-500 hover:text-white" title="Archive Plan">
+                                <div class="flex items-center gap-2 transition-all">
+                                    <button type="button" onclick="markPlanForArchival(<?= $plan['website_plan_id'] ?>)" class="size-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all active:scale-95" title="Archive Plan">
                                         <span class="material-symbols-outlined text-base">archive</span>
                                     </button>
-                                    <button type="button" onclick="permanentlyDeletePlan(<?= $plan['website_plan_id'] ?>)" class="size-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white" title="Delete Forever">
-                                        <span class="material-symbols-outlined text-base">delete_forever</span>
-                                    </button>
                                 </div>
-                                <?php else: ?>
-                                <button type="button" onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)" class="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-[9px] font-black uppercase tracking-widest gap-2">
-                                    <span class="material-symbols-outlined text-sm">unarchive</span>
-                                    Unarchive
-                                </button>
-                                <?php endif; ?>
                             </div>
 
                             <div class="space-y-4">
@@ -1101,16 +1108,22 @@ $active_page = "settings";
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="flex flex-col gap-1.5">
                                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price (₱)</label>
-                                        <input type="number" step="0.1" name="plans[<?= $plan['website_plan_id'] ?>][price]" value="<?= htmlspecialchars($plan['price']) ?>" class="input-field">
+                                        <input type="number" step="1" name="plans[<?= $plan['website_plan_id'] ?>][price]" value="<?= htmlspecialchars($plan['price']) ?>" class="input-field">
                                     </div>
                                     <div class="flex flex-col gap-1.5">
                                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Months)</label>
                                         <input type="number" name="plans[<?= $plan['website_plan_id'] ?>][duration]" value="<?= htmlspecialchars($plan['duration_months']) ?>" class="input-field">
                                     </div>
                                 </div>
-                                <div class="flex flex-col gap-1.5">
-                                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle Text</label>
-                                    <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][billing]" value="<?= htmlspecialchars($plan['billing_cycle']) ?>" class="input-field">
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle Text</label>
+                                        <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][billing]" value="<?= htmlspecialchars($plan['billing_cycle']) ?>" class="input-field">
+                                    </div>
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Featured Badge Text</label>
+                                        <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][badge_text]" value="<?= htmlspecialchars($plan['badge_text'] ?? '') ?>" class="input-field" placeholder="e.g. Most Popular">
+                                    </div>
                                 </div>
                                 <div class="flex flex-col gap-1.5">
                                     <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features (Comma-separated)</label>
@@ -1119,6 +1132,70 @@ $active_page = "settings";
                             </div>
                         </div>
                         <?php endforeach; ?>
+                    </div>
+
+                    <!-- Archived Plans Container -->
+                    <div id="archivedPlansContainer" class="hidden overflow-hidden glass-card">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-white/5 bg-white/[0.02]">
+                                        <th class="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-gray-500">Plan Name</th>
+                                        <th class="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-gray-500">Price</th>
+                                        <th class="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-gray-500">Billing</th>
+                                        <th class="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-gray-500">Features</th>
+                                        <th class="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-gray-500 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-white/5">
+                                    <?php if (empty($archived_website_plans)): ?>
+                                    <tr>
+                                        <td colspan="5" class="px-8 py-12 text-center">
+                                            <div class="flex flex-col items-center gap-3 opacity-30">
+                                                <span class="material-symbols-outlined text-4xl">folder_off</span>
+                                                <span class="text-[10px] font-black uppercase tracking-widest">No archived plans</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <?php else: ?>
+                                        <?php foreach($archived_website_plans as $plan): ?>
+                                        <tr class="hover:bg-white/[0.02] transition-colors group">
+                                            <td class="px-8 py-6">
+                                                <div class="flex items-center gap-4">
+                                                    <div class="size-8 rounded-lg bg-gray-500/10 flex items-center justify-center">
+                                                        <span class="material-symbols-outlined text-gray-500 text-sm">inventory_2</span>
+                                                    </div>
+                                                    <span class="text-xs font-bold text-white uppercase italic"><?= htmlspecialchars($plan['plan_name']) ?></span>
+                                                </div>
+                                            </td>
+                                            <td class="px-8 py-6">
+                                                <span class="text-xs font-black text-white">₱<?= number_format($plan['price']) ?></span>
+                                            </td>
+                                            <td class="px-8 py-6">
+                                                <span class="text-[9px] font-bold text-gray-500 uppercase tracking-wider"><?= htmlspecialchars($plan['billing_cycle']) ?></span>
+                                            </td>
+                                            <td class="px-8 py-6 max-w-xs">
+                                                <p class="text-[10px] text-gray-500 truncate" title="<?= htmlspecialchars($plan['features']) ?>">
+                                                    <?= htmlspecialchars($plan['features']) ?>
+                                                </p>
+                                            </td>
+                                            <td class="px-8 py-6">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    <button type="button" onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)" class="px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95">
+                                                        <span class="material-symbols-outlined text-sm">unarchive</span>
+                                                        Restore
+                                                    </button>
+                                                    <button type="button" onclick="confirmPermanentDelete(<?= $plan['website_plan_id'] ?>)" class="size-9 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center active:scale-95" title="Delete Permanently">
+                                                        <span class="material-symbols-outlined text-sm">delete_forever</span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -1594,6 +1671,25 @@ $active_page = "settings";
                     toggleActionModal(false);
                 }
             );
+        }
+
+        function switchPlanView(view) {
+            const activeContainer = document.getElementById('activePlansContainer');
+            const archivedContainer = document.getElementById('archivedPlansContainer');
+            const toggleActive = document.getElementById('planViewToggleActive');
+            const toggleArchived = document.getElementById('planViewToggleArchived');
+
+            if (view === 'active') {
+                activeContainer.classList.remove('hidden');
+                archivedContainer.classList.add('hidden');
+                toggleActive.className = 'px-5 py-2 rounded-lg bg-primary text-black text-[9px] font-black uppercase tracking-widest transition-all';
+                toggleArchived.className = 'px-5 py-2 rounded-lg text-[--secondary] hover:text-white text-[9px] font-black uppercase tracking-widest transition-all';
+            } else {
+                activeContainer.classList.add('hidden');
+                archivedContainer.classList.remove('hidden');
+                toggleActive.className = 'px-5 py-2 rounded-lg text-[--secondary] hover:text-white text-[9px] font-black uppercase tracking-widest transition-all';
+                toggleArchived.className = 'px-5 py-2 rounded-lg bg-primary text-black text-[9px] font-black uppercase tracking-widest transition-all';
+            }
         }
 
         function confirmSaveConfigurations() {

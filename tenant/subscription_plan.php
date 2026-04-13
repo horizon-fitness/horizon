@@ -206,6 +206,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
         /* Invisible Scroll System (CSS Reset) */
         *::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+
+        #plansSlider { cursor: grab; user-select: none; }
+        #plansSlider:active { cursor: grabbing; }
     </style>
 </head>
 
@@ -263,7 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
             <?php endif; ?>
         </div>
 
-        <div class="flex justify-center overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 scroll-smooth">
+        <div id="plansSlider" class="flex justify-center overflow-x-auto snap-x snap-mandatory gap-10 py-12 px-2 scroll-smooth">
             <?php foreach($plans as $plan): 
                 $isMomentum = strpos($plan['plan_name'], 'Momentum') !== false;
             ?>
@@ -397,6 +400,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['plan_id'])) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
+
+    // --- Drag-to-Scroll Engine ---
+    const slider = document.getElementById('plansSlider');
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+
+    slider.addEventListener('mousedown', (e) => {
+        isDown = true;
+        slider.style.scrollSnapType = 'none'; // Temporarily disable snapping for smooth dragging
+        slider.style.scrollBehavior = 'auto'; 
+        startX = e.pageX - slider.offsetLeft;
+        scrollLeft = slider.scrollLeft;
+    });
+    slider.addEventListener('mouseleave', () => {
+        isDown = false;
+        slider.style.scrollSnapType = 'x mandatory';
+        slider.style.scrollBehavior = 'smooth';
+    });
+    slider.addEventListener('mouseup', () => {
+        isDown = false;
+        slider.style.scrollSnapType = 'x mandatory';
+        slider.style.scrollBehavior = 'smooth';
+    });
+    slider.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - slider.offsetLeft;
+        const walk = (x - startX) * 2; 
+        slider.scrollLeft = scrollLeft - walk;
+    });
 </script>
 
 </body>
