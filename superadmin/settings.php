@@ -121,23 +121,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         }
     }
 
-    // 2.7 Handle PERMANENT Deletion
-    if (isset($_POST['perm_delete_plans']) && is_array($_POST['perm_delete_plans'])) {
-        $stmtDelSubFeatures = $pdo->prepare("DELETE FROM website_plan_features WHERE website_plan_id = ?");
-        $stmtDelPlan = $pdo->prepare("DELETE FROM website_plans WHERE website_plan_id = ?");
-        foreach ($_POST['perm_delete_plans'] as $perm_id) {
-            try {
-                $stmtDelSubFeatures->execute([$perm_id]);
-                $stmtDelPlan->execute([$perm_id]);
-            } catch (PDOException $e) {
-                if ($e->getCode() == '23000') {
-                    throw new Exception("Cannot delete Plan ID #$perm_id: It is currently assigned to active gym accounts. Please archive it instead.");
-                }
-                throw $e;
-            }
-        }
-    }
-
     // 3. Handle NEW Plans Creation
     if (isset($_POST['new_plans']) && is_array($_POST['new_plans'])) {
         $stmtInsPlan = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, badge_text, is_active) VALUES (?, ?, ?, ?, ?, 1)");
@@ -627,7 +610,6 @@ $active_page = "settings";
         }
         setInterval(updateHeaderClock, 1000);
     </script>
-    </script>
 </head>
 
 <body class="antialiased flex flex-row min-h-screen">
@@ -781,22 +763,7 @@ $active_page = "settings";
                 .tab-content.active { display: block; }
             </style>
 
-            <script>
-                function switchTab(tabId) {
-                    // Update buttons
-                    document.querySelectorAll('.tab-btn').forEach(btn => {
-                        btn.classList.remove('active');
-                    });
-                    const activeBtn = document.getElementById(`tab-${tabId}`);
-                    activeBtn.classList.add('active');
 
-                    // Update content
-                    document.querySelectorAll('.tab-content').forEach(content => {
-                        content.classList.remove('active');
-                    });
-                    document.getElementById(`content-${tabId}`).classList.add('active');
-                }
-            </script>
 
             <?php if (isset($success_msg)): ?>
                 <div id="successAlert"
@@ -1140,11 +1107,11 @@ $active_page = "settings";
                             <table class="w-full text-left border-collapse">
                                 <thead>
                                     <tr class="border-b border-white/5 bg-white/[0.02]">
-                                        <th class="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-gray-500">Plan Name</th>
-                                        <th class="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-gray-500">Price</th>
-                                        <th class="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-gray-500">Billing</th>
-                                        <th class="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-gray-500">Features</th>
-                                        <th class="px-8 py-5 text-[9px] font-black uppercase tracking-widest text-gray-500 text-right">Actions</th>
+                                        <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500">Plan Name</th>
+                                        <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500">Price</th>
+                                        <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500">Billing</th>
+                                        <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500">Features</th>
+                                        <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-white/5">
@@ -1179,16 +1146,11 @@ $active_page = "settings";
                                                     <?= htmlspecialchars($plan['features']) ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-6">
-                                                <div class="flex items-center justify-end gap-2">
-                                                    <button type="button" onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)" class="px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-[9px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95">
-                                                        <span class="material-symbols-outlined text-sm">unarchive</span>
-                                                        Restore
-                                                    </button>
-                                                    <button type="button" onclick="confirmPermanentDelete(<?= $plan['website_plan_id'] ?>)" class="size-9 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center active:scale-95" title="Delete Permanently">
-                                                        <span class="material-symbols-outlined text-sm">delete_forever</span>
-                                                    </button>
-                                                </div>
+                                            <td class="px-8 py-6 text-right">
+                                                <button type="button" onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)" class="px-6 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95 inline-flex">
+                                                    <span class="material-symbols-outlined text-sm">unarchive</span>
+                                                    Restore
+                                                </button>
                                             </td>
                                         </tr>
                                         <?php endforeach; ?>
@@ -1642,36 +1604,140 @@ $active_page = "settings";
             }
         }
 
-        function resetToDefaults() {
-            showActionModal(
-                'Reset Branding',
-                'Revert branding to system defaults? Unsaved progress will be lost.',
-                'brush',
-                () => {
-                    const defaults = {
-                        'system_name_input': 'Horizon System',
-                        'theme_color_input': '#8C2BEE',
-                        'secondary_color_input': '#A1A1AA',
-                        'text_color_input': '#D1D5DB',
-                        'bg_color_input': '#0A090D',
-                        'tab_active_text_input': '#FFFFFF',
-                        'card_color_input': '#141216',
-                        'font_family_input': 'Lexend'
-                    };
 
-                    for (const [id, value] of Object.entries(defaults)) {
-                        const el = document.getElementById(id);
-                        if (el) el.value = value;
-                    }
 
-                    const autoSync = document.getElementById('auto_card_theme_input');
-                    if (autoSync) autoSync.checked = true;
+        /**
+         * Horizon Elite Pagination Engine
+         */
+        class ElitePaginator {
+            constructor(containerId, itemsPerPage, itemSelector) {
+                this.container = document.getElementById(containerId);
+                if (!this.container) return;
+                
+                this.pageSize = itemsPerPage;
+                this.itemSelector = itemSelector;
+                this.currentPage = 1;
+                this.paginationContainerId = `${containerId}-pagination`;
+                
+                this.init();
+            }
 
-                    updateLiveBranding();
-                    toggleActionModal(false);
+            init() {
+                this.update();
+            }
+
+            update() {
+                const items = Array.from(this.container.querySelectorAll(this.itemSelector));
+                const totalItems = items.length;
+                const totalPages = Math.ceil(totalItems / this.pageSize);
+
+                // If fewer items than page size, hide existing pagination and show all items
+                if (totalItems <= this.pageSize) {
+                    items.forEach(item => item.classList.remove('hidden'));
+                    const existing = document.getElementById(this.paginationContainerId);
+                    if (existing) existing.remove();
+                    return;
                 }
-            );
+
+                // Show only current page items
+                const start = (this.currentPage - 1) * this.pageSize;
+                const end = start + this.pageSize;
+
+                items.forEach((item, index) => {
+                    if (index >= start && index < end) {
+                        item.classList.remove('hidden');
+                        // Add transition support
+                        item.classList.add('animate-in', 'fade-in', 'duration-500');
+                    } else {
+                        item.classList.add('hidden');
+                    }
+                });
+
+                this.renderControls(totalItems, totalPages, start, end);
+            }
+
+            renderControls(totalItems, totalPages, start, endReached) {
+                let controls = document.getElementById(this.paginationContainerId);
+                if (!controls) {
+                    controls = document.createElement('div');
+                    controls.id = this.paginationContainerId;
+                    controls.className = 'flex flex-col md:flex-row items-center justify-between gap-6 mt-12 p-6 glass-card border border-white/5 backdrop-blur-3xl';
+                    this.container.after(controls);
+                }
+
+                const end = Math.min(endReached, totalItems);
+                
+                controls.innerHTML = `
+                    <div class="flex flex-col gap-1">
+                        <span class="text-[9px] font-black uppercase text-gray-500 tracking-widest">Navigation Status</span>
+                        <p class="text-[10px] font-black uppercase tracking-tight text-white">
+                            Showing <span class="text-primary">${start + 1}</span> to <span class="text-primary">${end}</span> of <span class="opacity-50">${totalItems} entries</span>
+                        </p>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="horizonPaginators['${this.container.id}'].setPage(${this.currentPage - 1})" 
+                            ${this.currentPage === 1 ? 'disabled' : ''}
+                            class="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white disabled:opacity-20 disabled:cursor-not-allowed hover:bg-primary hover:text-black transition-all group">
+                            <span class="material-symbols-outlined text-base group-hover:scale-110 transition-transform">chevron_left</span>
+                        </button>
+                        
+                        <div class="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/5 rounded-2xl">
+                            ${this.renderPageNumbers(totalPages)}
+                        </div>
+                        
+                        <button type="button" onclick="horizonPaginators['${this.container.id}'].setPage(${this.currentPage + 1})" 
+                            ${this.currentPage === totalPages ? 'disabled' : ''}
+                            class="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white disabled:opacity-20 disabled:cursor-not-allowed hover:bg-primary hover:text-black transition-all group">
+                            <span class="material-symbols-outlined text-base group-hover:scale-110 transition-transform">chevron_right</span>
+                        </button>
+                    </div>
+                `;
+            }
+
+            renderPageNumbers(totalPages) {
+                let html = '';
+                for (let i = 1; i <= totalPages; i++) {
+                    const isActive = i === this.currentPage;
+                    html += `
+                        <button type="button" onclick="horizonPaginators['${this.container.id}'].setPage(${i})"
+                            class="size-8 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? 'bg-primary text-black' : 'text-gray-500 hover:text-white'}">
+                            ${i}
+                        </button>
+                    `;
+                }
+                return html;
+            }
+
+            setPage(page) {
+                this.currentPage = page;
+                this.update();
+                // Smooth scroll to container
+                this.container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
         }
+
+        window.horizonPaginators = {};
+
+        function initPagination() {
+            // Paginate Active Plans Grid (6 per page)
+            const activeGrid = document.getElementById('activePlansContainer');
+            if (activeGrid) {
+                horizonPaginators['activePlansContainer'] = new ElitePaginator('activePlansContainer', 6, '.glass-card');
+            }
+
+            // Paginate Archived Table (10 per page)
+            const archivedTable = document.querySelector('#archivedPlansContainer tbody');
+            if (archivedTable) {
+                // We wrap the tbody to treat rows as items
+                archivedTable.id = 'archivedPlansTableBody';
+                horizonPaginators['archivedPlansTableBody'] = new ElitePaginator('archivedPlansTableBody', 10, 'tr');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initPagination();
+        });
 
         function switchPlanView(view) {
             const activeContainer = document.getElementById('activePlansContainer');
@@ -1758,7 +1824,6 @@ $active_page = "settings";
 
         function updateLiveBranding() {
             const root = document.documentElement;
-            // Fetch All Branding Inputs
             const themeInput = document.getElementById('theme_color_input');
             const secondaryInput = document.getElementById('secondary_color_input');
             const textColorInput = document.getElementById('text_color_input');
@@ -1766,58 +1831,60 @@ $active_page = "settings";
             const fontInput = document.getElementById('font_family_input');
             const nameInput = document.getElementById('system_name_input');
             const isAutoCardInput = document.getElementById('auto_card_theme_input');
-            const isAutoCard = isAutoCardInput ? isAutoCardInput.checked : true;
             const cardColorInput = document.getElementById('card_color_input');
 
             if (!themeInput || !secondaryInput || !textColorInput || !bgInput) return;
 
-            // 1. Update Core CSS Variables
             root.style.setProperty('--primary', themeInput.value);
             root.style.setProperty('--highlight', secondaryInput.value);
             root.style.setProperty('--text-main', textColorInput.value);
             root.style.setProperty('--background', bgInput.value);
-            document.body.style.fontFamily = `'${fontInput.value}', sans-serif`;
+            if (fontInput) document.body.style.fontFamily = `'${fontInput.value}', sans-serif`;
 
-            // 2. Update Sidebar & Clock Live
             const sidebarName = document.getElementById('sidebarSystemName');
             if (sidebarName && nameInput) sidebarName.textContent = nameInput.value;
 
             const headerClock = document.getElementById('headerClock');
             if (headerClock) headerClock.style.color = textColorInput.value;
 
-            // 3. Generate RGB for Dynamic Transparency (Glassmorphism)
             const rgb = hexToRgb(themeInput.value);
             if (rgb) {
                 const rgbVal = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
                 root.style.setProperty('--primary-rgb', rgbVal);
 
-                // 4. Card Sync Logic (Auto vs Manual)
+                const isAutoCard = isAutoCardInput ? isAutoCardInput.checked : true;
                 if (isAutoCard) {
-                    const autoCardColor = `rgba(${rgbVal}, 0.05)`;
-                    root.style.setProperty('--card-bg', autoCardColor);
-                    
+                    root.style.setProperty('--card-bg', `rgba(${rgbVal}, 0.05)`);
                     if (cardColorInput) {
                         cardColorInput.value = themeInput.value;
-                        document.getElementById('card_hex_display').innerText = themeInput.value.toUpperCase();
-                        cardColorInput.parentElement.parentElement.style.opacity = '0.4';
-                        cardColorInput.parentElement.parentElement.style.pointerEvents = 'none';
+                        const cardHex = document.getElementById('card_hex_display');
+                        if (cardHex) cardHex.innerText = themeInput.value.toUpperCase();
+                        if (cardColorInput.parentElement && cardColorInput.parentElement.parentElement) {
+                            cardColorInput.parentElement.parentElement.style.opacity = '0.4';
+                            cardColorInput.parentElement.parentElement.style.pointerEvents = 'none';
+                        }
                     }
                 } else if (cardColorInput) {
                     root.style.setProperty('--card-bg', cardColorInput.value);
-                    document.getElementById('card_hex_display').innerText = cardColorInput.value.toUpperCase();
-                    cardColorInput.parentElement.parentElement.style.opacity = '1';
-                    cardColorInput.parentElement.parentElement.style.pointerEvents = 'auto';
+                    const cardHex = document.getElementById('card_hex_display');
+                    if (cardHex) cardHex.innerText = cardColorInput.value.toUpperCase();
+                    if (cardColorInput.parentElement && cardColorInput.parentElement.parentElement) {
+                        cardColorInput.parentElement.parentElement.style.opacity = '1';
+                        cardColorInput.parentElement.parentElement.style.pointerEvents = 'auto';
+                    }
                 }
-
-                // 5. Tab Sync (Automatic)
                 root.style.setProperty('--tab-active-text', textColorInput.value);
             }
 
-            // 6. Update Hex Display Labels
-            document.getElementById('theme_hex_display').innerText = themeInput.value.toUpperCase();
-            document.getElementById('secondary_hex_display').innerText = secondaryInput.value.toUpperCase();
-            document.getElementById('text_hex_display').innerText = textColorInput.value.toUpperCase();
-            document.getElementById('bg_hex_display').innerText = bgInput.value.toUpperCase();
+            const themeHex = document.getElementById('theme_hex_display');
+            const secondaryHex = document.getElementById('secondary_hex_display');
+            const textHex = document.getElementById('text_hex_display');
+            const bgHex = document.getElementById('bg_hex_display');
+
+            if (themeHex) themeHex.innerText = themeInput.value.toUpperCase();
+            if (secondaryHex) secondaryHex.innerText = secondaryInput.value.toUpperCase();
+            if (textHex) textHex.innerText = textColorInput.value.toUpperCase();
+            if (bgHex) bgHex.innerText = bgInput.value.toUpperCase();
         }
         // --- Initialization & Lifecycle ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -1872,41 +1939,47 @@ $active_page = "settings";
 
         let newPlanCount = 0;
         function addNewPlanCard() {
-            const container = document.getElementById('planCardsContainer');
+            const container = document.getElementById('activePlansContainer');
             const newId = `new_plan_${newPlanCount++}`;
             
             const card = document.createElement('div');
-            card.className = "glass-card p-8 flex flex-col gap-6 relative group/plan animate-in fade-in slide-in-from-bottom-4 duration-500";
+            card.className = "glass-card p-8 flex flex-col gap-6 relative group/plan animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-2xl";
             card.innerHTML = `
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-4">
                         <div class="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-emerald-500">add_circle</span>
+                            <span class="material-symbols-outlined text-emerald-500">add_reaction</span>
                         </div>
-                        <h3 class="text-sm font-black italic uppercase tracking-widest text-emerald-500 plan-title-preview">New Plan</h3>
+                        <h3 class="text-sm font-black italic uppercase tracking-widest text-emerald-500 plan-title-preview">Draft Plan</h3>
                     </div>
-                    <button type="button" onclick="this.closest('.glass-card').remove()" class="size-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
+                    <button type="button" onclick="this.closest('.glass-card').remove(); horizonPaginators['activePlansContainer'].update();" class="size-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
                         <span class="material-symbols-outlined text-base">close</span>
                     </button>
                 </div>
                 <div class="space-y-4">
                     <div class="flex flex-col gap-1.5">
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
-                        <input type="text" name="new_plans[${newId}][name]" placeholder="e.g. Starter Pack" class="input-field" oninput="this.closest('.glass-card').querySelector('.plan-title-preview').innerText = this.value || 'New Plan'" required>
+                        <input type="text" name="new_plans[${newId}][name]" placeholder="e.g. Starter Pack" class="input-field" oninput="this.closest('.glass-card').querySelector('.plan-title-preview').innerText = this.value || 'Draft Plan'" required>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price (₱)</label>
-                            <input type="number" step="0.1" name="new_plans[${newId}][price]" class="input-field" required>
+                            <input type="number" step="1" name="new_plans[${newId}][price]" class="input-field" required>
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Months)</label>
                             <input type="number" name="new_plans[${newId}][duration]" class="input-field" required>
                         </div>
                     </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle Text</label>
-                        <input type="text" name="new_plans[${newId}][billing]" placeholder="e.g. Yearly" class="input-field" required>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle Text</label>
+                            <input type="text" name="new_plans[${newId}][billing]" placeholder="e.g. Yearly" class="input-field" required>
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Featured Badge Text</label>
+                            <input type="text" name="new_plans[${newId}][badge_text]" placeholder="e.g. Most Popular" class="input-field">
+                        </div>
                     </div>
                     <div class="flex flex-col gap-1.5">
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features (Comma-separated)</label>
@@ -1915,6 +1988,13 @@ $active_page = "settings";
                 </div>
             `;
             container.prepend(card);
+            
+            // Sync with pagination engine
+            if (horizonPaginators['activePlansContainer']) {
+                horizonPaginators['activePlansContainer'].currentPage = 1; // Back to first page to see the new card
+                horizonPaginators['activePlansContainer'].update();
+            }
+            
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
@@ -1925,9 +2005,18 @@ $active_page = "settings";
                 'archive',
                 () => {
                     const card = document.getElementById(`plan-card-${planId}`);
-                    card.classList.add('opacity-40', 'grayscale');
+                    if (card) {
+                        card.style.transform = 'scale(0.9) translateY(20px)';
+                        card.style.opacity = '0';
+                        setTimeout(() => {
+                            card.remove();
+                            if (horizonPaginators['activePlansContainer']) {
+                                horizonPaginators['activePlansContainer'].update();
+                            }
+                        }, 400);
+                    }
                     
-                    // Add to hidden delete array
+                    // Add to hidden archive array
                     let input = document.querySelector(`input[name="delete_plans[]"][value="${planId}"]`);
                     if (!input) {
                         input = document.createElement('input');
@@ -1942,28 +2031,7 @@ $active_page = "settings";
             );
         }
 
-        function permanentlyDeletePlan(planId) {
-            showActionModal(
-                'Delete Forever',
-                'CRITICAL: This will permanently remove this plan and all associated features from the database. This action is IRREVERSIBLE. Continue?',
-                'warning',
-                () => {
-                    const card = document.getElementById(`plan-card-${planId}`);
-                    card.style.transform = 'scale(0.9)';
-                    card.style.opacity = '0';
-                    setTimeout(() => card.remove(), 300);
-                    
-                    const hiddenInput = document.createElement('input');
-                    hiddenInput.type = 'hidden';
-                    hiddenInput.name = 'perm_delete_plans[]';
-                    hiddenInput.value = planId;
-                    document.getElementById('mainSettingsForm').appendChild(hiddenInput);
-                    
-                    toggleActionModal(false);
-                },
-                true // isError style
-            );
-        }
+
 
         function unarchivePlan(planId) {
             showActionModal(
@@ -1971,10 +2039,35 @@ $active_page = "settings";
                 'Restore this plan? it will be immediately available for new gyms to purchase.',
                 'unarchive',
                 () => {
-                    const card = document.getElementById(`plan-card-${planId}`);
-                    card.classList.remove('opacity-40', 'grayscale');
+                    // In archived view, the target is a table row in the tbody
+                    const rows = document.querySelectorAll('#archivedPlansTableBody tr');
+                    let targetRow = null;
                     
-                    // Remove from hidden delete array if it was just added in this session
+                    // Find the row that contains the restoration button for this planId
+                    // Or we can just find it by traversing from event.target if available
+                    // but since this is inside a modal callback, we need to find it by logic
+                    // Actually, the easiest is to just find the row that matches the context
+                    // Or we could have passed the row index.
+                    // For now, let's find the row that has the unarchive button with this planId
+                    rows.forEach(r => {
+                        if (r.innerHTML.includes(`unarchivePlan(${planId})`)) {
+                            targetRow = r;
+                        }
+                    });
+
+                    if (targetRow) {
+                        targetRow.style.opacity = '0';
+                        targetRow.style.transform = 'translateX(20px)';
+                        targetRow.style.transition = 'all 0.4s';
+                        setTimeout(() => {
+                            targetRow.remove();
+                            if (horizonPaginators['archivedPlansTableBody']) {
+                                horizonPaginators['archivedPlansTableBody'].update();
+                            }
+                        }, 400);
+                    }
+                    
+                    // Remove from hidden archive array if it was just added in this session
                     const input = document.querySelector(`input[name="delete_plans[]"][value="${planId}"]`);
                     if (input) {
                         input.remove();
