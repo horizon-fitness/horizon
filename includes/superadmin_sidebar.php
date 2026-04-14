@@ -56,15 +56,6 @@ if (isset($pdo)) {
             <?php endif; ?>
         </a>
 
-        <a href="real_time_occupancy.php" class="nav-link <?= ($active_page == 'occupancy') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">group</span> 
-            <span class="nav-text">Real-Time Occupancy</span>
-        </a>
-
-        <a href="recent_transaction.php" class="nav-link <?= ($active_page == 'transactions') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
-            <span class="nav-text">Recent Transactions</span>
-        </a>
 
         <div class="nav-section-header px-7 mb-2 mt-4">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">System</span>
