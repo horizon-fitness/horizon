@@ -27,6 +27,19 @@ function hexToRgb($hex)
     return "$r, $g, $b";
 }
 
+// Logic: Categorize Audit Activities
+function getAuditCategory($tableName, $actionType) {
+    if (in_array($tableName, ['users', 'user_roles', 'login_logs'])) return 'Access & Security';
+    if (in_array($tableName, ['gyms', 'gym_owner_applications'])) return 'Tenant Management';
+    if (in_array($tableName, ['clients', 'members', 'attendance'])) return 'Member Management';
+    if (in_array($tableName, ['payments', 'client_subscriptions', 'membership_plans'])) return 'Financial & Plans';
+    if (in_array($tableName, ['classes', 'schedules', 'trainers'])) return 'Operations';
+    if (in_array($tableName, ['system_settings', 'configurations'])) return 'System Config';
+    return 'General';
+}
+
+
+
 // Fetch and Merge Settings
 // 1. Fetch Global Settings
 $stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
@@ -49,6 +62,11 @@ $tenant_filter = $_GET['tenant_id'] ?? 'all';
 
 // Fetch Tenants for Filter Dropdown
 $tenants_list = $pdo->query("SELECT gym_id, gym_name FROM gyms WHERE status = 'Active' ORDER BY gym_name ASC")->fetchAll();
+
+// Prepare Tenants for Searchable Dropdown
+$tenants_js = array_map(function($t) {
+    return ['id' => $t['gym_id'], 'name' => $t['gym_name']];
+}, $tenants_list);
 
 // Pagination Settings - Increased to 200 for the Elite Client-Side engine
 $limit = 200;
@@ -126,6 +144,7 @@ $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
 $stmt->bindValue(':offset', (int)$offset, PDO::PARAM_INT);
 $stmt->execute();
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -137,6 +156,9 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
+        const availableTenants = <?= json_encode($tenants_js) ?>;
+        const currentTenantFilter = "<?= $tenant_filter ?>";
+
         tailwind.config = {
             darkMode: "class",
             theme: { extend: { colors: { "primary": "var(--primary)", "background": "var(--background)", "secondary": "var(--secondary)", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
@@ -164,6 +186,33 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             background-color: var(--background);
             color: var(--text-main);
             overflow-x: hidden;
+            color-scheme: dark;
+        }
+
+        .searchable-dropdown-overlay {
+            background: var(--background);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.8);
+            backdrop-filter: blur(40px);
+            z-index: 100;
+            scrollbar-width: none;
+            margin-top: 0;
+        }
+        .searchable-dropdown-overlay::-webkit-scrollbar { display: none; }
+        
+        .tenant-option {
+            transition: background 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .tenant-option:hover {
+            background: rgba(var(--primary-rgb), 0.08);
+            border-color: rgba(var(--primary-rgb), 0.1);
+            color: var(--primary);
+        }
+        .tenant-option.selected {
+            background: var(--primary);
+            color: white;
         }
 
         .glass-card {
@@ -466,6 +515,63 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }, 300); // 300ms debounce
         }
 
+        function initSearchableDropdown(containerId, inputId, dropdownId, listId, hiddenInputId, currentFilter) {
+            const container = document.getElementById(containerId);
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            const list = document.getElementById(listId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+
+            if (!container || !input || !dropdown || !list || !hiddenInput) return;
+
+            function renderOptions(filter = "") {
+                const filtered = availableTenants.filter(t => 
+                    t.name.toLowerCase().includes(filter.toLowerCase())
+                );
+                
+                list.innerHTML = filtered.map(t => `
+                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${currentFilter == t.id ? 'selected' : 'text-white/60'}" 
+                         data-id="${t.id}" data-name="${t.name}">
+                        ${t.name}
+                    </div>
+                `).join('') || `<div class="px-4 py-3 text-[9px] text-white/20 italic uppercase font-black">No tenant found...</div>`;
+            }
+
+            input.addEventListener('focus', () => {
+                dropdown.classList.remove('hidden');
+                renderOptions(input.value === 'All Tenants' ? '' : input.value);
+            });
+
+            input.addEventListener('input', (e) => {
+                dropdown.classList.remove('hidden');
+                renderOptions(e.target.value);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!container.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+
+            container.addEventListener('click', (e) => {
+                const option = e.target.closest('.tenant-option');
+                if (option) {
+                    const id = option.dataset.id;
+                    const name = option.dataset.name || "All Tenants";
+                    
+                    hiddenInput.value = id;
+                    input.value = name;
+                    dropdown.classList.add('hidden');
+                    
+                    reactiveFilter(); // Trigger AJAX update
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initSearchableDropdown('tenantSearchContainer', 'tenantSearchInput', 'tenantDropdown', 'tenantOptionsList', 'hidden_tenant_id', currentTenantFilter);
+        });
+
         function changePage(page) {
             const form = document.getElementById('auditFilterForm');
             const formData = new FormData(form);
@@ -496,75 +602,113 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 
         function exportAuditTrail(preview = false) {
-            const element = document.getElementById('auditTableContainer');
-            const reportTitle = "System Audit Trail Transcript";
+            const element = document.getElementById('auditLogTable'); // Target the table directly
+            const reportTitle = "SYSTEM AUDIT";
+            const tenantName = "Horizon System";
             const generatedAt = "<?= date('M d, Y h:i A') ?>";
 
+            // Create a wrapper for formal PDF styling
             const wrapper = document.createElement('div');
             wrapper.style.padding = '50px';
-            wrapper.style.color = '#000';
+            wrapper.style.color = '#333';
             wrapper.style.backgroundColor = '#fff';
-            wrapper.style.fontFamily = "'Roboto Mono', monospace";
+            wrapper.style.fontFamily = "'Inter', 'Helvetica Neue', Arial, sans-serif";
 
+            // Formal Header (Standardized Branding)
             const header = `
-                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 15px;">
-                    <div style="text-align: left;">
-                        <h1 style="font-size: 24px; font-weight: 800; color: #000; margin: 0; text-transform: uppercase;">HORIZON SYSTEM</h1>
-                        <p style="margin: 0; font-size: 9px; font-weight: bold; color: #666;">OFFICIAL AUDIT REPORT</p>
-                    </div>
-                    <div style="text-align: right;">
-                        <h2 style="font-size: 14px; font-weight: 700; color: #000; margin: 0; text-transform: uppercase;">${reportTitle}</h2>
-                        <p style="margin: 0; font-size: 9px; color: #666;">Date: ${generatedAt}</p>
-                    </div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+                <div style="text-align: left;">
+                    <h1 style="font-size: 28px; font-weight: 800; color: #111; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: -0.5px; line-height: 1;">${tenantName}</h1>
+                    <p style="margin: 0 0 3px 0; font-size: 10px; color: #666;">Baliwag, Bulacan, Philippines, 3006</p>
+                    <p style="margin: 0; font-size: 10px; color: #666;">Phone: 0976-241-1986 | Email: horizonfitnesscorp@gmail.com</p>
                 </div>
+                <div style="text-align: right; flex: 1;">
+                    <h2 style="font-size: 18px; font-weight: 800; color: #111; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: -0.5px; line-height: 1; text-align: right;">${reportTitle}</h2>
+                    <p style="margin: 0 0 4px 0; font-size: 10px; color: #666; text-align: right;">Generated on: ${generatedAt}</p>
+                    <p style="margin: 0; font-size: 9px; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: 1px; text-align: right;">OFFICIAL SYSTEM REPORT</p>
+                </div>
+            </div>
+            <div style="border-bottom: 2px solid #111; margin-bottom: 30px;"></div>
             `;
 
+            // Clone and clean the content
             const contentClone = element.cloneNode(true);
-            contentClone.querySelectorAll('button, .material-symbols-outlined, .flex-wrap, .pagination-controls').forEach(el => el.remove());
 
+            // 1. Surgical UI component removal
+            contentClone.querySelectorAll('button, form, span.material-symbols-outlined, header, .pagination-container').forEach(el => el.remove());
+
+            // 2. Strip all classes and force professional layout
             [contentClone, ...contentClone.querySelectorAll('*')].forEach(el => {
                 el.removeAttribute('class');
                 el.style.setProperty('color', '#000000', 'important');
                 el.style.setProperty('background-color', 'transparent', 'important');
-                el.style.setProperty('border', 'none', 'important');
+                el.style.setProperty('border-radius', '0', 'important');
                 el.style.setProperty('box-shadow', 'none', 'important');
+                el.style.setProperty('opacity', '1', 'important');
+                el.style.setProperty('visibility', 'visible', 'important');
             });
 
-            const table = contentClone.querySelector('table');
+            // 3. Table Styling (Business Formal)
+            const table = contentClone.tagName === 'TABLE' ? contentClone : contentClone.querySelector('table');
             if (table) {
                 table.style.setProperty('width', '100%', 'important');
                 table.style.setProperty('border-collapse', 'collapse', 'important');
-                table.style.setProperty('font-size', '11px', 'important'); // Larger font for portrait
-                table.style.setProperty('border', '1px solid #000', 'important');
+                table.style.setProperty('font-size', '10px', 'important');
+                table.style.setProperty('font-family', "'Inter', 'Helvetica Neue', Arial, sans-serif", 'important');
 
                 table.querySelectorAll('th').forEach(th => {
-                    th.style.setProperty('background-color', '#f3f4f6', 'important');
-                    th.style.setProperty('border', '1px solid #000', 'important');
-                    th.style.setProperty('padding', '12px 10px', 'important');
-                    th.style.setProperty('text-align', 'left', 'important');
+                    th.style.setProperty('background-color', '#f8f9fa', 'important');
+                    th.style.setProperty('color', '#111111', 'important');
+                    th.style.setProperty('border-bottom', '2px solid #222222', 'important');
+                    th.style.setProperty('border-top', '1px solid #dddddd', 'important');
+                    th.style.setProperty('padding', '12px 14px', 'important');
                     th.style.setProperty('text-transform', 'uppercase', 'important');
-                    th.style.setProperty('font-weight', 'bold', 'important');
+                    th.style.setProperty('font-weight', '700', 'important');
+                    th.style.setProperty('text-align', 'left', 'important');
+                });
+
+                table.querySelectorAll('tr').forEach(tr => {
+                    tr.style.setProperty('display', 'table-row', 'important'); // PAGINATION BYPASS
+                    tr.style.setProperty('page-break-inside', 'avoid', 'important');
                 });
 
                 table.querySelectorAll('td').forEach(td => {
-                    td.style.setProperty('border', '1px solid #000', 'important');
-                    td.style.setProperty('padding', '10px 10px', 'important');
-                    td.style.setProperty('word-break', 'break-word', 'important');
-                    td.querySelectorAll('*').forEach(child => {
-                        child.style.setProperty('font-size', '11px', 'important');
+                    td.style.setProperty('border-bottom', '1px solid #eeeeee', 'important');
+                    td.style.setProperty('padding', '12px 14px', 'important');
+                    td.style.setProperty('color', '#444444', 'important');
+                    td.style.setProperty('vertical-align', 'middle', 'important');
+
+                    td.querySelectorAll('*').forEach(ch => {
+                        ch.style.setProperty('color', 'inherit', 'important');
+                        ch.style.setProperty('font-size', '10px', 'important');
+                        ch.style.setProperty('margin', '0', 'important');
+                        ch.style.setProperty('font-weight', '500', 'important');
                     });
                 });
             }
 
+            const footer = document.createElement('div');
+            footer.style.marginTop = '60px';
+            footer.style.textAlign = 'center';
+            footer.style.fontSize = '9px';
+            footer.style.color = '#000';
+            footer.style.borderTop = '1px solid #000';
+            footer.style.paddingTop = '15px';
+            footer.innerHTML = `
+                <p style="margin: 0; font-weight: bold;">CONFIDENTIAL DOCUMENT - FOR INTERNAL USE ONLY</p>
+                <p style="margin: 0;">&copy; ${new Date().getFullYear()} Horizon System. All Rights Reserved.</p>
+            `;
+
             wrapper.innerHTML = header;
             wrapper.appendChild(contentClone);
+            wrapper.appendChild(footer);
 
             const opt = {
-                margin: [0.5, 0.5],
-                filename: `Audit_Trail_${new Date().toISOString().split('T')[0]}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, backgroundColor: '#ffffff' },
-                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+                margin: [0.3, 0.3],
+                filename: `Audit_Log_Transcript_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 1.0 },
+                html2canvas: { scale: 3, backgroundColor: '#ffffff', useCORS: true, letterRendering: true },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
             };
 
             if (preview) {
@@ -572,7 +716,7 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     window.open(pdf.output('bloburl'), '_blank');
                 });
             } else {
-                html2pdf().from(wrapper).set(opt).save();
+                html2pdf().set(opt).from(wrapper).save();
             }
         }
     </script>
@@ -605,140 +749,128 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </header>
 
-        <div class="glass-card mb-8 p-8">
-            <form method="GET" class="flex flex-wrap items-end gap-6" id="auditFilterForm">
-                <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 ml-1">Search Term</p>
-                    <div class="relative">
-                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main]/40 text-sm">search</span>
-                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Filter logs..." 
-                               oninput="reactiveFilter()"
-                               class="input-field pl-12 w-64">
+        <div class="glass-card overflow-hidden" id="auditTableContainer">
+            <form method="GET" id="auditFilterForm" onsubmit="event.preventDefault(); reactiveFilter();">
+                <div class="px-8 py-6 border-b border-white/5 bg-white/[0.01] flex flex-wrap justify-between items-center gap-4">
+                    <div>
+                        <h3 class="text-sm font-black italic uppercase tracking-widest text-primary leading-none">System Audit Trail</h3>
+                        <p class="text-[9px] text-[--text-main]/60 font-bold uppercase tracking-widest mt-1">Administrative & Security monitoring transcript</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="exportAuditTrail(true)" class="h-[48px] px-6 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm">visibility</span> Preview
+                        </button>
+                        <button type="button" onclick="exportAuditTrail(false)" class="h-[48px] px-6 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20 flex items-center gap-2 group">
+                            <span class="material-symbols-outlined text-sm group-hover:rotate-12 transition-transform text-white">picture_as_pdf</span> Export PDF
+                        </button>
                     </div>
                 </div>
 
-                <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 ml-1">Action Type</p>
-                    <div class="relative group premium-select-container">
-                        <select name="action_type" onchange="reactiveFilter()" class="input-field pr-10 min-w-[180px]">
-                            <option value="all">All Activities</option>
-                            <option value="Login" <?= $action_filter == 'Login' ? 'selected' : '' ?>>Login/Logout</option>
-                            <option value="Applicant" <?= $action_filter == 'Applicant' ? 'selected' : '' ?>>Applicants & Tenants</option>
-                            <option value="Transaction" <?= $action_filter == 'Transaction' ? 'selected' : '' ?>>New Transactions</option>
-                            <option value="Create" <?= $action_filter == 'Create' ? 'selected' : '' ?>>Create Actions</option>
-                            <option value="Update" <?= $action_filter == 'Update' ? 'selected' : '' ?>>Update Actions</option>
-                            <option value="Delete" <?= $action_filter == 'Delete' ? 'selected' : '' ?>>Delete Actions</option>
-                        </select>
-                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary text-base pointer-events-none group-hover:scale-110 transition-transform">expand_more</span>
+                <div class="px-8 py-4 border-b border-white/5 relative z-[60]">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <!-- Date Range -->
+                        <div class="flex gap-2 shrink-0" id="dateRangeContainer">
+                            <input type="date" name="date_from" id="date_from" value="<?= $date_from ?>" max="<?= min($date_to, date('Y-m-d')) ?>" oninput="syncDateBounds('from'); reactiveFilter();" title="From Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                            <input type="date" name="date_to" id="date_to" value="<?= $date_to ?>" min="<?= $date_from ?>" max="<?= date('Y-m-d') ?>" oninput="syncDateBounds('to'); reactiveFilter();" title="To Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                        </div>
+
+                        <!-- Searchable Tenant Selector -->
+                        <div class="w-[240px] relative group shrink-0" id="tenantSearchContainer">
+                            <input type="hidden" name="tenant_id" id="hidden_tenant_id" value="<?= htmlspecialchars($tenant_filter) ?>">
+                            
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                <input type="text" id="tenantSearchInput" 
+                                       placeholder="Search Tenant..." 
+                                       value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
+                                       autocomplete="off"
+                                       class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl pl-11 pr-10 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary/50">
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+
+                            <!-- Dropdown Overlay -->
+                            <div id="tenantDropdown" class="absolute left-0 right-0 top-full z-[100] rounded-b-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                <div class="p-1.5 space-y-0.5" id="tenantOptionsList">
+                                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $tenant_filter === 'all' ? 'selected' : 'text-white/60' ?>" data-id="all" data-name="All Tenants">
+                                        All Tenants
+                                    </div>
+                                    <!-- Filtered tenants injected here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Type selector -->
+                        <div class="w-[200px] relative group shrink-0">
+                            <select name="action_type" onchange="reactiveFilter()" class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
+                                <option value="all" <?= $action_filter == 'all' ? 'selected' : '' ?>>All Activities</option>
+                                <option value="Login" <?= $action_filter == 'Login' ? 'selected' : '' ?>>Login / Logout</option>
+                                <option value="Applicant" <?= $action_filter == 'Applicant' ? 'selected' : '' ?>>Applicants & Tenants</option>
+                                <option value="Transaction" <?= $action_filter == 'Transaction' ? 'selected' : '' ?>>New Transactions</option>
+                                <option value="Create" <?= $action_filter == 'Create' ? 'selected' : '' ?>>Create Actions</option>
+                                <option value="Update" <?= $action_filter == 'Update' ? 'selected' : '' ?>>Update Actions</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none">expand_more</span>
+                        </div>
+
+                        <!-- Search -->
+                        <div class="flex-1 min-w-[200px] relative group">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50 transition-transform group-hover:scale-110">search</span>
+                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search Table Body..." 
+                                   oninput="reactiveFilter()" 
+                                   class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-black transition-all focus:border-primary outline-none text-[--text-main]">
+                        </div>
+
+                        <!-- Reset -->
+                        <a href="audit_logs.php" class="h-[48px] w-[48px] rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-primary hover:bg-white/5 transition-all shadow-lg group" title="Reset All Filters">
+                            <span class="material-symbols-outlined text-xl transition-transform group-hover:rotate-180 duration-500">refresh</span>
+                        </a>
                     </div>
-                </div>
-
-                <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 ml-1">Tenant</p>
-                    <div class="relative group premium-select-container">
-                        <select name="tenant_id" onchange="reactiveFilter()" class="input-field pr-10 min-w-[200px]">
-                            <option value="all">All Tenants</option>
-                            <?php foreach($tenants_list as $t): ?>
-                                <option value="<?= $t['gym_id'] ?>" <?= $tenant_filter == $t['gym_id'] ? 'selected' : '' ?>><?= htmlspecialchars($t['gym_name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary text-base pointer-events-none group-hover:scale-110 transition-transform">expand_more</span>
-                    </div>
-                </div>
-
-                <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 ml-1">From</p>
-                    <input type="date" name="date_from" value="<?= $date_from ?>" onchange="reactiveFilter()" class="input-field px-4 [color-scheme:dark]">
-                </div>
-
-                <div class="space-y-2">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 ml-1">To</p>
-                    <input type="date" name="date_to" value="<?= $date_to ?>" onchange="reactiveFilter()" class="input-field px-4 [color-scheme:dark]">
-                </div>
-
-                <div class="flex items-center gap-4">
-                    <button type="submit" class="bg-primary hover:bg-primary/90 px-8 h-[42px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95 group shrink-0 text-white leading-none">
-                        <span class="material-symbols-outlined text-base group-hover:scale-110 transition-transform text-white">filter_list</span>
-                        Apply
-                    </button>
-                    <a href="audit_logs.php" class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 hover:text-white transition-colors">Reset</a>
                 </div>
             </form>
-        </div>
-
-        <div class="glass-card overflow-hidden" id="auditTableContainer">
-            <div class="px-8 py-6 border-b border-white/5 bg-white/[0.01] flex flex-wrap justify-between items-center gap-4">
-                <div>
-                    <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">System Audit Trail</h3>
-                    <p class="text-[9px] text-[--text-main]/60 font-bold uppercase tracking-widest mt-1">Tracking all administrative and security events</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button type="button" onclick="exportAuditTrail(true)" class="h-[40px] px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[9px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-[--text-main] transition-all flex items-center gap-2">
-                        <span class="material-symbols-outlined text-sm">visibility</span> Preview
-                    </button>
-                    <button type="button" onclick="exportAuditTrail(false)" class="h-[40px] px-6 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all active:scale-95 shadow-lg shadow-primary/20 flex items-center gap-2 group">
-                        <span class="material-symbols-outlined text-sm group-hover:rotate-12 transition-transform text-white">picture_as_pdf</span> Export PDF
-                    </button>
-                </div>
-            </div>
             <div class="overflow-x-auto">
                 <table id="auditLogTable" class="w-full text-left">
                     <thead>
                         <tr class="bg-white/[0.02] border-b border-white/5">
-                            <th class="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main]/40">TIMESTAMP</th>
-                            <th class="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main]/40">USER</th>
-                            <th class="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main]/40">SYSTEM ROLE</th>
-                            <th class="px-8 py-5 text-left text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main]/40">EVENT ACTIVITY</th>
+                            <th class="px-6 py-5 text-left text-[9px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">TIMESTAMP</th>
+                            <th class="px-6 py-5 text-left text-[9px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">TENANT scope</th>
+                            <th class="px-6 py-5 text-left text-[9px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">ADMIN / ROLE</th>
+                            <th class="px-6 py-5 text-left text-[9px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">ACTIVITY TYPE</th>
                         </tr>
-                    </thead>
+</thead>
                     <tbody id="auditTableBody" class="divide-y divide-white/5 font-lexend">
                         <?php if (empty($logs)): ?>
                             <tr><td colspan="4" class="px-8 py-12 text-center text-xs text-[--text-main]/40 italic uppercase font-bold tracking-widest">No audit records found</td></tr>
                         <?php else: ?>
                             <?php foreach ($logs as $log): ?>
-                            <tr class="transition-all duration-300 group cursor-default border-b border-white/5">
-                                <td class="px-8 py-6">
-                                    <p class="text-xs text-[--text-main] font-bold uppercase leading-none mb-1 transition-colors"><?= date('M d, Y', strtotime($log['created_at'])) ?></p>
-                                    <p class="text-[10px] text-[--text-main]/60 font-black italic tracking-tighter"><?= date('h:i:s A', strtotime($log['created_at'])) ?></p>
+                            <?php 
+                                $category = getAuditCategory($log['table_name'], $log['action_type']);
+                                
+                                // Color mapping for categories
+                                $catColor = 'text-[--text-main]/40';
+                                if ($category === 'Access & Security') $catColor = 'text-blue-400';
+                                if ($category === 'Tenant Management') $catColor = 'text-primary';
+                                if ($category === 'Member Management') $catColor = 'text-emerald-400';
+                                if ($category === 'Financial & Plans') $catColor = 'text-amber-400';
+                                if ($category === 'Operations') $catColor = 'text-purple-400';
+                                if ($category === 'System Config') $catColor = 'text-rose-400';
+                            ?>
+                            <tr class="transition-all duration-300 group cursor-default border-b border-white/5 hover:bg-white/[0.02]">
+                                <td class="px-6 py-6 vertical-top">
+                                    <p class="text-xs text-[--text-main] font-bold uppercase leading-none mb-1"><?= date('M d, Y', strtotime($log['created_at'])) ?></p>
+                                    <p class="text-[9px] text-[--text-main]/40 font-black italic tracking-tighter uppercase"><?= date('h:i A', strtotime($log['created_at'])) ?></p>
                                 </td>
-                                <td class="px-8 py-6">
-                                    <p class="text-sm font-bold text-[--text-main] transition-colors"><?= htmlspecialchars($log['first_name'] . ' ' . $log['last_name']) ?></p>
+                                <td class="px-6 py-6">
+                                    <p class="text-[10px] font-black uppercase tracking-widest <?= $log['gym_name'] ? 'text-white' : 'text-white/20 italic' ?>">
+                                        <?= htmlspecialchars($log['gym_name'] ?: 'Global/System') ?>
+                                    </p>
                                 </td>
-                                <td class="px-8 py-6">
-                                    <span class="text-[10px] text-primary font-black uppercase tracking-widest">
-                                        <?= htmlspecialchars($log['role'] ?? 'User') ?>
-                                    </span>
+                                <td class="px-6 py-6">
+                                    <p class="text-xs font-bold text-[--text-main]"><?= htmlspecialchars($log['first_name'] . ' ' . $log['last_name']) ?></p>
+                                    <p class="text-[9px] text-primary font-black uppercase tracking-[0.1em] mt-1"><?= htmlspecialchars($log['role'] ?? 'User') ?></p>
                                 </td>
-                                <td class="px-8 py-6">
-                                    <?php 
-                                        $textColor = 'text-[--text-main]/70';
-                                        $displayText = $log['action_type'];
-
-                                        if(in_array($log['action_type'], ['Create', 'Login'])) { $textColor = 'text-emerald-400'; }
-                                        if($log['action_type'] === 'Delete') { $textColor = 'text-rose-400'; }
-                                        if($log['action_type'] === 'Update') { $textColor = 'text-amber-400'; }
-                                        if($log['action_type'] === 'Logout') { $textColor = 'text-[--text-main]/40'; }
-
-                                        // Specialized mapping for Applicants and Transactions
-                                        if ($log['table_name'] === 'gym_owner_applications') {
-                                            $newVals = json_decode($log['new_values'], true);
-                                            if (($newVals['status'] ?? '') === 'Approved') {
-                                                $displayText = 'New Tenant Onboarded';
-                                                $textColor = 'text-primary font-black';
-                                            } elseif (($log['action_type'] ?? '') === 'Reject') {
-                                                $displayText = 'Application Rejected';
-                                                $textColor = 'text-rose-500';
-                                            } else {
-                                                $displayText = 'New Application Sub';
-                                                $textColor = 'text-primary/70';
-                                            }
-                                        }
-                                        if (in_array($log['table_name'], ['payments', 'client_subscriptions'])) {
-                                            $displayText = 'New Transaction';
-                                            $textColor = 'text-emerald-400 font-bold';
-                                        }
-                                    ?>
-                                    <p class="text-[11px] font-black uppercase tracking-[0.15em] <?= $textColor ?>"><?= htmlspecialchars($displayText) ?></p>
+                                <td class="px-6 py-6">
+                                    <p class="text-[9px] font-black uppercase tracking-[0.15em] mb-1 <?= $catColor ?>"><?= $category ?></p>
+                                    <span class="text-[10px] text-white font-bold px-2 py-1 rounded bg-white/5 border border-white/5 inline-block"><?= htmlspecialchars($log['action_type']) ?></span>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -837,8 +969,32 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 showPage(1);
             }
 
+            // Date Range Synchronization (Conflict Prevention)
+            function syncDateBounds(triggerSource = null) {
+                const fromInput = document.getElementById('date_from');
+                const toInput = document.getElementById('date_to');
+                const today = new Date().toISOString().split('T')[0];
+
+                if (fromInput.value) {
+                    toInput.min = fromInput.value;
+                    // Auto-correction: if From > To, push To forward
+                    if (toInput.value && fromInput.value > toInput.value && triggerSource === 'from') {
+                        toInput.value = fromInput.value;
+                    }
+                }
+                if (toInput.value) {
+                    fromInput.max = Math.min(toInput.value, today);
+                    // Auto-correction: if To < From, pull From back
+                    if (fromInput.value && toInput.value < fromInput.value && triggerSource === 'to') {
+                        fromInput.value = toInput.value;
+                    }
+                    if (toInput.value > today) toInput.value = today;
+                }
+            }
+
             // Initialize on load
             window.addEventListener('DOMContentLoaded', () => {
+                syncDateBounds(); // Run once to set initial bounds
                 initElitePagination('auditLogTable', 10);
             });
         </script>
