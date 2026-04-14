@@ -52,9 +52,9 @@ $search = $_GET['search'] ?? '';
 $gym_status = $_GET['gym_status'] ?? 'all';
 $plan_id = $_GET['plan_id'] ?? 'all';
 $sort_order = $_GET['sort'] ?? 'newest';
-$date_from = $_GET['date_from'] ?? '';
-$date_to = $_GET['date_to'] ?? '';
-$active_tab = $_GET['tab'] ?? 'registered';
+$date_from = $_GET['date_from'] ?? date('Y-m-01');
+$date_to = $_GET['date_to'] ?? date('Y-m-d');
+$active_tab = $_GET['tab'] ?? 'active';
 
 // Fetch Active Plans for filter
 $stmtPlans = $pdo->query("SELECT website_plan_id, plan_name FROM website_plans WHERE is_active = 1 ORDER BY price ASC");
@@ -78,8 +78,8 @@ $brand = array_merge($global_configs, $user_configs);
 $gym_where = ["g.status IN ('Active', 'Suspended', 'Deleted', 'Deactivated')"];
 $gym_params = [];
 
-// Only apply filters to Registered and Deactivated tabs
-if ($active_tab === 'registered' || $active_tab === 'deactivated') {
+// Only apply filters to Active, Suspended and Deactivated tabs
+if ($active_tab === 'active' || $active_tab === 'suspended' || $active_tab === 'deactivated') {
     if (!empty($search)) {
         $gym_where[] = "(g.gym_name LIKE :s1 OR g.tenant_code LIKE :s2 OR u.first_name LIKE :s3 OR u.last_name LIKE :s4 OR u.email LIKE :s5)";
         $gym_params['s1'] = $gym_params['s2'] = $gym_params['s3'] = $gym_params['s4'] = $gym_params['s5'] = "%$search%";
@@ -93,14 +93,15 @@ if ($active_tab === 'registered' || $active_tab === 'deactivated') {
         $gym_params['plan_id'] = $plan_id;
     }
     
-    // For Registered specifically, user requested to remove Date Filter logic
-    if ($active_tab !== 'registered') {
+    // For Active specifically, user requested to remove Date Filter logic
+    if ($active_tab !== 'active') {
+        $date_col = ($active_tab === 'suspended' || $active_tab === 'deactivated') ? "g.updated_at" : "g.created_at";
         if (!empty($date_from)) {
-            $gym_where[] = "g.created_at >= :date_from";
+            $gym_where[] = "$date_col >= :date_from";
             $gym_params['date_from'] = $date_from . " 00:00:00";
         }
         if (!empty($date_to)) {
-            $gym_where[] = "g.created_at <= :date_to";
+            $gym_where[] = "$date_col <= :date_to";
             $gym_params['date_to'] = $date_to . " 23:59:59";
         }
     }
@@ -209,24 +210,15 @@ $stmtRejected->execute($rejected_params);
 $rejected_apps = $stmtRejected->fetchAll(PDO::FETCH_ASSOC);
 
 $total_tenants = count($tenants);
-$active_count = 0;
-$suspended_count = 0;
+$active_tenants = array_filter($tenants, fn($t) => $t['status'] === 'Active');
+$suspended_tenants = array_filter($tenants, fn($t) => $t['status'] === 'Suspended');
+$deactivated_tenants = array_filter($tenants, fn($t) => $t['status'] === 'Deactivated' || $t['status'] === 'Deleted');
+
+$active_count = count($active_tenants);
+$suspended_count = count($suspended_tenants);
+$deactivated_count = count($deactivated_tenants);
 $pending_count = count($pending_apps);
 $rejected_count = count($rejected_apps);
-$active_tenants = [];
-$deactivated_tenants = [];
-foreach ($tenants as $t) {
-    if ($t['status'] === 'Active') {
-        $active_count++;
-        $active_tenants[] = $t;
-    } elseif ($t['status'] === 'Suspended') {
-        $suspended_count++;
-        $active_tenants[] = $t;
-    } elseif ($t['status'] === 'Deactivated' || $t['status'] === 'Deleted') {
-        $deactivated_tenants[] = $t;
-    }
-}
-$deactivated_count = count($deactivated_tenants);
 ?>
 <!DOCTYPE html>
 <html class="dark no-scrollbar" lang="en">
@@ -695,12 +687,23 @@ $deactivated_count = count($deactivated_tenants);
             </div>
 
             <div class="flex items-center gap-8 mb-8 border-b border-white/5 px-2">
-                <button onclick="switchTab('registered')" id="tabBtn-registered"
-                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= $active_tab === 'registered' ? 'text-primary' : 'text-[--text-main] opacity-50 hover:opacity-100' ?>">
-                    Active & Suspended
-                    <div id="tabIndicator-registered"
-                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'registered' ? 'opacity-100' : 'opacity-0' ?>">
+                <button onclick="switchTab('active')" id="tabBtn-active"
+                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= $active_tab === 'active' ? 'text-primary' : 'text-[--text-main] opacity-50 hover:opacity-100' ?>">
+                    Active Gyms
+                    <div id="tabIndicator-active"
+                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'active' ? 'opacity-100' : 'opacity-0' ?>">
                     </div>
+                </button>
+                <button onclick="switchTab('suspended')" id="tabBtn-suspended"
+                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= $active_tab === 'suspended' ? 'text-primary mr-4' : 'text-[--text-main] opacity-50 hover:opacity-100' ?> <?= ($suspended_count > 0) ? 'mr-4' : '' ?>">
+                    Suspended
+                    <div id="tabIndicator-suspended"
+                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'suspended' ? 'opacity-100' : 'opacity-0' ?>">
+                    </div>
+                    <?php if ($suspended_count > 0): ?>
+                        <span
+                            class="absolute -top-1 -right-6 size-4 bg-amber-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-amber-500/20"><?= $suspended_count ?></span>
+                    <?php endif; ?>
                 </button>
                 <button onclick="switchTab('pending')" id="tabBtn-pending"
                     class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= $active_tab === 'pending' ? 'text-primary mr-4' : 'text-[--text-main] opacity-50 hover:opacity-100' ?> <?= ($pending_count > 0) ? 'mr-4' : '' ?>">
@@ -732,103 +735,116 @@ $deactivated_count = count($deactivated_tenants);
                     </div>
                     <?php if ($rejected_count > 0): ?>
                         <span
-                            class="absolute -top-1 -right-6 size-4 bg-gray-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-gray-500/20"><?= $rejected_count ?></span>
+                            class="absolute -top-1 -right-6 size-4 bg-rose-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-rose-500/20"><?= $rejected_count ?></span>
                     <?php endif; ?>
                 </button>
             </div>
 
             <div id="section-pending" class="hidden">
-                <?php if (!empty($pending_apps) || !empty($search) || !empty($date_from)): ?>
-                    <div class="glass-card overflow-hidden mb-10 border border-amber-500/10">
-                        <div class="px-8 py-6 border-b border-white/5 bg-amber-500/5 flex justify-between items-center">
-                            <h4
-                                class="font-black italic uppercase text-sm tracking-tighter text-amber-400 flex items-center gap-2">
-                                <span class="material-symbols-outlined">pending_actions</span>
-                                Pending Gym Applications
-                            </h4>
-                        </div>
+                <div class="glass-card overflow-hidden mb-10 border border-amber-500/10">
+                    <div class="px-8 py-6 border-b border-white/5 bg-amber-500/5 flex justify-between items-center">
+                        <h4
+                            class="font-black italic uppercase text-sm tracking-tighter text-amber-400 flex items-center gap-2">
+                            <span class="material-symbols-outlined">pending_actions</span>
+                            Pending Gym Applications
+                        </h4>
+                    </div>
 
-                        <!-- Tab-Specific Filter Bar -->
-                        <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
-                            <form method="GET" class="flex flex-wrap items-center gap-4">
-                                <input type="hidden" name="tab" value="pending">
-                                <div class="flex-1 min-w-[250px] relative group">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-amber-500/50 transition-transform group-hover:scale-110">search</span>
-                                    <input type="text" name="search" value="<?= $active_tab === 'pending' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name or Email..." 
-                                           onchange="this.form.submit()" 
-                                           class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-amber-500/50 outline-none text-[--text-main]">
-                                </div>
-                                <div class="w-[180px] relative group">
-                                    <select name="sort" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                        <option value="newest" <?= ($active_tab === 'pending' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest First</option>
-                                        <option value="oldest" <?= ($active_tab === 'pending' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest First</option>
-                                    </select>
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
-                                </div>
-                                <div class="flex gap-2">
-                                    <input type="date" name="date_from" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_from) : '' ?>" onchange="this.form.submit()" title="Submission Date From" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
-                                    <input type="date" name="date_to" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_to) : '' ?>" onchange="this.form.submit()" title="Submission Date To" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
-                                </div>
-                                <a href="tenant_management.php?tab=pending" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
-                                    <span class="material-symbols-outlined text-sm">refresh</span>
-                                </a>
-                            </form>
-                        </div>
-                        <div class="overflow-x-auto no-scrollbar">
-                            <table class="w-full text-left">
-                                <thead>
-                                    <tr
-                                        class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
-                                        <th class="px-8 py-4">Gym Identity</th>
-                                        <th class="px-8 py-4">Applicant</th>
-                                        <th class="px-8 py-4">Submitted At</th>
-                                        <th class="px-8 py-4 text-right">Actions</th>
+                    <!-- Tab-Specific Filter Bar -->
+                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                        <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
+                            <input type="hidden" name="tab" value="pending">
+                            <div class="flex-1 min-w-[250px] relative group">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-amber-500/50 transition-transform group-hover:scale-110">search</span>
+                                <input type="text" name="search" value="<?= $active_tab === 'pending' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name or Email..." 
+                                       oninput="applyFiltersAsync(this.form)" 
+                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-amber-500/50 outline-none text-[--text-main]">
+                            </div>
+                            <div class="w-[180px] relative group">
+                                <select name="sort" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                    <option value="newest" <?= ($active_tab === 'pending' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest First</option>
+                                    <option value="oldest" <?= ($active_tab === 'pending' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest First</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="date" name="date_from" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_from) : date('Y-m-01') ?>" 
+                                       max="<?= min($date_to, date('Y-m-d')) ?>"
+                                       onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
+                                       title="Submission Date From" 
+                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                <input type="date" name="date_to" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
+                                       min="<?= $date_from ?>"
+                                       max="<?= date('Y-m-d') ?>"
+                                       onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
+                                       title="Submission Date To" 
+                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                            </div>
+                            <a href="tenant_management.php?tab=pending" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10" onclick="resetTabFilters('pending'); return false;" title="Reset All Pending Filters">
+                                <span class="material-symbols-outlined text-sm">refresh</span>
+                            </a>
+                        </form>
+                    </div>
+                    <div class="overflow-x-auto no-scrollbar">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr
+                                    class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
+                                    <th class="px-8 py-4">Gym Identity</th>
+                                    <th class="px-8 py-4">Business ID</th>
+                                    <th class="px-8 py-4">Applicant</th>
+                                    <th class="px-8 py-4">Submitted At</th>
+                                    <th class="px-8 py-4 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingTableBody" class="divide-y divide-white/5">
+                                <?php if (empty($pending_apps)): ?>
+                                    <tr>
+                                        <td colspan="5" class="px-8 py-12 text-center text-xs font-black uppercase text-[--text-main] opacity-40 tracking-widest italic no-pagination">All caught up! No pending applications found.</td>
                                     </tr>
-                                </thead>
-                                <tbody id="pendingTableBody" class="divide-y divide-white/5">
+                                <?php else: ?>
                                     <?php foreach ($pending_apps as $app): ?>
                                         <tr class="hover:bg-white/5 transition-all">
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-3">
                                                     <div
-                                                        class="size-10 rounded-lg bg-amber-500/10 flex items-center justify-center overflow-hidden border border-amber-500/20 shadow-inner shrink-0">
+                                                        class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 border border-white/10 group-hover:scale-105 transition-transform">
                                                         <?php if (!empty($app['gym_logo'])):
-                                                            $p_logo = getLogoPath($app['gym_logo']);
+                                                            $logo_path = getLogoPath($app['gym_logo']);
                                                             ?>
-                                                            <img src="<?= $p_logo ?>"
-                                                                class="size-full object-contain transition-transform hover:scale-110">
+                                                            <img src="<?= $logo_path ?>" class="size-full object-contain">
                                                         <?php else: ?>
                                                             <span
-                                                                class="text-amber-500 font-black text-sm"><?= strtoupper(substr($app['gym_name'], 0, 2)) ?></span>
+                                                                class="text-primary font-black text-sm"><?= strtoupper(substr($app['gym_name'], 0, 2)) ?></span>
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-sm font-bold italic">
-                                                            <?= htmlspecialchars($app['gym_name']) ?>
-                                                        </p>
-                                                        <p
-                                                            class="text-[10px] text-[--text-main] opacity-50 uppercase tracking-wider font-bold">
-                                                            <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? '')) ?>
-                                                        </p>
+                                                        <p class="text-sm font-bold italic"><?= htmlspecialchars($app['gym_name']) ?></p>
+                                                        <p class="text-[10px] text-primary uppercase tracking-widest font-bold">TYPE: <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? 'Gym/Fitness')) ?></p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td class="px-8 py-5">
-                                                <p class="text-xs font-medium text-white">
-                                                    <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?>
-                                                </p>
-                                                <p class="text-[10px] text-[--text-main] opacity-50">
-                                                    <?= htmlspecialchars($app['email']) ?>
-                                                </p>
+                                                <div class="flex flex-col">
+                                                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-wider mb-1">Business Identity</p>
+                                                    <p class="text-xs font-bold text-white"><?= htmlspecialchars($app['tenant_code'] ?? 'PEND-'.$app['application_id']) ?></p>
+                                                </div>
                                             </td>
-                                            <td class="px-8 py-5 text-xs font-medium text-gray-400">
-                                                <?= date('M d, Y h:i A', strtotime($app['submitted_at'])) ?>
+                                            <td class="px-8 py-5">
+                                                <div class="flex flex-col">
+                                                    <p class="text-xs font-medium text-white"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
+                                                    <p class="text-[10px] text-[--text-main] opacity-50"><?= htmlspecialchars($app['email']) ?></p>
+                                                </div>
                                             </td>
-                                            <td class="px-8 py-5 text-right">
-                                                <div class="inline-flex gap-2">
+                                            <td class="px-8 py-5">
+                                                <p class="text-xs font-bold text-primary"><?= date('M d, Y', strtotime($app['created_at'] ?? $app['submitted_at'])) ?></p>
+                                                <p class="text-[9px] text-[--text-main] opacity-40 uppercase tracking-widest mt-1 italic"><?= date('h:i A', strtotime($app['created_at'] ?? $app['submitted_at'])) ?></p>
+                                            </td>
+                                            <td class="px-8 py-5 text-center">
+                                                <div class="flex justify-center gap-2">
                                                     <button onclick="openApplicationModal(<?= $app['application_id'] ?>)"
-                                                        class="size-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-colors flex items-center justify-center group" title="View Application Details">
-                                                        <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span>
+                                                        class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-colors flex items-center justify-center group" title="View Application Details">
+                                                        <span class="material-symbols-outlined text-[18px] transition-transform group-hover:scale-110">visibility</span>
                                                     </button>
                                                     <form method="POST" action="../action/process_application.php"
                                                         class="inline-flex gap-2">
@@ -837,71 +853,58 @@ $deactivated_count = count($deactivated_tenants);
                                                         <input type="hidden" name="action" value="">
                                                         <button type="button"
                                                             onclick="confirmAction(this.form, 'approve', 'Approve Application', 'Are you sure you want to approve the application for <?= addslashes($app['gym_name']) ?>? This will create a new tenant account.')"
-                                                            class="px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1 shadow-lg shadow-emerald-500/10">
-                                                            <span class="material-symbols-outlined text-sm">check_circle</span>
-                                                            Approve
+                                                            title="Approve Application"
+                                                            class="size-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors shadow-lg shadow-emerald-500/10">
+                                                            <span class="material-symbols-outlined text-[18px]">check_circle</span>
                                                         </button>
                                                         <button type="button"
                                                             onclick="confirmAction(this.form, 'reject', 'Reject Application', 'Are you sure you want to reject the application for <?= addslashes($app['gym_name']) ?>? This action cannot be undone.')"
-                                                            class="px-4 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
-                                                            <span class="material-symbols-outlined text-sm">cancel</span> Reject
+                                                            title="Reject Application"
+                                                            class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-colors">
+                                                            <span class="material-symbols-outlined text-[18px]">cancel</span>
                                                         </button>
                                                     </form>
                                                 </div>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
-                    <!-- Pagination Container for Pending -->
-                    <div id="pagination-pending"
-                        class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
-                        <p
-                            class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text">
-                        </p>
-                        <div class="flex gap-2 controls-container"></div>
+                </div>
+                <!-- Pagination Container for Pending -->
+                <div id="pagination-pending"
+                    class="px-8 py-5 border-t border-white/5 bg-white/[0.01] backdrop-blur-md flex justify-between items-center <?= empty($pending_apps) ? 'hidden' : '' ?>">
+                    <div class="flex items-center gap-3">
+                        <div class="size-2 rounded-full bg-amber-500 animate-pulse"></div>
+                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                     </div>
-                <?php else: ?>
-                    <div class="glass-card p-12 text-center border border-white/5 bg-white/5 rounded-[32px]">
-                        <span
-                            class="material-symbols-outlined text-4xl text-[--text-main] opacity-60 mb-4 uppercase">check_circle</span>
-                        <p class="text-xs font-black uppercase text-[--text-main] opacity-50 tracking-widest">All caught up!
-                            No pending applications.</p>
-                    </div>
-                <?php endif; ?>
+                    <div class="flex gap-2 p-1.5 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-2xl shadow-2xl controls-container"></div>
+                </div>
             </div>
 
-            <div id="section-registered">
+            <div id="section-active">
                 <div class="glass-card overflow-hidden">
                     <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                        <h4 class="font-black italic uppercase text-sm tracking-tighter">Registered Gyms</h4>
+                        <h4 class="font-black italic uppercase text-sm tracking-tighter">Active Gym Accounts</h4>
                     </div>
 
                     <!-- Tab-Specific Filter Bar -->
                     <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
-                        <form method="GET" class="flex flex-wrap items-center gap-4">
-                            <input type="hidden" name="tab" value="registered">
+                        <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
+                            <input type="hidden" name="tab" value="active">
                             <div class="flex-1 min-w-[250px] relative group">
                                 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary/50 transition-transform group-hover:scale-110">search</span>
-                                <input type="text" name="search" value="<?= $active_tab === 'registered' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name, Code, Owner..." 
-                                       onchange="this.form.submit()" 
+                                <input type="text" name="search" value="<?= $active_tab === 'active' ? htmlspecialchars($search) : '' ?>" placeholder="Search Active Gyms..." 
+                                       oninput="applyFiltersAsync(this.form)" 
                                        class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
                             </div>
-                            <div class="w-[160px] relative group">
-                                <select name="gym_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                    <option value="all" <?= ($active_tab === 'registered' && $gym_status === 'all') ? 'selected' : '' ?>>All Status</option>
-                                    <option value="Active" <?= ($active_tab === 'registered' && $gym_status === 'Active') ? 'selected' : '' ?>>Active Only</option>
-                                    <option value="Suspended" <?= ($active_tab === 'registered' && $gym_status === 'Suspended') ? 'selected' : '' ?>>Suspended Only</option>
-                                </select>
-                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
-                            </div>
                             <div class="w-[180px] relative group">
-                                <select name="plan_id" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                    <option value="all" <?= ($active_tab === 'registered' && $plan_id === 'all') ? 'selected' : '' ?>>Plan: All Type</option>
+                                <select name="plan_id" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                    <option value="all" <?= ($active_tab === 'active' && $plan_id === 'all') ? 'selected' : '' ?>>Plan: All Type</option>
                                     <?php foreach ($all_plans as $p): ?>
-                                        <option value="<?= $p['website_plan_id'] ?>" <?= ($active_tab === 'registered' && (string)$plan_id === (string)$p['website_plan_id']) ? 'selected' : '' ?>>
+                                        <option value="<?= $p['website_plan_id'] ?>" <?= ($active_tab === 'active' && (string)$plan_id === (string)$p['website_plan_id']) ? 'selected' : '' ?>>
                                             <?= htmlspecialchars($p['plan_name']) ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -909,13 +912,13 @@ $deactivated_count = count($deactivated_tenants);
                                 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
                             </div>
                             <div class="w-[180px] relative group">
-                                <select name="sort" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                    <option value="newest" <?= ($active_tab === 'registered' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Created</option>
-                                    <option value="oldest" <?= ($active_tab === 'registered' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Created</option>
+                                <select name="sort" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                    <option value="newest" <?= ($active_tab === 'active' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Created</option>
+                                    <option value="oldest" <?= ($active_tab === 'active' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Created</option>
                                 </select>
                                 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
                             </div>
-                            <a href="tenant_management.php?tab=registered" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
+                            <a href="tenant_management.php?tab=active" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10" onclick="resetTabFilters('active'); return false;" title="Reset All Active Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -929,10 +932,10 @@ $deactivated_count = count($deactivated_tenants);
                                     <th class="px-8 py-4">Owner Contact</th>
                                     <th class="px-8 py-4">Plan & Status</th>
                                     <th class="px-8 py-4">Members</th>
-                                    <th class="px-8 py-4 text-right">Actions</th>
+                                    <th class="px-8 py-4 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="registeredTableBody" class="divide-y divide-white/5">
+                            <tbody id="activeTableBody" class="divide-y divide-white/5">
                                 <?php if (empty($active_tenants)): ?>
                                     <tr>
                                         <td colspan="5"
@@ -944,44 +947,29 @@ $deactivated_count = count($deactivated_tenants);
                                         <tr class="hover:bg-white/5 transition-all">
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-3">
-                                                    <?php
-                                                    $logo_src = getLogoPath($t['logo_path']);
-                                                    ?>
-                                                    <div class="size-16 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
+                                                    <?php $logo_src = getLogoPath($t['logo_path']); ?>
+                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
                                                         data-src="<?= $logo_src ?>"
                                                         data-title="<?= htmlspecialchars($t['gym_name']) ?>">
-                                                        <?php if (!empty($logo_src)):
-                                                            ?>
-                                                            <img src="<?= $logo_src ?>"
-                                                                class="size-full object-contain transition-transform hover:scale-110">
+                                                        <?php if (!empty($logo_src)): ?>
+                                                            <img src="<?= $logo_src ?>" class="size-full object-contain transition-transform hover:scale-110">
                                                         <?php else: ?>
-                                                            <span
-                                                                class="text-primary font-black text-sm"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
+                                                            <span class="text-primary font-black text-xs"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-sm font-bold italic">
-                                                            <?= htmlspecialchars($t['gym_name']) ?>
-                                                        </p>
-                                                        <p class="text-[10px] text-primary uppercase tracking-wider font-bold">
-                                                            Code: <?= htmlspecialchars($t['tenant_code']) ?></p>
+                                                        <p class="text-sm font-bold italic"><?= htmlspecialchars($t['gym_name']) ?></p>
+                                                        <p class="text-[10px] text-primary uppercase tracking-wider font-bold">Code: <?= htmlspecialchars($t['tenant_code']) ?></p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td class="px-8 py-5">
-                                                <p class="text-xs font-medium text-white">
-                                                    <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?>
-                                                </p>
-                                                <p class="text-[10px] text-[--text-main] opacity-50">
-                                                    <?= htmlspecialchars($t['owner_email']) ?>
-                                                </p>
+                                                <p class="text-xs font-medium text-white"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
+                                                <p class="text-[10px] text-[--text-main] opacity-50"><?= htmlspecialchars($t['owner_email']) ?></p>
                                             </td>
                                             <td class="px-8 py-5">
                                                 <div class="flex flex-col gap-1.5">
-                                                    <p
-                                                        class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest">
-                                                        <?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?>
-                                                    </p>
+                                                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
                                                     <?php
                                                     $sub = $t['sub_status'] ?? 'None';
                                                     if ($sub === 'Active'):
@@ -1037,8 +1025,8 @@ $deactivated_count = count($deactivated_tenants);
                                                     <?php endif; ?>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5 text-right">
-                                                <div class="inline-flex gap-2">
+                                            <td class="px-8 py-5 text-center">
+                                                <div class="flex justify-center gap-2">
                                                     <?php if ($t['application_id']): ?>
                                                         <button onclick="openApplicationModal(<?= $t['application_id'] ?>)"
                                                             title="View Application Details"
@@ -1089,13 +1077,151 @@ $deactivated_count = count($deactivated_tenants);
                             </tbody>
                         </table>
                     </div>
-                    <!-- Pagination Container for Registered -->
-                    <div id="pagination-registered"
-                        class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
-                        <p
-                            class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text">
-                        </p>
-                        <div class="flex gap-2 controls-container"></div>
+                    <!-- Pagination Container for Active -->
+                    <div id="pagination-active"
+                        class="px-8 py-5 border-t border-white/5 bg-white/[0.01] backdrop-blur-md flex justify-between items-center hidden">
+                        <div class="flex items-center gap-3">
+                            <div class="size-2 rounded-full bg-primary animate-pulse"></div>
+                            <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
+                        </div>
+                        <div class="flex gap-2 p-1.5 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-2xl shadow-2xl controls-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="section-suspended" class="hidden">
+                    <div class="glass-card overflow-hidden">
+                        <div class="px-8 py-6 border-b border-white/5 bg-amber-500/5 flex justify-between items-center">
+                            <h4 class="font-black italic uppercase text-sm tracking-tighter text-amber-500">Suspended Accounts</h4>
+                    </div>
+
+                    <!-- Tab-Specific Filter Bar -->
+                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                        <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
+                            <input type="hidden" name="tab" value="suspended">
+                            <div class="flex-1 min-w-[250px] relative group">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-amber-500/50 transition-transform group-hover:scale-110">search</span>
+                                <input type="text" name="search" value="<?= $active_tab === 'suspended' ? htmlspecialchars($search) : '' ?>" placeholder="Search Suspended Gyms..." 
+                                       oninput="applyFiltersAsync(this.form)" 
+                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-amber-500 outline-none text-[--text-main]">
+                            </div>
+                            <div class="w-[180px] relative group">
+                                <select name="sort" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                    <option value="newest" <?= ($active_tab === 'suspended' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Suspended</option>
+                                    <option value="oldest" <?= ($active_tab === 'suspended' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Suspended</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="date" name="date_from" value="<?= $active_tab === 'suspended' ? htmlspecialchars($date_from) : date('Y-m-01') ?>" 
+                                       max="<?= min($date_to, date('Y-m-d')) ?>"
+                                       onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
+                                       title="Suspension Date From" 
+                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                <input type="date" name="date_to" value="<?= $active_tab === 'suspended' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
+                                       min="<?= $date_from ?>"
+                                       max="<?= date('Y-m-d') ?>"
+                                       onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
+                                       title="Suspension Date To" 
+                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                            </div>
+                            <a href="tenant_management.php?tab=suspended" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:bg-white/10 transition-all shadow-lg" onclick="resetTabFilters('suspended'); return false;" title="Reset All Suspended Filters">
+                                <span class="material-symbols-outlined text-sm">refresh</span>
+                            </a>
+                        </form>
+                    </div>
+                    <div class="overflow-x-auto no-scrollbar">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr
+                                    class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
+                                    <th class="px-8 py-4">Gym Identity</th>
+                                    <th class="px-8 py-4">Owner Contact</th>
+                                    <th class="px-8 py-4">Plan & Status</th>
+                                    <th class="px-8 py-4">Suspended At</th>
+                                    <th class="px-8 py-4 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="suspendedTableBody" class="divide-y divide-white/5">
+                                <?php if (empty($suspended_tenants)): ?>
+                                    <tr>
+                                        <td colspan="5"
+                                            class="px-8 py-8 text-center text-xs font-bold text-[--text-main] opacity-50 italic uppercase">
+                                            No suspended tenants found.</td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($suspended_tenants as $t): ?>
+                                        <tr class="hover:bg-white/5 transition-all">
+                                            <td class="px-8 py-5">
+                                                <div class="flex items-center gap-3">
+                                                    <?php $logo_src = getLogoPath($t['logo_path']); ?>
+                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
+                                                        data-src="<?= $logo_src ?>"
+                                                        data-title="<?= htmlspecialchars($t['gym_name']) ?>">
+                                                        <?php if (!empty($logo_src)): ?>
+                                                            <img src="<?= $logo_src ?>" class="size-full object-contain transition-transform hover:scale-110">
+                                                        <?php else: ?>
+                                                            <span class="text-amber-500 font-black text-xs"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-sm font-bold italic"><?= htmlspecialchars($t['gym_name']) ?></p>
+                                                        <p class="text-[10px] text-amber-500 uppercase tracking-wider font-bold">Code: <?= htmlspecialchars($t['tenant_code']) ?></p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-8 py-5">
+                                                <p class="text-xs font-medium text-white"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
+                                                <p class="text-[10px] text-[--text-main] opacity-50"><?= htmlspecialchars($t['owner_email']) ?></p>
+                                            </td>
+                                            <td class="px-8 py-5">
+                                                <div class="flex flex-col gap-1.5">
+                                                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
+                                                    <span class="w-fit px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-500 font-black uppercase italic">Suspended</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-8 py-5">
+                                                <p class="text-xs font-bold text-amber-500">
+                                                    <?= date('M d, Y', strtotime($t['updated_at'])) ?>
+                                                </p>
+                                                <p class="text-[9px] text-[--text-main] opacity-40 uppercase tracking-widest mt-1 italic leading-tight">
+                                                    <?= date('h:i A', strtotime($t['updated_at'])) ?>
+                                                </p>
+                                            </td>
+                                            <td class="px-8 py-5 text-center">
+                                                <div class="flex justify-center gap-2">
+                                                    <form method="POST" action="../action/process_tenant.php" class="inline-flex gap-2">
+                                                        <input type="hidden" name="gym_id" value="<?= $t['gym_id'] ?>">
+                                                        <input type="hidden" name="action" value="activate">
+                                                        <button type="button"
+                                                            onclick="confirmAction(this.form, 'activate', 'Activate Gym', 'Are you sure you want to reactivate <?= addslashes($t['gym_name']) ?>?')"
+                                                            title="Activate Account"
+                                                            class="size-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors">
+                                                            <span class="material-symbols-outlined text-[18px]">play_circle</span>
+                                                        </button>
+                                                        <button type="button"
+                                                            onclick="confirmAction(this.form, 'deactivate', 'Deactivate Gym', 'Are you sure you want to deactivate <?= addslashes($t['gym_name']) ?>? This will revoke all access.')"
+                                                            title="Deactivate Account"
+                                                            class="size-8 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 flex items-center justify-center transition-colors">
+                                                            <span class="material-symbols-outlined text-[18px]">cancel</span>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination Container for Suspended -->
+                    <div id="pagination-suspended"
+                        class="px-8 py-5 border-t border-white/5 bg-white/[0.01] backdrop-blur-md flex justify-between items-center hidden">
+                        <div class="flex items-center gap-3">
+                            <div class="size-2 rounded-full bg-amber-500 animate-pulse"></div>
+                            <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
+                        </div>
+                        <div class="flex gap-2 p-1.5 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-2xl shadow-2xl controls-container"></div>
                     </div>
                 </div>
             </div>
@@ -1112,26 +1238,35 @@ $deactivated_count = count($deactivated_tenants);
 
                     <!-- Tab-Specific Filter Bar -->
                     <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
-                        <form method="GET" class="flex flex-wrap items-center gap-4">
+                        <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="deactivated">
                             <div class="flex-1 min-w-[250px] relative group">
                                 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-red-500/50 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name, Code, owner..." 
-                                       onchange="this.form.submit()" 
+                                       oninput="applyFiltersAsync(this.form)" 
                                        class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-red-500/50 outline-none text-[--text-main]">
                             </div>
                             <div class="w-[180px] relative group">
-                                <select name="sort" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                <select name="sort" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
                                     <option value="newest" <?= ($active_tab === 'deactivated' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Deactivated</option>
                                     <option value="oldest" <?= ($active_tab === 'deactivated' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Deactivated</option>
                                 </select>
                                 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
                             </div>
                             <div class="flex gap-2">
-                                <input type="date" name="date_from" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($date_from) : '' ?>" onchange="this.form.submit()" title="Deactivation From" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
-                                <input type="date" name="date_to" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($date_to) : '' ?>" onchange="this.form.submit()" title="Deactivation To" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                                <input type="date" name="date_from" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($date_from) : date('Y-m-01') ?>" 
+                                       max="<?= min($date_to, date('Y-m-d')) ?>"
+                                       onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
+                                       title="Deactivation From" 
+                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                <input type="date" name="date_to" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
+                                       min="<?= $date_from ?>"
+                                       max="<?= date('Y-m-d') ?>"
+                                       onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
+                                       title="Deactivation To" 
+                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
                             </div>
-                            <a href="tenant_management.php?tab=deactivated" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
+                            <a href="tenant_management.php?tab=deactivated" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:bg-white/10 transition-all shadow-lg" onclick="resetTabFilters('deactivated'); return false;" title="Reset All Deactivated Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -1144,7 +1279,7 @@ $deactivated_count = count($deactivated_tenants);
                                     <th class="px-8 py-4">Gym Identity</th>
                                     <th class="px-8 py-4">Owner Contact</th>
                                     <th class="px-8 py-4">Deactivated At</th>
-                                    <th class="px-8 py-4 text-right">Actions</th>
+                                    <th class="px-8 py-4 text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="deactivatedTableBody" class="divide-y divide-white/5">
@@ -1201,15 +1336,15 @@ $deactivated_count = count($deactivated_tenants);
                                                     <?= date('h:i A', strtotime($t['updated_at'])) ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-5 text-right">
-                                                <form method="POST" action="../action/process_tenant.php">
+                                            <td class="px-8 py-5 text-center">
+                                                <form method="POST" action="../action/process_tenant.php" class="flex justify-center">
                                                     <input type="hidden" name="gym_id" value="<?= $t['gym_id'] ?>">
                                                     <input type="hidden" name="action" value="activate">
                                                     <button type="button"
                                                         onclick="confirmAction(this.form, 'activate', 'Restore Gym Account', 'Are you sure you want to restore access for <?= addslashes($t['gym_name']) ?>?')"
-                                                        class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ml-auto shadow-lg shadow-emerald-500/10">
-                                                        <span class="material-symbols-outlined text-sm">play_circle</span>
-                                                        Restore Access
+                                                        title="Restore Access"
+                                                        class="size-8 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 flex items-center justify-center transition-colors">
+                                                        <span class="material-symbols-outlined text-[18px]">play_circle</span>
                                                     </button>
                                                 </form>
                                             </td>
@@ -1221,86 +1356,100 @@ $deactivated_count = count($deactivated_tenants);
                     </div>
                     <!-- Pagination Container for Deactivated -->
                     <div id="pagination-deactivated"
-                        class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
-                        <p
-                            class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text">
-                        </p>
-                        <div class="flex gap-2 controls-container"></div>
+                        class="px-8 py-5 border-t border-white/5 bg-white/[0.01] backdrop-blur-md flex justify-between items-center hidden">
+                        <div class="flex items-center gap-3">
+                            <div class="size-2 rounded-full bg-red-500 animate-pulse"></div>
+                            <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
+                        </div>
+                        <div class="flex gap-2 p-1.5 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-2xl shadow-2xl controls-container"></div>
                     </div>
                 </div>
             </div>
 
             <div id="section-rejected" class="hidden">
-                <?php if (!empty($rejected_apps) || !empty($search) || !empty($date_from)): ?>
-                    <div class="glass-card overflow-hidden mb-10 border border-white/5">
-                        <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                            <h4
-                                class="font-black italic uppercase text-sm tracking-tighter opacity-50 flex items-center gap-2">
-                                <span class="material-symbols-outlined">history</span>
-                                Rejected Applications
-                            </h4>
-                        </div>
+                <div class="glass-card overflow-hidden mb-10 border border-white/5">
+                    <div class="px-8 py-6 border-b border-white/5 bg-rose-500/5 flex justify-between items-center">
+                        <h4
+                            class="font-black italic uppercase text-sm tracking-tighter text-rose-500 flex items-center gap-2">
+                            <span class="material-symbols-outlined">history</span>
+                            Rejected Application History
+                        </h4>
+                    </div>
 
-                        <!-- Tab-Specific Filter Bar -->
-                        <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
-                            <form method="GET" class="flex flex-wrap items-center gap-4">
-                                <input type="hidden" name="tab" value="rejected">
-                                <div class="flex-1 min-w-[250px] relative group">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary/50 transition-transform group-hover:scale-110">search</span>
-                                    <input type="text" name="search" value="<?= $active_tab === 'rejected' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name or Applicant..." 
-                                           onchange="this.form.submit()" 
-                                           class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
-                                </div>
-                                <div class="w-[180px] relative group">
-                                    <select name="sort" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                        <option value="newest" <?= ($active_tab === 'rejected' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Rejected</option>
-                                        <option value="oldest" <?= ($active_tab === 'rejected' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Rejected</option>
-                                    </select>
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
-                                </div>
-                                <div class="flex gap-2">
-                                    <input type="date" name="date_from" value="<?= $active_tab === 'rejected' ? htmlspecialchars($date_from) : '' ?>" onchange="this.form.submit()" title="Rejection Date From" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
-                                    <input type="date" name="date_to" value="<?= $active_tab === 'rejected' ? htmlspecialchars($date_to) : '' ?>" onchange="this.form.submit()" title="Rejection Date To" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
-                                </div>
-                                <a href="tenant_management.php?tab=rejected" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
-                                    <span class="material-symbols-outlined text-sm">refresh</span>
-                                </a>
-                            </form>
-                        </div>
-                        <div class="overflow-x-auto no-scrollbar">
-                            <table class="w-full text-left">
-                                <thead>
-                                    <tr
-                                        class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
-                                        <th class="px-8 py-4">Gym Name</th>
-                                        <th class="px-8 py-4">Applicant</th>
-                                        <th class="px-8 py-4">Rejected Date</th>
-                                        <th class="px-8 py-4 text-right">Actions</th>
+                    <!-- Tab-Specific Filter Bar -->
+                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                        <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
+                            <input type="hidden" name="tab" value="rejected">
+                            <div class="flex-1 min-w-[250px] relative group">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-rose-500/50 transition-transform group-hover:scale-110">search</span>
+                                <input type="text" name="search" value="<?= $active_tab === 'rejected' ? htmlspecialchars($search) : '' ?>" placeholder="Search Rejected Applications..." 
+                                       oninput="applyFiltersAsync(this.form)" 
+                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-rose-500/50 outline-none text-[--text-main]">
+                            </div>
+                            <div class="w-[180px] relative group">
+                                <select name="sort" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                    <option value="newest" <?= ($active_tab === 'rejected' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Rejected</option>
+                                    <option value="oldest" <?= ($active_tab === 'rejected' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Rejected</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="date" name="date_from" value="<?= $active_tab === 'rejected' ? htmlspecialchars($date_from) : date('Y-m-01') ?>" 
+                                       max="<?= min($date_to, date('Y-m-d')) ?>"
+                                       onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
+                                       title="Rejection Date From" 
+                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                <input type="date" name="date_to" value="<?= $active_tab === 'rejected' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
+                                       min="<?= $date_from ?>"
+                                       max="<?= date('Y-m-d') ?>"
+                                       onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
+                                       title="Rejection Date To" 
+                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                            </div>
+                            <a href="tenant_management.php?tab=rejected" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10" onclick="resetTabFilters('rejected'); return false;" title="Reset All Rejected Filters">
+                                <span class="material-symbols-outlined text-sm">refresh</span>
+                            </a>
+                        </form>
+                    </div>
+                    <div class="overflow-x-auto no-scrollbar">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr
+                                    class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
+                                    <th class="px-8 py-4">Gym Name</th>
+                                    <th class="px-8 py-4">Applicant</th>
+                                    <th class="px-8 py-4">Rejected Date</th>
+                                    <th class="px-8 py-4 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rejectedTableBody" class="divide-y divide-white/5">
+                                <?php if (empty($rejected_apps)): ?>
+                                    <tr>
+                                        <td colspan="4" class="px-8 py-12 text-center text-xs font-black uppercase text-[--text-main] opacity-40 tracking-widest italic no-pagination">No rejected applications found for the selected period.</td>
                                     </tr>
-                                </thead>
-                                <tbody id="rejectedTableBody" class="divide-y divide-white/5">
+                                <?php else: ?>
                                     <?php foreach ($rejected_apps as $app): ?>
                                         <tr class="hover:bg-white/5 transition-all">
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-3">
                                                     <div
-                                                        class="size-10 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 grayscale opacity-40">
+                                                        class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 border border-white/5">
                                                         <?php if (!empty($app['gym_logo'])):
                                                             $r_logo = getLogoPath($app['gym_logo']);
                                                             ?>
                                                             <img src="<?= $r_logo ?>" class="size-full object-contain">
                                                         <?php else: ?>
                                                             <span
-                                                                class="text-gray-500 font-black text-sm"><?= strtoupper(substr($app['gym_name'], 0, 2)) ?></span>
+                                                                class="text-rose-500 font-black text-xs"><?= strtoupper(substr($app['gym_name'], 0, 2)) ?></span>
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-sm font-bold italic text-gray-500">
+                                                        <p class="text-sm font-bold italic text-white">
                                                             <?= htmlspecialchars($app['gym_name']) ?>
                                                         </p>
                                                         <p
-                                                            class="text-[10px] text-[--text-main] opacity-40 uppercase tracking-wider font-bold">
-                                                            <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? '')) ?>
+                                                            class="text-[10px] text-white/60 uppercase tracking-wider font-bold">
+                                                            TYPE: <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? 'Gym/Fitness Center')) ?>
                                                         </p>
                                                     </div>
                                                 </div>
@@ -1316,80 +1465,80 @@ $deactivated_count = count($deactivated_tenants);
                                             <td class="px-8 py-5 text-xs font-medium text-gray-600 italic">
                                                 <?= date('M d, Y', strtotime($app['reviewed_at'])) ?>
                                             </td>
-                                            <td class="px-8 py-5 text-right">
+                                            <td class="px-8 py-5 text-center">
                                                 <button onclick="openApplicationModal(<?= $app['application_id'] ?>)"
-                                                    class="size-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-colors flex items-center justify-center group ml-auto" title="View Application Details">
-                                                    <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span>
+                                                    class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-colors flex items-center justify-center group mx-auto" title="View Application Details">
+                                                    <span class="material-symbols-outlined text-[18px] transition-transform group-hover:scale-110">visibility</span>
                                                 </button>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
-                    <!-- Pagination Container for Rejected -->
-                    <div id="pagination-rejected"
-                        class="px-8 py-4 border-t border-white/5 bg-white/[0.02] flex justify-between items-center hidden">
-                        <p
-                            class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text">
-                        </p>
-                        <div class="flex gap-2 controls-container"></div>
+                </div>
+                <!-- Pagination Container for Rejected -->
+                <div id="pagination-rejected"
+                    class="px-8 py-5 border-t border-white/5 bg-white/[0.01] backdrop-blur-md flex justify-between items-center <?= empty($rejected_apps) ? 'hidden' : '' ?>">
+                    <div class="flex items-center gap-3">
+                        <div class="size-2 rounded-full bg-rose-500 animate-pulse"></div>
+                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                     </div>
-                <?php else: ?>
-                    <div class="glass-card p-12 text-center border border-white/5 bg-white/5 rounded-[32px]">
-                        <span
-                            class="material-symbols-outlined text-4xl text-[--text-main] opacity-40 mb-4 uppercase">history_toggle_off</span>
-                        <p class="text-xs font-black uppercase text-[--text-main] opacity-40 tracking-widest italic">No
-                            rejected applications in history.</p>
-                    </div>
-                <?php endif; ?>
+                    <div class="flex gap-2 p-1.5 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-2xl shadow-2xl controls-container"></div>
+                </div>
             </div>
         </main>
     </div>
 
     <script>
         function switchTab(tabId) {
-            const activeTabInput = document.getElementById('activeTabInput');
-            if (activeTabInput) {
-                activeTabInput.value = tabId;
-                document.getElementById('filterForm').submit();
-            } else {
-                // Fallback for JS-only switching if form doesn't exist
-                const sections = ['pending', 'registered', 'deactivated', 'rejected'];
-                sections.forEach(s => {
-                    const section = document.getElementById(`section-${s}`);
-                    const btn = document.getElementById(`tabBtn-${s}`);
-                    const indicator = document.getElementById(`tabIndicator-${s}`);
-                    if (!section || !btn || !indicator) return;
+            // Tab Isolation: Update URL to clean state for the new tab
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', tabId);
+            
+            // Remove all filter params when switching tabs to ensure "Sariling Mundo" isolation
+            ['search', 'sort', 'gym_status', 'plan_id', 'date_from', 'date_to'].forEach(p => url.searchParams.delete(p));
+            
+            history.pushState(null, '', url.toString());
 
-                    if (s === tabId) {
-                        section.classList.remove('hidden');
-                        btn.classList.add('text-primary');
-                        btn.classList.remove('opacity-50');
-                        indicator.classList.remove('opacity-0');
-                        indicator.classList.add('opacity-100');
-                    } else {
-                        section.classList.add('hidden');
-                        btn.classList.add('opacity-50');
-                        btn.classList.remove('text-primary');
-                        indicator.classList.remove('opacity-100');
-                        indicator.classList.add('opacity-0');
-                    }
-                });
-            }
+            const sections = ['pending', 'active', 'suspended', 'deactivated', 'rejected'];
+            sections.forEach(s => {
+                const section = document.getElementById(`section-${s}`);
+                const btn = document.getElementById(`tabBtn-${s}`);
+                const indicator = document.getElementById(`tabIndicator-${s}`);
+                if (!section || !btn || !indicator) return;
+
+                if (s === tabId) {
+                    section.classList.remove('hidden');
+                    btn.classList.add('text-primary');
+                    btn.classList.remove('opacity-50');
+                    indicator.classList.remove('opacity-0');
+                    indicator.classList.add('opacity-100');
+                } else {
+                    section.classList.add('hidden');
+                    btn.classList.add('opacity-50');
+                    btn.classList.remove('text-primary');
+                    indicator.classList.remove('opacity-100');
+                    indicator.classList.add('opacity-0');
+                }
+            });
+        }
+
+        function refreshAllPagination() {
+            initTablePagination('pendingTableBody', 'pagination-pending', 10);
+            initTablePagination('activeTableBody', 'pagination-active', 10);
+            initTablePagination('suspendedTableBody', 'pagination-suspended', 10);
+            initTablePagination('deactivatedTableBody', 'pagination-deactivated', 10);
+            initTablePagination('rejectedTableBody', 'pagination-rejected', 10);
         }
 
         // Initialize Tab based on URL parameter
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
-            const tab = urlParams.get('tab') || 'registered';
+            const tab = urlParams.get('tab') || 'active';
             
-            // Note: switchTab(tab) here might cause a refresh loop if not careful,
-            // but since we are just setting UI state if it's already filtered, it's fine.
-            // However, the PHP already sets the active_tab class, so we just need to ensure the correct section is visible.
-            
-            const sections = ['pending', 'registered', 'deactivated', 'rejected'];
+            const sections = ['pending', 'active', 'suspended', 'deactivated', 'rejected'];
             sections.forEach(s => {
                 const section = document.getElementById(`section-${s}`);
                 if (section) {
@@ -1399,15 +1548,12 @@ $deactivated_count = count($deactivated_tenants);
             });
 
             // Initialize Pagination for all tables
-            initTablePagination('pendingTableBody', 'pagination-pending', 10);
-            initTablePagination('registeredTableBody', 'pagination-registered', 10);
-            initTablePagination('deactivatedTableBody', 'pagination-deactivated', 10);
-            initTablePagination('rejectedTableBody', 'pagination-rejected', 10);
+            refreshAllPagination();
         });
 
         /**
-         * Horizon Table Pagination Engine
-         * Implements a clean 10-row limit per page with smooth transitions
+         * Horizon Table Pagination Engine 2.0
+         * Premium Glassmorphism Logic with Range Awareness
          */
         function initTablePagination(tbodyId, paginationId, rowsPerPage) {
             const tbody = document.getElementById(tbodyId);
@@ -1416,12 +1562,14 @@ $deactivated_count = count($deactivated_tenants);
 
             const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination)'));
             const totalRows = rows.length;
+            
+            // Auto-hide if rows are fewer than the limit
             if (totalRows <= rowsPerPage) {
-                // Not enough rows for pagination, remain hidden
+                paginationContainer.classList.add('hidden');
+                rows.forEach(r => r.classList.remove('hidden'));
                 return;
             }
 
-            // Show pagination container
             paginationContainer.classList.remove('hidden');
             const totalPages = Math.ceil(totalRows / rowsPerPage);
             let currentPage = 1;
@@ -1430,45 +1578,61 @@ $deactivated_count = count($deactivated_tenants);
             const controlsContainer = paginationContainer.querySelector('.controls-container');
 
             function render() {
-                // Show/Hide rows
                 const start = (currentPage - 1) * rowsPerPage;
                 const end = start + rowsPerPage;
 
+                // Sync Row Visibility
                 rows.forEach((row, index) => {
                     if (index >= start && index < end) {
                         row.classList.remove('hidden');
+                        row.style.opacity = '0';
+                        setTimeout(() => {
+                            row.style.transition = 'opacity 0.3s ease';
+                            row.style.opacity = '1';
+                        }, 10 * (index - start)); // Subtle staggered fade-in
                     } else {
                         row.classList.add('hidden');
                     }
                 });
 
-                // Update Status Text
-                statusText.textContent = `Showing ${Math.min(end, totalRows)} of ${totalRows} entries`;
+                // Status Text: "Showing 10 of 45 entries" style as requested
+                const currentCount = Math.min(end, totalRows) - start;
+                statusText.innerHTML = `Showing <span class="text-white">${currentCount}</span> of <span class="text-white">${totalRows}</span> entries`;
 
                 // Render Controls
                 controlsContainer.innerHTML = '';
 
                 // Prev Button
                 const prevBtn = document.createElement('button');
-                prevBtn.className = `size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] transition-all ${currentPage === 1 ? 'opacity-20 pointer-events-none' : 'opacity-50 hover:opacity-100 hover:bg-white/10'}`;
-                prevBtn.innerHTML = '<span class="material-symbols-outlined text-sm">chevron_left</span>';
-                prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; render(); } };
+                prevBtn.className = `size-9 rounded-xl flex items-center justify-center transition-all ${currentPage === 1 ? 'opacity-20 cursor-not-allowed text-gray-600' : 'bg-white/5 border border-white/5 text-white hover:bg-white/10 hover:scale-105 active:scale-95'}`;
+                prevBtn.innerHTML = '<span class="material-symbols-outlined text-lg">chevron_left</span>';
+                prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; render(); paginationContainer.scrollIntoView({ behavior: 'smooth', block: 'end' }); } };
                 controlsContainer.appendChild(prevBtn);
 
-                // Page Numbers (Simplistic approach, show all if small, or current window)
-                for (let i = 1; i <= totalPages; i++) {
+                // Dynamic Page Indices logic
+                let startPage = Math.max(1, currentPage - 1);
+                let endPage = Math.min(totalPages, startPage + 2);
+                if (endPage - startPage < 2) startPage = Math.max(1, endPage - 2);
+
+                for (let i = startPage; i <= endPage; i++) {
                     const pageBtn = document.createElement('button');
-                    pageBtn.className = `size-8 rounded-lg font-black text-[10px] transition-all ${i === currentPage ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/5 text-[--text-main] opacity-50 hover:opacity-100 hover:bg-white/10'}`;
+                    pageBtn.className = `size-9 rounded-xl font-black text-[11px] transition-all ${i === currentPage ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-110' : 'bg-white/5 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 hover:bg-white/10'}`;
                     pageBtn.textContent = i;
-                    pageBtn.onclick = () => { currentPage = i; render(); };
+                    pageBtn.onclick = () => { 
+                        if (currentPage !== i) {
+                            currentPage = i; 
+                            render(); 
+                            paginationContainer.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }
+                    };
                     controlsContainer.appendChild(pageBtn);
                 }
 
                 // Next Button
                 const nextBtn = document.createElement('button');
-                nextBtn.className = `size-8 rounded-lg bg-white/5 flex items-center justify-center text-[--text-main] transition-all ${currentPage === totalPages ? 'opacity-20 pointer-events-none' : 'opacity-50 hover:opacity-100 hover:bg-white/10'}`;
-                nextBtn.innerHTML = '<span class="material-symbols-outlined text-sm">chevron_right</span>';
-                nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; render(); } };
+                nextBtn.className = `size-9 rounded-xl flex items-center justify-center transition-all ${currentPage === totalPages ? 'opacity-20 cursor-not-allowed text-gray-600' : 'bg-white/5 border border-white/5 text-white hover:bg-white/10 hover:scale-105 active:scale-95'}`;
+                nextBtn.innerHTML = '<span class="material-symbols-outlined text-lg">chevron_right</span>';
+                nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; render(); paginationContainer.scrollIntoView({ behavior: 'smooth', block: 'end' }); } };
                 controlsContainer.appendChild(nextBtn);
             }
 
@@ -1627,8 +1791,113 @@ $deactivated_count = count($deactivated_tenants);
             }, 500);
         }
 
+        // Smooth AJAX Filtering
+        async function applyFiltersAsync(form) {
+            if (!form) return false;
+            
+            const formData = new FormData(form);
+            const dateFrom = formData.get('date_from');
+            const dateTo = formData.get('date_to');
+
+            // Hard Validation: Prevent impossible date ranges from being sent
+            if (dateFrom && dateTo && dateFrom > dateTo) {
+                console.warn("Invalid date range blocked.");
+                return false;
+            }
+
+            const params = new URLSearchParams(formData);
+            const url = `tenant_management.php?${params.toString()}`;
+            const activeTab = formData.get('tab') || 'active';
+            const sectionId = `section-${activeTab}`;
+            const section = document.getElementById(sectionId);
+
+            if (!section) return false;
+
+            // Simple loading state
+            section.classList.add('opacity-40', 'pointer-events-none');
+
+            try {
+                const response = await fetch(url);
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                const newSection = doc.getElementById(sectionId);
+                if (newSection) {
+                    section.innerHTML = newSection.innerHTML;
+                }
+
+                // Update URL for state preservation
+                history.pushState(null, '', url);
+
+                // Re-calculate the elite pagination engine across all tabs
+                refreshAllPagination();
+                
+                // Finalize UI
+                section.classList.remove('opacity-40', 'pointer-events-none');
+
+            } catch (error) {
+                console.error("Filter Update Failed:", error);
+                section.classList.remove('opacity-40', 'pointer-events-none');
+            }
+            
+            return false; // Prevent standard form submission
+        }
+
+        function resetTabFilters(tabId) {
+            const section = document.getElementById(`section-${tabId}`);
+            if (!section) return;
+            
+            const form = section.querySelector('form');
+            if (!form) return;
+
+            // Physically reset all inputs
+            form.querySelectorAll('input:not([type="hidden"]):not([type="date"])').forEach(input => input.value = '');
+            form.querySelectorAll('select').forEach(select => select.selectedIndex = 0);
+            
+            // Sync with Reports default: Reset to current month range
+            const today = new Date().toISOString().split('T')[0];
+            const firstOfMonth = today.substring(0, 8) + '01';
+            
+            const from = form.querySelector('input[name="date_from"]');
+            const to = form.querySelector('input[name="date_to"]');
+            
+            if (from) {
+                from.value = firstOfMonth;
+                from.max = today;
+            }
+            if (to) {
+                to.value = today;
+                to.min = firstOfMonth;
+                to.max = today;
+            }
+
+            // Trigger smooth update
+            applyFiltersAsync(form);
+        }
+
         document.getElementById('modalBackdrop').addEventListener('click', closeApplicationModal);
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeApplicationModal(); });
+
+        function updateDateBounds(input) {
+            const form = input.form;
+            const from = form.querySelector('input[name="date_from"]');
+            const to = form.querySelector('input[name="date_to"]');
+            
+            if (from && to) {
+                // Hard reset if range becomes invalid
+                if (from.value && to.value && from.value > to.value) {
+                    if (input.name === 'date_from') to.value = '';
+                    else from.value = '';
+                }
+
+                if (from.value) to.min = from.value;
+                else to.min = '';
+
+                if (to.value) from.max = to.value;
+                else from.max = new Date().toISOString().split('T')[0];
+            }
+        }
 
         // Auto-hide Alerts Logic (10 seconds)
         window.addEventListener('DOMContentLoaded', () => {
