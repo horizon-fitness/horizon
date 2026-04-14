@@ -22,6 +22,17 @@ try {
         }
     }
 
+    // [Cleanup Tool] One-time wipe of sample data
+    if (isset($_GET['purge_samples'])) {
+        $pdo->exec("TRUNCATE TABLE system_alerts;");
+        header("Location: system_alerts.php?purged=1");
+        exit;
+    }
+
+    if (isset($_GET['purged'])) {
+        $success_msg = "Database cleared! All sample alerts have been permanently removed.";
+    }
+
     // Fix for existing mangled alerts: Done via PHP to avoid MySQL collation errors
     // We will handle the display translation in the UI layer instead of a permanent DB update that might fail on latin1
 
@@ -82,7 +93,7 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
         $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
         $stmtCheck->execute([$msg]);
         if ($stmtCheck->fetchColumn() == 0) {
-            $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Subscription Expiry', 'Billing', ?, 'Medium', 'Unread', ?)");
+            $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Subscription', 'Billing', ?, 'Medium', 'Unread', ?)");
             $stmtInsert->execute([$msg, $now]);
         }
     }
@@ -110,7 +121,31 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
         }
     }
 
-    // 3. System Health Placeholder
+    // 3. Check for Pending Tenant Applications
+    $stmtPendingApps = $pdo->query("
+        SELECT a.gym_name, u.first_name, u.last_name 
+        FROM gym_owner_applications a 
+        JOIN users u ON a.user_id = u.user_id 
+        WHERE a.application_status = 'Pending'
+    ");
+    if ($stmtPendingApps) {
+        $pendingApps = $stmtPendingApps->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($pendingApps as $app) {
+            $applicant = ($app['first_name'] ?? '') ? $app['first_name'] . ' ' . $app['last_name'] : 'Unknown';
+            $msg = "New tenant application pending review: " . ($app['gym_name'] ?? 'Unnamed Gym') . " by " . $applicant . ".";
+
+            // Deduplication
+            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
+            $stmtCheck->execute([$msg]);
+            if ($stmtCheck->fetchColumn() == 0) {
+                // Priority High for Tenant Applications
+                $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Tenant Application', 'Registration', ?, 'High', 'Unread', ?)");
+                $stmtInsert->execute([$msg, $now]);
+            }
+        }
+    }
+
+    // 4. System Health Placeholder
     if (rand(1, 100) > 95) { // 5% chance to show a health check alert
         $msg = "System health check completed. All nodes performing optimally.";
         $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
@@ -127,6 +162,8 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
 $category_filter = $_GET['category'] ?? 'all';
 $search = $_GET['search'] ?? '';
 $view = $_GET['view'] ?? 'active';
+$date_from = $_GET['date_from'] ?? '';
+$date_to = $_GET['date_to'] ?? '';
 
 $query = "SELECT * FROM system_alerts WHERE 1=1";
 $params = [];
@@ -138,10 +175,22 @@ $params = [];
         $query .= " AND status != 'Resolved'";
     }
 
+    // Date Range Filter
+    if (!empty($date_from)) {
+        $query .= " AND created_at >= :date_from";
+        $params['date_from'] = $date_from . " 00:00:00";
+    }
+    if (!empty($date_to)) {
+        $query .= " AND created_at <= :date_to";
+        $params['date_to'] = $date_to . " 23:59:59";
+    }
+
     // Search Filter
     if (!empty($search)) {
-        $query .= " AND (message LIKE :search OR type LIKE :search OR source LIKE :search)";
-        $params['search'] = "%$search%";
+        $query .= " AND (message LIKE :search1 OR type LIKE :search2 OR source LIKE :search3)";
+        $params['search1'] = "%$search%";
+        $params['search2'] = "%$search%";
+        $params['search3'] = "%$search%";
     }
 
     // Category Intelligence Filter (Database-Driven)
@@ -160,9 +209,12 @@ usort($alerts, function ($a, $b) {
     return strtotime($b['created_at']) <=> strtotime($a['created_at']);
 });
 
-// Dynamic Category Fetching (Database-Driven)
-$stmtTypes = $pdo->query("SELECT DISTINCT type FROM system_alerts");
-$available_categories = $stmtTypes->fetchAll(PDO::FETCH_COLUMN);
+// Tenant-Specific Category Definitions
+$available_categories = [
+    'Payment Verification',
+    'Tenant Application',
+    'Subscription'
+];
 sort($available_categories);
 
 // Handle AJAX Request for Live Search
@@ -234,15 +286,6 @@ if (isset($_GET['ajax'])) {
                     your criteria.</p>
             </div>
         <?php endif; ?>
-    </div>
-    <!-- Pagination Mock -->
-    <div class="mt-12 flex justify-center gap-2">
-        <button
-            class="size-10 rounded-xl glass-card flex items-center justify-center text-primary border-primary/30">1</button>
-        <button
-            class="size-10 rounded-xl glass-card flex items-center justify-center text-[--text-main]/40 hover:text-white transition-all">2</button>
-        <button
-            class="size-10 rounded-xl glass-card flex items-center justify-center text-[--text-main]/40 hover:text-white transition-all">3</button>
     </div>
     <?php
     exit;
@@ -513,7 +556,27 @@ if (isset($_GET['ajax'])) {
         let currentPage = 1;
         const rowsPerPage = 10;
 
+        function syncDateBounds() {
+            const form = document.getElementById('alertFilterForm');
+            if (!form) return;
+            const from = form.querySelector('input[name="date_from"]');
+            const to = form.querySelector('input[name="date_to"]');
+            const today = new Date().toISOString().split('T')[0];
+
+            if (from.value && to.value && from.value > to.value) {
+                // If they conflict, reset the one that was just changed or just force them to match
+                // For better UX, we'll just let the reactive filter catch it or show a subtle correction
+            }
+
+            if (from.value) to.min = from.value;
+            if (to.value) from.max = to.value > today ? today : to.value;
+            
+            to.max = today;
+            if (!to.value) from.max = today;
+        }
+
         function reactiveFilter() {
+            syncDateBounds();
             clearTimeout(filterTimeout);
             filterTimeout = setTimeout(() => {
                 const form = document.getElementById('alertFilterForm');
@@ -587,20 +650,20 @@ if (isset($_GET['ajax'])) {
             let buttonsHtml = '';
 
             // Prev Button
-            buttonsHtml += `<button onclick="changePage(${currentPage - 1})" class="px-5 py-2.5 rounded-xl glass-card text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 hover:text-primary transition-all flex items-center gap-2 ${currentPage === 1 ? 'opacity-30 pointer-events-none' : ''}">
+            buttonsHtml += `<button onclick="changePage(${currentPage - 1})" class="px-5 py-2.5 rounded-2xl glass-card text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 hover:text-[--text-main] hover:bg-white/5 transition-all flex items-center gap-2 outline-none border-white/5 ${currentPage === 1 ? 'opacity-30 pointer-events-none' : ''}">
                 <span class="material-symbols-outlined text-xs">chevron_left</span> PREV
             </button>`;
 
             // Page Buttons
             for (let i = 1; i <= totalPages; i++) {
                 const isActive = (i === currentPage);
-                buttonsHtml += `<button onclick="changePage(${i})" class="size-10 rounded-xl glass-card flex items-center justify-center text-[10px] font-black tracking-widest transition-all ${isActive ? 'bg-primary text-[--background] border-primary shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-white border-white/5'}">
+                buttonsHtml += `<button onclick="changePage(${i})" class="size-10 rounded-2xl glass-card flex items-center justify-center text-[10px] font-black tracking-widest transition-all outline-none ${isActive ? 'bg-primary text-[--background] border-primary shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-[--text-main] hover:bg-white/5 border-white/5'}">
                     ${i}
                 </button>`;
             }
 
             // Next Button
-            buttonsHtml += `<button onclick="changePage(${currentPage + 1})" class="px-5 py-2.5 rounded-xl glass-card text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 hover:text-primary transition-all flex items-center gap-2 ${currentPage === totalPages ? 'opacity-30 pointer-events-none' : ''}">
+            buttonsHtml += `<button onclick="changePage(${currentPage + 1})" class="px-5 py-2.5 rounded-2xl glass-card text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 hover:text-[--text-main] hover:bg-white/5 transition-all flex items-center gap-2 outline-none border-white/5 ${currentPage === totalPages ? 'opacity-30 pointer-events-none' : ''}">
                 NEXT <span class="material-symbols-outlined text-xs">chevron_right</span>
             </button>`;
 
@@ -657,44 +720,67 @@ if (isset($_GET['ajax'])) {
 
             <!-- Messages -->
             <?php if (isset($success_msg)): ?>
-                <div
-                    class="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3">
-                    <span class="material-symbols-outlined text-sm">check_circle</span> <?= $success_msg ?>
+                <div id="systemFeedback"
+                    class="mb-8 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold rounded-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-sm">check_circle</span> 
+                        <span><?= $success_msg ?></span>
+                    </div>
+                    <button onclick="dismissFeedback()" class="hover:bg-emerald-500/20 p-1 rounded-lg transition-colors leading-none">
+                        <span class="material-symbols-outlined text-sm">close</span>
+                    </button>
                 </div>
+                <script>
+                    function dismissFeedback() {
+                        const el = document.getElementById('systemFeedback');
+                        if (el) {
+                            el.classList.add('opacity-0', '-translate-y-4');
+                            setTimeout(() => el.remove(), 500);
+                        }
+                    }
+                    // Auto-hide after 10 seconds
+                    setTimeout(dismissFeedback, 10000);
+                </script>
             <?php endif; ?>
 
             <!-- Filters & Actions -->
-            <div class="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
-                <!-- Tab Navigation -->
-                <div class="flex p-1.5 bg-white/5 rounded-full border border-white/5 backdrop-blur-md">
-                    <a href="?view=active&search=<?= urlencode($search) ?>&priority=<?= urlencode($priority_filter) ?>"
-                        class="<?= $view === 'active' ? 'bg-primary text-[--text-main] shadow-lg shadow-primary/30' : 'text-[--text-main]/40 hover:text-[--text-main]/70' ?> px-10 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all">
-                        Active Alerts
-                    </a>
-                    <a href="?view=history&search=<?= urlencode($search) ?>&priority=<?= urlencode($priority_filter) ?>"
-                        class="<?= $view === 'history' ? 'bg-primary text-[--text-main] shadow-lg shadow-primary/30' : 'text-[--text-main]/40 hover:text-[--text-main]/70' ?> px-10 py-3 rounded-full text-[10px] font-black uppercase tracking-widest transition-all">
-                        Alert History
-                    </a>
+            <div class="flex flex-col gap-6 mb-8">
+                <!-- Row 1: Tab Navigation -->
+                <div class="flex items-center justify-between">
+                    <div class="flex p-1.5 glass-card rounded-2xl w-full lg:w-auto overflow-x-auto no-scrollbar">
+                        <a href="?view=active&search=<?= urlencode($search) ?>&date_from=<?= urlencode($date_from) ?>&date_to=<?= urlencode($date_to) ?>"
+                            class="<?= $view === 'active' ? 'bg-primary text-[--background] shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-[--text-main]/70 hover:bg-white/5' ?> flex-1 lg:flex-none text-center px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
+                            Active Alerts
+                        </a>
+                        <a href="?view=history&search=<?= urlencode($search) ?>&date_from=<?= urlencode($date_from) ?>&date_to=<?= urlencode($date_to) ?>"
+                            class="<?= $view === 'history' ? 'bg-primary text-[--background] shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-[--text-main]/70 hover:bg-white/5' ?> flex-1 lg:flex-none text-center px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
+                            Alert History
+                        </a>
+                    </div>
                 </div>
 
-                <div class="flex flex-col md:flex-row gap-6 flex-1 md:flex-none">
-                    <form method="GET" id="alertFilterForm" class="flex flex-col md:flex-row gap-4"
+                <!-- Row 2: Filters & Actions -->
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <form method="GET" id="alertFilterForm" class="flex flex-col md:flex-row gap-4 w-full lg:w-auto"
                         onsubmit="event.preventDefault(); reactiveFilter();">
                         <input type="hidden" name="view" value="<?= htmlspecialchars($view) ?>">
-                        <div
-                            class="w-full md:w-64 bg-white/[0.03] border border-white/5 p-1 px-5 flex items-center gap-3 rounded-full focus-within:border-primary/50 transition-all">
+                        
+                        <!-- Search -->
+                        <div class="w-full md:w-64 glass-card p-1 px-5 flex items-center gap-3 rounded-2xl focus-within:border-primary/50 transition-all">
                             <span class="material-symbols-outlined text-[--text-main]/40 text-sm">search</span>
                             <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
                                 oninput="reactiveFilter()"
                                 onkeydown="if(event.key === 'Enter') { event.preventDefault(); reactiveFilter(); }"
-                                class="bg-transparent border-none outline-none text-[10px] text-[--text-main] w-full py-2 placeholder:text-[--text-main]/20 font-black uppercase tracking-widest"
+                                class="bg-transparent border-none outline-none text-[10px] text-[--text-main] w-full py-2.5 placeholder:text-[--text-main]/20 font-black uppercase tracking-widest"
                                 placeholder="SEARCH ALERTS...">
                         </div>
-                        <div class="relative">
+
+                        <!-- Category -->
+                        <div class="relative w-full md:w-auto">
                             <select name="category" onchange="reactiveFilter()"
-                                class="appearance-none bg-white/[0.03] border border-white/5 rounded-full px-10 pr-14 py-3.5 text-[10px] font-black uppercase tracking-widest text-[--text-main] focus:border-primary/50 focus:outline-none cursor-pointer hover:bg-white/[0.06] transition-all"
-                                style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22white%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1.5rem center; background-size: 0.8rem;">
-                                <option value="all" class="bg-[--background]" <?= $category_filter == 'all' ? 'selected' : '' ?>>All</option>
+                                class="w-full md:w-64 appearance-none glass-card rounded-2xl px-6 pr-12 py-3.5 text-[10px] font-black uppercase tracking-widest text-[--text-main] focus:border-primary/50 focus:outline-none cursor-pointer hover:bg-white/[0.04] transition-all"
+                                style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(255,255,255,0.4)%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: 0.8rem;">
+                                <option value="all" class="bg-[--background]" <?= $category_filter == 'all' ? 'selected' : '' ?>>All Categories</option>
                                 <?php foreach ($available_categories as $cat): ?>
                                     <option value="<?= htmlspecialchars($cat) ?>" class="bg-[--background]"
                                         <?= $category_filter == $cat ? 'selected' : '' ?>>
@@ -703,16 +789,40 @@ if (isset($_GET['ajax'])) {
                                 <?php endforeach; ?>
                             </select>
                         </div>
+
+                        <!-- Date Range -->
+                        <div class="flex gap-2 w-full md:w-auto">
+                            <div class="flex-1 md:w-40 glass-card flex items-center px-4 rounded-2xl border-white/5 focus-within:border-primary/50 transition-all">
+                                <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" 
+                                    max="<?= !empty($date_to) ? min($date_to, date('Y-m-d')) : date('Y-m-d') ?>"
+                                    onchange="reactiveFilter()" title="From Date" 
+                                    class="bg-transparent border-none outline-none text-[10px] text-[--text-main] w-full py-3 placeholder:text-[--text-main]/20 font-black uppercase tracking-widest [color-scheme:dark] cursor-pointer text-center">
+                            </div>
+                            <div class="flex-1 md:w-40 glass-card flex items-center px-4 rounded-2xl border-white/5 focus-within:border-primary/50 transition-all">
+                                <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" 
+                                    min="<?= $date_from ?>"
+                                    max="<?= date('Y-m-d') ?>"
+                                    onchange="reactiveFilter()" title="To Date" 
+                                    class="bg-transparent border-none outline-none text-[10px] text-[--text-main] w-full py-3 placeholder:text-[--text-main]/20 font-black uppercase tracking-widest [color-scheme:dark] cursor-pointer text-center">
+                            </div>
+                        </div>
                     </form>
 
-                    <form method="POST">
-                        <button type="submit" name="clear_all"
-                            class="px-10 py-3.5 bg-primary/10 border border-primary/20 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 transition-all flex items-center gap-3 text-primary group">
-                            <span
-                                class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">restart_alt</span>
-                            Clear All
-                        </button>
-                    </form>
+                    <div class="flex items-center gap-4 w-full lg:w-auto justify-end shrink-0">
+                        <a href="system_alerts.php?view=<?= urlencode($view) ?>"
+                            class="flex-1 md:flex-none px-6 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 hover:scale-105 transition-all flex items-center justify-center gap-2 text-[--text-main]/60 hover:text-white group">
+                            <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">filter_list_off</span>
+                            Clear Filter
+                        </a>
+
+                        <form method="POST" class="flex-1 md:flex-none">
+                            <button type="submit" name="clear_all"
+                                class="w-full px-6 py-3.5 bg-primary/10 border border-primary/20 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 hover:scale-105 transition-all flex items-center justify-center gap-2 text-primary group underline-none">
+                                <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">task_alt</span>
+                                Resolve Alerts
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
