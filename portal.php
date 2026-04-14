@@ -73,54 +73,145 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         'gym_name' => $gym_info['gym_name']
     ];
 
+    $portal_suspended = false;
+
+    // 1. Check Technical Inactive Setting
     if (($configs['is_active'] ?? '1') === '0') {
-        die("Gym page is currently inactive.");
+        $portal_suspended = true;
     }
 
-    // NEW: Subscription Verification Logic (Takedown Check)
-    $stmtSub = $pdo->prepare("SELECT subscription_status, next_billing_date, payment_term FROM client_subscriptions WHERE gym_id = ? AND subscription_status IN ('Active', 'Suspended') ORDER BY created_at DESC LIMIT 1");
-    $stmtSub->execute([$page['gym_id']]);
-    $sub = $stmtSub->fetch();
-
-    $portal_suspended = false;
-    if (!$sub || strtolower($sub['subscription_status']) !== 'active') {
+    // 2. Check Gym Table Status (New: Explicit check for Suspended/Deactivated)
+    if (isset($gym_info['status']) && in_array($gym_info['status'], ['Suspended', 'Deactivated', 'Deleted'])) {
         $portal_suspended = true;
-    } else {
-        // Redundant check for safety: Even if status is "Active", check if payment is >3 days overdue
-        if ($sub['payment_term'] === 'Monthly' && $sub['next_billing_date']) {
-            $now = strtotime('today');
-            $due = strtotime($sub['next_billing_date']);
-            if (($now - $due) / (60 * 60 * 24) > 3) {
-                $portal_suspended = true;
+    }
+
+    // 3. Subscription Verification Logic (Takedown Check)
+    if (!$portal_suspended) {
+        $stmtSub = $pdo->prepare("SELECT subscription_status, next_billing_date, payment_term FROM client_subscriptions WHERE gym_id = ? AND subscription_status IN ('Active', 'Suspended') ORDER BY created_at DESC LIMIT 1");
+        $stmtSub->execute([$page['gym_id']]);
+        $sub = $stmtSub->fetch();
+
+        if (!$sub || strtolower($sub['subscription_status']) !== 'active') {
+            $portal_suspended = true;
+        } else {
+            // Redundant check for safety: Even if status is "Active", check if payment is >3 days overdue
+            if ($sub['payment_term'] === 'Monthly' && $sub['next_billing_date']) {
+                $now = strtotime('today');
+                $due = strtotime($sub['next_billing_date']);
+                if (($now - $due) / (60 * 60 * 24) > 3) {
+                    $portal_suspended = true;
+                }
             }
         }
     }
 
     if ($portal_suspended) {
         $theme_color = $configs['theme_color'] ?? '#8c2bee';
-        $bg_color = $configs['bg_color'] ?? '#0a090d';
+        $bg_color = '#050508'; 
+        
+        $hex = str_replace("#", "", $theme_color);
+        if(strlen($hex) == 3) {
+            $r = hexdec(substr($hex,0,1).substr($hex,0,1));
+            $g = hexdec(substr($hex,1,1).substr($hex,1,1));
+            $b = hexdec(substr($hex,2,1).substr($hex,2,1));
+        } else {
+            $r = hexdec(substr($hex,0,2));
+            $g = hexdec(substr($hex,2,2));
+            $b = hexdec(substr($hex,4,2));
+        }
+        $theme_rgb = "$r, $g, $b";
         ?>
         <!DOCTYPE html>
         <html class="dark" lang="en">
         <head>
             <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-            <title>Service Unavailable | Horizon Systems</title>
+            <title>Access Restricted | Horizon Systems</title>
             <script src="https://cdn.tailwindcss.com"></script>
-            <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;700;900&display=swap" rel="stylesheet"/>
-            <style>body { font-family: 'Lexend', sans-serif; background: <?= $bg_color ?>; }</style>
+            <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
+            <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+            <style>
+                body { 
+                    font-family: 'Lexend', sans-serif; 
+                    background-color: <?= $bg_color ?> !important; 
+                    color: white;
+                    margin: 0;
+                    overflow: hidden;
+                    position: relative;
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .dark-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: radial-gradient(circle at 50% 50%, rgba(<?= $theme_rgb ?>, 0.08) 0%, #050508 100%);
+                    z-index: 0;
+                }
+                .hero-glow { 
+                    position: fixed;
+                    inset: 0;
+                    background: radial-gradient(circle at 50% 0%, rgba(<?= $theme_rgb ?>, 0.15) 0%, transparent 50%);
+                    z-index: 1;
+                }
+                .glass-card { 
+                    background: rgba(255, 255, 255, 0.03); 
+                    backdrop-filter: blur(32px); 
+                    border: 1px solid rgba(255, 255, 255, 0.08); 
+                    border-radius: 32px;
+                    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.5);
+                }
+            </style>
         </head>
-        <body class="min-h-screen flex items-center justify-center p-6 text-center">
-            <div class="max-w-md w-full">
-                <div class="size-20 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-8">
-                    <span class="text-3xl">🔒</span>
+        <body class="p-6 text-center">
+            <div class="dark-overlay"></div>
+            <div class="hero-glow"></div>
+
+            <div class="fixed top-[-10%] left-[-10%] size-[500px] rounded-full blur-[130px] pointer-events-none opacity-30" style="background-color: rgb(<?= $theme_rgb ?>); z-index: 2;"></div>
+            <div class="fixed bottom-[-10%] right-[-10%] size-[400px] rounded-full blur-[100px] pointer-events-none opacity-20" style="background-color: rgb(<?= $theme_rgb ?>); z-index: 2;"></div>
+            
+            <div class="max-w-lg w-full text-center relative" style="z-index: 10;">
+                <div class="mb-8">
+                    <div class="size-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto relative shadow-xl">
+                        <div class="absolute inset-0 blur-2xl rounded-full opacity-40" style="background-color: rgb(<?= $theme_rgb ?>)"></div>
+                        <span class="material-symbols-outlined text-3xl relative z-10" style="color: <?= $theme_color ?>; font-variation-settings: 'FILL' 1, 'wght' 200;">lock</span>
+                    </div>
                 </div>
-                <h1 class="text-3xl font-black text-white uppercase italic tracking-tighter mb-4">Service <span style="color: <?= $theme_color ?>">Unavailable</span></h1>
-                <p class="text-xs text-gray-500 font-bold uppercase tracking-widest leading-relaxed">
-                    This gym portal is currently undergoing administrative maintenance or the professional subscription has been suspended. 
-                    <br><br>Please contact the gym management or check back later.
-                </p>
-                <div class="mt-12 pt-8 border-t border-white/5">
-                    <p class="text-[9px] font-black text-gray-700 uppercase tracking-[0.4em]">Powered by Horizon System</p>
+
+                <h1 class="text-4xl md:text-5xl font-black text-white uppercase italic tracking-tighter mb-8 leading-none">
+                    SERVICE <span style="color: <?= $theme_color ?>" class="italic">RESTRICTED</span>
+                </h1>
+                
+                <div class="glass-card p-8 md:p-10 mb-10">
+                    <p class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 opacity-80" style="color: <?= $theme_color ?>">Portal Notification</p>
+                    <p class="text-xs md:text-sm text-gray-300 font-medium leading-relaxed italic mx-auto">
+                        This gym portal is currently undergoing administrative maintenance or the professional subscription has been suspended. 
+                        Full access for registration and member login is temporarily unavailable.
+                    </p>
+                </div>
+
+                <div class="flex flex-col items-center gap-8">
+                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] mb-[-12px]">If you have concerns, you may contact:</p>
+                    <div class="flex flex-wrap items-center justify-center gap-8 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                        <?php if (!empty($page['gym_email'])): ?>
+                            <a href="mailto:<?= htmlspecialchars($page['gym_email']) ?>" class="flex items-center gap-2 hover:text-white transition-all">
+                                <span class="material-symbols-outlined text-base">mail</span>
+                                <?= htmlspecialchars($page['gym_email']) ?>
+                            </a>
+                        <?php endif; ?>
+                        <?php if (!empty($page['gym_contact'])): ?>
+                            <a href="tel:<?= htmlspecialchars($page['gym_contact']) ?>" class="flex items-center gap-2 hover:text-white transition-all">
+                                <span class="material-symbols-outlined text-base">call</span>
+                                <?= htmlspecialchars($page['gym_contact']) ?>
+                            </a>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="h-px w-24 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                    
+                    <p class="text-[9px] font-black text-white/50 uppercase tracking-[0.6em] transition-all">
+                        &copy; 2026 HORIZON SYSTEM
+                    </p>
                 </div>
             </div>
         </body>

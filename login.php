@@ -75,14 +75,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } 
             else {
                 $stmtRole = $pdo->prepare("
-                    SELECT r.role_name, ur.gym_id, ur.role_status 
+                    SELECT r.role_name, ur.gym_id, ur.role_status, g.status as gym_status, g.gym_name 
                     FROM user_roles ur 
                     JOIN roles r ON ur.role_id = r.role_id 
+                    LEFT JOIN gyms g ON ur.gym_id = g.gym_id 
                     WHERE ur.user_id = ? AND ur.role_status = 'Active' 
                     LIMIT 1
                 ");
                 $stmtRole->execute([$user['user_id']]);
                 $roleData = $stmtRole->fetch(PDO::FETCH_ASSOC);
+
+                if ($roleData) {
+                    // GYM STATUS CHECK: Prevent login if gym is suspended or deactivated (unless superadmin)
+                    if (strtolower($roleData['role_name']) !== 'superadmin' && !empty($roleData['gym_id'])) {
+                        if ($roleData['gym_status'] === 'Suspended') {
+                            $error = "This gym's access has been suspended. Please contact your administrator.";
+                            $roleData = null; // Block further processing
+                        } elseif ($roleData['gym_status'] === 'Deleted' || $roleData['gym_status'] === 'Deactivated') {
+                            $error = "This gym account is no longer active.";
+                            $roleData = null; // Block further processing
+                        }
+                    }
+                }
 
                 if ($roleData) {
                     $_SESSION['user_id'] = $user['user_id'];
@@ -131,20 +145,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             break;
                     }
                 } else {
-                    $stmtApp = $pdo->prepare("SELECT application_status FROM gym_owner_applications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1");
-                    $stmtApp->execute([$user['user_id']]);
-                    $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
+                    // Check if the role is technically there but suspended or revoked
+                    $stmtCheckRole = $pdo->prepare("SELECT role_status FROM user_roles WHERE user_id = ? ORDER BY assigned_at DESC LIMIT 1");
+                    $stmtCheckRole->execute([$user['user_id']]);
+                    $roleCheck = $stmtCheckRole->fetch(PDO::FETCH_ASSOC);
 
-                    if ($app) {
-                        if ($app['application_status'] === 'Pending') {
-                            $error = "Your gym application is currently under review.";
-                        } elseif ($app['application_status'] === 'Rejected') {
-                            $error = "Your gym application was rejected.";
-                        } else {
-                            $error = "Account approved but setup is incomplete.";
-                        }
+                    if ($roleCheck && $roleCheck['role_status'] === 'Suspended') {
+                        $error = "Your account has been suspended. Please contact support.";
+                    } elseif ($roleCheck && ($roleCheck['role_status'] === 'Revoked' || $roleCheck['role_status'] === 'Deactivated')) {
+                        $error = "Your account has been deactivated. Please contact support.";
                     } else {
-                        $error = "No active role found.";
+                        // Check for applications if no role or active role found
+                        $stmtApp = $pdo->prepare("SELECT application_status FROM gym_owner_applications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1");
+                        $stmtApp->execute([$user['user_id']]);
+                        $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
+
+                        if ($app) {
+                            if ($app['application_status'] === 'Pending') {
+                                $error = "Your gym application is currently under review.";
+                            } elseif ($app['application_status'] === 'Rejected') {
+                                $error = "Your gym application was rejected.";
+                            } else {
+                                $error = "Account approved but setup is incomplete.";
+                            }
+                        } else {
+                            $error = "No active role found.";
+                        }
                     }
                 }
             }
@@ -274,9 +300,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <?php if (!empty($error)): ?>
-                <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] flex items-center gap-3 font-bold uppercase tracking-wider">
-                    <span class="material-symbols-outlined text-lg">security</span>
-                    <?= $error ?>
+                <div id="login-alert" class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] flex items-center justify-between gap-3 font-bold transition-all duration-500">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-lg">security</span>
+                        <span><?= $error ?></span>
+                    </div>
+                    <button type="button" onclick="dismissAlert('login-alert')" class="hover:text-white transition-colors">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
                 </div>
                 <?php endif; ?>
 
@@ -354,6 +385,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             eyeIcon.textContent = 'visibility';
         }
     }
+
+    // Dismiss Alert Logic
+    function dismissAlert(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                el.remove();
+            }, 500);
+        }
+    }
+
+    // Auto-hide alert after 10 seconds
+    document.addEventListener('DOMContentLoaded', () => {
+        const alert = document.getElementById('login-alert');
+        if (alert) {
+            setTimeout(() => {
+                dismissAlert('login-alert');
+            }, 10000);
+        }
+    });
     </script>
 </body>
 </html>
