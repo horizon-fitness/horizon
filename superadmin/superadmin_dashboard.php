@@ -42,7 +42,7 @@ try {
     $brand = array_merge($global_configs, $user_configs);
 
     // Activity Analytics
-    $stmtRev = $pdo->query("SELECT SUM(amount) FROM payments WHERE payment_status = CAST('Completed' AS CHAR CHARACTER SET latin1)");
+    $stmtRev = $pdo->query("SELECT SUM(amount) FROM payments WHERE payment_status IN (CAST('Paid' AS CHAR CHARACTER SET latin1), CAST('Success' AS CHAR CHARACTER SET latin1), CAST('Completed' AS CHAR CHARACTER SET latin1)) AND client_subscription_id IS NOT NULL");
     $total_revenue = ($stmtRev) ? ($stmtRev->fetchColumn() ?: 0.00) : 0.00;
 
     $stmtGyms = $pdo->query("SELECT COUNT(*) as total, SUM(CASE WHEN status = CAST('Active' AS CHAR CHARACTER SET latin1) THEN 1 ELSE 0 END) as active, SUM(CASE WHEN status = CAST('Suspended' AS CHAR CHARACTER SET latin1) THEN 1 ELSE 0 END) as suspended FROM gyms");
@@ -461,19 +461,19 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
             <?php endif; ?>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                <a href="recent_transaction.php" class="glass-card p-8 status-card-green relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                <a href="sales_report.php" class="glass-card p-8 status-card-green relative overflow-hidden group block hover:scale-[1.02] transition-all">
                     <span
                         class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">payments</span>
-                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Global Revenue</p>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Platform Revenue</p>
                     <h3 class="text-2xl font-black italic uppercase">₱<?= number_format($total_revenue, 2) ?></h3>
-                    <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Across All Tenants</p>
+                    <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Tenant Subscriptions</p>
                 </a>
 
                 <a href="tenant_management.php" class="glass-card p-8 status-card-yellow relative overflow-hidden group block hover:scale-[1.02] transition-all">
                     <span
                         class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">business</span>
-                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total Tenants</p>
-                    <h3 class="text-2xl font-black italic uppercase"><?= $gym_stats['total'] ?> Gyms</h3>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Active Tenants</p>
+                    <h3 class="text-2xl font-black italic uppercase"><?= $gym_stats['active'] ?> Gyms</h3>
                     <div class="flex gap-3 mt-2">
                         <p class="text-emerald-500 text-[9px] font-black uppercase tracking-tighter">
                             <?= $gym_stats['active'] ?> Active</p>
