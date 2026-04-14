@@ -89,8 +89,8 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
         $daysLeft = (strtotime($sub['end_date']) - strtotime(date('Y-m-d'))) / 86400;
         $msg = "Subscription for " . $sub['gym_name'] . " expires in " . round($daysLeft) . " days (Ends: " . $sub['end_date'] . ")";
 
-        // Deduplication: Check if alert already exists
-        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
+        // Deduplication: Check if alert already exists (any status)
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ?");
         $stmtCheck->execute([$msg]);
         if ($stmtCheck->fetchColumn() == 0) {
             $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Subscription', 'Billing', ?, 'Medium', 'Unread', ?)");
@@ -112,8 +112,8 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
         $payer = ($payment['first_name'] ?? '') ? $payment['first_name'] . ' ' . $payment['last_name'] : 'Tenant/Guest';
         $msg = "New payment of Php" . number_format($payment['amount'] ?? 0, 2) . " from " . $payer . " requires verification. (Ref: " . ($payment['reference_number'] ?? 'N/A') . ")";
 
-        // Deduplication
-        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
+        // Deduplication (any status)
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ?");
         $stmtCheck->execute([$msg]);
         if ($stmtCheck->fetchColumn() == 0) {
             $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Payment Verification', 'Finance', ?, 'Medium', 'Unread', ?)");
@@ -134,8 +134,8 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
             $applicant = ($app['first_name'] ?? '') ? $app['first_name'] . ' ' . $app['last_name'] : 'Unknown';
             $msg = "New tenant application pending review: " . ($app['gym_name'] ?? 'Unnamed Gym') . " by " . $applicant . ".";
 
-            // Deduplication
-            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
+            // Deduplication (any status)
+            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ?");
             $stmtCheck->execute([$msg]);
             if ($stmtCheck->fetchColumn() == 0) {
                 // Priority High for Tenant Applications
@@ -145,16 +145,62 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
         }
     }
 
-    // 4. System Health Placeholder
-    if (rand(1, 100) > 95) { // 5% chance to show a health check alert
-        $msg = "System health check completed. All nodes performing optimally.";
-        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
-        $stmtCheck->execute([$msg]);
-        if ($stmtCheck->fetchColumn() == 0) {
-            $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Health Check', 'Server', ?, 'Medium', 'Unread', ?)");
-            $stmtInsert->execute([$msg, $now]);
+    // 4. System Integrity & Health Check (Real Monitoring)
+    $startTime = microtime(true);
+    
+    // Performance Benchmark (Latency)
+    try {
+        $pdo->query("SELECT 1"); // Simple fast query
+        $latency = (microtime(true) - $startTime) * 1000;
+        
+        if ($latency > 500) {
+            $msg = "Warning: System latency is high (" . round($latency) . "ms). Potential server load or DB overhead detected.";
+            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ?");
+            $stmtCheck->execute([$msg]);
+            if ($stmtCheck->fetchColumn() == 0) {
+                 $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('System Integrity', 'Server', ?, 'High', 'Unread', ?)");
+                 $stmtInsert->execute([$msg, $now]);
+            }
         }
-    }
+    } catch (Exception $e) {}
+
+    // Backup Health Check (24h Threshold)
+    try {
+        $stmtLastBkp = $pdo->query("SELECT backup_date FROM backups WHERE backup_status = 'Successful' ORDER BY backup_date DESC LIMIT 1");
+        $lastBkp = $stmtLastBkp->fetch();
+        $backupWarning = "System Integrity Alert: No successful database backup detected in the last 24 hours.";
+        
+        if (!$lastBkp || (strtotime($now) - strtotime($lastBkp['backup_date'])) > 86400) {
+            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ?");
+            $stmtCheck->execute([$backupWarning]);
+            if ($stmtCheck->fetchColumn() == 0) {
+                $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('System Integrity', 'Maintenance', ?, 'Medium', 'Unread', ?)");
+                $stmtInsert->execute([$backupWarning, $now]);
+            }
+        } else {
+            $stmtRes = $pdo->prepare("UPDATE system_alerts SET status = 'Resolved' WHERE message = ? AND status != 'Resolved'");
+            $stmtRes->execute([$backupWarning]);
+        }
+    } catch (Exception $e) {}
+
+    // Admin Backlog Detection (>48h Pending Apps)
+    try {
+        $stmtStaleApps = $pdo->query("SELECT COUNT(*) FROM gym_owner_applications WHERE application_status = 'Pending' AND created_at < DATE_SUB(NOW(), INTERVAL 2 DAY)");
+        $staleCount = $stmtStaleApps->fetchColumn();
+        
+        if ($staleCount > 0) {
+            $backlogWarning = "System Integrity Alert: Administrative bottleneck detected ($staleCount pending tenant applications older than 48 hours).";
+            $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ?");
+            $stmtCheck->execute([$backlogWarning]);
+            if ($stmtCheck->fetchColumn() == 0) {
+                $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('System Integrity', 'Admin', ?, 'Medium', 'Unread', ?)");
+                $stmtInsert->execute([$backlogWarning, $now]);
+            }
+        } else {
+            $stmtRes = $pdo->prepare("UPDATE system_alerts SET status = 'Resolved' WHERE type = 'System Integrity' AND source = 'Admin' AND status != 'Resolved'");
+            $stmtRes->execute();
+        }
+    } catch (Exception $e) {}
 
 // --- End Automated Alert Logic ---
 
@@ -213,7 +259,8 @@ usort($alerts, function ($a, $b) {
 $available_categories = [
     'Payment Verification',
     'Tenant Application',
-    'Subscription'
+    'Subscription',
+    'System Integrity'
 ];
 sort($available_categories);
 
@@ -749,11 +796,11 @@ if (isset($_GET['ajax'])) {
                 <div class="flex items-center justify-between">
                     <div class="flex p-1.5 glass-card rounded-2xl w-full lg:w-auto overflow-x-auto no-scrollbar">
                         <a href="?view=active&search=<?= urlencode($search) ?>&date_from=<?= urlencode($date_from) ?>&date_to=<?= urlencode($date_to) ?>"
-                            class="<?= $view === 'active' ? 'bg-primary text-[--background] shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-[--text-main]/70 hover:bg-white/5' ?> flex-1 lg:flex-none text-center px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
+                            class="<?= $view === 'active' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-[--text-main]/70 hover:bg-white/5' ?> flex-1 lg:flex-none text-center px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
                             Active Alerts
                         </a>
                         <a href="?view=history&search=<?= urlencode($search) ?>&date_from=<?= urlencode($date_from) ?>&date_to=<?= urlencode($date_to) ?>"
-                            class="<?= $view === 'history' ? 'bg-primary text-[--background] shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-[--text-main]/70 hover:bg-white/5' ?> flex-1 lg:flex-none text-center px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
+                            class="<?= $view === 'history' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-[--text-main]/70 hover:bg-white/5' ?> flex-1 lg:flex-none text-center px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
                             Alert History
                         </a>
                     </div>

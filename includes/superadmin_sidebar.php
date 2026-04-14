@@ -4,10 +4,14 @@
 
 // Count Pending Subscription Payments for the Badge
 $pending_sub_count = 0;
+$unread_alert_count = 0;
 if (isset($pdo)) {
     try {
         $stmtBadge = $pdo->query("SELECT COUNT(*) FROM client_subscriptions WHERE payment_status = 'Pending'");
         $pending_sub_count = $stmtBadge->fetchColumn();
+
+        $stmtAlertBadge = $pdo->query("SELECT COUNT(*) FROM system_alerts WHERE status != 'Resolved'");
+        $unread_alert_count = $stmtAlertBadge->fetchColumn();
     } catch (Exception $e) {
         // Silently fail if query fails
     }
@@ -47,13 +51,15 @@ if (isset($pdo)) {
         </a>
 
         <a href="subscription_logs.php" class="nav-link <?= ($active_page == 'subscriptions') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">history_edu</span> 
+            <div class="relative flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-xl">history_edu</span> 
+                <?php if ($pending_sub_count > 0): ?>
+                    <span class="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-rose-500 text-[8px] font-black flex items-center justify-center text-white shadow-lg shadow-rose-500/20">
+                        <?= $pending_sub_count ?>
+                    </span>
+                <?php endif; ?>
+            </div>
             <span class="nav-text">Subscription Logs</span>
-            <?php if ($pending_sub_count > 0): ?>
-                <span class="ml-auto size-5 rounded-full bg-rose-500 text-[9px] font-black flex items-center justify-center text-white alert-pulse shadow-lg shadow-rose-500/20">
-                    <?= $pending_sub_count ?>
-                </span>
-            <?php endif; ?>
         </a>
 
 
@@ -61,7 +67,14 @@ if (isset($pdo)) {
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">System</span>
         </div>
         <a href="system_alerts.php" class="nav-link <?= ($active_page == 'alerts') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">notifications_active</span> 
+            <div class="relative flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-xl">notifications_active</span> 
+                <?php if ($unread_alert_count > 0): ?>
+                    <span class="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-rose-500 text-[8px] font-black flex items-center justify-center text-white shadow-lg shadow-rose-500/20">
+                        <?= $unread_alert_count ?>
+                    </span>
+                <?php endif; ?>
+            </div>
             <span class="nav-text">System Alerts</span>
         </a>
 
