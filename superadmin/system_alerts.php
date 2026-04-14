@@ -13,14 +13,17 @@ try {
     // Handle POST Actions
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($_POST['resolve_id'])) {
-            $stmtResolve = $pdo->prepare("UPDATE system_alerts SET status = CAST('Resolved' AS CHAR CHARACTER SET latin1) WHERE alert_id = ?");
+            $stmtResolve = $pdo->prepare("UPDATE system_alerts SET status = 'Resolved' WHERE alert_id = ?");
             $stmtResolve->execute([$_POST['resolve_id']]);
             $success_msg = "Alert marked as resolved.";
         } elseif (isset($_POST['clear_all'])) {
-            $pdo->exec("UPDATE system_alerts SET status = CAST('Resolved' AS CHAR CHARACTER SET latin1) WHERE status != CAST('Resolved' AS CHAR CHARACTER SET latin1)");
+            $pdo->exec("UPDATE system_alerts SET status = 'Resolved' WHERE status != 'Resolved'");
             $success_msg = "All alerts cleared.";
         }
     }
+
+    // Fix for existing mangled alerts: Done via PHP to avoid MySQL collation errors
+    // We will handle the display translation in the UI layer instead of a permanent DB update that might fail on latin1
 
 // Get Filter Inputs
 $search = $_GET['search'] ?? '';
@@ -66,7 +69,7 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
         FROM client_subscriptions cs 
         JOIN gyms g ON cs.gym_id = g.gym_id 
         WHERE cs.end_date <= ? 
-        AND cs.subscription_status = CAST('Active' AS CHAR CHARACTER SET latin1)
+        AND cs.subscription_status = 'Active'
     ");
     $stmtExpiring->execute([$sevenDaysLater]);
     $expiringSubs = $stmtExpiring->fetchAll(PDO::FETCH_ASSOC);
@@ -76,7 +79,7 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
         $msg = "Subscription for " . $sub['gym_name'] . " expires in " . round($daysLeft) . " days (Ends: " . $sub['end_date'] . ")";
 
         // Deduplication: Check if alert already exists
-        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != CAST('Resolved' AS CHAR CHARACTER SET latin1)");
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
         $stmtCheck->execute([$msg]);
         if ($stmtCheck->fetchColumn() == 0) {
             $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Subscription Expiry', 'Billing', ?, 'Medium', 'Unread', ?)");
@@ -90,16 +93,16 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
         FROM payments p 
         LEFT JOIN members m ON p.member_id = m.member_id 
         LEFT JOIN users u ON m.user_id = u.user_id 
-        WHERE p.payment_status = CAST('Pending' AS CHAR CHARACTER SET latin1)
+        WHERE p.payment_status = 'Pending'
     ");
     $pendingPayments = $stmtPendingPayments->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($pendingPayments as $payment) {
         $payer = ($payment['first_name'] ?? '') ? $payment['first_name'] . ' ' . $payment['last_name'] : 'Tenant/Guest';
-        $msg = "New payment of ₱" . number_format($payment['amount'] ?? 0, 2) . " from " . $payer . " requires verification. (Ref: " . ($payment['reference_number'] ?? 'N/A') . ")";
+        $msg = "New payment of Php" . number_format($payment['amount'] ?? 0, 2) . " from " . $payer . " requires verification. (Ref: " . ($payment['reference_number'] ?? 'N/A') . ")";
 
         // Deduplication
-        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != CAST('Resolved' AS CHAR CHARACTER SET latin1)");
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
         $stmtCheck->execute([$msg]);
         if ($stmtCheck->fetchColumn() == 0) {
             $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Payment Verification', 'Finance', ?, 'Medium', 'Unread', ?)");
@@ -110,7 +113,7 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
     // 3. System Health Placeholder
     if (rand(1, 100) > 95) { // 5% chance to show a health check alert
         $msg = "System health check completed. All nodes performing optimally.";
-        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = CAST(? AS CHAR CHARACTER SET latin1) AND status != CAST('Resolved' AS CHAR CHARACTER SET latin1)");
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM system_alerts WHERE message = ? AND status != 'Resolved'");
         $stmtCheck->execute([$msg]);
         if ($stmtCheck->fetchColumn() == 0) {
             $stmtInsert = $pdo->prepare("INSERT INTO system_alerts (type, source, message, priority, status, created_at) VALUES ('Health Check', 'Server', ?, 'Medium', 'Unread', ?)");
@@ -130,20 +133,20 @@ $params = [];
 
     // Status Filter (Tabs)
     if ($view === 'history') {
-        $query .= " AND status = CAST('Resolved' AS CHAR CHARACTER SET latin1)";
+        $query .= " AND status = 'Resolved'";
     } else {
-        $query .= " AND status != CAST('Resolved' AS CHAR CHARACTER SET latin1)";
+        $query .= " AND status != 'Resolved'";
     }
 
     // Search Filter
     if (!empty($search)) {
-        $query .= " AND (message LIKE CAST(:search AS CHAR CHARACTER SET latin1) OR type LIKE CAST(:search AS CHAR CHARACTER SET latin1) OR source LIKE CAST(:search AS CHAR CHARACTER SET latin1))";
+        $query .= " AND (message LIKE :search OR type LIKE :search OR source LIKE :search)";
         $params['search'] = "%$search%";
     }
 
     // Category Intelligence Filter (Database-Driven)
     if ($category_filter !== 'all') {
-        $query .= " AND type = CAST(:category AS CHAR CHARACTER SET latin1)";
+        $query .= " AND type = :category";
         $params['category'] = $category_filter;
     }
 
@@ -187,7 +190,12 @@ if (isset($_GET['ajax'])) {
                             <h4 class="text-md font-black italic uppercase text-[--text-main] tracking-tight leading-none">
                                 <?= htmlspecialchars($alert['type']) ?>
                             </h4>
-                            <p class="text-[--text-main]/60 text-xs mt-1 font-medium"><?= htmlspecialchars($alert['message']) ?>
+                            <p class="text-[--text-main]/60 text-xs mt-1 font-medium">
+                                <?php 
+                                    // Handle currency display: convert 'Php' or '?' to '₱' only on the UI level to avoid DB encoding issues
+                                    $displayMsg = str_replace(['Php', '?'], '₱', $alert['message']);
+                                    echo htmlspecialchars($displayMsg); 
+                                ?>
                             </p>
                             <div class="flex items-center gap-2 mt-3">
                                 <span
@@ -210,7 +218,7 @@ if (isset($_GET['ajax'])) {
                                 </div>
                             <?php endif; ?>
                             <button
-                                onclick="openAlertModal(<?= htmlspecialchars(json_encode($alert['type'])) ?>, <?= htmlspecialchars(json_encode($alert['message'])) ?>, <?= htmlspecialchars(json_encode($alert['source'])) ?>, '<?= date('M d, Y h:i A', strtotime($alert['created_at'])) ?>', '<?= $alert['priority'] ?>')"
+                                onclick="openAlertModal(<?= htmlspecialchars(json_encode($alert['type'])) ?>, <?= htmlspecialchars(json_encode(str_replace(['Php', '?'], '₱', $alert['message']))) ?>, <?= htmlspecialchars(json_encode($alert['source'])) ?>, '<?= date('M d, Y h:i A', strtotime($alert['created_at'])) ?>', '<?= $alert['priority'] ?>')"
                                 class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-primary/20 hover:text-primary border border-white/5 transition-all group/btn"
                                 title="More Details">
                                 <span class="material-symbols-outlined text-sm">visibility</span>
@@ -743,7 +751,11 @@ if (isset($_GET['ajax'])) {
                                                 <?= htmlspecialchars($alert['type']) ?>
                                             </h4>
                                             <p class="text-[--text-main]/60 text-xs mt-1 font-medium">
-                                                <?= htmlspecialchars($alert['message']) ?>
+                                                <?php 
+                                                    // Handle currency display safely
+                                                    $displayMsg = str_replace(['Php', '?'], '₱', $alert['message']);
+                                                    echo htmlspecialchars($displayMsg); 
+                                                ?>
                                             </p>
                                             <div class="flex items-center gap-2 mt-3">
                                                 <span
@@ -766,7 +778,7 @@ if (isset($_GET['ajax'])) {
                                                 </div>
                                             <?php endif; ?>
                                             <button
-                                                onclick="openAlertModal(<?= htmlspecialchars(json_encode($alert['type'])) ?>, <?= htmlspecialchars(json_encode($alert['message'])) ?>, <?= htmlspecialchars(json_encode($alert['source'])) ?>, '<?= date('M d, Y h:i A', strtotime($alert['created_at'])) ?>', '<?= $alert['priority'] ?>')"
+                                                onclick="openAlertModal(<?= htmlspecialchars(json_encode($alert['type'])) ?>, <?= htmlspecialchars(json_encode(str_replace(['Php', '?'], '₱', $alert['message']))) ?>, <?= htmlspecialchars(json_encode($alert['source'])) ?>, '<?= date('M d, Y h:i A', strtotime($alert['created_at'])) ?>', '<?= $alert['priority'] ?>')"
                                                 class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-primary/20 hover:text-primary border border-white/5 transition-all group/btn"
                                                 title="More Details">
                                                 <span class="material-symbols-outlined text-sm">visibility</span>
@@ -917,7 +929,8 @@ if (isset($_GET['ajax'])) {
             const modalContent = modal.querySelector('.glass-card');
 
             document.getElementById('modalType').textContent = type;
-            document.getElementById('modalMessage').textContent = message;
+            // Additional safety: Replace logic in JS as well
+            document.getElementById('modalMessage').textContent = message.replace(/Php|\?/g, '₱');
             document.getElementById('modalSource').textContent = source;
             document.getElementById('modalDate').textContent = date;
 
