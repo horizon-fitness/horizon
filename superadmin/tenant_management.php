@@ -47,6 +47,19 @@ if (!function_exists('getLogoPath')) {
 }
 
 
+// --- FILTER INPUTS ---
+$search = $_GET['search'] ?? '';
+$gym_status = $_GET['gym_status'] ?? 'all';
+$plan_id = $_GET['plan_id'] ?? 'all';
+$sort_order = $_GET['sort'] ?? 'newest';
+$date_from = $_GET['date_from'] ?? '';
+$date_to = $_GET['date_to'] ?? '';
+$active_tab = $_GET['tab'] ?? 'registered';
+
+// Fetch Active Plans for filter
+$stmtPlans = $pdo->query("SELECT website_plan_id, plan_name FROM website_plans WHERE is_active = 1 ORDER BY price ASC");
+$all_plans = $stmtPlans->fetchAll(PDO::FETCH_ASSOC);
+
 // 1. Fetch Global Settings (user_id = 0)
 $stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
 $global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -59,62 +72,141 @@ $user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
 // 3. Merge (User settings take precedence for overlapping keys)
 $brand = array_merge($global_configs, $user_configs);
 
-$stmtTenants = $pdo->query("
-        SELECT g.*, 
-            u.first_name, u.last_name, u.email as owner_email,
-            (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'system_logo') as logo_path,
-            (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'page_slug') as page_slug,
-            cs.subscription_status as sub_status,
-            wp.plan_name,
-            IFNULL(m.member_count, 0) as member_count
-        FROM gyms g
-        JOIN users u ON g.owner_user_id = u.user_id
-        LEFT JOIN (
-            SELECT cs1.gym_id, cs1.subscription_status, cs1.website_plan_id
-            FROM client_subscriptions cs1
-            INNER JOIN (
-                SELECT gym_id, MAX(created_at) as max_created
-                FROM client_subscriptions
-                GROUP BY gym_id
-            ) cs2 ON cs1.gym_id = cs2.gym_id AND cs1.created_at = cs2.max_created
-        ) cs ON g.gym_id = cs.gym_id
-        LEFT JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
-        LEFT JOIN (
-            SELECT gym_id, COUNT(*) as member_count 
-            FROM members 
+// --- DYNAMIC QUERIES (Isolated per Tab) ---
+
+// A. Registered & Deactivated Tenants Query
+$gym_where = ["g.status IN ('Active', 'Suspended', 'Deleted', 'Deactivated')"];
+$gym_params = [];
+
+// Only apply filters to Registered and Deactivated tabs
+if ($active_tab === 'registered' || $active_tab === 'deactivated') {
+    if (!empty($search)) {
+        $gym_where[] = "(g.gym_name LIKE :s1 OR g.tenant_code LIKE :s2 OR u.first_name LIKE :s3 OR u.last_name LIKE :s4 OR u.email LIKE :s5)";
+        $gym_params['s1'] = $gym_params['s2'] = $gym_params['s3'] = $gym_params['s4'] = $gym_params['s5'] = "%$search%";
+    }
+    if ($gym_status !== 'all') {
+        $gym_where[] = "g.status = :gstatus";
+        $gym_params['gstatus'] = $gym_status;
+    }
+    if ($plan_id !== 'all') {
+        $gym_where[] = "cs.website_plan_id = :plan_id";
+        $gym_params['plan_id'] = $plan_id;
+    }
+    
+    // For Registered specifically, user requested to remove Date Filter logic
+    if ($active_tab !== 'registered') {
+        if (!empty($date_from)) {
+            $gym_where[] = "g.created_at >= :date_from";
+            $gym_params['date_from'] = $date_from . " 00:00:00";
+        }
+        if (!empty($date_to)) {
+            $gym_where[] = "g.created_at <= :date_to";
+            $gym_params['date_to'] = $date_to . " 23:59:59";
+        }
+    }
+}
+
+$order_direction = ($sort_order === 'oldest') ? 'ASC' : 'DESC';
+
+$gym_sql = "
+    SELECT g.*, 
+        u.first_name, u.last_name, u.email as owner_email,
+        (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'system_logo') as logo_path,
+        (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'page_slug') as page_slug,
+        cs.subscription_status as sub_status,
+        wp.plan_name,
+        IFNULL(m.member_count, 0) as member_count
+    FROM gyms g
+    JOIN users u ON g.owner_user_id = u.user_id
+    LEFT JOIN (
+        SELECT cs1.gym_id, cs1.subscription_status, cs1.website_plan_id, cs1.created_at
+        FROM client_subscriptions cs1
+        INNER JOIN (
+            SELECT gym_id, MAX(created_at) as max_created
+            FROM client_subscriptions
             GROUP BY gym_id
-        ) m ON g.gym_id = m.gym_id
-        WHERE g.status IN (CAST('Active' AS CHAR CHARACTER SET latin1), CAST('Suspended' AS CHAR CHARACTER SET latin1), CAST('Deleted' AS CHAR CHARACTER SET latin1), CAST('Deactivated' AS CHAR CHARACTER SET latin1))
-        ORDER BY g.created_at DESC
-    ");
+        ) cs2 ON cs1.gym_id = cs2.gym_id AND cs1.created_at = cs2.max_created
+    ) cs ON g.gym_id = cs.gym_id
+    LEFT JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+    LEFT JOIN (
+        SELECT gym_id, COUNT(*) as member_count 
+        FROM members 
+        GROUP BY gym_id
+    ) m ON g.gym_id = m.gym_id
+    WHERE " . implode(" AND ", $gym_where) . "
+    ORDER BY g.created_at $order_direction
+";
+$stmtTenants = $pdo->prepare($gym_sql);
+$stmtTenants->execute($gym_params);
 $tenants = $stmtTenants->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch Total Members across all tenants
 $stmtTotalMembers = $pdo->query("SELECT COUNT(*) FROM members");
 $total_members_count = $stmtTotalMembers->fetchColumn();
 
-// Fetch Pending Applications
-$stmtPending = $pdo->query("
-        SELECT a.*, u.first_name, u.last_name, u.email,
-            ad.file_path as gym_logo
-        FROM gym_owner_applications a 
-        JOIN users u ON a.user_id = u.user_id 
-        LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = CAST('Gym Logo' AS CHAR CHARACTER SET latin1)
-        WHERE a.application_status = CAST('Pending' AS CHAR CHARACTER SET latin1)
-        ORDER BY a.submitted_at DESC
-    ");
+// B. Pending Applications Query
+$pending_where = ["a.application_status = 'Pending'"];
+$pending_params = [];
+
+if ($active_tab === 'pending') {
+    if (!empty($search)) {
+        $pending_where[] = "(a.gym_name LIKE :ps1 OR u.first_name LIKE :ps2 OR u.last_name LIKE :ps3 OR u.email LIKE :ps4)";
+        $pending_params['ps1'] = $pending_params['ps2'] = $pending_params['ps3'] = $pending_params['ps4'] = "%$search%";
+    }
+    if (!empty($date_from)) {
+        $pending_where[] = "a.submitted_at >= :pdate_from";
+        $pending_params['pdate_from'] = $date_from . " 00:00:00";
+    }
+    if (!empty($date_to)) {
+        $pending_where[] = "a.submitted_at <= :pdate_to";
+        $pending_params['pdate_to'] = $date_to . " 23:59:59";
+    }
+}
+
+$pending_sql = "
+    SELECT a.*, u.first_name, u.last_name, u.email,
+        ad.file_path as gym_logo
+    FROM gym_owner_applications a 
+    JOIN users u ON a.user_id = u.user_id 
+    LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = 'Gym Logo'
+    WHERE " . implode(" AND ", $pending_where) . "
+    ORDER BY a.submitted_at DESC
+";
+$stmtPending = $pdo->prepare($pending_sql);
+$stmtPending->execute($pending_params);
 $pending_apps = $stmtPending->fetchAll(PDO::FETCH_ASSOC);
 
-$rejected_stmt = $pdo->query("
-        SELECT a.*, u.first_name, u.last_name, u.email,
-            ad.file_path as gym_logo
-        FROM gym_owner_applications a 
-        JOIN users u ON a.user_id = u.user_id 
-        LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = CAST('Gym Logo' AS CHAR CHARACTER SET latin1)
-        WHERE a.application_status = CAST('Rejected' AS CHAR CHARACTER SET latin1)
-        ORDER BY a.reviewed_at DESC
-    ");
-$rejected_apps = $rejected_stmt->fetchAll(PDO::FETCH_ASSOC);
+// C. Rejected Applications Query
+$rejected_where = ["a.application_status = 'Rejected'"];
+$rejected_params = [];
+
+if ($active_tab === 'rejected') {
+    if (!empty($search)) {
+        $rejected_where[] = "(a.gym_name LIKE :rs1 OR u.first_name LIKE :rs2 OR u.last_name LIKE :rs3 OR u.email LIKE :rs4)";
+        $rejected_params['rs1'] = $rejected_params['rs2'] = $rejected_params['rs3'] = $rejected_params['rs4'] = "%$search%";
+    }
+    if (!empty($date_from)) {
+        $rejected_where[] = "a.submitted_at >= :rdate_from";
+        $rejected_params['rdate_from'] = $date_from . " 00:00:00";
+    }
+    if (!empty($date_to)) {
+        $rejected_where[] = "a.submitted_at <= :rdate_to";
+        $rejected_params['rdate_to'] = $date_to . " 23:59:59";
+    }
+}
+
+$rejected_sql = "
+    SELECT a.*, u.first_name, u.last_name, u.email,
+        ad.file_path as gym_logo
+    FROM gym_owner_applications a 
+    JOIN users u ON a.user_id = u.user_id 
+    LEFT JOIN application_documents ad ON a.application_id = ad.application_id AND ad.document_type = 'Gym Logo'
+    WHERE " . implode(" AND ", $rejected_where) . "
+    ORDER BY a.reviewed_at DESC
+";
+$stmtRejected = $pdo->prepare($rejected_sql);
+$stmtRejected->execute($rejected_params);
+$rejected_apps = $stmtRejected->fetchAll(PDO::FETCH_ASSOC);
 
 $total_tenants = count($tenants);
 $active_count = 0;
@@ -204,6 +296,30 @@ $deactivated_count = count($deactivated_tenants);
             backdrop-filter: blur(20px);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             transition: all 0.3s ease;
+        }
+
+        /* Dark Mode Select Options & Date Picker */
+        select option {
+            background-color: #1a1220;
+            color: #ffffff;
+            padding: 10px;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1) hue-rotate(180deg);
+            cursor: pointer;
+            opacity: 0.5;
+            transition: all 0.3s ease;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        /* Custom Scrollbar for Select Dropdowns (Firefox/Chrome) */
+        select {
+            color-scheme: dark;
         }
 
         .sidebar-nav {
@@ -580,17 +696,17 @@ $deactivated_count = count($deactivated_tenants);
 
             <div class="flex items-center gap-8 mb-8 border-b border-white/5 px-2">
                 <button onclick="switchTab('registered')" id="tabBtn-registered"
-                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-primary">
+                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= $active_tab === 'registered' ? 'text-primary' : 'text-[--text-main] opacity-50 hover:opacity-100' ?>">
                     Active & Suspended
                     <div id="tabIndicator-registered"
-                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-100">
+                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'registered' ? 'opacity-100' : 'opacity-0' ?>">
                     </div>
                 </button>
                 <button onclick="switchTab('pending')" id="tabBtn-pending"
-                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100 <?= ($pending_count > 0) ? 'mr-4' : '' ?>">
+                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= $active_tab === 'pending' ? 'text-primary mr-4' : 'text-[--text-main] opacity-50 hover:opacity-100' ?> <?= ($pending_count > 0) ? 'mr-4' : '' ?>">
                     Pending
                     <div id="tabIndicator-pending"
-                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0">
+                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'pending' ? 'opacity-100' : 'opacity-0' ?>">
                     </div>
                     <?php if ($pending_count > 0): ?>
                         <span
@@ -598,10 +714,10 @@ $deactivated_count = count($deactivated_tenants);
                     <?php endif; ?>
                 </button>
                 <button onclick="switchTab('deactivated')" id="tabBtn-deactivated"
-                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100 <?= ($deactivated_count > 0) ? 'mr-4' : '' ?>">
+                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= $active_tab === 'deactivated' ? 'text-primary mr-4' : 'text-[--text-main] opacity-50 hover:opacity-100' ?> <?= ($deactivated_count > 0) ? 'mr-4' : '' ?>">
                     Deactivated
                     <div id="tabIndicator-deactivated"
-                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0">
+                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'deactivated' ? 'opacity-100' : 'opacity-0' ?>">
                     </div>
                     <?php if ($deactivated_count > 0): ?>
                         <span
@@ -609,10 +725,10 @@ $deactivated_count = count($deactivated_tenants);
                     <?php endif; ?>
                 </button>
                 <button onclick="switchTab('rejected')" id="tabBtn-rejected"
-                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-[--text-main] opacity-50 hover:opacity-100 <?= ($rejected_count > 0) ? 'mr-4' : '' ?>">
+                    class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= $active_tab === 'rejected' ? 'text-primary mr-4' : 'text-[--text-main] opacity-50 hover:opacity-100' ?> <?= ($rejected_count > 0) ? 'mr-4' : '' ?>">
                     Rejected History
                     <div id="tabIndicator-rejected"
-                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all opacity-0">
+                        class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'rejected' ? 'opacity-100' : 'opacity-0' ?>">
                     </div>
                     <?php if ($rejected_count > 0): ?>
                         <span
@@ -622,7 +738,7 @@ $deactivated_count = count($deactivated_tenants);
             </div>
 
             <div id="section-pending" class="hidden">
-                <?php if (!empty($pending_apps)): ?>
+                <?php if (!empty($pending_apps) || !empty($search) || !empty($date_from)): ?>
                     <div class="glass-card overflow-hidden mb-10 border border-amber-500/10">
                         <div class="px-8 py-6 border-b border-white/5 bg-amber-500/5 flex justify-between items-center">
                             <h4
@@ -631,14 +747,41 @@ $deactivated_count = count($deactivated_tenants);
                                 Pending Gym Applications
                             </h4>
                         </div>
+
+                        <!-- Tab-Specific Filter Bar -->
+                        <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                            <form method="GET" class="flex flex-wrap items-center gap-4">
+                                <input type="hidden" name="tab" value="pending">
+                                <div class="flex-1 min-w-[250px] relative group">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-amber-500/50 transition-transform group-hover:scale-110">search</span>
+                                    <input type="text" name="search" value="<?= $active_tab === 'pending' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name or Email..." 
+                                           onchange="this.form.submit()" 
+                                           class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-amber-500/50 outline-none text-[--text-main]">
+                                </div>
+                                <div class="w-[180px] relative group">
+                                    <select name="sort" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                        <option value="newest" <?= ($active_tab === 'pending' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest First</option>
+                                        <option value="oldest" <?= ($active_tab === 'pending' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest First</option>
+                                    </select>
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <input type="date" name="date_from" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_from) : '' ?>" onchange="this.form.submit()" title="Submission Date From" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                                    <input type="date" name="date_to" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_to) : '' ?>" onchange="this.form.submit()" title="Submission Date To" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                                </div>
+                                <a href="tenant_management.php?tab=pending" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
+                                    <span class="material-symbols-outlined text-sm">refresh</span>
+                                </a>
+                            </form>
+                        </div>
                         <div class="overflow-x-auto no-scrollbar">
                             <table class="w-full text-left">
                                 <thead>
                                     <tr
                                         class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
-                                        <th class="px-8 py-4">Gym Name</th>
+                                        <th class="px-8 py-4">Gym Identity</th>
                                         <th class="px-8 py-4">Applicant</th>
-                                        <th class="px-8 py-4">Applied Date</th>
+                                        <th class="px-8 py-4">Submitted At</th>
                                         <th class="px-8 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
@@ -684,8 +827,8 @@ $deactivated_count = count($deactivated_tenants);
                                             <td class="px-8 py-5 text-right">
                                                 <div class="inline-flex gap-2">
                                                     <button onclick="openApplicationModal(<?= $app['application_id'] ?>)"
-                                                        class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
-                                                        <span class="material-symbols-outlined text-sm">visibility</span> View
+                                                        class="size-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-colors flex items-center justify-center group" title="View Application Details">
+                                                        <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span>
                                                     </button>
                                                     <form method="POST" action="../action/process_application.php"
                                                         class="inline-flex gap-2">
@@ -735,6 +878,48 @@ $deactivated_count = count($deactivated_tenants);
                     <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
                         <h4 class="font-black italic uppercase text-sm tracking-tighter">Registered Gyms</h4>
                     </div>
+
+                    <!-- Tab-Specific Filter Bar -->
+                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                        <form method="GET" class="flex flex-wrap items-center gap-4">
+                            <input type="hidden" name="tab" value="registered">
+                            <div class="flex-1 min-w-[250px] relative group">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary/50 transition-transform group-hover:scale-110">search</span>
+                                <input type="text" name="search" value="<?= $active_tab === 'registered' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name, Code, Owner..." 
+                                       onchange="this.form.submit()" 
+                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
+                            </div>
+                            <div class="w-[160px] relative group">
+                                <select name="gym_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                    <option value="all" <?= ($active_tab === 'registered' && $gym_status === 'all') ? 'selected' : '' ?>>All Status</option>
+                                    <option value="Active" <?= ($active_tab === 'registered' && $gym_status === 'Active') ? 'selected' : '' ?>>Active Only</option>
+                                    <option value="Suspended" <?= ($active_tab === 'registered' && $gym_status === 'Suspended') ? 'selected' : '' ?>>Suspended Only</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            </div>
+                            <div class="w-[180px] relative group">
+                                <select name="plan_id" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                    <option value="all" <?= ($active_tab === 'registered' && $plan_id === 'all') ? 'selected' : '' ?>>Plan: All Type</option>
+                                    <?php foreach ($all_plans as $p): ?>
+                                        <option value="<?= $p['website_plan_id'] ?>" <?= ($active_tab === 'registered' && (string)$plan_id === (string)$p['website_plan_id']) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($p['plan_name']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            </div>
+                            <div class="w-[180px] relative group">
+                                <select name="sort" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                    <option value="newest" <?= ($active_tab === 'registered' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Created</option>
+                                    <option value="oldest" <?= ($active_tab === 'registered' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Created</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            </div>
+                            <a href="tenant_management.php?tab=registered" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
+                                <span class="material-symbols-outlined text-sm">refresh</span>
+                            </a>
+                        </form>
+                    </div>
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
@@ -762,7 +947,7 @@ $deactivated_count = count($deactivated_tenants);
                                                     <?php
                                                     $logo_src = getLogoPath($t['logo_path']);
                                                     ?>
-                                                    <div class="size-16 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0 cursor-zoom-in modal-img-preview"
+                                                    <div class="size-16 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
                                                         data-src="<?= $logo_src ?>"
                                                         data-title="<?= htmlspecialchars($t['gym_name']) ?>">
                                                         <?php if (!empty($logo_src)):
@@ -924,6 +1109,33 @@ $deactivated_count = count($deactivated_tenants);
                             Deactivated Gym Accounts
                         </h4>
                     </div>
+
+                    <!-- Tab-Specific Filter Bar -->
+                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                        <form method="GET" class="flex flex-wrap items-center gap-4">
+                            <input type="hidden" name="tab" value="deactivated">
+                            <div class="flex-1 min-w-[250px] relative group">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-red-500/50 transition-transform group-hover:scale-110">search</span>
+                                <input type="text" name="search" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name, Code, owner..." 
+                                       onchange="this.form.submit()" 
+                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-red-500/50 outline-none text-[--text-main]">
+                            </div>
+                            <div class="w-[180px] relative group">
+                                <select name="sort" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                    <option value="newest" <?= ($active_tab === 'deactivated' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Deactivated</option>
+                                    <option value="oldest" <?= ($active_tab === 'deactivated' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Deactivated</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <input type="date" name="date_from" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($date_from) : '' ?>" onchange="this.form.submit()" title="Deactivation From" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                                <input type="date" name="date_to" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($date_to) : '' ?>" onchange="this.form.submit()" title="Deactivation To" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                            </div>
+                            <a href="tenant_management.php?tab=deactivated" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
+                                <span class="material-symbols-outlined text-sm">refresh</span>
+                            </a>
+                        </form>
+                    </div>
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
@@ -931,7 +1143,7 @@ $deactivated_count = count($deactivated_tenants);
                                     class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
                                     <th class="px-8 py-4">Gym Identity</th>
                                     <th class="px-8 py-4">Owner Contact</th>
-                                    <th class="px-8 py-4">Status Info</th>
+                                    <th class="px-8 py-4">Deactivated At</th>
                                     <th class="px-8 py-4 text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -950,7 +1162,7 @@ $deactivated_count = count($deactivated_tenants);
                                                     <?php
                                                     $logo_src = getLogoPath($t['logo_path']);
                                                     ?>
-                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 grayscale cursor-zoom-in modal-img-preview"
+                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden grayscale cursor-zoom-in modal-img-preview"
                                                         data-src="<?= $logo_src ?>"
                                                         data-title="<?= htmlspecialchars($t['gym_name']) ?>">
                                                         <?php if (!empty($logo_src)):
@@ -982,14 +1194,12 @@ $deactivated_count = count($deactivated_tenants);
                                                 </p>
                                             </td>
                                             <td class="px-8 py-5">
-                                                <div class="flex items-center gap-2 text-red-500/50">
-                                                    <span class="material-symbols-outlined text-sm">block</span>
-                                                    <span
-                                                        class="text-[9px] font-black uppercase italic tracking-wider">Deactivated
-                                                        Account</span>
-                                                </div>
-                                                <p class="text-[9px] text-[--text-main] opacity-60 mt-1 italic leading-tight">
-                                                    All login access for this tenant and its staff is revoked.</p>
+                                                <p class="text-xs font-bold text-red-400">
+                                                    <?= date('M d, Y', strtotime($t['updated_at'])) ?>
+                                                </p>
+                                                <p class="text-[9px] text-[--text-main] opacity-40 uppercase tracking-widest mt-1 italic leading-tight">
+                                                    <?= date('h:i A', strtotime($t['updated_at'])) ?>
+                                                </p>
                                             </td>
                                             <td class="px-8 py-5 text-right">
                                                 <form method="POST" action="../action/process_tenant.php">
@@ -1021,7 +1231,7 @@ $deactivated_count = count($deactivated_tenants);
             </div>
 
             <div id="section-rejected" class="hidden">
-                <?php if (!empty($rejected_apps)): ?>
+                <?php if (!empty($rejected_apps) || !empty($search) || !empty($date_from)): ?>
                     <div class="glass-card overflow-hidden mb-10 border border-white/5">
                         <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
                             <h4
@@ -1029,6 +1239,33 @@ $deactivated_count = count($deactivated_tenants);
                                 <span class="material-symbols-outlined">history</span>
                                 Rejected Applications
                             </h4>
+                        </div>
+
+                        <!-- Tab-Specific Filter Bar -->
+                        <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                            <form method="GET" class="flex flex-wrap items-center gap-4">
+                                <input type="hidden" name="tab" value="rejected">
+                                <div class="flex-1 min-w-[250px] relative group">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary/50 transition-transform group-hover:scale-110">search</span>
+                                    <input type="text" name="search" value="<?= $active_tab === 'rejected' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name or Applicant..." 
+                                           onchange="this.form.submit()" 
+                                           class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
+                                </div>
+                                <div class="w-[180px] relative group">
+                                    <select name="sort" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                        <option value="newest" <?= ($active_tab === 'rejected' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Rejected</option>
+                                        <option value="oldest" <?= ($active_tab === 'rejected' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Rejected</option>
+                                    </select>
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <input type="date" name="date_from" value="<?= $active_tab === 'rejected' ? htmlspecialchars($date_from) : '' ?>" onchange="this.form.submit()" title="Rejection Date From" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                                    <input type="date" name="date_to" value="<?= $active_tab === 'rejected' ? htmlspecialchars($date_to) : '' ?>" onchange="this.form.submit()" title="Rejection Date To" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                                </div>
+                                <a href="tenant_management.php?tab=rejected" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
+                                    <span class="material-symbols-outlined text-sm">refresh</span>
+                                </a>
+                            </form>
                         </div>
                         <div class="overflow-x-auto no-scrollbar">
                             <table class="w-full text-left">
@@ -1047,7 +1284,7 @@ $deactivated_count = count($deactivated_tenants);
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-3">
                                                     <div
-                                                        class="size-10 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden border border-white/5 shadow-inner shrink-0 grayscale opacity-40">
+                                                        class="size-10 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 grayscale opacity-40">
                                                         <?php if (!empty($app['gym_logo'])):
                                                             $r_logo = getLogoPath($app['gym_logo']);
                                                             ?>
@@ -1081,8 +1318,8 @@ $deactivated_count = count($deactivated_tenants);
                                             </td>
                                             <td class="px-8 py-5 text-right">
                                                 <button onclick="openApplicationModal(<?= $app['application_id'] ?>)"
-                                                    class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1">
-                                                    <span class="material-symbols-outlined text-sm">visibility</span> Details
+                                                    class="size-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-colors flex items-center justify-center group ml-auto" title="View Application Details">
+                                                    <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span>
                                                 </button>
                                             </td>
                                         </tr>
@@ -1113,36 +1350,53 @@ $deactivated_count = count($deactivated_tenants);
 
     <script>
         function switchTab(tabId) {
-            const sections = ['pending', 'registered', 'deactivated', 'rejected'];
+            const activeTabInput = document.getElementById('activeTabInput');
+            if (activeTabInput) {
+                activeTabInput.value = tabId;
+                document.getElementById('filterForm').submit();
+            } else {
+                // Fallback for JS-only switching if form doesn't exist
+                const sections = ['pending', 'registered', 'deactivated', 'rejected'];
+                sections.forEach(s => {
+                    const section = document.getElementById(`section-${s}`);
+                    const btn = document.getElementById(`tabBtn-${s}`);
+                    const indicator = document.getElementById(`tabIndicator-${s}`);
+                    if (!section || !btn || !indicator) return;
 
-            sections.forEach(s => {
-                const section = document.getElementById(`section-${s}`);
-                const btn = document.getElementById(`tabBtn-${s}`);
-                const indicator = document.getElementById(`tabIndicator-${s}`);
-
-                if (s === tabId) {
-                    section.classList.remove('hidden');
-                    btn.classList.add('text-primary');
-                    btn.classList.remove('opacity-50');
-                    indicator.classList.remove('opacity-0');
-                    indicator.classList.add('opacity-100');
-                } else {
-                    section.classList.add('hidden');
-                    btn.classList.add('opacity-50');
-                    btn.classList.remove('text-primary');
-                    indicator.classList.remove('opacity-100');
-                    indicator.classList.add('opacity-0');
-                }
-            });
+                    if (s === tabId) {
+                        section.classList.remove('hidden');
+                        btn.classList.add('text-primary');
+                        btn.classList.remove('opacity-50');
+                        indicator.classList.remove('opacity-0');
+                        indicator.classList.add('opacity-100');
+                    } else {
+                        section.classList.add('hidden');
+                        btn.classList.add('opacity-50');
+                        btn.classList.remove('text-primary');
+                        indicator.classList.remove('opacity-100');
+                        indicator.classList.add('opacity-0');
+                    }
+                });
+            }
         }
 
-        // Auto-switch tab based on URL parameter
+        // Initialize Tab based on URL parameter
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
-            const tab = urlParams.get('tab');
-            if (tab && ['pending', 'registered', 'deactivated', 'rejected'].includes(tab)) {
-                switchTab(tab);
-            }
+            const tab = urlParams.get('tab') || 'registered';
+            
+            // Note: switchTab(tab) here might cause a refresh loop if not careful,
+            // but since we are just setting UI state if it's already filtered, it's fine.
+            // However, the PHP already sets the active_tab class, so we just need to ensure the correct section is visible.
+            
+            const sections = ['pending', 'registered', 'deactivated', 'rejected'];
+            sections.forEach(s => {
+                const section = document.getElementById(`section-${s}`);
+                if (section) {
+                    if (s === tab) section.classList.remove('hidden');
+                    else section.classList.add('hidden');
+                }
+            });
 
             // Initialize Pagination for all tables
             initTablePagination('pendingTableBody', 'pagination-pending', 10);

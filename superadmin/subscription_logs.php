@@ -161,9 +161,10 @@ $active_page = "subscriptions";
 $search = $_GET['search'] ?? '';
 $sub_status = $_GET['sub_status'] ?? 'all';
 $pay_status = $_GET['pay_status'] ?? 'all';
-$date_from = $_GET['date_from'] ?? date('Y-m-01');
-$date_to = $_GET['date_to'] ?? date('Y-m-d');
-$active_tab = $_GET['tab'] ?? 'recent'; // Track active tab for persistence
+$sort_order = $_GET['sort'] ?? 'newest';
+$date_from = $_GET['date_from'] ?? '';
+$date_to = $_GET['date_to'] ?? '';
+$active_tab = $_GET['tab'] ?? 'recent'; 
 
 // 4-Color Elite Branding System: Fetching & Merging Settings
 if (!function_exists('hexToRgb')) {
@@ -213,6 +214,39 @@ $user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
 $brand = array_merge($global_configs, $user_configs);
 
 // --- FETCH LOGS WITH FILTERS ---
+$where = ["1=1"];
+$params = [];
+
+if (!empty($search)) {
+    $where[] = "(g.gym_name LIKE :s1 OR g.tenant_code LIKE :s2)";
+    $params['s1'] = $params['s2'] = "%$search%";
+}
+
+if ($active_tab !== 'pending') {
+    if ($sub_status !== 'all') {
+        $where[] = "cs.subscription_status = :sub_status";
+        $params['sub_status'] = $sub_status;
+    }
+    if ($pay_status !== 'all') {
+        $where[] = "cs.payment_status = :pay_status";
+        $params['pay_status'] = $pay_status;
+    }
+} else {
+    // Force Pending tab to only show pending
+    $where[] = "cs.payment_status = 'Pending'";
+}
+
+if (!empty($date_from)) {
+    $where[] = "cs.created_at >= :start";
+    $params['start'] = $date_from . ' 00:00:00';
+}
+if (!empty($date_to)) {
+    $where[] = "cs.created_at <= :end";
+    $params['end'] = $date_to . ' 23:59:59';
+}
+
+$order_direction = ($sort_order === 'oldest') ? 'ASC' : 'DESC';
+
 $query = "
     SELECT cs.*, 
            g.gym_name, g.tenant_code, g.owner_user_id,
@@ -225,31 +259,10 @@ $query = "
     JOIN gyms g ON cs.gym_id = g.gym_id
     JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
     LEFT JOIN payments p ON cs.client_subscription_id = p.client_subscription_id AND p.payment_type IN ('Subscription', 'Subscription Installment')
-    WHERE cs.created_at BETWEEN :start AND :end
+    WHERE " . implode(" AND ", $where) . "
+    ORDER BY cs.created_at $order_direction
 ";
 
-$params = [
-    'start' => $date_from . ' 00:00:00',
-    'end' => $date_to . ' 23:59:59'
-];
-
-if ($sub_status !== 'all') {
-    $query .= " AND cs.subscription_status = :sub_status";
-    $params['sub_status'] = $sub_status;
-}
-
-if ($pay_status !== 'all') {
-    $query .= " AND cs.payment_status = :pay_status";
-    $params['pay_status'] = $pay_status;
-}
-
-if (!empty($search)) {
-    $query .= " AND (g.gym_name LIKE :s1 OR g.tenant_code LIKE :s2)";
-    $params['s1'] = "%$search%";
-    $params['s2'] = "%$search%";
-}
-
-$query .= " ORDER BY cs.created_at DESC";
 $stmtLogs = $pdo->prepare($query);
 $stmtLogs->execute($params);
 $logs = $stmtLogs->fetchAll(PDO::FETCH_ASSOC);
@@ -503,49 +516,29 @@ foreach ($logs as $log) {
 
         function switchTab(tabId) {
             // Sections
-            const sections = ['section-recent', 'section-pending', 'section-history'];
+            const sections = ['recent', 'pending', 'history'];
             sections.forEach(s => {
-                const el = document.getElementById(s);
-                if (el) el.classList.add('hidden');
-            });
-            const activeSection = document.getElementById('section-' + tabId);
-            if (activeSection) activeSection.classList.remove('hidden');
-
-            // Buttons & Indicators
-            const tabs = ['recent', 'pending', 'history'];
-            tabs.forEach(t => {
-                const btn = document.getElementById('tabBtn-' + t);
-                const indicator = document.getElementById('tabIndicator-' + t);
+                const el = document.getElementById('section-' + s);
+                if (el) el.classList.toggle('hidden', s !== tabId);
+                
+                const btn = document.getElementById('tabBtn-' + s);
+                const indicator = document.getElementById('tabIndicator-' + s);
                 
                 if (btn) {
-                    btn.classList.remove('text-primary');
-                    btn.classList.add('text-[--text-main]', 'opacity-50');
+                    btn.classList.toggle('text-primary', s === tabId);
+                    btn.classList.toggle('text-[--text-main]', s !== tabId);
+                    btn.classList.toggle('opacity-50', s !== tabId);
                 }
-                if (indicator) indicator.classList.replace('opacity-100', 'opacity-0');
+                if (indicator) {
+                    indicator.classList.toggle('opacity-100', s === tabId);
+                    indicator.classList.toggle('opacity-0', s !== tabId);
+                }
             });
 
-            const activeBtn = document.getElementById('tabBtn-' + tabId);
-            const activeIndicator = document.getElementById('tabIndicator-' + tabId);
-            if (activeBtn) {
-                activeBtn.classList.add('text-primary');
-                activeBtn.classList.remove('text-[--text-main]', 'opacity-50');
-            }
-            if (activeIndicator) activeIndicator.classList.replace('opacity-0', 'opacity-100');
-
-            // Sync with hidden filter input
-            const tabInput = document.getElementById('activeTabInput');
-            if (tabInput) tabInput.value = tabId;
-
-            // Context-Aware Filter Visibility
-            const subFilter = document.getElementById('filterGroupSubStatus');
-            const payFilter = document.getElementById('filterGroupPayStatus');
-            if (tabId === 'pending') {
-                if (subFilter) subFilter.classList.add('hidden');
-                if (payFilter) payFilter.classList.add('hidden');
-            } else {
-                if (subFilter) subFilter.classList.remove('hidden');
-                if (payFilter) payFilter.classList.remove('hidden');
-            }
+            // Update URL without refreshing to maintain state
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabId);
+            window.history.replaceState({}, '', url);
         }
 
         function confirmAdminAction(form, title, message) {
@@ -637,60 +630,6 @@ foreach ($logs as $log) {
                 <?php unset($_SESSION['error_msg']); ?>
             </div>
         <?php endif; ?>
-        
-        <!-- DYNAMIC FILTERS (Restored & Corrected Position) -->
-        <div class="glass-card p-6 mb-8 border-white/5 shadow-2xl relative overflow-hidden">
-            <form method="GET" class="flex flex-wrap items-end gap-6 relative z-10" id="filterForm">
-                <input type="hidden" name="tab" id="activeTabInput" value="<?= htmlspecialchars($active_tab) ?>">
-                <div class="w-[320px]">
-                    <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Search Identifier</label>
-                    <div class="relative group">
-                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary transition-transform group-hover:scale-110">search</span>
-                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" 
-                               placeholder="Gym Name or Tenant Code..." 
-                               class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary focus:bg-white/[0.08] outline-none placeholder:text-white/20">
-                    </div>
-                </div>
-
-                <div id="filterGroupSubStatus" class="w-[180px] <?= $active_tab === 'pending' ? 'hidden' : '' ?>">
-                    <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Sub Status</label>
-                    <select name="sub_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
-                        <option value="all" <?= $sub_status === 'all' ? 'selected' : '' ?>>All Status</option>
-                        <option value="Active" <?= $sub_status === 'Active' ? 'selected' : '' ?>>Active Only</option>
-                        <option value="Expired" <?= $sub_status === 'Expired' ? 'selected' : '' ?>>Expired Only</option>
-                    </select>
-                </div>
-
-                <div id="filterGroupPayStatus" class="w-[180px] <?= $active_tab === 'pending' ? 'hidden' : '' ?>">
-                    <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">Payment Status</label>
-                    <select name="pay_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
-                        <option value="all" <?= $pay_status === 'all' ? 'selected' : '' ?> class="text-white">All Payments</option>
-                        <option value="Paid" <?= $pay_status === 'Paid' ? 'selected' : '' ?> class="text-emerald-400">Paid</option>
-                        <option value="Pending" <?= $pay_status === 'Pending' ? 'selected' : '' ?> class="text-amber-400">Pending</option>
-                        <option value="Rejected" <?= $pay_status === 'Rejected' ? 'selected' : '' ?> class="text-rose-400">Rejected</option>
-                    </select>
-                </div>
-
-                <div class="flex gap-4">
-                    <div class="w-[150px]">
-                        <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">From</label>
-                        <input type="date" name="date_from" value="<?= $date_from ?>" onchange="this.form.submit()" 
-                               class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none">
-                    </div>
-                    <div class="w-[150px]">
-                        <label class="text-[10px] font-black uppercase text-[--text-main] opacity-40 mb-3 block tracking-[0.2em] px-1">To</label>
-                        <input type="date" name="date_to" value="<?= $date_to ?>" onchange="this.form.submit()" 
-                               class="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs font-bold transition-all focus:border-primary outline-none">
-                    </div>
-                </div>
-
-                <div class="ml-auto">
-                    <a href="subscription_logs.php" title="Reset Filters" class="size-11 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:bg-white/10 hover:text-white transition-all flex items-center justify-center">
-                        <span class="material-symbols-outlined text-sm">refresh</span>
-                    </a>
-                </div>
-            </form>
-        </div>
 
         <!-- Layout Tabs (Tenant Style) -->
         <div class="flex items-center gap-8 mb-8 border-b border-white/5 px-2">
@@ -727,6 +666,42 @@ foreach ($logs as $log) {
                 <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
                     <h4 class="font-black italic uppercase text-sm tracking-tighter">Recent Logs (Last 7 Days)</h4>
                 </div>
+
+                <!-- Tab-Specific Filter Bar -->
+                <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                    <form method="GET" class="flex flex-wrap items-center gap-4">
+                        <input type="hidden" name="tab" value="recent">
+                        <div class="flex-1 min-w-[250px] relative group">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary/50 transition-transform group-hover:scale-110">search</span>
+                            <input type="text" name="search" value="<?= $active_tab === 'recent' ? htmlspecialchars($search) : '' ?>" placeholder="Search Gym or Code..." 
+                                   onchange="this.form.submit()" 
+                                   class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
+                        </div>
+                        <div class="w-[160px] relative group">
+                            <select name="pay_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                <option value="all" <?= ($active_tab === 'recent' && $pay_status === 'all') ? 'selected' : '' ?>>All Payments</option>
+                                <option value="Paid" <?= ($active_tab === 'recent' && $pay_status === 'Paid') ? 'selected' : '' ?>>Paid</option>
+                                <option value="Rejected" <?= ($active_tab === 'recent' && $pay_status === 'Rejected') ? 'selected' : '' ?>>Rejected</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                        </div>
+                        <div class="w-[160px] relative group">
+                            <select name="sub_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                <option value="all" <?= ($active_tab === 'recent' && $sub_status === 'all') ? 'selected' : '' ?>>All Sub Status</option>
+                                <option value="Active" <?= ($active_tab === 'recent' && $sub_status === 'Active') ? 'selected' : '' ?>>Active</option>
+                                <option value="Expired" <?= ($active_tab === 'recent' && $sub_status === 'Expired') ? 'selected' : '' ?>>Expired</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="date" name="date_from" value="<?= $active_tab === 'recent' ? htmlspecialchars($date_from) : '' ?>" onchange="this.form.submit()" title="From Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                            <input type="date" name="date_to" value="<?= $active_tab === 'recent' ? htmlspecialchars($date_to) : '' ?>" onchange="this.form.submit()" title="To Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                        </div>
+                        <a href="subscription_logs.php?tab=recent" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
+                            <span class="material-symbols-outlined text-sm">refresh</span>
+                        </a>
+                    </form>
+                </div>
                 <div class="overflow-x-auto no-scrollbar">
                     <table class="w-full text-left border-separate border-spacing-0">
                         <thead>
@@ -753,7 +728,7 @@ foreach ($logs as $log) {
                                     <tr class="hover:bg-white/5 transition-all">
                                         <td class="px-8 py-5">
                                             <div class="flex items-center gap-4">
-                                                <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden">
+                                                <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                                                     <?php if (!empty($log['gym_logo'])): ?>
                                                         <img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain">
                                                     <?php else: ?>
@@ -796,8 +771,8 @@ foreach ($logs as $log) {
                                         </td>
                                         <td class="px-8 py-5 text-right">
                                             <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" 
-                                                    class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-all">
-                                                View Details
+                                                    class="size-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-all flex items-center justify-center group ml-auto" title="View Details">
+                                                <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span>
                                             </button>
                                         </td>
                                     </tr>
@@ -823,6 +798,26 @@ foreach ($logs as $log) {
                         Awaiting Payment Approval
                     </h4>
                 </div>
+                
+                <!-- Tab-Specific Filter Bar -->
+                <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                    <form method="GET" class="flex flex-wrap items-center gap-4">
+                        <input type="hidden" name="tab" value="pending">
+                        <div class="flex-1 min-w-[250px] relative group">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-amber-500/50 transition-transform group-hover:scale-110">search</span>
+                            <input type="text" name="search" value="<?= $active_tab === 'pending' ? htmlspecialchars($search) : '' ?>" placeholder="Search Pending Gym..." 
+                                   onchange="this.form.submit()" 
+                                   class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-amber-500/50 outline-none text-[--text-main]">
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="date" name="date_from" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_from) : '' ?>" onchange="this.form.submit()" title="From Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                            <input type="date" name="date_to" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_to) : '' ?>" onchange="this.form.submit()" title="To Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                        </div>
+                        <a href="subscription_logs.php?tab=pending" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
+                            <span class="material-symbols-outlined text-sm">refresh</span>
+                        </a>
+                    </form>
+                </div>
                 <div class="overflow-x-auto no-scrollbar">
                     <table class="w-full text-left border-separate border-spacing-0">
                         <thead>
@@ -847,7 +842,7 @@ foreach ($logs as $log) {
                                     <tr class="hover:bg-white/5 transition-all">
                                         <td class="px-8 py-5">
                                             <div class="flex items-center gap-4">
-                                                <div class="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0 border border-amber-500/20 overflow-hidden">
+                                                <div class="size-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0 overflow-hidden">
                                                     <?php if (!empty($log['gym_logo'])): ?>
                                                         <img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain">
                                                     <?php else: ?>
@@ -866,8 +861,8 @@ foreach ($logs as $log) {
                                         <td class="px-8 py-5 text-right">
                                             <div class="inline-flex gap-2">
                                                 <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" 
-                                                        class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-all mr-2">
-                                                    Details
+                                                        class="size-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-all flex items-center justify-center group mr-2" title="View Details">
+                                                    <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span>
                                                 </button>
                                                 <form method="POST" class="confirm-form">
                                                     <input type="hidden" name="subscription_id" value="<?= $log['client_subscription_id'] ?>">
@@ -909,7 +904,50 @@ foreach ($logs as $log) {
         <div id="section-history" class="hidden">
             <div class="glass-card overflow-hidden">
                 <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                    <h4 class="font-black italic uppercase text-sm tracking-tighter">Enterprise Audit History</h4>
+                    <h4 class="font-black italic uppercase text-sm tracking-tighter text-white/50">Enterprise Audit History</h4>
+                </div>
+
+                <!-- Tab-Specific Filter Bar -->
+                <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                    <form method="GET" class="flex flex-wrap items-center gap-4">
+                        <input type="hidden" name="tab" value="history">
+                        <div class="flex-1 min-w-[250px] relative group">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary/50 transition-transform group-hover:scale-110">search</span>
+                            <input type="text" name="search" value="<?= $active_tab === 'history' ? htmlspecialchars($search) : '' ?>" placeholder="Search History..." 
+                                   onchange="this.form.submit()" 
+                                   class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
+                        </div>
+                        <div class="w-[160px] relative group">
+                            <select name="pay_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                <option value="all" <?= ($active_tab === 'history' && $pay_status === 'all') ? 'selected' : '' ?>>All Payments</option>
+                                <option value="Paid" <?= ($active_tab === 'history' && $pay_status === 'Paid') ? 'selected' : '' ?>>Paid</option>
+                                <option value="Rejected" <?= ($active_tab === 'history' && $pay_status === 'Rejected') ? 'selected' : '' ?>>Rejected</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                        </div>
+                        <div class="w-[160px] relative group">
+                            <select name="sub_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                <option value="all" <?= ($active_tab === 'history' && $sub_status === 'all') ? 'selected' : '' ?>>All Sub Status</option>
+                                <option value="Active" <?= ($active_tab === 'history' && $sub_status === 'Active') ? 'selected' : '' ?>>Active</option>
+                                <option value="Expired" <?= ($active_tab === 'history' && $sub_status === 'Expired') ? 'selected' : '' ?>>Expired</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                        </div>
+                        <div class="w-[160px] relative group">
+                            <select name="sort" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
+                                <option value="newest" <?= ($active_tab === 'history' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest First</option>
+                                <option value="oldest" <?= ($active_tab === 'history' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest First</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="date" name="date_from" value="<?= $active_tab === 'history' ? htmlspecialchars($date_from) : '' ?>" onchange="this.form.submit()" title="From Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                            <input type="date" name="date_to" value="<?= $active_tab === 'history' ? htmlspecialchars($date_to) : '' ?>" onchange="this.form.submit()" title="To Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
+                        </div>
+                        <a href="subscription_logs.php?tab=history" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10">
+                            <span class="material-symbols-outlined text-sm">refresh</span>
+                        </a>
+                    </form>
                 </div>
                 <div class="overflow-x-auto no-scrollbar">
                     <table class="w-full text-left border-separate border-spacing-0">
@@ -937,7 +975,7 @@ foreach ($logs as $log) {
                                     <tr class="hover:bg-white/5 transition-all">
                                         <td class="px-8 py-5">
                                             <div class="flex items-center gap-4">
-                                                <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10 overflow-hidden">
+                                                <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center shrink-0 overflow-hidden">
                                                     <?php if (!empty($log['gym_logo'])): ?>
                                                         <img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain">
                                                     <?php else: ?>
@@ -945,15 +983,15 @@ foreach ($logs as $log) {
                                                     <?php endif; ?>
                                                 </div>
                                                 <div>
-                                                    <p class="text-xs font-bold italic uppercase leading-none mb-1 text-white"><?= htmlspecialchars($log['gym_name']) ?></p>
-                                                    <p class="text-[--text-main] opacity-40 text-[9px] uppercase font-black italic"><?= htmlspecialchars($log['plan_name']) ?></p>
+                                                    <p class="text-sm font-black italic uppercase leading-none mb-1 text-white"><?= htmlspecialchars($log['gym_name']) ?></p>
+                                                    <p class="text-[--text-main] opacity-40 text-[10px] uppercase font-black italic"><?= htmlspecialchars($log['plan_name']) ?></p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="px-8 py-5 text-[10px] font-black uppercase italic opacity-40">
+                                        <td class="px-8 py-5 text-xs font-black uppercase italic opacity-60">
                                             <?= date('M d, Y', strtotime($log['start_date'])) ?>
                                         </td>
-                                        <td class="px-8 py-5 text-[10px] font-black uppercase italic">
+                                        <td class="px-8 py-5 text-xs font-black uppercase italic">
                                             <?php 
                                             $subClass = match($log['subscription_status']) {
                                                 'Active' => 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -961,19 +999,19 @@ foreach ($logs as $log) {
                                                 default => 'bg-white/5 text-gray-400 border-white/10'
                                             };
                                             ?>
-                                            <span class="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border <?= $subClass ?>">
+                                            <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border <?= $subClass ?>">
                                                 <?= $log['subscription_status'] ?>
                                             </span>
                                         </td>
                                         <td class="px-8 py-5">
-                                            <span class="text-[10px] font-black uppercase tracking-tighter <?= $log['payment_status'] === 'Paid' ? 'text-emerald-400' : ($log['payment_status'] === 'Rejected' ? 'text-rose-400' : 'text-amber-400') ?>">
+                                            <span class="text-xs font-black uppercase tracking-tighter <?= $log['payment_status'] === 'Paid' ? 'text-emerald-400' : ($log['payment_status'] === 'Rejected' ? 'text-rose-400' : 'text-amber-400') ?>">
                                                 <?= $log['payment_status'] ?>
                                             </span>
                                         </td>
                                         <td class="px-8 py-5 text-right">
                                             <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" 
-                                                    class="px-4 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-all">
-                                                Details
+                                                    class="size-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-all flex items-center justify-center group ml-auto" title="View Details">
+                                                <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span>
                                             </button>
                                         </td>
                                     </tr>
