@@ -207,7 +207,7 @@ $sevenDaysLater = date('Y-m-d', strtotime('+7 days'));
 // Handle dynamic filtering
 $category_filter = $_GET['category'] ?? 'all';
 $search = $_GET['search'] ?? '';
-$view = $_GET['view'] ?? 'active';
+$tab = $_GET['tab'] ?? 'active';
 $date_from = $_GET['date_from'] ?? '';
 $date_to = $_GET['date_to'] ?? '';
 
@@ -215,7 +215,7 @@ $query = "SELECT * FROM system_alerts WHERE 1=1";
 $params = [];
 
     // Status Filter (Tabs)
-    if ($view === 'history') {
+    if ($tab === 'history') {
         $query .= " AND status = 'Resolved'";
     } else {
         $query .= " AND status != 'Resolved'";
@@ -250,7 +250,7 @@ $params = [];
     $stmtAlerts->execute($params);
     $alerts = $stmtAlerts->fetchAll(PDO::FETCH_ASSOC);
 
-// Final Data Merging & Sorting (Production-Ready)
+// Final Data Merging & Sorting
 usort($alerts, function ($a, $b) {
     return strtotime($b['created_at']) <=> strtotime($a['created_at']);
 });
@@ -266,7 +266,10 @@ sort($available_categories);
 
 // Handle AJAX Request for Live Search
 if (isset($_GET['ajax'])) {
-    ?>
+    header('Content-Type: application/json');
+    $res = ['success' => true];
+    
+    ob_start(); ?>
     <div class="space-y-6 relative">
         <?php foreach ($alerts as $alert):
             $isHigh = ($alert['priority'] == 'High');
@@ -274,37 +277,31 @@ if (isset($_GET['ajax'])) {
             $icon = $isHigh ? 'report' : 'info';
             ?>
             <div class="group relative flex flex-col md:flex-row gap-8 items-start">
-                <div
-                    class="hidden md:flex size-14 rounded-xl glass-card shrink-0 items-center justify-center relative z-10 group-hover:border-primary/50 transition-colors">
-                    <span
-                        class="material-symbols-outlined <?= $isHigh ? 'text-rose-500' : 'text-primary' ?> text-xl"><?= $icon ?></span>
+                <div class="hidden md:flex size-14 rounded-xl glass-card shrink-0 items-center justify-center relative z-10 group-hover:border-primary/50 transition-colors">
+                    <span class="material-symbols-outlined <?= $isHigh ? 'text-rose-500' : 'text-primary' ?> text-xl"><?= $icon ?></span>
                 </div>
                 <div class="flex-1 glass-card p-6 group-hover:bg-white/[0.04] transition-all duration-500">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div class="flex flex-col gap-1">
                             <div class="flex items-center gap-3 mb-1">
-                                <span
-                                    class="text-[--text-main]/40 text-[9px] font-bold uppercase tracking-widest italic"><?= date('h:i A', strtotime($alert['created_at'])) ?></span>
+                                <span class="text-[--text-main]/40 text-[9px] font-bold uppercase tracking-widest italic"><?= date('h:i A', strtotime($alert['created_at'])) ?></span>
                             </div>
                             <h4 class="text-md font-black italic uppercase text-[--text-main] tracking-tight leading-none">
                                 <?= htmlspecialchars($alert['type']) ?>
                             </h4>
                             <p class="text-[--text-main]/60 text-xs mt-1 font-medium">
                                 <?php 
-                                    // Handle currency display: convert 'Php' or '?' to '₱' only on the UI level to avoid DB encoding issues
                                     $displayMsg = str_replace(['Php', '?'], '₱', $alert['message']);
                                     echo htmlspecialchars($displayMsg); 
                                 ?>
                             </p>
                             <div class="flex items-center gap-2 mt-3">
-                                <span
-                                    class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Source:</span>
-                                <span
-                                    class="text-[9px] font-black uppercase text-[--text-main] bg-white/5 px-2 py-0.5 rounded"><?= htmlspecialchars($alert['source']) ?></span>
+                                <span class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Source:</span>
+                                <span class="text-[9px] font-black uppercase text-[--text-main] bg-white/5 px-2 py-0.5 rounded"><?= htmlspecialchars($alert['source']) ?></span>
                             </div>
                         </div>
                         <div class="flex gap-2 shrink-0">
-                            <?php if ($view === 'active'): ?>
+                            <?php if ($tab === 'active'): ?>
                                 <button onclick="requestResolve(<?= json_encode($alert['alert_id']) ?>)"
                                     class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-emerald-500/20 hover:text-emerald-400 border border-white/5 transition-all group/btn"
                                     title="Resolve">
@@ -329,12 +326,13 @@ if (isset($_GET['ajax'])) {
         <?php endforeach; ?>
         <?php if (empty($alerts)): ?>
             <div class="glass-card p-12 text-center">
-                <p class="text-[--text-main]/40 text-xs font-bold uppercase tracking-widest italic">No alerts found matching
-                    your criteria.</p>
+                <p class="text-[--text-main]/40 text-xs font-bold uppercase tracking-widest italic">No alerts found matching your criteria.</p>
             </div>
         <?php endif; ?>
     </div>
     <?php
+    $res['table_html'] = ob_get_clean();
+    echo json_encode($res);
     exit;
 }
 
@@ -407,6 +405,12 @@ if (isset($_GET['ajax'])) {
             border-radius: 24px;
             backdrop-filter: blur(var(--card-blur));
             transition: all 0.3s ease;
+        }
+
+        .loading-active {
+            opacity: 0.5;
+            pointer-events: none;
+            transition: opacity 0.1s ease;
         }
 
         .sidebar-nav {
@@ -610,46 +614,93 @@ if (isset($_GET['ajax'])) {
             const to = form.querySelector('input[name="date_to"]');
             const today = new Date().toISOString().split('T')[0];
 
-            if (from.value && to.value && from.value > to.value) {
-                // If they conflict, reset the one that was just changed or just force them to match
-                // For better UX, we'll just let the reactive filter catch it or show a subtle correction
-            }
-
             if (from.value) to.min = from.value;
             if (to.value) from.max = to.value > today ? today : to.value;
-            
             to.max = today;
             if (!to.value) from.max = today;
         }
 
-        function reactiveFilter() {
+        async function reactiveFilter(immediate = false) {
             syncDateBounds();
             clearTimeout(filterTimeout);
-            filterTimeout = setTimeout(() => {
+
+            const executeFetch = async () => {
                 const form = document.getElementById('alertFilterForm');
                 if (!form) return;
 
                 const formData = new FormData(form);
                 const params = new URLSearchParams(formData);
-
                 const container = document.getElementById('alertsContainer');
-                if (container) container.style.opacity = '0.5';
+                
+                if (container) container.classList.add('loading-active');
 
-                fetch(`system_alerts.php?${params.toString()}&ajax=1`)
-                    .then(response => response.text())
-                    .then(html => {
-                        if (container) {
-                            container.innerHTML = html;
-                            container.style.opacity = '1';
-                            currentPage = 1; // Reset to page 1 on new filter
-                            initElitePagination();
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Filter error:', error);
-                        if (container) container.style.opacity = '1';
+                try {
+                    const response = await fetch(`system_alerts.php?${params.toString()}&ajax=1`);
+                    const data = await response.json();
+
+                    if (container) {
+                        container.innerHTML = data.table_html;
+                        currentPage = 1;
+                        initElitePagination();
+                    }
+
+                    // Sync URL State
+                    const url = new URL(window.location);
+                    params.forEach((value, key) => {
+                        url.searchParams.set(key, value);
                     });
-            }, 300);
+                    window.history.replaceState({}, '', url);
+
+                } catch (error) {
+                    console.error('Filter error:', error);
+                } finally {
+                    if (container) container.classList.remove('loading-active');
+                }
+            };
+
+            if (immediate) {
+                await executeFetch();
+            } else {
+                filterTimeout = setTimeout(executeFetch, 300);
+            }
+        }
+
+        function switchTab(tabId) {
+            // Update Active Tab UI
+            const tabs = ['active', 'history'];
+            tabs.forEach(t => {
+                const btn = document.getElementById('tabBtn-' + t);
+                const indicator = document.getElementById('tabIndicator-' + t);
+                if (btn) {
+                    btn.classList.toggle('text-primary', t === tabId);
+                    btn.classList.toggle('text-[--text-main]', t !== tabId);
+                    btn.classList.toggle('opacity-50', t !== tabId);
+                }
+                if (indicator) {
+                    indicator.classList.toggle('opacity-100', t === tabId);
+                    indicator.classList.toggle('opacity-0', t !== tabId);
+                }
+            });
+
+            // Update Form & Trigger Filter
+            const tabInput = document.getElementById('tabInput');
+            if (tabInput) tabInput.value = tabId;
+
+            const resolveAll = document.getElementById('resolveAllContainer');
+            if (resolveAll) resolveAll.classList.toggle('hidden', tabId !== 'active');
+
+            reactiveFilter(true);
+        }
+
+        function resetFilters() {
+            const form = document.getElementById('alertFilterForm');
+            if (!form) return;
+
+            form.querySelector('input[name="search"]').value = '';
+            form.querySelector('select[name="category"]').value = 'all';
+            form.querySelectorAll('input[type="date"]').forEach(d => d.value = '');
+
+            reactiveFilter(true);
         }
 
         function initElitePagination() {
@@ -790,96 +841,81 @@ if (isset($_GET['ajax'])) {
                 </script>
             <?php endif; ?>
 
-            <!-- Filters & Actions -->
-            <div class="flex flex-col gap-6 mb-8">
-                <!-- Row 1: Tab Navigation -->
-                <div class="flex items-center justify-between">
-                    <div class="flex p-1.5 glass-card rounded-2xl w-full lg:w-auto overflow-x-auto no-scrollbar">
-                        <a href="?view=active&search=<?= urlencode($search) ?>&date_from=<?= urlencode($date_from) ?>&date_to=<?= urlencode($date_to) ?>"
-                            class="<?= $view === 'active' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-[--text-main]/70 hover:bg-white/5' ?> flex-1 lg:flex-none text-center px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
-                            Active Alerts
-                        </a>
-                        <a href="?view=history&search=<?= urlencode($search) ?>&date_from=<?= urlencode($date_from) ?>&date_to=<?= urlencode($date_to) ?>"
-                            class="<?= $view === 'history' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-[--text-main]/70 hover:bg-white/5' ?> flex-1 lg:flex-none text-center px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap">
-                            Alert History
-                        </a>
+            <!-- Tab Navigation (Modern Text Style) -->
+            <div class="flex gap-10 mb-8 border-b border-white/5 px-2 relative -mt-4">
+                <button onclick="switchTab('active')" id="tabBtn-active" class="pb-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative group <?= $tab === 'active' ? 'text-primary' : 'text-[--text-main] opacity-50 hover:opacity-100' ?>">
+                    Active Alerts
+                    <div id="tabIndicator-active" class="absolute bottom-0 left-0 w-full h-0.5 bg-primary transition-all duration-150 <?= $tab === 'active' ? 'opacity-100' : 'opacity-0' ?>"></div>
+                </button>
+                <button onclick="switchTab('history')" id="tabBtn-history" class="pb-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative group <?= $tab === 'history' ? 'text-primary' : 'text-[--text-main] opacity-50 hover:opacity-100' ?>">
+                    Alert History
+                    <div id="tabIndicator-history" class="absolute bottom-0 left-0 w-full h-0.5 bg-primary transition-all duration-150 <?= $tab === 'history' ? 'opacity-100' : 'opacity-0' ?>"></div>
+                </button>
+            </div>
+
+            <!-- Unified Filter Bar [Elite Design Matches Image] -->
+            <div class="glass-card p-4 mb-10 border-white/5">
+                <form id="alertFilterForm" method="GET" class="flex flex-wrap items-center gap-4" onsubmit="event.preventDefault()">
+                    <input type="hidden" name="tab" id="tabInput" value="<?= htmlspecialchars($tab) ?>">
+                    
+                    <!-- Search -->
+                    <div class="flex-1 min-w-[280px] relative group">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-20 group-focus-within:opacity-100 transition-opacity">search</span>
+                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" 
+                               placeholder="Search Active Alerts..." 
+                               oninput="reactiveFilter()"
+                               class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main] placeholder:opacity-30">
                     </div>
-                </div>
 
-                <!-- Row 2: Filters & Actions -->
-                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <form method="GET" id="alertFilterForm" class="flex flex-col md:flex-row gap-4 w-full lg:w-auto"
-                        onsubmit="event.preventDefault(); reactiveFilter();">
-                        <input type="hidden" name="view" value="<?= htmlspecialchars($view) ?>">
-                        
-                        <!-- Search -->
-                        <div class="w-full md:w-64 glass-card p-1 px-5 flex items-center gap-3 rounded-2xl focus-within:border-primary/50 transition-all">
-                            <span class="material-symbols-outlined text-[--text-main]/40 text-sm">search</span>
-                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                                oninput="reactiveFilter()"
-                                onkeydown="if(event.key === 'Enter') { event.preventDefault(); reactiveFilter(); }"
-                                class="bg-transparent border-none outline-none text-[10px] text-[--text-main] w-full py-2.5 placeholder:text-[--text-main]/20 font-black uppercase tracking-widest"
-                                placeholder="SEARCH ALERTS...">
+                    <!-- Category -->
+                    <div class="w-[180px] relative group">
+                        <select name="category" onchange="reactiveFilter(true)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer [color-scheme:dark]">
+                            <option value="all" class="bg-[#14121a]">All Categories</option>
+                            <?php foreach ($available_categories as $cat): ?>
+                                <option value="<?= htmlspecialchars($cat) ?>" class="bg-[#14121a]" <?= $category_filter === $cat ? 'selected' : '' ?>><?= htmlspecialchars($cat) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-20 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                    </div>
+
+                    <!-- Date Range -->
+                    <div class="flex gap-2">
+                        <div class="relative">
+                            <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" 
+                                   onchange="reactiveFilter(true)" title="From Date" 
+                                   class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main] [color-scheme:dark]">
                         </div>
-
-                        <!-- Category -->
-                        <div class="relative w-full md:w-auto">
-                            <select name="category" onchange="reactiveFilter()"
-                                class="w-full md:w-64 appearance-none glass-card rounded-2xl px-6 pr-12 py-3.5 text-[10px] font-black uppercase tracking-widest text-[--text-main] focus:border-primary/50 focus:outline-none cursor-pointer hover:bg-white/[0.04] transition-all"
-                                style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(255,255,255,0.4)%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: 0.8rem;">
-                                <option value="all" class="bg-[--background]" <?= $category_filter == 'all' ? 'selected' : '' ?>>All Categories</option>
-                                <?php foreach ($available_categories as $cat): ?>
-                                    <option value="<?= htmlspecialchars($cat) ?>" class="bg-[--background]"
-                                        <?= $category_filter == $cat ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($cat) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
+                        <div class="relative">
+                            <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" 
+                                   onchange="reactiveFilter(true)" title="To Date" 
+                                   class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main] [color-scheme:dark]">
                         </div>
+                    </div>
 
-                        <!-- Date Range -->
-                        <div class="flex gap-2 w-full md:w-auto">
-                            <div class="flex-1 md:w-40 glass-card flex items-center px-4 rounded-2xl border-white/5 focus-within:border-primary/50 transition-all">
-                                <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" 
-                                    max="<?= !empty($date_to) ? min($date_to, date('Y-m-d')) : date('Y-m-d') ?>"
-                                    onchange="reactiveFilter()" title="From Date" 
-                                    class="bg-transparent border-none outline-none text-[10px] text-[--text-main] w-full py-3 placeholder:text-[--text-main]/20 font-black uppercase tracking-widest [color-scheme:dark] cursor-pointer text-center">
-                            </div>
-                            <div class="flex-1 md:w-40 glass-card flex items-center px-4 rounded-2xl border-white/5 focus-within:border-primary/50 transition-all">
-                                <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" 
-                                    min="<?= $date_from ?>"
-                                    max="<?= date('Y-m-d') ?>"
-                                    onchange="reactiveFilter()" title="To Date" 
-                                    class="bg-transparent border-none outline-none text-[10px] text-[--text-main] w-full py-3 placeholder:text-[--text-main]/20 font-black uppercase tracking-widest [color-scheme:dark] cursor-pointer text-center">
-                            </div>
-                        </div>
-                    </form>
+                    <!-- Reset -->
+                    <button type="button" onclick="resetFilters()" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[--text-main]/30 hover:text-white transition-all shadow-lg hover:bg-white/10" title="Reset Filters">
+                        <span class="material-symbols-outlined text-sm">refresh</span>
+                    </button>
 
-                    <div class="flex items-center gap-4 w-full lg:w-auto justify-end shrink-0">
-                        <a href="system_alerts.php?view=<?= urlencode($view) ?>"
-                            class="flex-1 md:flex-none px-6 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 hover:scale-105 transition-all flex items-center justify-center gap-2 text-[--text-main]/60 hover:text-white group">
-                            <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">filter_list_off</span>
-                            Clear Filter
-                        </a>
-
-                        <form method="POST" class="flex-1 md:flex-none">
-                            <button type="submit" name="clear_all"
-                                class="w-full px-6 py-3.5 bg-primary/10 border border-primary/20 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-primary/20 hover:scale-105 transition-all flex items-center justify-center gap-2 text-primary group underline-none">
-                                <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">task_alt</span>
-                                Resolve Alerts
+                    <!-- Action: Resolve All -->
+                    <div id="resolveAllContainer" class="<?= $tab === 'active' ? '' : 'hidden' ?>">
+                        <form method="POST" id="resolveAllForm">
+                            <input type="hidden" name="clear_all" value="1">
+                            <button type="button" onclick="confirmSystemAction(this.form, 'Resolve All Alerts', 'Mark all current alerts as resolved?')" 
+                                    class="h-12 px-6 rounded-xl bg-white/5 border border-white/10 text-rose-500/80 hover:text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all flex items-center gap-3">
+                                <span class="material-symbols-outlined text-sm">check</span>
+                                RESOLVE ALL
                             </button>
                         </form>
                     </div>
-                </div>
+                </form>
             </div>
 
             <div class="relative">
                 <!-- Timeline Line -->
-                <div
-                    class="absolute left-7 top-0 bottom-0 w-px bg-gradient-to-b from-primary/30 via-primary/5 to-transparent hidden md:block">
-                </div>
+                <div class="absolute left-7 top-0 bottom-0 w-px bg-gradient-to-b from-primary/30 via-primary/5 to-transparent hidden md:block"></div>
 
-                <div id="alertsContainer">
+                <div id="alertsContainer" class="transition-opacity duration-300">
                     <div class="space-y-6 relative">
                         <?php foreach ($alerts as $alert):
                             $isHigh = ($alert['priority'] == 'High');
@@ -1049,6 +1085,41 @@ if (isset($_GET['ajax'])) {
             document.getElementById('confirmResolveId').value = id;
             const modal = document.getElementById('confirmModal');
             const modalContent = modal.querySelector('.glass-card');
+
+            modal.classList.add('modal-active');
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95');
+                modalContent.classList.add('scale-100');
+            }, 10);
+        }
+
+        function confirmSystemAction(form, title, message) {
+            const modal = document.getElementById('confirmModal');
+            const modalContent = modal.querySelector('.glass-card');
+            
+            modal.querySelector('h3').textContent = title;
+            modal.querySelector('p').textContent = message;
+            
+            // Setup Form for one-time submit
+            const confirmForm = modal.querySelector('form');
+            confirmForm.onsubmit = (e) => {
+                // Remove the hidden resolve_id if we are doing a clear_all
+                const resolveIdInput = confirmForm.querySelector('#confirmResolveId');
+                if (form.querySelector('input[name="clear_all"]')) {
+                    resolveIdInput.disabled = true;
+                    // Inject a hidden clear_all input into the modal form
+                    let existing = confirmForm.querySelector('input[name="clear_all"]');
+                    if (!existing) {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'clear_all';
+                        input.value = '1';
+                        confirmForm.appendChild(input);
+                    }
+                } else {
+                    resolveIdInput.disabled = false;
+                }
+            };
 
             modal.classList.add('modal-active');
             setTimeout(() => {
