@@ -40,54 +40,103 @@ $active_page = "sales_report";
 // Get Filter Inputs (Default to current month)
 $date_from = $_GET['date_from'] ?? date('Y-m-01');
 $date_to = $_GET['date_to'] ?? date('Y-m-d');
+$tenant_filter = $_GET['tenant_id'] ?? 'all';
 $active_tab = $_GET['active_tab'] ?? 'historyTab';
 
+// Fetch Tenants for Filter Dropdown
+$tenants_list = $pdo->query("SELECT gym_id, gym_name FROM gyms WHERE status = 'Active' ORDER BY gym_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
 // 1. TOTAL SALES / REVENUE
-$stmtRev = $pdo->prepare("
-    SELECT SUM(wp.price) as total 
-    FROM client_subscriptions cs
-    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
-    WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end
-");
-$stmtRev->execute(['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59']);
+$rev_sql = "SELECT SUM(wp.price) as total 
+            FROM client_subscriptions cs
+            JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+            WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end";
+$rev_params = ['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59'];
+if ($tenant_filter !== 'all') {
+    $rev_sql .= " AND cs.gym_id = :tid";
+    $rev_params['tid'] = $tenant_filter;
+}
+$stmtRev = $pdo->prepare($rev_sql);
+$stmtRev->execute($rev_params);
 $total_revenue = $stmtRev->fetchColumn() ?? 0;
 
 // 2. SALES PER TENANT & TOP PERFORMERS
-$stmtTenantSales = $pdo->prepare("
-    SELECT g.gym_name, g.tenant_code, SUM(wp.price) as total_revenue, COUNT(cs.client_subscription_id) as transaction_count
-    FROM gyms g
-    JOIN client_subscriptions cs ON g.gym_id = cs.gym_id
-    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
-    WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end
-    GROUP BY g.gym_id
-    ORDER BY total_revenue DESC
-");
-$stmtTenantSales->execute(['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59']);
+$tenant_sql = "SELECT g.gym_name, g.tenant_code, SUM(wp.price) as total_revenue, COUNT(cs.client_subscription_id) as transaction_count
+               FROM gyms g
+               JOIN client_subscriptions cs ON g.gym_id = cs.gym_id
+               JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+               WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end";
+$tenant_params = ['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59'];
+if ($tenant_filter !== 'all') {
+    $tenant_sql .= " AND g.gym_id = :tid";
+    $tenant_params['tid'] = $tenant_filter;
+}
+$tenant_sql .= " GROUP BY g.gym_id ORDER BY total_revenue DESC";
+$stmtTenantSales = $pdo->prepare($tenant_sql);
+$stmtTenantSales->execute($tenant_params);
 $tenant_sales = $stmtTenantSales->fetchAll(PDO::FETCH_ASSOC);
 
 // 3. DAILY SALES (For Charting)
-$stmtDaily = $pdo->prepare("
-    SELECT DATE(cs.created_at) as sale_date, SUM(wp.price) as daily_amount 
-    FROM client_subscriptions cs
-    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
-    WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end 
-    GROUP BY DATE(cs.created_at) 
-    ORDER BY sale_date ASC
-");
-$stmtDaily->execute(['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59']);
+$daily_sql = "SELECT DATE(cs.created_at) as sale_date, SUM(wp.price) as daily_amount 
+              FROM client_subscriptions cs
+              JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+              WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end";
+$daily_params = ['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59'];
+if ($tenant_filter !== 'all') {
+    $daily_sql .= " AND cs.gym_id = :tid";
+    $daily_params['tid'] = $tenant_filter;
+}
+$daily_sql .= " GROUP BY DATE(cs.created_at) ORDER BY sale_date ASC";
+$stmtDaily = $pdo->prepare($daily_sql);
+$stmtDaily->execute($daily_params);
 $daily_sales = $stmtDaily->fetchAll(PDO::FETCH_ASSOC);
 
 // 4. TRANSACTION HISTORY SUMMARY
-$stmtHistory = $pdo->prepare("
-    SELECT cs.*, g.gym_name, wp.plan_name, wp.price 
-    FROM client_subscriptions cs
-    JOIN gyms g ON cs.gym_id = g.gym_id
-    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
-    WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end
-    ORDER BY cs.created_at DESC
-");
-$stmtHistory->execute(['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59']);
+$history_sql = "SELECT cs.*, g.gym_name, wp.plan_name, wp.price 
+                FROM client_subscriptions cs
+                JOIN gyms g ON cs.gym_id = g.gym_id
+                JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+                WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN :start AND :end";
+$history_params = ['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59'];
+if ($tenant_filter !== 'all') {
+    $history_sql .= " AND cs.gym_id = :tid";
+    $history_params['tid'] = $tenant_filter;
+}
+$history_sql .= " ORDER BY cs.created_at DESC";
+$stmtHistory = $pdo->prepare($history_sql);
+$stmtHistory->execute($history_params);
 $transactions = $stmtHistory->fetchAll(PDO::FETCH_ASSOC);
+
+
+// 5. ADDITIONAL ANALYTICS FOR PREMIUM CARDS
+// Pending Collections
+$pending_sql = "SELECT SUM(wp.price) 
+                FROM client_subscriptions cs
+                JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+                WHERE (cs.payment_status = 'Pending' OR cs.payment_status = 'Partially Paid') AND cs.created_at BETWEEN :start AND :end";
+$stmtPending = $pdo->prepare($pending_sql);
+$stmtPending->execute(['start' => $date_from . ' 00:00:00', 'end' => $date_to . ' 23:59:59']);
+$pending_amount = $stmtPending->fetchColumn() ?? 0;
+
+// Expiring Soon (Subscriptions ending in next 7 days)
+$expiring_soon_count = $pdo->query("
+    SELECT COUNT(*) 
+    FROM client_subscriptions 
+    WHERE subscription_status = 'Active' 
+    AND end_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+")->fetchColumn() ?? 0;
+
+// Today's Growth
+$today_start = date('Y-m-d 00:00:00');
+$today_end = date('Y-m-d 23:59:59');
+$stmtToday = $pdo->prepare("
+    SELECT SUM(wp.price) 
+    FROM client_subscriptions cs
+    JOIN website_plans wp ON cs.website_plan_id = wp.website_plan_id
+    WHERE cs.payment_status = 'Paid' AND cs.created_at BETWEEN ? AND ?
+");
+$stmtToday->execute([$today_start, $today_end]);
+$today_growth = $stmtToday->fetchColumn() ?? 0;
 
 // --- REAL TRANSACTION DATA SORTING ---
 usort($transactions, function ($a, $b) {
@@ -96,6 +145,7 @@ usort($transactions, function ($a, $b) {
 
 // Recalculate totals for analytics using database data
 $total_revenue = 0;
+$today_growth = 0; 
 $temp_tenant_sales = [];
 $temp_daily_sales = [];
 $filtered_transactions = []; // New array for strictly filtered display
@@ -104,13 +154,18 @@ foreach ($transactions as $t) {
     if ($t['created_at'] >= $date_from . ' 00:00:00' && $t['created_at'] <= $date_to . ' 23:59:59') {
         $total_revenue += $t['price'];
         $filtered_transactions[] = $t; // Add to display list
-        
+
+        // Check for Today's Growth
+        if (date('Y-m-d', strtotime($t['created_at'])) === date('Y-m-d')) {
+            $today_growth += $t['price'];
+        }
+
         if (!isset($temp_tenant_sales[$t['gym_name']])) {
             $temp_tenant_sales[$t['gym_name']] = ['gym_name' => $t['gym_name'], 'total_revenue' => 0, 'transaction_count' => 0];
         }
         $temp_tenant_sales[$t['gym_name']]['total_revenue'] += $t['price'];
         $temp_tenant_sales[$t['gym_name']]['transaction_count']++;
-        
+
         $d = date('Y-m-d', strtotime($t['created_at']));
         if (!isset($temp_daily_sales[$d])) {
             $temp_daily_sales[$d] = ['sale_date' => $d, 'daily_amount' => 0];
@@ -133,7 +188,7 @@ $daily_sales = [];
 while ($current_ts <= $end_ts) {
     $date_str = date('Y-m-d', $current_ts);
     $amount = $data_map[$date_str] ?? 0;
-    
+
     $daily_sales[] = [
         'sale_date' => $date_str,
         'daily_amount' => $amount
@@ -164,11 +219,119 @@ usort($tenant_sales, function ($a, $b) {
         rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
             theme: { extend: { colors: { "primary": "var(--primary)", "background": "var(--background)", "secondary": "var(--secondary)", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
         }
+    </script>
+    <?php
+    // Prepare Tenants for Searchable Dropdown
+    $tenants_js = array_map(function ($t) {
+        return ['id' => $t['gym_id'], 'name' => $t['gym_name']];
+    }, $tenants_list);
+    ?>
+    <script>
+        const availableTenants = <?= json_encode($tenants_js) ?>;
+        const currentTenantFilter = "<?= $tenant_filter ?>";
+    </script>
+    <style>
+        .searchable-dropdown-overlay {
+            background: var(--background);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(40px);
+            z-index: 100;
+            scrollbar-width: none;
+            margin-top: 0;
+        }
+
+        .searchable-dropdown-overlay::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tenant-option {
+            transition: background 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .tenant-option:hover {
+            background: rgba(var(--primary-rgb), 0.08);
+            border-color: rgba(var(--primary-rgb), 0.1);
+            color: var(--primary);
+        }
+
+        .tenant-option.selected {
+            background: var(--primary);
+            color: white;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            function initSearchableDropdown(containerId, inputId, dropdownId, listId, hiddenInputId, currentFilter) {
+                const container = document.getElementById(containerId);
+                const input = document.getElementById(inputId);
+                const dropdown = document.getElementById(dropdownId);
+                const list = document.getElementById(listId);
+                const hiddenInput = document.getElementById(hiddenInputId);
+
+                if (!container || !input || !dropdown || !list || !hiddenInput) return;
+
+                function renderOptions(filter = "") {
+                    // Ignore the default "All" labels when filtering
+                    const isAllLabel = filter === "All Tenants" || filter === "All System Tenants";
+                    const searchFilter = isAllLabel ? "" : filter.toLowerCase().trim();
+
+                    const filtered = availableTenants.filter(t =>
+                        t.name.toLowerCase().includes(searchFilter)
+                    );
+
+                    list.innerHTML = filtered.map(t => `
+                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${currentFilter == t.id ? 'selected' : 'text-white/60'}" 
+                             data-id="${t.id}" data-name="${t.name}">
+                            ${t.name}
+                        </div>
+                    `).join('') || `<div class="px-4 py-3 text-[9px] text-white/20 italic uppercase font-black">No tenant found...</div>`;
+                }
+
+                input.addEventListener('focus', () => {
+                    dropdown.classList.remove('hidden');
+                    const isAllLabel = input.value === "All Tenants" || input.value === "All System Tenants";
+                    renderOptions(isAllLabel ? "" : input.value);
+                });
+
+                input.addEventListener('input', (e) => {
+                    dropdown.classList.remove('hidden');
+                    renderOptions(e.target.value);
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!container.contains(e.target)) {
+                        dropdown.classList.add('hidden');
+                    }
+                });
+
+                container.addEventListener('click', (e) => {
+                    const option = e.target.closest('.tenant-option');
+                    if (option) {
+                        const id = option.dataset.id;
+                        const name = option.dataset.name || "All Tenants";
+
+                        hiddenInput.value = id;
+                        input.value = name;
+                        dropdown.classList.add('hidden');
+
+                        container.closest('form').submit();
+                    }
+                });
+            }
+
+            // Initialize dropdowns
+            initSearchableDropdown('tenantSearchContainer', 'tenantSearchInput', 'tenantDropdown', 'tenantOptionsList', 'hidden_tenant_id', currentTenantFilter);
+            initSearchableDropdown('ovTenantSearchContainer', 'ovTenantSearchInput', 'ovTenantDropdown', 'ovTenantOptionsList', 'hidden_ov_tenant_id', currentTenantFilter);
+        });
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
@@ -468,6 +631,11 @@ usort($tenant_sales, function ($a, $b) {
                 transform: translateY(0);
             }
         }
+
+        .status-card-green { border: 1px solid #10b981; background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(20,18,26,1) 100%); }
+        .status-card-amber { border: 1px solid #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(20,18,26,1) 100%); }
+        .status-card-red { border: 1px solid #ef4444; background: linear-gradient(135deg, rgba(239,68,68,0.05) 0%, rgba(20,18,26,1) 100%); }
+        .status-card-purple { border: 1px solid #8b5cf6; background: linear-gradient(135deg, rgba(139,92,246,0.05) 0%, rgba(20,18,26,1) 100%); }
     </style>
     <script>
         function updateHeaderClock() {
@@ -650,38 +818,6 @@ usort($tenant_sales, function ($a, $b) {
                 </div>
             </header>
 
-            <div class="glass-card mb-8 p-8">
-                <form method="GET" class="flex flex-wrap items-end gap-6">
-                    <input type="hidden" name="active_tab" class="active-tab-input" value="<?= $active_tab ?>">
-                    <div class="space-y-2 flex-1 min-w-[240px]">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Search
-                            Transaction</p>
-                        <div class="relative group">
-                            <span
-                                class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main]/40 group-focus-within:text-primary transition-colors">search</span>
-                            <input type="text" id="tableSearch" placeholder="Tenant name or ID..."
-                                class="input-field w-full pl-11">
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Start
-                            Date</p>
-                        <input type="date" name="date_from" value="<?= $date_from ?>" class="input-field">
-                    </div>
-                    <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">End Date
-                        </p>
-                        <input type="date" name="date_to" value="<?= $date_to ?>" class="input-field">
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <button type="submit"
-                            class="h-[46px] px-8 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20">Update
-                            Dates</button>
-                        <a href="sales_report.php"
-                            class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-white transition-colors">Clear</a>
-                    </div>
-                </form>
-            </div>
 
             <!-- Tab Navigation -->
             <div class="flex gap-8 border-b border-white/5 mb-8 px-2">
@@ -720,16 +856,79 @@ usort($tenant_sales, function ($a, $b) {
                             </button>
                         </div>
                     </div>
+
+                    <div class="px-8 py-4 border-b border-white/5 relative z-[60]">
+                        <form method="GET" class="flex flex-wrap items-center gap-4">
+                            <input type="hidden" name="active_tab" value="historyTab">
+
+                            <!-- Date Range -->
+                            <div class="flex gap-2 shrink-0">
+                                <input type="date" name="date_from" value="<?= $date_from ?>"
+                                    onchange="this.form.submit()"
+                                    class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                                <input type="date" name="date_to" value="<?= $date_to ?>" onchange="this.form.submit()"
+                                    class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                            </div>
+
+                            <!-- Searchable Tenant Selector -->
+                            <div class="w-[240px] relative group shrink-0" id="tenantSearchContainer">
+                                <input type="hidden" name="tenant_id" id="hidden_tenant_id"
+                                    value="<?= htmlspecialchars($tenant_filter) ?>">
+
+                                <div class="relative">
+                                    <span
+                                        class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <input type="text" id="tenantSearchInput" placeholder="Search Tenant..."
+                                        value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
+                                        autocomplete="off"
+                                        class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl pl-11 pr-10 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary/50">
+                                    <span
+                                        class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+
+                                <!-- Dropdown Overlay -->
+                                <div id="tenantDropdown"
+                                    class="absolute left-0 right-0 top-full z-[100] rounded-b-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                    <div class="p-1.5 space-y-0.5">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $tenant_filter === 'all' ? 'selected' : 'text-white/60' ?>"
+                                            data-id="all" data-name="All Tenants">
+                                            All Tenants
+                                        </div>
+                                        <div id="tenantOptionsList">
+                                            <!-- Filtered tenants injected here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="h-8 w-px bg-white/5 mx-2 shrink-0"></div>
+
+                            <!-- Search -->
+                            <div class="flex-1 min-w-[200px] relative group">
+                                <span
+                                    class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50 transition-transform group-hover:scale-110">search</span>
+                                <input type="text" id="tableSearch" placeholder="Search Table Body..."
+                                    class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-black transition-all focus:border-primary outline-none text-[--text-main]">
+                            </div>
+
+                            <a href="sales_report.php?active_tab=historyTab"
+                                class="h-[48px] w-[48px] rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-primary hover:bg-white/5 transition-all shadow-lg group"
+                                title="Reset All Filters">
+                                <span
+                                    class="material-symbols-outlined text-xl transition-transform group-hover:rotate-180 duration-500">refresh</span>
+                            </a>
+                        </form>
+                    </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left">
+                        <table class="w-full text-left" id="historyTable">
                             <thead>
                                 <tr
-                                    class="bg-background/50 text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest">
-                                    <th class="px-8 py-4">Tenant / ID</th>
+                                    class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
+                                    <th class="px-8 py-4">Tenant</th>
                                     <th class="px-8 py-4">Plan Type</th>
-                                    <th class="px-8 py-4">Amount</th>
-                                    <th class="px-8 py-4">Date</th>
-                                    <th class="px-8 py-4 text-right">Status</th>
+                                    <th class="px-8 py-4">Date of Payment</th>
+                                    <th class="px-8 py-4">Ref Number</th>
+                                    <th class="px-8 py-4 text-right">Amount</th>
                                 </tr>
                             </thead>
                             <tbody id="historyTableBody" class="divide-y divide-white/5">
@@ -747,26 +946,28 @@ usort($tenant_sales, function ($a, $b) {
                                                     class="text-sm font-bold text-[--text-main] group-hover:text-white transition-colors">
                                                     <?= htmlspecialchars($trx['gym_name']) ?>
                                                 </p>
-                                                <p
-                                                    class="text-[9px] text-[--text-main]/40 font-black uppercase italic tracking-widest">
-                                                    ID: <?= htmlspecialchars($trx['client_subscription_id']) ?></p>
                                             </td>
-                                            <td class="px-8 py-5 text-[10px] font-black text-[--text-main] uppercase italic">
+                                            <td class="px-8 py-5 text-[11px] font-black text-[--text-main] uppercase italic">
                                                 <?= htmlspecialchars($trx['plan_name']) ?>
                                             </td>
-                                            <td class="px-8 py-5 text-sm font-black text-primary">
-                                                ₱<?= number_format($trx['price'], 2) ?></td>
-                                            <td class="px-8 py-5 text-[10px] text-[--text-main]/40 font-bold uppercase">
+                                            <td class="px-8 py-5 text-[11px] text-[--text-main]/40 font-bold uppercase">
                                                 <?= date('M d, Y', strtotime($trx['created_at'])) ?>
                                             </td>
-                                            <td class="px-8 py-5 text-right">
-                                                <span
-                                                    class="px-3 py-1 rounded-full text-[9px] font-black uppercase italic bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Paid</span>
+                                            <td class="px-8 py-5 text-[11px] text-[--text-main]/60 font-black uppercase tracking-wider">
+                                                <?= htmlspecialchars($trx['client_subscription_id']) ?>
                                             </td>
+                                            <td class="px-8 py-5 text-right text-sm font-black text-primary" data-amount="<?= $trx['price'] ?>">
+                                                ₱<?= number_format($trx['price'], 2) ?></td>
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
+                            <tfoot>
+                                <tr class="bg-white/[0.02] border-t border-white/5 font-black uppercase tracking-widest">
+                                    <td colspan="4" class="px-8 py-6 text-left text-[--text-main]/40 italic text-sm">Total amount</td>
+                                    <td class="px-8 py-6 text-right text-primary text-sm font-black" id="tableTotalAmount">₱<?= number_format($total_revenue, 2) ?></td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
 
@@ -785,46 +986,125 @@ usort($tenant_sales, function ($a, $b) {
             </div>
 
             <div id="overviewTab" class="tab-content <?= ($active_tab == 'overviewTab') ? 'active' : '' ?>">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                    <div class="glass-card p-8 relative overflow-hidden group">
-                        <span
-                            class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">payments</span>
-                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 tracking-widest mb-2">
-                            Total Revenue</p>
-                        <h2 class="text-3xl font-black text-[--text-main] italic mt-2">
-                            ₱<?= number_format($total_revenue, 2) ?></h2>
-                        <p class="text-emerald-500 text-[10px] font-black uppercase mt-2 italic">Captured Payments</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                    <!-- Total Revenue Card -->
+                    <div class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+                        <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-emerald-500 group-hover:scale-110 transition-transform">payments</span>
+                        <p class="text-[10px] font-black uppercase text-emerald-500/70 mb-2 tracking-widest">Total Revenue</p>
+                        <h3 class="text-2xl font-black italic uppercase text-emerald-400">₱<?= number_format($total_revenue, 2) ?></h3>
+                        <p class="text-emerald-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Verified Collections</p>
                     </div>
-                    <div class="glass-card p-8 relative overflow-hidden group border-primary/20 bg-primary/5">
-                        <span
-                            class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">receipt_long</span>
-                        <p class="text-[10px] font-black uppercase text-primary/70 tracking-widest mb-2">Transactions
-                        </p>
-                        <h2 class="text-3xl font-black text-[--text-main] italic mt-2"><?= count($transactions) ?></h2>
-                        <p class="text-primary text-[10px] font-black uppercase mt-2 italic">Success Rate 100%</p>
+
+                    <!-- Pending Collections Card -->
+                    <div class="glass-card p-8 status-card-amber relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+                        <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-amber-500 group-hover:scale-110 transition-transform">pending_actions</span>
+                        <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending Collections</p>
+                        <h3 class="text-2xl font-black italic uppercase text-amber-400">₱<?= number_format($pending_amount, 2) ?></h3>
+                        <p class="text-amber-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Awaiting Processing</p>
                     </div>
-                    <div class="glass-card p-8 relative overflow-hidden group">
-                        <span
-                            class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">star</span>
-                        <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 tracking-widest mb-2">
-                            Top Tenant</p>
-                        <h2 class="text-2xl font-black text-[--text-main] italic mt-2">
-                            <?= $tenant_sales[0]['gym_name'] ?? 'N/A' ?>
-                        </h2>
-                        <p class="text-amber-500 text-[10px] font-black uppercase mt-2 italic">Highest Performance</p>
+
+                    <!-- Expiring Soon Card -->
+                    <div class="glass-card p-8 status-card-red relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+                        <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-red-500 group-hover:scale-110 transition-transform">event_upcoming</span>
+                        <p class="text-[10px] font-black uppercase text-red-500/70 mb-2 tracking-widest">Expiring Soon</p>
+                        <h3 class="text-2xl font-black italic uppercase text-red-400"><?= $expiring_soon_count ?> GYMS</h3>
+                        <p class="text-red-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Next 7 Days Forecast</p>
+                    </div>
+
+                    <!-- Today's Growth Card -->
+                    <div class="glass-card p-8 status-card-purple relative overflow-hidden group hover:scale-[1.02] transition-all duration-300">
+                        <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-purple-500 group-hover:scale-110 transition-transform">trending_up</span>
+                        <p class="text-[10px] font-black uppercase text-purple-500/70 mb-2 tracking-widest">Today's Growth</p>
+                        <h3 class="text-2xl font-black italic uppercase text-purple-400">₱<?= number_format($today_growth, 2) ?></h3>
+                        <p class="text-purple-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic"><?= date('M d') ?> Snapshot</p>
+                    </div>
+                </div>
+
+                <!-- Modernized Overview Filter Bar (Moved below 3 cards) -->
+                <div class="glass-card mb-10 relative z-[80]">
+                    <div class="px-8 py-4 border-b border-white/5 flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <span class="material-symbols-outlined text-primary text-xl">analytics</span>
+                            <div>
+                                <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-white">Analytics
+                                    Scoping</h4>
+                                <p class="text-[9px] opacity-40 font-black uppercase tracking-widest mt-0.5">Isolated
+                                    Environment Control</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-8 py-4 relative z-[60]">
+                        <form method="GET" class="flex flex-wrap items-center gap-4">
+                            <input type="hidden" name="active_tab" value="overviewTab">
+
+                            <!-- Date Range -->
+                            <div class="flex gap-3">
+                                <input type="date" name="date_from" value="<?= $date_from ?>"
+                                    onchange="this.form.submit()" title="From Date"
+                                    class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                                <input type="date" name="date_to" value="<?= $date_to ?>" onchange="this.form.submit()"
+                                    title="To Date"
+                                    class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                            </div>
+
+                            <!-- Searchable Tenant Selector (Overview) -->
+                            <div class="w-[240px] relative group shrink-0" id="ovTenantSearchContainer">
+                                <input type="hidden" name="tenant_id" id="hidden_ov_tenant_id"
+                                    value="<?= htmlspecialchars($tenant_filter) ?>">
+
+                                <div class="relative">
+                                    <span
+                                        class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <input type="text" id="ovTenantSearchInput" placeholder="Search Tenant..."
+                                        value="<?= $tenant_filter === 'all' ? 'All System Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All System Tenants') ?>"
+                                        autocomplete="off"
+                                        class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl pl-11 pr-10 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary/50">
+                                    <span
+                                        class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+
+                                <!-- Dropdown Overlay -->
+                                <div id="ovTenantDropdown"
+                                    class="absolute left-0 right-0 top-full z-[100] rounded-b-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                    <div class="p-1.5 space-y-0.5">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $tenant_filter === 'all' ? 'selected' : 'text-white/60' ?>"
+                                            data-id="all" data-name="All System Tenants">
+                                            All System Tenants
+                                        </div>
+                                        <div id="ovTenantOptionsList">
+                                            <!-- Filtered tenants injected here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="h-8 w-px bg-white/5 mx-2 shrink-0"></div>
+
+                            <div class="flex-1 flex justify-end">
+                                <a href="sales_report.php?active_tab=overviewTab"
+                                    class="h-[48px] w-[48px] rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-primary hover:bg-white/5 transition-all shadow-lg group"
+                                    title="Reset Analytics Filters">
+                                    <span
+                                        class="material-symbols-outlined text-xl transition-transform group-hover:rotate-180 duration-500">refresh</span>
+                                </a>
+                            </div>
+                        </form>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
                     <div class="lg:col-span-2 glass-card p-8">
-                        <h3 class="text-sm font-black italic uppercase tracking-widest text-primary mb-8">Sales Performance Trend</h3>
+                        <h3 class="text-sm font-black italic uppercase tracking-widest text-primary mb-8">Sales
+                            Performance Trend</h3>
                         <div class="h-[450px]">
                             <canvas id="salesTrendChart"></canvas>
                         </div>
                     </div>
 
                     <div class="glass-card p-8 flex flex-col">
-                        <h3 class="text-sm font-black italic uppercase tracking-widest text-primary mb-6">Sales Per Tenant</h3>
+                        <h3 class="text-sm font-black italic uppercase tracking-widest text-primary mb-6">Sales Per
+                            Tenant</h3>
                         <div class="space-y-4 overflow-y-auto no-scrollbar max-h-[500px]">
                             <?php if (empty($tenant_sales)): ?>
                                 <p class="text-xs text-[--text-main]/40 italic font-bold text-center mt-10 uppercase">No
@@ -855,72 +1135,207 @@ usort($tenant_sales, function ($a, $b) {
     </div>
 
     <script>    const ctx = document.getElementById('salesTrendChart').getContext('2d');
-    let salesChart;
+        let salesChart;
 
-    function initChart() {
-        if (salesChart) salesChart.destroy();
-        
-        salesChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [<?php foreach($daily_sales as $ds) echo "'" . date('M d', strtotime($ds['sale_date'])) . "',"; ?>],
-                datasets: [{
-                    label: 'Daily Revenue',
-                    data: [<?php foreach($daily_sales as $ds) echo $ds['daily_amount'] . ","; ?>],
-                    borderColor: '<?= $configs['theme_color'] ?? '#8c2bee' ?>',
-                    backgroundColor: 'rgba(<?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 4,
-                    pointBackgroundColor: '<?= $configs['theme_color'] ?? '#8c2bee' ?>',
-                    pointBorderColor: 'rgba(255,255,255,0.2)',
-                    pointBorderWidth: 2,
-                    pointHoverRadius: 7,
-                    pointHoverBackgroundColor: '<?= $configs['theme_color'] ?? '#8c2bee' ?>',
-                    pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
-                        border: { display: false },
-                        ticks: { color: 'rgba(255,255,255,0.4)', font: { family: 'Lexend', size: 9, weight: '800' } }
-                    },
-                    x: {
-                        grid: { display: false },
-                        border: { display: false },
-                        ticks: { color: 'rgba(255,255,255,0.4)', font: { family: 'Lexend', size: 9, weight: '800' } }
+        function initChart() {
+            if (salesChart) salesChart.destroy();
+
+            salesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [<?php foreach ($daily_sales as $ds)
+                        echo "'" . date('M d', strtotime($ds['sale_date'])) . "',"; ?>],
+                    datasets: [{
+                        label: 'Daily Revenue',
+                        data: [<?php foreach ($daily_sales as $ds)
+                            echo $ds['daily_amount'] . ","; ?>],
+                        borderColor: '<?= $configs['theme_color'] ?? '#8c2bee' ?>',
+                        backgroundColor: 'rgba(<?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointBackgroundColor: '<?= $configs['theme_color'] ?? '#8c2bee' ?>',
+                        pointBorderColor: 'rgba(255,255,255,0.2)',
+                        pointBorderWidth: 2,
+                        pointHoverRadius: 7,
+                        pointHoverBackgroundColor: '<?= $configs['theme_color'] ?? '#8c2bee' ?>',
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.03)', drawBorder: false },
+                            border: { display: false },
+                            ticks: { color: 'rgba(255,255,255,0.4)', font: { family: 'Lexend', size: 9, weight: '800' } }
+                        },
+                        x: {
+                            grid: { display: false },
+                            border: { display: false },
+                            ticks: { color: 'rgba(255,255,255,0.4)', font: { family: 'Lexend', size: 9, weight: '800' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Tab Switcher with Chart Update
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+            document.getElementById(tabId).classList.add('active');
+            const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick')?.includes(tabId));
+            if (activeBtn) activeBtn.classList.add('active');
+
+            document.querySelector('.active-tab-input').value = tabId;
+
+            if (tabId === 'overviewTab') {
+                setTimeout(() => {
+                    initChart();
+                    if (salesChart) salesChart.resize();
+                }, 100);
+            }
+        }
+
+        function exportReportToPDF(preview = false) {
+            const element = document.getElementById('historyTab');
+            const reportTitle = "Sales & Revenue Report";
+            const tenantName = "Horizon System";
+            const generatedAt = "<?= date('M d, Y h:i A') ?>";
+            const period = "Period: <?= date('M d, Y', strtotime($date_from)) ?> - <?= date('M d, Y', strtotime($date_to)) ?>";
+
+            const wrapper = document.createElement('div');
+            wrapper.style.padding = '50px';
+            wrapper.style.color = '#333';
+            wrapper.style.backgroundColor = '#fff';
+            wrapper.style.fontFamily = "'Inter', 'Helvetica Neue', Arial, sans-serif";
+
+            const header = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+                <div style="text-align: left;">
+                    <h1 style="font-size: 28px; font-weight: 800; color: #111; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: -0.5px; line-height: 1;">${tenantName}</h1>
+                    <p style="margin: 0 0 3px 0; font-size: 10px; color: #666;">Baliwag, Bulacan, Philippines, 3006</p>
+                    <p style="margin: 0; font-size: 10px; color: #666;">Phone: 0976-241-1986 | Email: horizonfitnesscorp@gmail.com</p>
+                </div>
+                <div style="text-align: right;">
+                    <h2 style="font-size: 18px; font-weight: 800; color: #111; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: -0.5px; line-height: 1;">${reportTitle}</h2>
+                    <p style="margin: 0 0 4px 0; font-size: 10px; color: #666;">${period}</p>
+                    <p style="margin: 0 0 4px 0; font-size: 10px; color: #666;">Generated on: ${generatedAt}</p>
+                    <p style="margin: 0; font-size: 9px; font-weight: 800; color: #888; text-transform: uppercase; letter-spacing: 1px;">OFFICIAL FINANCIAL REPORT</p>
+                </div>
+            </div>
+            <div style="border-bottom: 2px solid #111; margin-bottom: 30px;"></div>
+        `;
+
+            const contentClone = element.cloneNode(true);
+            contentClone.querySelectorAll('button, form, span.material-symbols-outlined, header, div.border-b, .dataTables_info, .dataTables_paginate, [id$="PaginationUI"], [id$="paginationStatus"]').forEach(el => el.remove());
+
+            Array.from(contentClone.querySelectorAll('*')).forEach(el => {
+                if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
+                    if (el.textContent.includes('Showing ') && el.textContent.includes(' entries')) {
+                        el.remove();
+                    }
+                }
+            });
+
+            [contentClone, ...contentClone.querySelectorAll('*')].forEach(el => {
+                el.removeAttribute('class');
+                el.style.setProperty('color', '#000000', 'important');
+                el.style.setProperty('background-color', 'transparent', 'important');
+                el.style.setProperty('border-radius', '0', 'important');
+                el.style.setProperty('box-shadow', 'none', 'important');
+                el.style.setProperty('text-shadow', 'none', 'important');
+                el.style.setProperty('filter', 'none', 'important');
+                el.style.setProperty('opacity', '1', 'important');
+                el.style.setProperty('visibility', 'visible', 'important');
+            });
+
+            const table = contentClone.querySelector('table');
+            if (table) {
+                table.style.setProperty('width', '100%', 'important');
+                table.style.setProperty('border-collapse', 'collapse', 'important');
+                table.style.setProperty('font-size', '10px', 'important');
+                table.style.setProperty('color', '#333333', 'important');
+                table.style.setProperty('border', 'none', 'important');
+                table.style.setProperty('font-family', "'Inter', 'Helvetica Neue', Arial, sans-serif", 'important');
+                table.style.setProperty('margin-top', '20px', 'important');
+
+                table.querySelectorAll('th').forEach(th => {
+                    th.style.setProperty('background-color', '#f8f9fa', 'important');
+                    th.style.setProperty('color', '#111111', 'important');
+                    th.style.setProperty('border-bottom', '2px solid #222222', 'important');
+                    th.style.setProperty('border-top', '1px solid #dddddd', 'important');
+                    th.style.setProperty('padding', '12px 14px', 'important');
+                    th.style.setProperty('text-transform', 'uppercase', 'important');
+                    th.style.setProperty('font-weight', '700', 'important');
+                    th.style.setProperty('text-align', 'left', 'important');
+                });
+
+                table.querySelectorAll('tr').forEach(tr => {
+                    tr.style.setProperty('display', 'table-row', 'important');
+                });
+
+                table.querySelectorAll('td').forEach(td => {
+                    td.style.setProperty('border-bottom', '1px solid #eeeeee', 'important');
+                    td.style.setProperty('padding', '12px 14px', 'important');
+                    td.style.setProperty('color', '#444444', 'important');
+                    td.style.setProperty('background-color', '#ffffff', 'important');
+                });
+
+                const tfoot = table.querySelector('tfoot');
+                if (tfoot) {
+                    const tfootRow = tfoot.querySelector('tr');
+                    if (tfootRow) {
+                        tfootRow.style.setProperty('background-color', '#fdfdfd', 'important');
+                        tfootRow.style.setProperty('border-top', '2px solid #222222', 'important');
+                        tfootRow.querySelectorAll('td').forEach(td => {
+                            td.style.setProperty('font-weight', '900', 'important');
+                            td.style.setProperty('color', '#000', 'important');
+                            td.style.setProperty('font-size', '12px', 'important');
+                        });
                     }
                 }
             }
-        });
-    }
 
-    // Tab Switcher with Chart Update
-    function switchTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        
-        document.getElementById(tabId).classList.add('active');
-        const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.getAttribute('onclick')?.includes(tabId));
-        if (activeBtn) activeBtn.classList.add('active');
-        
-        document.querySelector('.active-tab-input').value = tabId;
+            const footer = document.createElement('div');
+            footer.style.marginTop = '60px';
+            footer.style.textAlign = 'center';
+            footer.style.fontSize = '9px';
+            footer.style.color = '#000';
+            footer.style.borderTop = '1px solid #000';
+            footer.style.paddingTop = '15px';
+            footer.innerHTML = `
+                <p style="margin: 0; font-weight: bold;">CONFIDENTIAL FINANCIAL DOCUMENT - FOR INTERNAL USE ONLY</p>
+                <p style="margin: 0;">&copy; ${new Date().getFullYear()} Horizon System. All Rights Reserved.</p>
+            `;
 
-        if (tabId === 'overviewTab') {
-            setTimeout(() => {
-                initChart();
-                if (salesChart) salesChart.resize();
-            }, 100);
+            wrapper.innerHTML = header;
+            wrapper.appendChild(contentClone);
+            wrapper.appendChild(footer);
+
+            const opt = {
+                margin: [0.3, 0.3],
+                filename: `Sales_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 1.0 },
+                html2canvas: { scale: 3, backgroundColor: '#ffffff', useCORS: true, letterRendering: true },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+
+            if (preview) {
+                html2pdf().set(opt).from(wrapper).toPdf().get('pdf').then(function (pdf) {
+                    window.open(pdf.output('bloburl'), '_blank');
+                });
+            } else {
+                html2pdf().set(opt).from(wrapper).save();
+            }
         }
-    }
 
         // --- Elite Client-Side Pagination Engine with Live Search ---
         function initElitePagination(tbodyId, paginationUiId, rowsPerPage = 10, searchInputId = null) {
@@ -1001,6 +1416,16 @@ usort($tenant_sales, function ($a, $b) {
 
                 status.textContent = `Showing ${start + 1} to ${end} of ${totalRows} entries`;
 
+                // Update total sum based on filtered rows
+                const tableTotalAmount = document.getElementById('tableTotalAmount');
+                if (tableTotalAmount) {
+                    const totalSum = filteredRows.reduce((sum, row) => {
+                        const amountCell = row.querySelector('[data-amount]');
+                        return sum + (parseFloat(amountCell?.getAttribute('data-amount')) || 0);
+                    }, 0);
+                    tableTotalAmount.textContent = `₱${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2 }).format(totalSum)}`;
+                }
+
                 container.innerHTML = '';
 
                 // Prev Button
@@ -1033,10 +1458,10 @@ usort($tenant_sales, function ($a, $b) {
         }
 
         // Initialize after DOM loads
-    window.addEventListener('DOMContentLoaded', () => {
-        initElitePagination('historyTableBody', 'historyPaginationUI', 10, 'tableSearch');
-        initChart();
-    });
+        window.addEventListener('DOMContentLoaded', () => {
+            initElitePagination('historyTableBody', 'historyPaginationUI', 10, 'tableSearch');
+            initChart();
+        });
     </script>
 </body>
 
