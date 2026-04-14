@@ -46,6 +46,11 @@ $date_to = $_GET['date_to'] ?? date('Y-m-d');
 $tenant_filter = $_GET['tenant_id'] ?? 'all';
 $active_tab = $_GET['active_tab'] ?? 'detailedTab';
 
+// --- NEW FILTER INPUTS ---
+$search = $_GET['search'] ?? '';
+$status_filter = $_GET['status'] ?? 'all';
+$pay_status_filter = $_GET['pay_status'] ?? 'all';
+
 // 1. Fetch Tenants for Filter Dropdown
 $tenants_list = $pdo->query("SELECT gym_id, gym_name FROM gyms WHERE status = 'Active' ORDER BY gym_name ASC")->fetchAll();
 
@@ -143,9 +148,19 @@ switch ($report_type) {
                 FROM gym_owner_applications a 
                 JOIN users u ON a.user_id = u.user_id 
                 LEFT JOIN users r ON a.reviewed_by = r.user_id
-                WHERE a.submitted_at BETWEEN :start AND :end ORDER BY a.submitted_at DESC";
+                WHERE a.submitted_at BETWEEN :start AND :end";
+        $params = $date_params;
+        if ($status_filter !== 'all') {
+            $sql .= " AND a.application_status = :status";
+            $params['status'] = $status_filter;
+        }
+        if (!empty($search)) {
+            $sql .= " AND (a.gym_name LIKE :search OR a.business_name LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search)";
+            $params['search'] = "%$search%";
+        }
+        $sql .= " ORDER BY a.submitted_at DESC";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute($date_params);
+        $stmt->execute($params);
         $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         break;
 
@@ -156,35 +171,53 @@ switch ($report_type) {
                 JOIN users u ON cs.owner_user_id = u.user_id 
                 JOIN website_plans p ON cs.website_plan_id = p.website_plan_id
                 WHERE cs.created_at BETWEEN :start AND :end";
-        if ($tenant_filter !== 'all') {
-            $sql .= " AND cs.gym_id = :tid";
-        }
-        $stmt = $pdo->prepare($sql);
         $params = $date_params;
         if ($tenant_filter !== 'all') {
+            $sql .= " AND cs.gym_id = :tid";
             $params['tid'] = $tenant_filter;
         }
+        if ($status_filter !== 'all') {
+            $sql .= " AND cs.subscription_status = :status";
+            $params['status'] = $status_filter;
+        }
+        if ($pay_status_filter !== 'all') {
+            $sql .= " AND cs.payment_status = :pay_status";
+            $params['pay_status'] = $pay_status_filter;
+        }
+        if (!empty($search)) {
+            $sql .= " AND (g.gym_name LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search OR p.plan_name LIKE :search)";
+            $params['search'] = "%$search%";
+        }
+        $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         break;
 
     default: // tenant_activity
+        $where = ["1=1"];
+        $params = $date_params;
+        if ($tenant_filter !== 'all') {
+            $where[] = "g.gym_id = :tid";
+            $params['tid'] = $tenant_filter;
+        }
+        if ($status_filter !== 'all') {
+            $where[] = "g.status = :status";
+            $params['status'] = $status_filter;
+        }
+        if (!empty($search)) {
+            $where[] = "(g.gym_name LIKE :search OR g.tenant_code LIKE :search)";
+            $params['search'] = "%$search%";
+        }
+
         $sql = "SELECT g.gym_name, g.tenant_code, g.status, g.created_at as joined_date,
                  COUNT(DISTINCT m.member_id) as member_count,
                  COUNT(DISTINCT al.audit_log_id) as activity_count
                  FROM gyms g
                  LEFT JOIN members m ON g.gym_id = m.gym_id
                  LEFT JOIN audit_logs al ON g.gym_id = al.gym_id AND al.created_at BETWEEN :start AND :end
-                 WHERE 1=1";
-        if ($tenant_filter !== 'all') {
-            $sql .= " AND g.gym_id = :tid";
-        }
-        $sql .= " GROUP BY g.gym_id ORDER BY activity_count DESC";
+                 WHERE " . implode(" AND ", $where) . "
+                 GROUP BY g.gym_id ORDER BY activity_count DESC";
         $stmt = $pdo->prepare($sql);
-        $params = $date_params;
-        if ($tenant_filter !== 'all') {
-            $params['tid'] = $tenant_filter;
-        }
         $stmt->execute($params);
         $report_data = $stmt->fetchAll(PDO::FETCH_ASSOC);
         break;
@@ -460,13 +493,13 @@ switch ($report_type) {
             background: rgba(var(--primary-rgb), 0.05);
         }
 
-        .premium-select option, .input-field option {
+        .premium-select option, .input-field option, select option {
             background-color: #14121a;
             color: white;
             padding: 10px;
         }
 
-        .input-field {
+        .input-field, select {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
@@ -477,6 +510,7 @@ switch ($report_type) {
             transition: all 0.2s;
             backdrop-filter: blur(10px);
             appearance: none;
+            color-scheme: dark;
         }
 
         .input-field:hover {
@@ -715,44 +749,6 @@ switch ($report_type) {
                 </div>
             </header>
 
-            <div class="glass-card mb-8 p-8">
-                <form method="GET" class="flex flex-wrap items-end gap-6 report-form">
-                    <input type="hidden" name="active_tab" class="active-tab-input" value="<?= $active_tab ?>">
-                    <input type="hidden" name="report_type" value="<?= $report_type ?>">
-                    <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Date From
-                        </p>
-                        <input type="date" name="date_from" value="<?= $date_from ?>" class="input-field" onchange="this.form.submit()">
-                    </div>
-                    <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Date To
-                        </p>
-                        <input type="date" name="date_to" value="<?= $date_to ?>" class="input-field" onchange="this.form.submit()">
-                    </div>
-                    <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Select
-                            Tenant</p>
-                        <div class="relative group premium-select-container">
-                            <select name="tenant_id" class="input-field cursor-pointer pr-10 w-full min-w-[200px]" onchange="this.form.submit()">
-                                <option value="all">All Tenants</option>
-                                <?php foreach ($tenants_list as $gt): ?>
-                                    <option value="<?= $gt['gym_id'] ?>" <?= $tenant_filter == $gt['gym_id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($gt['gym_name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary text-base pointer-events-none group-hover:scale-110 transition-transform">expand_more</span>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <button type="submit"
-                            class="h-[42px] px-8 rounded-xl bg-primary text-white text-[10px] font-black uppercase italic tracking-widest hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20">Generate
-                            Report</button>
-                        <a href="system_reports.php"
-                            class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-white transition-colors">Clear
-                            Filters</a>
-                    </div>
-                </form>
-            </div>
 
             <!-- Tab Navigation -->
             <div class="flex gap-8 border-b border-white/5 mb-8 px-2">
@@ -796,6 +792,9 @@ switch ($report_type) {
                                 <input type="hidden" name="tenant_id" value="<?= $tenant_filter ?>">
                                 <input type="hidden" name="active_tab" class="active-tab-input"
                                     value="<?= $active_tab ?>">
+                                <input type="hidden" name="search" value="<?= htmlspecialchars($search) ?>">
+                                <input type="hidden" name="status" value="<?= htmlspecialchars($status_filter) ?>">
+                                <input type="hidden" name="pay_status" value="<?= htmlspecialchars($pay_status_filter) ?>">
 
                                 <div class="relative group premium-select-container">
                                     <select name="report_type" onchange="this.form.submit()"
@@ -809,6 +808,10 @@ switch ($report_type) {
                                         class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary text-base pointer-events-none group-hover:scale-110 transition-transform">expand_more</span>
                                 </div>
                             </form>
+                             <a href="system_reports.php?report_type=<?= $report_type ?>&active_tab=detailedTab" 
+                                class="size-10 rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-primary hover:bg-white/5 transition-all shadow-lg group" title="Reset All Filters">
+                                <span class="material-symbols-outlined text-xl transition-transform group-hover:rotate-180 duration-500">refresh</span>
+                             </a>
                             <button onclick="exportReportToPDF(true)"
                                 class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
                                 <span class="material-symbols-outlined text-sm">visibility</span>
@@ -820,6 +823,83 @@ switch ($report_type) {
                                 Export PDF
                             </button>
                         </div>
+                    </div>
+
+                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                        <form method="GET" class="flex flex-wrap items-center gap-4">
+                            <!-- Consolidated Filters -->
+                            <input type="hidden" name="active_tab" value="detailedTab">
+                            <input type="hidden" name="report_type" value="<?= $report_type ?>">
+
+                            <!-- Date Range -->
+                            <div class="flex gap-2 shrink-0">
+                                <input type="date" name="date_from" value="<?= $date_from ?>" onchange="this.form.submit()" title="From Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all">
+                                <input type="date" name="date_to" value="<?= $date_to ?>" onchange="this.form.submit()" title="To Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all">
+                            </div>
+
+                            <!-- Tenant Selector -->
+                            <div class="w-[220px] relative group shrink-0">
+                                <select name="tenant_id" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
+                                    <option value="all">All Tenants</option>
+                                    <?php foreach ($tenants_list as $gt): ?>
+                                        <option value="<?= $gt['gym_id'] ?>" <?= $tenant_filter == $gt['gym_id'] ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($gt['gym_name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-primary/60 pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+
+                            <div class="h-8 w-px bg-white/5 mx-2 shrink-0"></div>
+
+                            <!-- Search -->
+                            <div class="flex-1 min-w-[200px] relative group">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50 transition-transform group-hover:scale-110">search</span>
+                                <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search Table Body..." 
+                                       onchange="this.form.submit()" 
+                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-black transition-all focus:border-primary outline-none text-[--text-main]">
+                            </div>
+
+                            <!-- Contextual Status -->
+                            <?php if ($report_type === 'gym_apps'): ?>
+                                <div class="w-[200px] relative group shrink-0">
+                                    <select name="status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
+                                        <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Apps Status</option>
+                                        <option value="Pending" <?= $status_filter === 'Pending' ? 'selected' : '' ?>>Pending</option>
+                                        <option value="Approved" <?= $status_filter === 'Approved' ? 'selected' : '' ?>>Approved</option>
+                                        <option value="Rejected" <?= $status_filter === 'Rejected' ? 'selected' : '' ?>>Rejected</option>
+                                    </select>
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none">expand_more</span>
+                                </div>
+                            <?php elseif ($report_type === 'client_subs'): ?>
+                                <div class="w-[180px] relative group shrink-0">
+                                    <select name="status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
+                                        <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Sub Status</option>
+                                        <option value="Active" <?= $status_filter === 'Active' ? 'selected' : '' ?>>Active</option>
+                                        <option value="Inactive" <?= $status_filter === 'Inactive' ? 'selected' : '' ?>>Inactive</option>
+                                        <option value="Expired" <?= $status_filter === 'Expired' ? 'selected' : '' ?>>Expired</option>
+                                    </select>
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none">expand_more</span>
+                                </div>
+                                <div class="w-[180px] relative group shrink-0">
+                                    <select name="pay_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
+                                        <option value="all" <?= $pay_status_filter === 'all' ? 'selected' : '' ?>>All Pay Status</option>
+                                        <option value="Paid" <?= $pay_status_filter === 'Paid' ? 'selected' : '' ?>>Paid</option>
+                                        <option value="Pending" <?= $pay_status_filter === 'Pending' ? 'selected' : '' ?>>Pending</option>
+                                        <option value="Rejected" <?= $pay_status_filter === 'Rejected' ? 'selected' : '' ?>>Rejected</option>
+                                    </select>
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none">expand_more</span>
+                                </div>
+                            <?php else: // tenant_activity ?>
+                                <div class="w-[200px] relative group shrink-0">
+                                    <select name="status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
+                                        <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Gym Status</option>
+                                        <option value="Active" <?= $status_filter === 'Active' ? 'selected' : '' ?>>Active</option>
+                                        <option value="Inactive" <?= $status_filter === 'Inactive' ? 'selected' : '' ?>>Inactive</option>
+                                    </select>
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none">expand_more</span>
+                                </div>
+                            <?php endif; ?>
+                        </form>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
@@ -962,6 +1042,33 @@ switch ($report_type) {
 
             <!-- Tab 2: Analytics Overview -->
             <div id="overviewTab" class="tab-content <?= ($active_tab == 'overviewTab') ? 'active' : '' ?>">
+                <!-- Content Filter Bar -->
+                <div class="glass-card mb-8 p-4 px-8 flex justify-between items-center bg-white/[0.01]">
+                    <div class="flex items-center gap-4">
+                        <span class="material-symbols-outlined text-primary/50 text-xl">tune</span>
+                        <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/60">Analytics Scoping</h4>
+                    </div>
+                    <form method="GET" class="flex items-center gap-4">
+                        <input type="hidden" name="active_tab" value="overviewTab">
+                        <input type="hidden" name="report_type" value="<?= $report_type ?>">
+                        
+                        <div class="flex gap-2">
+                            <input type="date" name="date_from" value="<?= $date_from ?>" onchange="this.form.submit()" class="bg-white/5 border border-white/10 rounded-xl py-3 px-6 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all">
+                            <input type="date" name="date_to" value="<?= $date_to ?>" onchange="this.form.submit()" class="bg-white/5 border border-white/10 rounded-xl py-3 px-6 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all">
+                        </div>
+
+                        <div class="w-[240px] relative group">
+                            <select name="tenant_id" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-6 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
+                                <option value="all">All System Tenants</option>
+                                <?php foreach ($tenants_list as $gt): ?>
+                                    <option value="<?= $gt['gym_id'] ?>" <?= $tenant_filter == $gt['gym_id'] ? 'selected' : '' ?>><?= htmlspecialchars($gt['gym_name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-base text-primary opacity-60 pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                        </div>
+                    </form>
+                </div>
+
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
                     <!-- Primary Chart (2/3 Column) -->
                     <div class="lg:col-span-2 glass-card p-8">
