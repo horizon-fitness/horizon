@@ -52,6 +52,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Handle Availability Check (AJAX)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'check_availability') {
+    try {
+        $email = $_POST['email'] ?? '';
+        $username = $_POST['username'] ?? '';
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = ? OR username = ?");
+        $stmt->execute([$email, $username]);
+        echo json_encode(['exists' => $stmt->fetchColumn() > 0]);
+    } catch (Exception $e) {
+        echo json_encode(['exists' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // Pull messages from session if exists
 if (isset($_SESSION['success_msg'])) {
     $success_msg = $_SESSION['success_msg'];
@@ -222,19 +236,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 
 // Handle New Superadmin Creation
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_superadmin'])) {
-    $username = trim($_POST['new_username']);
     $first_name = trim($_POST['new_first_name']);
     $middle_name = trim($_POST['new_middle_name'] ?? '');
     $last_name = trim($_POST['new_last_name']);
     $email = trim($_POST['new_email']);
+    // Username and Password will be auto-generated
     $contact_number = trim($_POST['new_contact_number']);
     $birth_date = trim($_POST['new_birth_date']);
     $sex = trim($_POST['new_sex']);
-    $password = $_POST['new_password'];
-    $confirm_password = $_POST['confirm_new_password'];
+    // Password will be auto-generated
+    $sex = trim($_POST['new_sex']);
 
     try {
-        if (empty($username) || empty($first_name) || empty($last_name) || empty($email) || empty($password) || empty($contact_number)) {
+        if (empty($first_name) || empty($last_name) || empty($email) || empty($contact_number)) {
             throw new Exception("Required fields are missing.");
         }
 
@@ -259,21 +273,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_superadmin'])) {
             throw new Exception("Birth date cannot be a future date.");
         }
 
-        if ($password !== $confirm_password) {
-            throw new Exception("Passwords do not match.");
-        }
-        if (strlen($password) < 8) {
-            throw new Exception("Password must be at least 8 characters long.");
+
+        // --- Username Generation ---
+        $username = strtolower($first_name . '.' . $last_name);
+        $username = preg_replace('/[^a-z0-9.]/', '', $username); // Sanitize
+
+        $stmtCheckUser = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ?");
+        $stmtCheckUser->execute([$username]);
+        if ($stmtCheckUser->fetchColumn() > 0) {
+            $username .= rand(10, 99);
         }
 
-        if (strtolower($username) === strtolower($email)) {
-            throw new Exception("Username and Email address cannot be the same for security reasons.");
-        }
+        // --- Password Generation ---
+        $password = bin2hex(random_bytes(6)); // Generates a secure random 12-char hex string
 
-        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = ? OR username = ?");
-        $stmtCheck->execute([$email, $username]);
+        $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = ?");
+        $stmtCheck->execute([$email]);
         if ($stmtCheck->fetchColumn() > 0) {
-            throw new Exception("Email or Username already exists.");
+            throw new Exception("Email address already exists.");
         }
 
         $pdo->beginTransaction();
@@ -632,19 +649,20 @@ $active_page = "settings";
             right: 0;
             bottom: 0;
             left: 110px;
-            z-index: 200;
             background: rgba(10, 9, 13, 0.85);
             backdrop-filter: blur(12px);
+            z-index: 200;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 60px 40px;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        #superadminModal.active,
-        #superadminReviewModal.active,
-        #confirmActionModal.active,
-        #planViewModal.active {
+        /* Responsive Modal Positioning - State Classes */
+        #superadminModal.flex,
+        #superadminReviewModal.flex,
+        #confirmActionModal.flex,
+        #planViewModal.flex {
             display: flex !important;
         }
 
@@ -655,9 +673,18 @@ $active_page = "settings";
             left: 300px;
         }
 
+        #superadminModal .glass-card,
+        #superadminReviewModal .glass-card,
+        #confirmActionModal .glass-card,
+        #planViewModal .glass-card {
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
         /* Improved Modal responsiveness and padding with hidden scrollbar */
         .modal-content-scroll {
-            max-height: calc(90vh - 40px);
+            flex: 1;
             overflow-y: auto;
             -ms-overflow-style: none;
             /* IE and Edge */
@@ -773,7 +800,7 @@ $active_page = "settings";
 
             <?php if (isset($success_msg)): ?>
                 <div id="successAlert"
-                    class="mb-6 px-8 h-[46px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center justify-between transition-all duration-700 select-none">
+                    class="mb-6 px-8 h-[46px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[12px] font-bold rounded-xl flex items-center justify-between transition-all duration-700 select-none">
                     <div class="flex items-center gap-3">
                         <span class="material-symbols-outlined text-sm text-emerald-500">check_circle</span>
                         <span><?= $success_msg ?></span>
@@ -787,7 +814,7 @@ $active_page = "settings";
 
             <?php if (isset($error_msg)): ?>
                 <div id="errorAlert"
-                    class="mb-6 px-8 h-[46px] bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center justify-between transition-all duration-700 select-none">
+                    class="mb-6 px-8 h-[46px] bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[12px] font-bold rounded-xl flex items-center justify-between transition-all duration-700 select-none">
                     <div class="flex items-center gap-3">
                         <span class="material-symbols-outlined text-sm text-rose-500">warning</span>
                         <span><?= $error_msg ?></span>
@@ -823,10 +850,10 @@ $active_page = "settings";
                     </button>
 
                     <button type="button" onclick="toggleSuperadminModal(true)"
-                        class="bg-primary hover:bg-primary/90 px-8 h-[46px] rounded-xl text-[12px] font-black uppercase tracking-widest transition-all border border-white/10 shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95 group shrink-0">
+                        class="bg-primary hover:bg-primary/90 px-8 h-[46px] rounded-xl text-[--tab-active-text] text-[12px] font-black uppercase tracking-widest transition-all border border-white/10 shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95 group shrink-0">
                         <span
                             class="material-symbols-outlined text-lg text-[--highlight] group-hover:scale-110 transition-transform">person_add</span>
-                        <span class="text-[--text-main]">Create Superadmin</span>
+                        <span>Create Superadmin</span>
                     </button>
                 </div>
             </div>
@@ -914,6 +941,20 @@ $active_page = "settings";
                                                 class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
                                             <span id="text_hex_display"
                                                 class="text-[10px] font-black uppercase text-gray-400"><?= $configs['text_color'] ?? '#D1D5DB' ?></span>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col gap-1.5">
+                                        <label
+                                            class="text-[11px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Active
+                                            Text</label>
+                                        <div
+                                            class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
+                                            <input type="color" id="tab_active_text_input" name="tab_active_text"
+                                                oninput="updateLiveBranding()"
+                                                value="<?= htmlspecialchars($configs['tab_active_text'] ?? '#ffffff') ?>"
+                                                class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
+                                            <span id="tab_active_text_hex_display"
+                                                class="text-[10px] font-black uppercase text-gray-400"><?= $configs['tab_active_text'] ?? '#FFFFFF' ?></span>
                                         </div>
                                     </div>
                                     <div class="flex flex-col gap-1.5">
@@ -1078,7 +1119,8 @@ $active_page = "settings";
                                 <div class="glass-card p-8 flex flex-col gap-6 relative group/plan transition-all duration-300"
                                     id="plan-card-<?= $plan['website_plan_id'] ?>" data-id="<?= $plan['website_plan_id'] ?>">
                                     <!-- Drag Handle -->
-                                    <div class="absolute top-2 right-1/2 translate-x-1/2 opacity-0 group-hover/plan:opacity-30 hover:!opacity-100 transition-all cursor-grab active:cursor-grabbing drag-handle py-1 px-4 rounded-full bg-white/5 active:bg-primary/20" title="Drag to reorder">
+                                    <div class="absolute top-2 right-1/2 translate-x-1/2 opacity-0 group-hover/plan:opacity-30 hover:!opacity-100 transition-all cursor-grab active:cursor-grabbing drag-handle py-1 px-4 rounded-full bg-white/5 active:bg-primary/20"
+                                        title="Drag to reorder">
                                         <span class="material-symbols-outlined text-sm">drag_handle</span>
                                     </div>
                                     <div class="flex items-center justify-between">
@@ -1340,14 +1382,14 @@ $active_page = "settings";
 
     <!-- START OF MODALS -->
     <div id="superadminModal" class="modal-overlay" onclick="if(event.target === this) toggleSuperadminModal(false)">
-        <div class="glass-card w-full max-w-2xl p-0 relative overflow-hidden backdrop-blur-2xl">
+        <div class="glass-card w-full max-w-xl p-0 relative overflow-hidden backdrop-blur-2xl">
             <button onclick="toggleSuperadminModal(false)"
                 class="absolute top-8 right-8 size-10 rounded-xl bg-white/5 flex items-center justify-center text-[--secondary] hover:text-white transition-all z-20 hover:scale-110 active:scale-95">
                 <span class="material-symbols-outlined text-xl">close</span>
             </button>
 
-            <div class="modal-content-scroll p-10">
-                <div class="flex items-center gap-4 mb-8">
+            <div class="modal-content-scroll p-8">
+                <div class="flex items-center gap-4 mb-6">
                     <div class="size-12 rounded-2xl bg-primary/10 flex items-center justify-center">
                         <span class="material-symbols-outlined text-[--highlight] text-2xl">person_add</span>
                     </div>
@@ -1362,11 +1404,11 @@ $active_page = "settings";
 
                 <form action="" method="POST" id="superadminCreationForm">
                     <input type="hidden" name="add_superadmin" value="1">
-                    <div class="space-y-8">
+                    <div class="space-y-5">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="flex flex-col gap-1">
                                 <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">First
-                                    Name</label>
+                                    Name <span class="text-rose-500 ml-1">*</span></label>
                                 <input type="text" name="new_first_name" id="new_first_name" required
                                     class="input-field" placeholder="John">
                             </div>
@@ -1378,7 +1420,7 @@ $active_page = "settings";
                             </div>
                             <div class="flex flex-col gap-1">
                                 <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Last
-                                    Name</label>
+                                    Name <span class="text-rose-500 ml-1">*</span></label>
                                 <input type="text" name="new_last_name" id="new_last_name" required class="input-field"
                                     placeholder="Doe">
                             </div>
@@ -1386,126 +1428,53 @@ $active_page = "settings";
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="flex flex-col gap-1">
-                                <label
-                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Username</label>
-                                <input type="text" name="new_username" id="new_username" required class="input-field"
-                                    placeholder="superadmin_dev" autocomplete="off">
-                            </div>
-                            <div class="flex flex-col gap-1">
                                 <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Email
-                                    Address</label>
+                                    Address <span class="text-rose-500 ml-1">*</span></label>
                                 <input type="email" name="new_email" id="new_email" required class="input-field"
                                     placeholder="example@gmail.com" autocomplete="off">
                             </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="flex flex-col gap-1">
                                 <label
                                     class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Contact
-                                    Number</label>
+                                    Number <span class="text-rose-500 ml-1">*</span></label>
                                 <input type="text" name="new_contact_number" id="new_contact_number" required
                                     class="input-field" placeholder="09XX-XXX-XXXX" oninput="formatContactNumber(this)">
                             </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="flex flex-col gap-1">
                                 <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Birth
-                                    Date</label>
+                                    Date <span class="text-rose-500 ml-1">*</span></label>
                                 <input type="date" name="new_birth_date" id="new_birth_date" required
-                                    class="input-field" max="<?= date('Y-m-d') ?>">
+                                    class="input-field" max="<?= date('Y-m-d', strtotime('-18 years')) ?>">
                             </div>
                             <div class="flex flex-col gap-1">
-                                <label
-                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Sex</label>
+                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Sex
+                                    <span class="text-rose-500 ml-1">*</span></label>
                                 <select name="new_sex" id="new_sex" required class="input-field cursor-pointer">
                                     <option value="">Select Sex</option>
                                     <option value="Male">Male</option>
                                     <option value="Female">Female</option>
-                                    <option value="Other">Other</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div class="p-8 rounded-3xl bg-white/5 border border-white/5 space-y-6 mt-10 shadow-inner">
+                        <div class="p-8 rounded-3xl bg-primary/5 border border-primary/10 space-y-4 mt-4">
                             <h4
-                                class="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
-                                <span class="material-symbols-outlined text-base text-[--highlight]">security</span>
-                                Security Protocol
+                                class="text-[12px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                                <span class="material-symbols-outlined text-base">mail</span>
+                                Password Protocol
                             </h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="flex flex-col gap-1">
-                                    <label
-                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Password</label>
-                                    <div class="relative group/pass">
-                                        <input type="password" name="new_password" id="new_password" required
-                                            class="input-field w-full pr-12" placeholder="Min. 8 characters"
-                                            oninput="checkStrength(this.value)" autocomplete="new-password">
-                                        <button type="button" onclick="togglePassword('new_password', 'icon_new')"
-                                            class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
-                                            <span class="material-symbols-outlined text-lg"
-                                                id="icon_new">visibility_off</span>
-                                        </button>
-                                    </div>
-                                    <div class="h-1 w-full bg-white/5 rounded-full mt-2 overflow-hidden">
-                                        <div id="strength-bar" class="h-full w-0 transition-all duration-300"></div>
-                                    </div>
-                                    <p id="strength-text"
-                                        class="text-[8px] font-black uppercase tracking-widest mt-1 min-h-[10px]"></p>
-                                    <div
-                                        class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 mt-3 transition-all duration-500">
-                                        <div id="req-length"
-                                            class="flex items-center gap-2 text-gray-600 transition-colors">
-                                            <span
-                                                class="material-symbols-outlined text-sm">radio_button_unchecked</span>
-                                            <span class="text-[8px] font-bold uppercase tracking-widest">Min. 8
-                                                characters</span>
-                                        </div>
-                                        <div id="req-upper"
-                                            class="flex items-center gap-2 text-gray-600 transition-colors">
-                                            <span
-                                                class="material-symbols-outlined text-sm">radio_button_unchecked</span>
-                                            <span class="text-[8px] font-bold uppercase tracking-widest">One
-                                                Uppercase</span>
-                                        </div>
-                                        <div id="req-number"
-                                            class="flex items-center gap-2 text-gray-600 transition-colors">
-                                            <span
-                                                class="material-symbols-outlined text-sm">radio_button_unchecked</span>
-                                            <span class="text-[8px] font-bold uppercase tracking-widest">One
-                                                Number</span>
-                                        </div>
-                                        <div id="req-special"
-                                            class="flex items-center gap-2 text-gray-600 transition-colors">
-                                            <span
-                                                class="material-symbols-outlined text-sm">radio_button_unchecked</span>
-                                            <span class="text-[8px] font-bold uppercase tracking-widest">One Special
-                                                Character</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col gap-1">
-                                    <label
-                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Confirm
-                                        Password</label>
-                                    <div class="relative">
-                                        <input type="password" name="confirm_new_password" id="confirm_new_password"
-                                            required class="input-field w-full pr-12" placeholder="Repeat password"
-                                            autocomplete="new-password">
-                                        <button type="button"
-                                            onclick="togglePassword('confirm_new_password', 'icon_confirm')"
-                                            class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
-                                            <span class="material-symbols-outlined text-lg"
-                                                id="icon_confirm">visibility_off</span>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <p class="text-[13px] text-gray-400 font-medium leading-relaxed">
+                                For security, the account <span class="text-primary font-bold">username and password</span> will be automatically generated and securely delivered
+                                to the recipient's email address upon confirmation.
+                            </p>
                         </div>
 
-                        <div class="flex justify-end gap-4 pt-10">
-                            <button type="button" onclick="toggleSuperadminModal(false)"
-                                class="px-8 py-4 rounded-xl bg-white/5 text-[--secondary] text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">Cancel</button>
+                        <div class="flex justify-end pt-6">
                             <button type="button" onclick="validateSuperadminForm(event)"
-                                class="px-10 py-4 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Create
+                                class="w-full py-4 rounded-xl bg-primary text-[--tab-active-text] text-[11px] font-black tracking-tight hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95">Create
                                 Account</button>
                         </div>
                     </div>
@@ -1516,30 +1485,34 @@ $active_page = "settings";
 
     <!-- Review Confirmation Modal -->
     <div id="superadminReviewModal" class="modal-overlay" onclick="if(event.target === this) toggleReviewModal(false)">
-        <div class="glass-card w-full max-w-lg p-10 relative overflow-hidden backdrop-blur-2xl">
-            <div class="flex items-center gap-4 mb-8">
-                <div class="size-12 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-                    <span class="material-symbols-outlined text-amber-500 text-2xl">fact_check</span>
-                </div>
-                <div>
-                    <h3 class="text-xl font-black italic uppercase tracking-tighter text-white">Review Details</h3>
-                    <p class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-widest">Confirm
-                        Information
-                        Integrity</p>
+        <div class="glass-card w-full max-w-md p-0 relative overflow-hidden backdrop-blur-2xl">
+            <div class="p-8 pb-4">
+                <div class="flex items-center gap-4 mb-2">
+                    <div class="size-12 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-amber-500 text-2xl">fact_check</span>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-black italic tracking-tighter text-white">Review Details</h3>
+                        <p class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-widest">Confirm Information Integrity</p>
+                    </div>
                 </div>
             </div>
-            <div class="space-y-4 mb-10" id="reviewDetailsContainer"></div>
-            <div class="p-6 rounded-2xl bg-primary/5 border border-primary/10 mb-10 flex items-start gap-4">
-                <span class="material-symbols-outlined text-primary text-lg">info</span>
-                <p class="text-[10px] text-gray-400 font-medium leading-relaxed">Confirming these details will create
-                    the account and automatically send an email with login credentials to the recipient.</p>
+
+            <div class="modal-content-scroll px-8 pb-8">
+                <div class="space-y-4 mb-8" id="reviewDetailsContainer"></div>
+                <div class="p-6 rounded-2xl bg-primary/5 border border-primary/10 mb-2 flex items-start gap-4">
+                    <span class="material-symbols-outlined text-primary text-lg">info</span>
+                    <p class="text-[11px] text-gray-400 font-medium leading-relaxed">Confirming these details will create
+                        the account and automatically send an email with login credentials to the recipient.</p>
+                </div>
             </div>
-            <div class="flex justify-end gap-4">
+
+            <div class="p-8 pt-4 border-t border-white/5 flex justify-end gap-4 bg-black/20">
                 <button type="button" onclick="toggleReviewModal(false)"
-                    class="px-8 py-4 rounded-xl bg-white/5 text-[--secondary] text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95">Back
+                    class="px-8 py-4 rounded-xl bg-white/5 text-[--secondary] text-[10px] font-black tracking-tight hover:bg-white/10 transition-all active:scale-95">Back
                     to Edit</button>
                 <button type="button" onclick="confirmAndSubmitSuperadmin()"
-                    class="px-10 py-4 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Final
+                    class="px-10 py-4 rounded-xl bg-primary text-[--tab-active-text] text-[10px] font-black tracking-tight hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95">Final
                     Confirm</button>
             </div>
         </div>
@@ -1547,21 +1520,21 @@ $active_page = "settings";
 
     <!-- Configuration Modal -->
     <div id="confirmActionModal" class="modal-overlay" onclick="if(event.target === this) toggleActionModal(false)">
-        <div class="glass-card w-full max-w-lg p-10 relative text-center">
+        <div class="glass-card w-full max-w-md p-10 relative text-center">
             <div class="size-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
                 <span id="confirmIcon" class="material-symbols-outlined text-[--highlight] text-3xl">warning</span>
             </div>
-            <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter text-white mb-2">Confirm
+            <h3 id="confirmTitle" class="text-xl font-black italic tracking-tighter text-white mb-2">Confirm
                 Changes</h3>
             <p id="confirmMessage"
-                class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-widest mb-10 leading-relaxed">
+                class="text-[11px] text-[--secondary] opacity-70 font-bold tracking-tight mb-10 leading-relaxed">
                 Save these
                 configurations to the system? This will update the appearance for all users immediately.</p>
             <div class="flex justify-center gap-4">
                 <button type="button" onclick="toggleActionModal(false)"
-                    class="flex-1 h-[50px] rounded-xl bg-white/5 text-[--secondary] text-[12px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
+                    class="flex-1 h-[50px] rounded-xl bg-white/5 text-[--secondary] text-[12px] font-black tracking-tight hover:bg-white/10 transition-all">Cancel</button>
                 <button type="button" id="confirmExecuteBtn"
-                    class="flex-1 h-[50px] rounded-xl bg-primary text-black text-[12px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all">Confirm
+                    class="flex-1 h-[50px] rounded-xl bg-primary text-[--tab-active-text] text-[12px] font-black tracking-tight hover:bg-primary/90 transition-all">Confirm
                     Action</button>
             </div>
         </div>
@@ -1659,7 +1632,7 @@ $active_page = "settings";
         function toggleSuperadminModal(show) {
             const modal = document.getElementById('superadminModal');
             if (modal) {
-                modal.classList.toggle('active', show);
+                modal.classList.toggle('flex', show);
                 document.body.style.overflow = show ? 'hidden' : 'auto';
             }
         }
@@ -1739,17 +1712,14 @@ $active_page = "settings";
             }
         }
 
-        function validateSuperadminForm(event) {
+        async function validateSuperadminForm(event) {
             const firstName = document.getElementById('new_first_name').value.trim();
             const middleName = document.getElementById('new_middle_name').value.trim();
             const lastName = document.getElementById('new_last_name').value.trim();
-            const username = document.getElementById('new_username').value.trim();
             const email = document.getElementById('new_email').value.trim().toLowerCase();
             const contact = document.getElementById('new_contact_number').value.trim();
             const birthDate = document.getElementById('new_birth_date').value;
             const sex = document.getElementById('new_sex').value;
-            const password = document.getElementById('new_password').value;
-            const confirmPassword = document.getElementById('confirm_new_password').value;
 
             // Helper to show error
             const showError = (msg) => {
@@ -1757,8 +1727,8 @@ $active_page = "settings";
             };
 
             // Basic Field Validation
-            if (!username || !firstName || !lastName || !email || !contact || !password) {
-                showError("Please fill out all required fields.");
+            if (!firstName || !lastName || !email || !contact || !birthDate || !sex) {
+                showError("Please fill out all required fields marked with an asterisk (*).");
                 return;
             }
 
@@ -1775,11 +1745,6 @@ $active_page = "settings";
                 return;
             }
 
-            if (username.toLowerCase() === email.toLowerCase()) {
-                showError("Username and Email address cannot be the same.");
-                return;
-            }
-
             // 3. Contact Validation
             const rawContact = contact.replace(/\D/g, '');
             if (rawContact.length !== 11) {
@@ -1787,31 +1752,44 @@ $active_page = "settings";
                 return;
             }
 
-            // 4. Birth Date Validation
-            const today = new Date().toISOString().split('T')[0];
-            if (birthDate > today) {
-                showError("Birth date cannot be in the future.");
+            // 4. Birth Date Validation (Legal Age 18+)
+            const dob = new Date(birthDate);
+            const eighteenYearsAgo = new Date();
+            eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
+
+            if (dob > eighteenYearsAgo) {
+                showError("Superadmin must be of legal age (18+).");
                 return;
             }
 
-            // 5. Password Validation
-            if (password.length < 8) {
-                showError("Password must be at least 8 characters long.");
-                return;
-            }
-            if (password !== confirmPassword) {
-                showError("Passwords do not match.");
-                return;
+            // (Password Validation removed - auto-generated on server)
+
+            // --- Real-Time Availability Check (AJAX) ---
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `action=check_availability&email=${encodeURIComponent(email)}`
+                });
+                const result = await response.json();
+                if (result.exists) {
+                    showError("Email address already exists in the system.");
+                    return;
+                }
+            } catch (err) {
+                console.error("Availability check failed:", err);
+                // Continue if check fails but log it
             }
 
             // If everything passes, show the review modal
             populateReviewModal({
-                "Username": username,
+                "Username": "Auto-generated",
                 "Full Name": `${firstName} ${middleName} ${lastName}`,
                 "Email": email,
                 "Contact": contact,
                 "Birth Date": birthDate,
-                "Sex": sex
+                "Sex": sex,
+                "Password": "Auto-generated & Emailed"
             });
             toggleReviewModal(true);
         }
@@ -1821,11 +1799,18 @@ $active_page = "settings";
             container.innerHTML = '';
             for (const [label, value] of Object.entries(data)) {
                 const row = document.createElement('div');
-                row.className = 'flex justify-between items-center py-2 border-b border-white/5';
-                row.innerHTML = `
-                        <span class="text-[9px] text-[--secondary] opacity-70 font-bold uppercase tracking-widest">${label}</span>
-                        <span class="text-[10px] text-white font-black italic uppercase tracking-tighter">${value || 'N/A'}</span>
-                    `;
+                row.className = 'py-3.5 border-b border-white/5 flex flex-col gap-1.5';
+                
+                const labelSpan = document.createElement('span');
+                labelSpan.className = 'text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-widest';
+                labelSpan.textContent = label;
+                
+                const valueSpan = document.createElement('span');
+                valueSpan.className = 'text-[13px] text-white font-bold tracking-tight break-all';
+                valueSpan.textContent = value || 'N/A';
+                
+                row.appendChild(labelSpan);
+                row.appendChild(valueSpan);
                 container.appendChild(row);
             }
         }
@@ -1833,7 +1818,7 @@ $active_page = "settings";
         function toggleReviewModal(show) {
             const modal = document.getElementById('superadminReviewModal');
             if (modal) {
-                modal.classList.toggle('active', show);
+                modal.classList.toggle('flex', show);
                 document.body.style.overflow = show ? 'hidden' : 'auto';
             }
         }
@@ -1841,7 +1826,7 @@ $active_page = "settings";
         function toggleSuperadminModal(show = true) {
             const modal = document.getElementById('superadminModal');
             if (modal) {
-                modal.classList.toggle('active', show);
+                modal.classList.toggle('flex', show);
                 document.body.style.overflow = show ? 'hidden' : 'auto';
             }
         }
@@ -2067,7 +2052,7 @@ $active_page = "settings";
         function toggleActionModal(show = true) {
             const modal = document.getElementById('confirmActionModal');
             if (modal) {
-                modal.classList.toggle('active', show);
+                modal.classList.toggle('flex', show);
                 document.body.style.overflow = show ? 'hidden' : 'auto';
             }
         }
@@ -2088,16 +2073,18 @@ $active_page = "settings";
             const secondaryInput = document.getElementById('secondary_color_input');
             const textColorInput = document.getElementById('text_color_input');
             const bgInput = document.getElementById('bg_color_input');
+            const tabActiveTextInput = document.getElementById('tab_active_text_input');
             const nameInput = document.getElementById('system_name_input');
             const isAutoCardInput = document.getElementById('auto_card_theme_input');
             const cardColorInput = document.getElementById('card_color_input');
 
-            if (!themeInput || !secondaryInput || !textColorInput || !bgInput) return;
+            if (!themeInput || !secondaryInput || !textColorInput || !bgInput || !tabActiveTextInput) return;
 
             root.style.setProperty('--primary', themeInput.value);
             root.style.setProperty('--highlight', secondaryInput.value);
             root.style.setProperty('--text-main', textColorInput.value);
             root.style.setProperty('--background', bgInput.value);
+            root.style.setProperty('--tab-active-text', tabActiveTextInput.value);
 
             const sidebarName = document.getElementById('sidebarSystemName');
             if (sidebarName && nameInput) sidebarName.textContent = nameInput.value;
@@ -2131,18 +2118,19 @@ $active_page = "settings";
                         cardColorInput.parentElement.parentElement.style.pointerEvents = 'auto';
                     }
                 }
-                root.style.setProperty('--tab-active-text', textColorInput.value);
             }
 
             const themeHex = document.getElementById('theme_hex_display');
             const secondaryHex = document.getElementById('secondary_hex_display');
             const textHex = document.getElementById('text_hex_display');
             const bgHex = document.getElementById('bg_hex_display');
+            const tabActiveTextHex = document.getElementById('tab_active_text_hex_display');
 
             if (themeHex) themeHex.innerText = themeInput.value.toUpperCase();
             if (secondaryHex) secondaryHex.innerText = secondaryInput.value.toUpperCase();
             if (textHex) textHex.innerText = textColorInput.value.toUpperCase();
             if (bgHex) bgHex.innerText = bgInput.value.toUpperCase();
+            if (tabActiveTextHex) tabActiveTextHex.innerText = tabActiveTextInput.value.toUpperCase();
         }
         // --- Initialization & Lifecycle ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -2150,13 +2138,17 @@ $active_page = "settings";
             updateLiveBranding();
 
             const successAlert = document.getElementById('successAlert');
-            if (successAlert) {
-                setTimeout(() => {
-                    successAlert.style.opacity = '0';
-                    successAlert.style.transform = 'translateY(-10px)';
-                    setTimeout(() => successAlert.remove(), 500);
-                }, 15000);
-            }
+            const errorAlert = document.getElementById('errorAlert');
+
+            [successAlert, errorAlert].forEach(alert => {
+                if (alert) {
+                    setTimeout(() => {
+                        alert.style.opacity = '0';
+                        alert.style.transform = 'translateY(-10px)';
+                        setTimeout(() => alert.remove(), 500);
+                    }, 10000); // 10 seconds auto-hide
+                }
+            });
 
             // Restore Active Tab (Check GET then POST then default)
             const urlParams = new URLSearchParams(window.location.search);
@@ -2359,7 +2351,7 @@ $active_page = "settings";
         function togglePlanViewModal(show) {
             const modal = document.getElementById('planViewModal');
             if (modal) {
-                modal.classList.toggle('active', show);
+                modal.classList.toggle('flex', show);
                 document.body.style.overflow = show ? 'hidden' : 'auto';
             }
         }
@@ -2463,7 +2455,7 @@ $active_page = "settings";
                 ghostClass: 'opacity-20',
                 chosenClass: 'scale-95',
                 dragClass: 'opacity-100',
-                onEnd: function() {
+                onEnd: function () {
                     const order = Array.from(activePlansContainer.children).map(child => child.getAttribute('data-id'));
                     savePlanOrder(order);
                 }
