@@ -2,7 +2,7 @@
 require_once 'db.php';
 
 // Fetch Active Website Plans
-$stmtPlans = $pdo->prepare("SELECT * FROM website_plans WHERE is_active = 1 ORDER BY price ASC");
+$stmtPlans = $pdo->prepare("SELECT * FROM website_plans WHERE is_active = 1 ORDER BY sort_order ASC, price ASC");
 $stmtPlans->execute();
 $plans = $stmtPlans->fetchAll();
 

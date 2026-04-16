@@ -35,6 +35,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['immediate_plan_action
     exit;
 }
 
+// Handle Manual Sort Order Save (AJAX)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_plan_order') {
+    try {
+        $order = $_POST['order'] ?? []; // Array of IDs
+        if (!empty($order)) {
+            $stmt = $pdo->prepare("UPDATE website_plans SET sort_order = ? WHERE website_plan_id = ?");
+            foreach ($order as $index => $id) {
+                $stmt->execute([$index, intval($id)]);
+            }
+            echo json_encode(['success' => true]);
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // Pull messages from session if exists
 if (isset($_SESSION['success_msg'])) {
     $success_msg = $_SESSION['success_msg'];
@@ -309,7 +326,7 @@ $user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
 $configs = array_merge($global_configs, $user_configs);
 
 // 4. Fetch Website Plans (3NF Compatibility)
-$stmtPlans = $pdo->prepare("SELECT * FROM website_plans ORDER BY website_plan_id DESC");
+$stmtPlans = $pdo->prepare("SELECT * FROM website_plans ORDER BY sort_order ASC, website_plan_id DESC");
 $stmtPlans->execute();
 $all_plans = $stmtPlans->fetchAll();
 
@@ -328,8 +345,8 @@ foreach ($all_plans as $p) {
     }
 }
 
-// Ensure Active Plans stay sorted by Price (Lowest to Highest) as requested
-usort($active_website_plans, fn($a, $b) => $a['price'] <=> $b['price']);
+// Plans are now sorted by sort_order from database
+// usort($active_website_plans, fn($a, $b) => $a['price'] <=> $b['price']);
 
 $active_page = "settings";
 ?>
@@ -346,6 +363,7 @@ $active_page = "settings";
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
         rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -1058,7 +1076,11 @@ $active_page = "settings";
                         <?php else: ?>
                             <?php foreach ($active_website_plans as $plan): ?>
                                 <div class="glass-card p-8 flex flex-col gap-6 relative group/plan transition-all duration-300"
-                                    id="plan-card-<?= $plan['website_plan_id'] ?>">
+                                    id="plan-card-<?= $plan['website_plan_id'] ?>" data-id="<?= $plan['website_plan_id'] ?>">
+                                    <!-- Drag Handle -->
+                                    <div class="absolute top-2 right-1/2 translate-x-1/2 opacity-0 group-hover/plan:opacity-30 hover:!opacity-100 transition-all cursor-grab active:cursor-grabbing drag-handle py-1 px-4 rounded-full bg-white/5 active:bg-primary/20" title="Drag to reorder">
+                                        <span class="material-symbols-outlined text-sm">drag_handle</span>
+                                    </div>
                                     <div class="flex items-center justify-between">
                                         <div class="flex items-center gap-4">
                                             <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -2430,6 +2452,41 @@ $active_page = "settings";
             if (horizonPaginators['archivedPlansTableBody']) {
                 horizonPaginators['archivedPlansTableBody'].currentPage = 1;
                 horizonPaginators['archivedPlansTableBody'].update();
+            }
+        }
+        // Initialize Sortable for Plans
+        const activePlansContainer = document.getElementById('activePlansContainer');
+        if (activePlansContainer) {
+            new Sortable(activePlansContainer, {
+                animation: 150,
+                handle: '.drag-handle',
+                ghostClass: 'opacity-20',
+                chosenClass: 'scale-95',
+                dragClass: 'opacity-100',
+                onEnd: function() {
+                    const order = Array.from(activePlansContainer.children).map(child => child.getAttribute('data-id'));
+                    savePlanOrder(order);
+                }
+            });
+        }
+
+        async function savePlanOrder(order) {
+            const formData = new FormData();
+            formData.append('action', 'save_plan_order');
+            order.forEach(id => formData.append('order[]', id));
+
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.success) {
+                    // Success toast if needed
+                    console.log('Order saved successfully');
+                }
+            } catch (err) {
+                console.error('Failed to save order:', err);
             }
         }
     </script>
