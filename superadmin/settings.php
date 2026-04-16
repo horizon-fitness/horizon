@@ -116,87 +116,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     unset($_POST['save_settings']);
     $pdo->beginTransaction();
     try {
-    
-    // 2. Handle EXISTING Plans Update (Metadata Only)
-    if (isset($_POST['plans']) && is_array($_POST['plans'])) {
-        $stmtUpdatePlan = $pdo->prepare("UPDATE website_plans SET plan_name = ?, price = ?, billing_cycle = ?, duration_months = ?, badge_text = ? WHERE website_plan_id = ?");
-        $stmtDelFeatures = $pdo->prepare("DELETE FROM website_plan_features WHERE website_plan_id = ?");
-        $stmtInsFeature = $pdo->prepare("INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES (?, ?)");
 
-        foreach ($_POST['plans'] as $id => $data) {
-            $stmtUpdatePlan->execute([
-                $data['name'],
-                $data['price'],
-                $data['billing'],
-                $data['duration'],
-                $data['badge_text'] ?? null,
-                $id
-            ]);
+        // 2. Handle EXISTING Plans Update (Metadata Only)
+        if (isset($_POST['plans']) && is_array($_POST['plans'])) {
+            $stmtUpdatePlan = $pdo->prepare("UPDATE website_plans SET plan_name = ?, price = ?, billing_cycle = ?, duration_months = ?, badge_text = ? WHERE website_plan_id = ?");
+            $stmtDelFeatures = $pdo->prepare("DELETE FROM website_plan_features WHERE website_plan_id = ?");
+            $stmtInsFeature = $pdo->prepare("INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES (?, ?)");
 
-            // Sync Features
-            $stmtDelFeatures->execute([$id]);
-            $featuresList = array_filter(array_map('trim', explode(',', $data['features'])));
-            foreach ($featuresList as $fName) {
-                $stmtInsFeature->execute([$id, $fName]);
+            foreach ($_POST['plans'] as $id => $data) {
+                $stmtUpdatePlan->execute([
+                    $data['name'],
+                    $data['price'],
+                    $data['billing'],
+                    $data['duration'],
+                    $data['badge_text'] ?? null,
+                    $id
+                ]);
+
+                // Sync Features
+                $stmtDelFeatures->execute([$id]);
+                $featuresList = array_filter(array_map('trim', explode(',', $data['features'])));
+                foreach ($featuresList as $fName) {
+                    $stmtInsFeature->execute([$id, $fName]);
+                }
             }
         }
-    }
 
-    // 2.5 Handle ARCHIVE / UNARCHIVE Changes
-    if (isset($_POST['delete_plans']) && is_array($_POST['delete_plans'])) {
-        $stmtDeactivate = $pdo->prepare("UPDATE website_plans SET is_active = 0 WHERE website_plan_id = ?");
-        foreach ($_POST['delete_plans'] as $del_id) {
-            $stmtDeactivate->execute([$del_id]);
-        }
-    }
-
-    if (isset($_POST['unarchive_plans']) && is_array($_POST['unarchive_plans'])) {
-        $stmtReactivate = $pdo->prepare("UPDATE website_plans SET is_active = 1 WHERE website_plan_id = ?");
-        foreach ($_POST['unarchive_plans'] as $un_id) {
-            $stmtReactivate->execute([$un_id]);
-        }
-    }
-
-    // 3. Handle NEW Plans Creation
-    if (isset($_POST['new_plans']) && is_array($_POST['new_plans'])) {
-        $stmtInsPlan = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, badge_text, is_active) VALUES (?, ?, ?, ?, ?, 1)");
-        $stmtInsFeature = $pdo->prepare("INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES (?, ?)");
-
-        foreach ($_POST['new_plans'] as $data) {
-            if (empty($data['name'])) continue; // Skip empty new plan fields
-
-            $stmtInsPlan->execute([
-                $data['name'],
-                $data['price'],
-                $data['billing'],
-                $data['duration'],
-                $data['badge_text'] ?? null
-            ]);
-            $new_id = $pdo->lastInsertId();
-
-            $featuresList = array_filter(array_map('trim', explode(',', $data['features'])));
-            foreach ($featuresList as $fName) {
-                $stmtInsFeature->execute([$new_id, $fName]);
+        // 2.5 Handle ARCHIVE / UNARCHIVE Changes
+        if (isset($_POST['delete_plans']) && is_array($_POST['delete_plans'])) {
+            $stmtDeactivate = $pdo->prepare("UPDATE website_plans SET is_active = 0 WHERE website_plan_id = ?");
+            foreach ($_POST['delete_plans'] as $del_id) {
+                $stmtDeactivate->execute([$del_id]);
             }
         }
-    }
 
-    // 4. Handle Global & User Settings (Theme, Names, etc.)
-    $stmtUpdate = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+        if (isset($_POST['unarchive_plans']) && is_array($_POST['unarchive_plans'])) {
+            $stmtReactivate = $pdo->prepare("UPDATE website_plans SET is_active = 1 WHERE website_plan_id = ?");
+            foreach ($_POST['unarchive_plans'] as $un_id) {
+                $stmtReactivate->execute([$un_id]);
+            }
+        }
 
-    foreach ($_POST as $key => $value) {
-        if (is_array($value) || in_array($key, ['delete_plans', 'unarchive_plans', 'perm_delete_plans']))
-            continue; 
-        
-        $scope_id = in_array($key, $global_keys) ? 0 : $_SESSION['user_id'];
-        $stmtUpdate->execute([$scope_id, $key, $value]);
-        $configs[$key] = $value;
-    }
+        // 3. Handle NEW Plans Creation
+        if (isset($_POST['new_plans']) && is_array($_POST['new_plans'])) {
+            $stmtInsPlan = $pdo->prepare("INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months, badge_text, is_active) VALUES (?, ?, ?, ?, ?, 1)");
+            $stmtInsFeature = $pdo->prepare("INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES (?, ?)");
 
-    $pdo->commit();
+            foreach ($_POST['new_plans'] as $data) {
+                if (empty($data['name']))
+                    continue; // Skip empty new plan fields
+
+                $stmtInsPlan->execute([
+                    $data['name'],
+                    $data['price'],
+                    $data['billing'],
+                    $data['duration'],
+                    $data['badge_text'] ?? null
+                ]);
+                $new_id = $pdo->lastInsertId();
+
+                $featuresList = array_filter(array_map('trim', explode(',', $data['features'])));
+                foreach ($featuresList as $fName) {
+                    $stmtInsFeature->execute([$new_id, $fName]);
+                }
+            }
+        }
+
+        // 4. Handle Global & User Settings (Theme, Names, etc.)
+        $stmtUpdate = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+
+        foreach ($_POST as $key => $value) {
+            if (is_array($value) || in_array($key, ['delete_plans', 'unarchive_plans', 'perm_delete_plans']))
+                continue;
+
+            $scope_id = in_array($key, $global_keys) ? 0 : $_SESSION['user_id'];
+            $stmtUpdate->execute([$scope_id, $key, $value]);
+            $configs[$key] = $value;
+        }
+
+        $pdo->commit();
         $success_msg = "System configurations updated successfully!";
     } catch (Exception $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($pdo->inTransaction())
+            $pdo->rollBack();
         $error_msg = $e->getMessage();
     }
 }
@@ -245,6 +247,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_superadmin'])) {
         }
         if (strlen($password) < 8) {
             throw new Exception("Password must be at least 8 characters long.");
+        }
+
+        if (strtolower($username) === strtolower($email)) {
+            throw new Exception("Username and Email address cannot be the same for security reasons.");
         }
 
         $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = ? OR username = ?");
@@ -303,7 +309,7 @@ $user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
 $configs = array_merge($global_configs, $user_configs);
 
 // 4. Fetch Website Plans (3NF Compatibility)
-$stmtPlans = $pdo->prepare("SELECT * FROM website_plans ORDER BY price ASC");
+$stmtPlans = $pdo->prepare("SELECT * FROM website_plans ORDER BY website_plan_id DESC");
 $stmtPlans->execute();
 $all_plans = $stmtPlans->fetchAll();
 
@@ -314,13 +320,16 @@ foreach ($all_plans as $p) {
     $stmtF = $pdo->prepare("SELECT feature_name FROM website_plan_features WHERE website_plan_id = ?");
     $stmtF->execute([$p['website_plan_id']]);
     $p['features'] = implode(', ', $stmtF->fetchAll(PDO::FETCH_COLUMN));
-    
+
     if (($p['is_active'] ?? 1) == 1) {
         $active_website_plans[] = $p;
     } else {
         $archived_website_plans[] = $p;
     }
 }
+
+// Ensure Active Plans stay sorted by Price (Lowest to Highest) as requested
+usort($active_website_plans, fn($a, $b) => $a['price'] <=> $b['price']);
 
 $active_page = "settings";
 ?>
@@ -364,6 +373,9 @@ $active_page = "settings";
             --card-blur: 20px;
             --card-bg:
                 <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#141216') ?>
+            ;
+            --tab-active-text:
+                <?= $configs['tab_active_text'] ?? '#ffffff' ?>
             ;
         }
 
@@ -550,20 +562,20 @@ $active_page = "settings";
             padding: 12px 16px;
             color: white;
             font-size: 13px;
-            transition: all 0.2s;
+            transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s, opacity 0.2s;
             backdrop-filter: blur(10px);
         }
 
         /* Dynamic Input Field Interaction */
         .input-field:hover {
             border-color: rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.08);
+            background-color: rgba(255, 255, 255, 0.08);
         }
 
         .input-field:focus {
             border-color: var(--primary);
             outline: none;
-            background: rgba(var(--primary-rgb), 0.05);
+            background-color: rgba(var(--primary-rgb), 0.05);
             /* Requires RGB variable */
             box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.1);
         }
@@ -573,7 +585,7 @@ $active_page = "settings";
             color: white;
         }
 
-        .input-field:read-only {
+        .input-field:read-only:not(select) {
             cursor: not-allowed;
             opacity: 0.6;
             background: rgba(255, 255, 255, 0.02);
@@ -581,17 +593,21 @@ $active_page = "settings";
 
         /* Improved Dropdown Visibility */
         select.input-field {
+            appearance: none;
+            -webkit-appearance: none;
             color-scheme: dark;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='Wait, simplified arrow'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white' stroke-opacity='0.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 1rem center;
             background-size: 1em;
             padding-right: 2.5rem;
+            cursor: pointer !important;
         }
 
         #superadminModal,
         #superadminReviewModal,
-        #confirmActionModal {
+        #confirmActionModal,
+        #planViewModal {
             display: none;
             position: fixed;
             top: 0;
@@ -609,13 +625,15 @@ $active_page = "settings";
 
         #superadminModal.active,
         #superadminReviewModal.active,
-        #confirmActionModal.active {
+        #confirmActionModal.active,
+        #planViewModal.active {
             display: flex !important;
         }
 
         .sidebar-nav:hover~#superadminModal,
         .sidebar-nav:hover~#superadminReviewModal,
-        .sidebar-nav:hover~#confirmActionModal {
+        .sidebar-nav:hover~#confirmActionModal,
+        .sidebar-nav:hover~#planViewModal {
             left: 300px;
         }
 
@@ -635,9 +653,17 @@ $active_page = "settings";
         }
 
         /* Plan Card View Mode Styles */
-        .plan-edit-state { display: none; }
-        .glass-card.is-editing .plan-edit-state { display: block; }
-        .glass-card.is-editing .plan-preview-state { display: none; }
+        .plan-edit-state {
+            display: none;
+        }
+
+        .glass-card.is-editing .plan-edit-state {
+            display: block;
+        }
+
+        .glass-card.is-editing .plan-preview-state {
+            display: none;
+        }
 
         .view-box {
             background: rgba(255, 255, 255, 0.03);
@@ -651,6 +677,7 @@ $active_page = "settings";
             display: flex;
             align-items: center;
         }
+
         .view-box-long {
             align-items: flex-start;
             line-height: 1.6;
@@ -681,7 +708,7 @@ $active_page = "settings";
                         <span class="text-primary">SETTINGS</span>
                     </h2>
                     <p
-                        class="text-[--text-main] text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 uppercase">
+                        class="text-[--text-main] text-[12px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 uppercase">
                         Manage your system settings and look.</p>
                 </div>
                 <div class="flex items-end gap-8 text-right shrink-0">
@@ -703,17 +730,25 @@ $active_page = "settings";
                     color: var(--text-main);
                     opacity: 0.5;
                 }
+
                 .tab-btn:hover {
                     opacity: 1;
                 }
+
                 .tab-btn.active {
                     background: var(--primary);
                     color: var(--tab-active-text, white);
                     opacity: 1;
                     box-shadow: 0 10px 20px rgba(var(--primary-rgb), 0.2);
                 }
-                .tab-content { display: none; }
-                .tab-content.active { display: block; }
+
+                .tab-content {
+                    display: none;
+                }
+
+                .tab-content.active {
+                    display: block;
+                }
             </style>
 
 
@@ -748,11 +783,14 @@ $active_page = "settings";
 
             <div class="flex justify-between items-center mb-10 gap-6 transition-all">
                 <!-- Tab Switcher -->
-                <div class="flex items-center gap-2 p-1 bg-white/5 border border-white/10 rounded-xl w-fit shrink-0 h-[46px]">
-                    <button type="button" onclick="switchTab('look')" id="tab-look" class="tab-btn <?= $current_tab === 'look' ? 'active' : '' ?> px-8 h-full rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">
+                <div
+                    class="flex items-center gap-2 p-1 bg-white/5 border border-white/10 rounded-xl w-fit shrink-0 h-[46px]">
+                    <button type="button" onclick="switchTab('look')" id="tab-look"
+                        class="tab-btn <?= $current_tab === 'look' ? 'active' : '' ?> px-8 h-full rounded-lg text-[12px] font-black uppercase tracking-widest transition-all">
                         System Look
                     </button>
-                    <button type="button" onclick="switchTab('plans')" id="tab-plans" class="tab-btn <?= $current_tab === 'plans' ? 'active' : '' ?> px-8 h-full rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">
+                    <button type="button" onclick="switchTab('plans')" id="tab-plans"
+                        class="tab-btn <?= $current_tab === 'plans' ? 'active' : '' ?> px-8 h-full rounded-lg text-[12px] font-black uppercase tracking-widest transition-all">
                         System Plan
                     </button>
                 </div>
@@ -760,23 +798,24 @@ $active_page = "settings";
 
                 <div class="flex items-center gap-4 flex-1 justify-end">
                     <button type="button" onclick="confirmSaveConfigurations()"
-                    class="bg-white/5 hover:bg-primary/20 px-8 h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-primary/30 flex items-center gap-3 active:scale-95 group shrink-0">
-                    <span
-                        class="material-symbols-outlined text-[--highlight] group-hover:text-white text-lg group-hover:scale-110 transition-transform">save</span>
-                    <span class="text-[--text-main]">Save Changes</span>
-                </button>
+                        class="bg-white/5 hover:bg-primary/20 px-8 h-[46px] rounded-xl text-[12px] font-black uppercase tracking-widest transition-all border border-white/10 hover:border-primary/30 flex items-center gap-3 active:scale-95 group shrink-0">
+                        <span
+                            class="material-symbols-outlined text-[--highlight] group-hover:text-white text-lg group-hover:scale-110 transition-transform">save</span>
+                        <span class="text-[--text-main]">Save Changes</span>
+                    </button>
 
-                <button type="button" onclick="toggleSuperadminModal(true)"
-                    class="bg-primary hover:bg-primary/90 px-8 h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95 group shrink-0">
-                    <span
-                        class="material-symbols-outlined text-lg text-[--highlight] group-hover:scale-110 transition-transform">person_add</span>
-                    <span class="text-[--text-main]">Create Superadmin</span>
-                </button>
+                    <button type="button" onclick="toggleSuperadminModal(true)"
+                        class="bg-primary hover:bg-primary/90 px-8 h-[46px] rounded-xl text-[12px] font-black uppercase tracking-widest transition-all border border-white/10 shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95 group shrink-0">
+                        <span
+                            class="material-symbols-outlined text-lg text-[--highlight] group-hover:scale-110 transition-transform">person_add</span>
+                        <span class="text-[--text-main]">Create Superadmin</span>
+                    </button>
                 </div>
             </div>
 
             <form action="" method="POST" enctype="multipart/form-data" id="mainSettingsForm">
-                <input type="hidden" name="active_tab" id="activeTabInput" value="<?= htmlspecialchars($current_tab) ?>">
+                <input type="hidden" name="active_tab" id="activeTabInput"
+                    value="<?= htmlspecialchars($current_tab) ?>">
                 <div id="content-look" class="tab-content <?= $current_tab === 'look' ? 'active' : '' ?> space-y-8">
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <!-- Global Customization Section -->
@@ -784,10 +823,11 @@ $active_page = "settings";
                             <div class="flex items-center justify-between mb-8 text-primary">
                                 <div class="flex items-center gap-4">
                                     <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                        <span class="material-symbols-outlined text-primary">brush</span>
+                                        <span class="material-symbols-outlined text-[--highlight]">brush</span>
                                     </div>
                                     <div>
-                                        <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">System
+                                        <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">
+                                            System
                                             Appearance</h3>
                                         <p
                                             class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight line-clamp-1">
@@ -798,7 +838,7 @@ $active_page = "settings";
                                     class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[--text-main] hover:text-white hover:bg-white/10 transition-all group shrink-0">
                                     <span
                                         class="material-symbols-outlined text-sm group-hover:rotate-180 transition-transform duration-500">undo</span>
-                                    <span class="text-[9px] font-black uppercase tracking-wider">Reset</span>
+                                    <span class="text-[11px] font-black uppercase tracking-wider">Reset</span>
                                 </button>
                             </div>
 
@@ -806,30 +846,19 @@ $active_page = "settings";
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div class="flex flex-col gap-1.5">
                                         <label
-                                            class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">System
+                                            class="text-[11px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">System
                                             Name</label>
-                                        <input type="text" id="system_name_input" name="system_name" class="input-field"
-                                            oninput="updateLiveBranding()"
-                                            value="<?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>">
-                                    </div>
-                                    <div class="flex flex-col gap-1.5">
-                                        <label
-                                            class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Font
-                                            Style</label>
-                                        <select id="font_family_input" name="font_family" onchange="updateLiveBranding()"
-                                            class="input-field cursor-pointer">
-                                            <option value="Lexend" <?= ($configs['font_family'] ?? '') === 'Lexend' ? 'selected' : '' ?>>Lexend (Default)</option>
-                                            <option value="Inter" <?= ($configs['font_family'] ?? '') === 'Inter' ? 'selected' : '' ?>>Inter</option>
-                                            <option value="Outfit" <?= ($configs['font_family'] ?? '') === 'Outfit' ? 'selected' : '' ?>>Outfit</option>
-                                            <option value="Plus Jakarta Sans" <?= ($configs['font_family'] ?? '') === 'Plus Jakarta Sans' ? 'selected' : '' ?>>Plus Jakarta Sans</option>
-                                        </select>
+                                        <input type="text" id="system_name_input" name="system_name"
+                                            class="input-field !bg-white/[0.02] cursor-not-allowed opacity-60"
+                                            value="<?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>"
+                                            readonly>
                                     </div>
                                 </div>
 
                                 <div class="grid grid-cols-2 gap-6">
                                     <div class="flex flex-col gap-1.5">
                                         <label
-                                            class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Main
+                                            class="text-[11px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Main
                                             Color</label>
                                         <div
                                             class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
@@ -843,7 +872,7 @@ $active_page = "settings";
                                     </div>
                                     <div class="flex flex-col gap-1.5">
                                         <label
-                                            class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Icon
+                                            class="text-[11px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Icon
                                             Color</label>
                                         <div
                                             class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
@@ -857,7 +886,7 @@ $active_page = "settings";
                                     </div>
                                     <div class="flex flex-col gap-1.5">
                                         <label
-                                            class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Text
+                                            class="text-[11px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Text
                                             Color</label>
                                         <div
                                             class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
@@ -887,13 +916,21 @@ $active_page = "settings";
                                 <!-- Card Appearance Section -->
                                 <div class="mt-6 pt-6 border-t border-white/5 space-y-4">
                                     <div class="flex items-center justify-between">
-                                        <h4 class="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Card Appearance</h4>
+                                        <h4 class="text-[9px] font-black uppercase tracking-[0.2em] text-primary">Card
+                                            Appearance</h4>
                                         <label class="flex items-center gap-3 cursor-pointer group">
-                                            <span class="text-[8px] font-bold uppercase tracking-widest text-[--text-main] opacity-70 group-hover:text-primary transition-colors">Sync Theme</span>
+                                            <span
+                                                class="text-[8px] font-bold uppercase tracking-widest text-[--text-main] opacity-70 group-hover:text-primary transition-colors">Sync
+                                                Theme</span>
                                             <div class="relative inline-flex items-center">
                                                 <input type="hidden" name="auto_card_theme" value="0">
-                                                <input type="checkbox" id="auto_card_theme_input" name="auto_card_theme" value="1" onchange="updateLiveBranding()" <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'checked' : '' ?> class="sr-only peer">
-                                                <div class="w-10 h-5 bg-white/5 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/20 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary/30 peer-checked:after:bg-primary transition-all border border-white/5"></div>
+                                                <input type="checkbox" id="auto_card_theme_input" name="auto_card_theme"
+                                                    value="1" onchange="updateLiveBranding()"
+                                                    <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'checked' : '' ?>
+                                                    class="sr-only peer">
+                                                <div
+                                                    class="w-10 h-5 bg-white/5 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/20 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary/30 peer-checked:after:bg-primary transition-all border border-white/5">
+                                                </div>
                                             </div>
                                         </label>
                                     </div>
@@ -918,8 +955,8 @@ $active_page = "settings";
                             </div>
                         </div>
 
-                            <!-- Gym Rules Section -->
-                            <div class="glass-card p-8 h-full">
+                        <!-- Gym Rules Section -->
+                        <div class="glass-card p-8 h-full">
                             <div class="flex items-center gap-4 mb-8">
                                 <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
                                     <span class="material-symbols-outlined text-[--highlight]">gavel</span>
@@ -928,7 +965,8 @@ $active_page = "settings";
                                     <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">
                                         Rules for Gyms
                                     </h3>
-                                    <p class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight">
+                                    <p
+                                        class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight">
                                         Set global limits for all accounts</p>
                                 </div>
                             </div>
@@ -963,12 +1001,14 @@ $active_page = "settings";
 
                             <div class="mt-12 p-6 rounded-2xl bg-primary/5 border border-primary/10">
                                 <div class="flex items-center gap-3 mb-3">
-                                    <span class="material-symbols-outlined text-primary text-base">info</span>
-                                    <span class="text-[10px] font-black uppercase tracking-widest text-primary">Policy
+                                    <span class="material-symbols-outlined text-[--highlight] text-lg">info</span>
+                                    <span class="text-[12px] font-black uppercase tracking-widest text-primary">Policy
                                         info</span>
                                 </div>
-                                <p class="text-[10px] text-[--text-main] opacity-60 leading-relaxed font-medium">These rules
-                                    apply globally to ALL tenants in the system. Changes here affect account creation and
+                                <p class="text-[12px] text-[--text-main] opacity-70 leading-relaxed font-bold">These
+                                    rules
+                                    apply globally to ALL tenants in the system. Changes here affect account creation
+                                    and
                                     staff limitations across the entire platform.</p>
                             </div>
                         </div>
@@ -976,180 +1016,293 @@ $active_page = "settings";
                 </div>
 
                 <div id="content-plans" class="tab-content <?= $current_tab === 'plans' ? 'active' : '' ?> space-y-8">
-                    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white/5 p-6 rounded-2xl border border-white/5 gap-6">
+                    <div
+                        class="flex flex-col lg:flex-row justify-between items-start lg:items-center bg-white/5 p-6 rounded-2xl border border-white/5 gap-6">
                         <div>
-                            <h4 class="text-xs font-black italic uppercase tracking-widest text-white">System Subscription Plans</h4>
-                            <p class="text-[9px] text-gray-500 font-bold uppercase tracking-tight mt-1">Manage what plans are available for new gyms</p>
+                            <h4 class="text-sm font-black italic uppercase tracking-widest text-white">System
+                                Subscription Plans</h4>
+                            <p class="text-[11px] text-gray-500 font-bold uppercase tracking-tight mt-1">Manage what
+                                plans are available for new gyms</p>
                         </div>
-                        
+
                         <div class="flex items-center gap-3 w-full lg:w-auto">
+                            <button type="button" id="addNewPlanBtn" onclick="addNewPlanCard()"
+                                class="px-5 py-2 rounded-xl bg-primary/10 border border-white/10 text-primary text-[11px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all flex items-center gap-2 group">
+                                <span
+                                    class="material-symbols-outlined text-sm group-hover:scale-110 transition-transform">add_circle</span>
+                                Add New Plan
+                            </button>
+
                             <!-- View Toggle Switcher -->
-                            <div class="flex items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-xl">
-                                <button type="button" id="planViewToggleActive" onclick="switchPlanView('active')" class="px-5 py-2 rounded-lg bg-primary text-black text-[9px] font-black uppercase tracking-widest transition-all">
+                            <div
+                                class="flex items-center gap-1 p-1 bg-white/5 border border-white/10 rounded-xl ml-auto">
+                                <button type="button" id="planViewToggleActive" onclick="switchPlanView('active')"
+                                    class="px-5 py-2 rounded-lg bg-primary text-[--tab-active-text] text-[11px] font-black uppercase tracking-widest transition-all">
                                     Active
                                 </button>
-                                <button type="button" id="planViewToggleArchived" onclick="switchPlanView('archived')" class="px-5 py-2 rounded-lg text-[--secondary] hover:text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                                <button type="button" id="planViewToggleArchived" onclick="switchPlanView('archived')"
+                                    class="px-5 py-2 rounded-lg text-[--text-main] hover:text-white text-[11px] font-black uppercase tracking-widest transition-all opacity-70">
                                     Archived (<?= count($archived_website_plans) ?>)
                                 </button>
                             </div>
-
-                            <button type="button" onclick="addNewPlanCard()" class="px-5 py-2 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all flex items-center gap-2 group ml-auto">
-                                <span class="material-symbols-outlined text-sm group-hover:scale-110 transition-transform">add_circle</span>
-                                Add New Plan
-                            </button>
                         </div>
                     </div>
 
                     <!-- Active Plans Container -->
                     <div id="activePlansContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                        <?php foreach($active_website_plans as $plan): ?>
-                        <div class="glass-card p-8 flex flex-col gap-6 relative group/plan transition-all duration-300" id="plan-card-<?= $plan['website_plan_id'] ?>">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center gap-4">
-                                    <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                        <span class="material-symbols-outlined text-primary">workspace_premium</span>
-                                    </div>
-                                    <h3 class="text-sm font-black italic uppercase tracking-widest text-primary plan-title-preview">
-                                        <?= htmlspecialchars($plan['plan_name']) ?>
-                                    </h3>
-                                </div>
-                                <div class="flex items-center gap-2 transition-all">
-                                    <button type="button" onclick="toggleEditPlan(<?= $plan['website_plan_id'] ?>)" class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-95" title="Edit Plan">
-                                        <span class="material-symbols-outlined text-base">edit</span>
-                                    </button>
-                                    <button type="button" onclick="markPlanForArchival(<?= $plan['website_plan_id'] ?>)" class="size-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center hover:bg-amber-500 hover:text-white transition-all active:scale-95" title="Archive Plan">
-                                        <span class="material-symbols-outlined text-base">archive</span>
-                                    </button>
-                                </div>
+                        <?php if (empty($active_website_plans)): ?>
+                            <div class="col-span-full py-20 text-center opacity-30 animate-in fade-in duration-500">
+                                <span class="text-[10px] font-black uppercase tracking-[0.2em]">No active website plans
+                                    found</span>
                             </div>
+                        <?php else: ?>
+                            <?php foreach ($active_website_plans as $plan): ?>
+                                <div class="glass-card p-8 flex flex-col gap-6 relative group/plan transition-all duration-300"
+                                    id="plan-card-<?= $plan['website_plan_id'] ?>">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-4">
+                                            <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                                <span class="material-symbols-outlined text-primary">workspace_premium</span>
+                                            </div>
+                                            <h3
+                                                class="text-sm font-black italic uppercase tracking-widest text-primary plan-title-preview">
+                                                <?= htmlspecialchars($plan['plan_name']) ?>
+                                            </h3>
+                                        </div>
+                                        <div class="flex items-center gap-2 transition-all">
+                                            <button type="button" onclick="toggleEditPlan(<?= $plan['website_plan_id'] ?>)"
+                                                class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-95"
+                                                title="Edit Plan">
+                                                <span class="material-symbols-outlined text-base">edit</span>
+                                            </button>
+                                            <button type="button" onclick="markPlanForArchival(<?= $plan['website_plan_id'] ?>)"
+                                                class="size-8 rounded-lg bg-primary/10 text-[--text-main] flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-95"
+                                                title="Archive Plan">
+                                                <span class="material-symbols-outlined text-base">archive</span>
+                                            </button>
+                                        </div>
+                                    </div>
 
-                            <!-- PREVIEW STATE: Structured View mirroring Edit Mode -->
-                            <div class="plan-preview-state space-y-4">
-                                <div class="flex flex-col gap-1.5">
-                                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
-                                    <div class="view-box text-white"><?= htmlspecialchars($plan['plan_name']) ?></div>
-                                </div>
+                                    <!-- PREVIEW STATE: Structured View mirroring Edit Mode -->
+                                    <div class="plan-preview-state space-y-4">
+                                        <div class="flex flex-col gap-1.5">
+                                            <label
+                                                class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan
+                                                Name</label>
+                                            <div class="view-box text-white"><?= htmlspecialchars($plan['plan_name']) ?></div>
+                                        </div>
 
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="flex flex-col gap-1.5">
-                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price (₱)</label>
-                                        <div class="view-box"><?= number_format($plan['price']) ?>.00</div>
-                                    </div>
-                                    <div class="flex flex-col gap-1.5">
-                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Months)</label>
-                                        <div class="view-box"><?= htmlspecialchars($plan['duration_months']) ?></div>
-                                    </div>
-                                </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div class="flex flex-col gap-1.5">
+                                                <label
+                                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price
+                                                    (₱)</label>
+                                                <div class="view-box"><?= number_format($plan['price']) ?>.00</div>
+                                            </div>
+                                            <div class="flex flex-col gap-1.5">
+                                                <label
+                                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration
+                                                    (Months)</label>
+                                                <div class="view-box"><?= htmlspecialchars($plan['duration_months']) ?></div>
+                                            </div>
+                                        </div>
 
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="flex flex-col gap-1.5">
-                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle Text</label>
-                                        <div class="view-box"><?= htmlspecialchars($plan['billing_cycle']) ?></div>
-                                    </div>
-                                    <div class="flex flex-col gap-1.5">
-                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Featured Badge Text</label>
-                                        <div class="view-box opacity-60 italic"><?= !empty($plan['badge_text']) ? htmlspecialchars($plan['badge_text']) : 'None' ?></div>
-                                    </div>
-                                </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div class="flex flex-col gap-1.5">
+                                                <label
+                                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing
+                                                    Cycle Text</label>
+                                                <div class="view-box"><?= htmlspecialchars($plan['billing_cycle']) ?></div>
+                                            </div>
+                                            <div class="flex flex-col gap-1.5">
+                                                <label
+                                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Featured
+                                                    Badge Text</label>
+                                                <div class="view-box opacity-60 italic">
+                                                    <?= !empty($plan['badge_text']) ? htmlspecialchars($plan['badge_text']) : 'None' ?>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                <div class="flex flex-col gap-1.5">
-                                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features</label>
-                                    <div class="view-box view-box-long text-[10px] text-gray-400 font-medium">
-                                        <?= !empty($plan['features']) ? htmlspecialchars($plan['features']) : 'No features listed' ?>
+                                        <div class="flex flex-col gap-1.5">
+                                            <label
+                                                class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Features</label>
+                                            <div class="view-box view-box-long text-gray-400 font-medium">
+                                                <?= !empty($plan['features']) ? htmlspecialchars($plan['features']) : 'No features listed' ?>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
 
-                            <!-- EDIT STATE: Hidden inputs -->
-                            <div class="plan-edit-state space-y-4">
-                                <div class="flex flex-col gap-1.5">
-                                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
-                                    <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][name]" value="<?= htmlspecialchars($plan['plan_name']) ?>" class="input-field" oninput="this.closest('.glass-card').querySelector('.plan-title-preview').innerText = this.value">
-                                </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="flex flex-col gap-1.5">
-                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price (₱)</label>
-                                        <input type="number" step="1" name="plans[<?= $plan['website_plan_id'] ?>][price]" value="<?= htmlspecialchars($plan['price']) ?>" class="input-field">
+                                    <!-- EDIT STATE: Hidden inputs -->
+                                    <div class="plan-edit-state space-y-4">
+                                        <div class="flex flex-col gap-1.5">
+                                            <label
+                                                class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan
+                                                Name</label>
+                                            <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][name]"
+                                                value="<?= htmlspecialchars($plan['plan_name']) ?>" class="input-field"
+                                                oninput="this.closest('.glass-card').querySelector('.plan-title-preview').innerText = this.value">
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div class="flex flex-col gap-1.5">
+                                                <label
+                                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price
+                                                    (₱)</label>
+                                                <input type="number" step="1"
+                                                    name="plans[<?= $plan['website_plan_id'] ?>][price]"
+                                                    value="<?= htmlspecialchars($plan['price']) ?>" class="input-field">
+                                            </div>
+                                            <div class="flex flex-col gap-1.5">
+                                                <label
+                                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration
+                                                    (Months)</label>
+                                                <input type="number" name="plans[<?= $plan['website_plan_id'] ?>][duration]"
+                                                    value="<?= htmlspecialchars($plan['duration_months']) ?>"
+                                                    class="input-field">
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-4">
+                                            <div class="flex flex-col gap-1.5">
+                                                <label
+                                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing
+                                                    Cycle Text</label>
+                                                <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][billing]"
+                                                    value="<?= htmlspecialchars($plan['billing_cycle']) ?>" class="input-field">
+                                            </div>
+                                            <div class="flex flex-col gap-1.5">
+                                                <label
+                                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Featured
+                                                    Badge Text</label>
+                                                <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][badge_text]"
+                                                    value="<?= htmlspecialchars($plan['badge_text'] ?? '') ?>"
+                                                    class="input-field" placeholder="e.g. Most Popular">
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-col gap-1.5">
+                                            <label
+                                                class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features
+                                                (Comma-separated)</label>
+                                            <textarea name="plans[<?= $plan['website_plan_id'] ?>][features]" rows="4"
+                                                class="input-field no-scrollbar resize-none"><?= htmlspecialchars($plan['features']) ?></textarea>
+                                        </div>
+                                        <div class="pt-4 border-t border-white/5">
+                                            <p class="text-[8px] font-black uppercase tracking-widest text-primary opacity-60">
+                                                Manual save required via 'Save Changes'</p>
+                                        </div>
                                     </div>
-                                    <div class="flex flex-col gap-1.5">
-                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Months)</label>
-                                        <input type="number" name="plans[<?= $plan['website_plan_id'] ?>][duration]" value="<?= htmlspecialchars($plan['duration_months']) ?>" class="input-field">
-                                    </div>
                                 </div>
-                                <div class="grid grid-cols-2 gap-4">
-                                    <div class="flex flex-col gap-1.5">
-                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle Text</label>
-                                        <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][billing]" value="<?= htmlspecialchars($plan['billing_cycle']) ?>" class="input-field">
-                                    </div>
-                                    <div class="flex flex-col gap-1.5">
-                                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Featured Badge Text</label>
-                                        <input type="text" name="plans[<?= $plan['website_plan_id'] ?>][badge_text]" value="<?= htmlspecialchars($plan['badge_text'] ?? '') ?>" class="input-field" placeholder="e.g. Most Popular">
-                                    </div>
-                                </div>
-                                <div class="flex flex-col gap-1.5">
-                                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features (Comma-separated)</label>
-                                    <textarea name="plans[<?= $plan['website_plan_id'] ?>][features]" rows="4" class="input-field no-scrollbar resize-none"><?= htmlspecialchars($plan['features']) ?></textarea>
-                                </div>
-                                <div class="pt-4 border-t border-white/5">
-                                    <p class="text-[8px] font-black uppercase tracking-widest text-primary opacity-60">Manual save required via 'Save Changes'</p>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
 
                     <!-- Archived Plans Container -->
                     <div id="archivedPlansContainer" class="hidden overflow-hidden glass-card">
+                        <!-- Filter Bar Guide (Inspired by system_reports.php) -->
+                        <div
+                            class="px-8 py-6 border-b border-white/5 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01]">
+                            <div class="relative flex-1">
+                                <span
+                                    class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
+                                <input type="text" id="archivedPlanSearch" placeholder="Search by plan name..."
+                                    oninput="filterArchivedPlans()" class="input-field w-full pl-12 !min-h-[44px]">
+                            </div>
+                            <div class="w-full lg:w-fit flex items-center gap-2">
+                                <select id="archivedIDSort" onchange="filterArchivedPlans('id')"
+                                    class="input-field w-full lg:w-72 !min-h-[44px] cursor-pointer">
+                                    <option value="newest">Newest to Oldest</option>
+                                    <option value="oldest">Oldest to Newest</option>
+                                </select>
+
+                                <select id="archivedPriceSort" onchange="filterArchivedPlans('price')"
+                                    class="input-field w-full lg:w-72 !min-h-[44px] cursor-pointer">
+                                    <option value="none">Sort by Price</option>
+                                    <option value="price_low">Price (Lowest to Highest)</option>
+                                    <option value="price_high">Price (Highest to Lowest)</option>
+                                </select>
+
+                                <button type="button" onclick="resetArchivedFilters()"
+                                    class="size-[44px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all group active:scale-95"
+                                    title="Reset Filters">
+                                    <span
+                                        class="material-symbols-outlined text-sm group-hover:rotate-180 transition-transform duration-500">restart_alt</span>
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse">
                                 <thead>
                                     <tr class="border-b border-white/5 bg-white/[0.02]">
-                                        <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500">Plan Name</th>
-                                        <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500">Price</th>
-                                        <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500">Billing</th>
-                                        <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500">Features</th>
-                                        <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Actions</th>
+                                        <th
+                                            class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500/80">
+                                            Plan Name</th>
+                                        <th
+                                            class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500/80 text-center">
+                                            Price (₱)</th>
+                                        <th
+                                            class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500/80 text-center">
+                                            Duration</th>
+                                        <th
+                                            class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500/80 text-center">
+                                            Billing Cycle</th>
+                                        <th
+                                            class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500/80 text-center">
+                                            Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-white/5">
-                                    <?php if (empty($archived_website_plans)): ?>
-                                    <tr>
-                                        <td colspan="5" class="px-8 py-12 text-center">
-                                            <div class="flex flex-col items-center gap-3 opacity-30">
-                                                <span class="material-symbols-outlined text-4xl">folder_off</span>
-                                                <span class="text-[10px] font-black uppercase tracking-widest">No archived plans</span>
-                                            </div>
+                                <tbody class="divide-y divide-white/5" id="archivedPlansTableBody">
+                                    <tr
+                                        class="no-results-row <?= empty($archived_website_plans) ? '' : 'hidden' ?> animate-in fade-in duration-500">
+                                        <td colspan="5" class="px-8 py-10 text-center opacity-30">
+                                            <span
+                                                class="text-[10px] font-black uppercase tracking-[0.2em] no-results-text">
+                                                <?= empty($archived_website_plans) ? 'No archived plans found' : 'No matching archived plans found' ?>
+                                            </span>
                                         </td>
                                     </tr>
-                                    <?php else: ?>
-                                        <?php foreach($archived_website_plans as $plan): ?>
-                                        <tr class="hover:bg-white/[0.02] transition-colors group">
-                                            <td class="px-8 py-6">
-                                                <div class="flex items-center gap-4">
-                                                    <div class="size-8 rounded-lg bg-gray-500/10 flex items-center justify-center">
-                                                        <span class="material-symbols-outlined text-gray-500 text-sm">inventory_2</span>
+                                    <?php if (!empty($archived_website_plans)): ?>
+                                        <?php foreach ($archived_website_plans as $plan): ?>
+                                            <tr class="hover:bg-white/[0.02] transition-colors group"
+                                                data-id="<?= $plan['website_plan_id'] ?>" data-price="<?= $plan['price'] ?>"
+                                                data-name="<?= htmlspecialchars(strtolower($plan['plan_name'])) ?>">
+                                                <td class="px-8 py-4">
+                                                    <div class="flex flex-col">
+                                                        <span
+                                                            class="text-[12px] font-black italic uppercase text-white plan-name-text"><?= htmlspecialchars($plan['plan_name']) ?></span>
                                                     </div>
-                                                    <span class="text-xs font-bold text-white uppercase italic"><?= htmlspecialchars($plan['plan_name']) ?></span>
-                                                </div>
-                                            </td>
-                                            <td class="px-8 py-6">
-                                                <span class="text-xs font-black text-white">₱<?= number_format($plan['price']) ?></span>
-                                            </td>
-                                            <td class="px-8 py-6">
-                                                <span class="text-[9px] font-bold text-gray-500 uppercase tracking-wider"><?= htmlspecialchars($plan['billing_cycle']) ?></span>
-                                            </td>
-                                            <td class="px-8 py-6 max-w-xs">
-                                                <p class="text-[10px] text-gray-500 truncate" title="<?= htmlspecialchars($plan['features']) ?>">
-                                                    <?= htmlspecialchars($plan['features']) ?>
-                                                </p>
-                                            </td>
-                                            <td class="px-8 py-6 text-right">
-                                                <button type="button" onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)" class="px-6 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest flex items-center gap-2 active:scale-95 inline-flex" title="Restore Immediately">
-                                                    <span class="material-symbols-outlined text-sm">settings_backup_restore</span>
-                                                    Restore
-                                                </button>
-                                            </td>
-                                        </tr>
+                                                </td>
+                                                <td class="px-8 py-4 text-center">
+                                                    <span
+                                                        class="text-[12px] font-black text-white">₱<?= number_format($plan['price']) ?></span>
+                                                </td>
+                                                <td class="px-8 py-4 text-center">
+                                                    <span
+                                                        class="text-[11px] font-black text-gray-400 uppercase"><?= $plan['duration_months'] ?>
+                                                        Months</span>
+                                                </td>
+                                                <td class="px-8 py-4 text-center">
+                                                    <span
+                                                        class="text-[10px] font-black text-gray-500 uppercase tracking-widest plan-billing-text"
+                                                        data-billing="<?= htmlspecialchars($plan['billing_cycle']) ?>"><?= htmlspecialchars($plan['billing_cycle']) ?></span>
+                                                </td>
+                                                <td class="px-8 py-4 text-center">
+                                                    <div class="flex items-center justify-center gap-2">
+                                                        <button type="button"
+                                                            onclick="viewPlanDetails(<?= htmlspecialchars(json_encode($plan)) ?>)"
+                                                            class="size-8 rounded-lg bg-white/5 text-[--highlight] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center active:scale-95"
+                                                            title="View Details">
+                                                            <span class="material-symbols-outlined text-sm">visibility</span>
+                                                        </button>
+                                                        <button type="button"
+                                                            onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)"
+                                                            class="size-8 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center active:scale-95"
+                                                            title="Restore Plan">
+                                                            <span
+                                                                class="material-symbols-outlined text-sm">settings_backup_restore</span>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
                                 </tbody>
@@ -1174,7 +1327,7 @@ $active_page = "settings";
             <div class="modal-content-scroll p-10">
                 <div class="flex items-center gap-4 mb-8">
                     <div class="size-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-primary text-2xl">person_add</span>
+                        <span class="material-symbols-outlined text-[--highlight] text-2xl">person_add</span>
                     </div>
                     <div>
                         <h3 class="text-xl font-black italic uppercase tracking-tighter">New <span
@@ -1214,13 +1367,13 @@ $active_page = "settings";
                                 <label
                                     class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Username</label>
                                 <input type="text" name="new_username" id="new_username" required class="input-field"
-                                    placeholder="superadmin_dev">
+                                    placeholder="superadmin_dev" autocomplete="off">
                             </div>
                             <div class="flex flex-col gap-1">
                                 <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Email
                                     Address</label>
                                 <input type="email" name="new_email" id="new_email" required class="input-field"
-                                    placeholder="example@gmail.com">
+                                    placeholder="example@gmail.com" autocomplete="off">
                             </div>
                         </div>
 
@@ -1253,7 +1406,7 @@ $active_page = "settings";
                         <div class="p-8 rounded-3xl bg-white/5 border border-white/5 space-y-6 mt-10 shadow-inner">
                             <h4
                                 class="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
-                                <span class="material-symbols-outlined text-base">security</span>
+                                <span class="material-symbols-outlined text-base text-[--highlight]">security</span>
                                 Security Protocol
                             </h4>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1263,7 +1416,7 @@ $active_page = "settings";
                                     <div class="relative group/pass">
                                         <input type="password" name="new_password" id="new_password" required
                                             class="input-field w-full pr-12" placeholder="Min. 8 characters"
-                                            oninput="checkStrength(this.value)">
+                                            oninput="checkStrength(this.value)" autocomplete="new-password">
                                         <button type="button" onclick="togglePassword('new_password', 'icon_new')"
                                             class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
                                             <span class="material-symbols-outlined text-lg"
@@ -1313,7 +1466,8 @@ $active_page = "settings";
                                         Password</label>
                                     <div class="relative">
                                         <input type="password" name="confirm_new_password" id="confirm_new_password"
-                                            required class="input-field w-full pr-12" placeholder="Repeat password">
+                                            required class="input-field w-full pr-12" placeholder="Repeat password"
+                                            autocomplete="new-password">
                                         <button type="button"
                                             onclick="togglePassword('confirm_new_password', 'icon_confirm')"
                                             class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors">
@@ -1373,7 +1527,7 @@ $active_page = "settings";
     <div id="confirmActionModal" class="modal-overlay" onclick="if(event.target === this) toggleActionModal(false)">
         <div class="glass-card w-full max-w-lg p-10 relative text-center">
             <div class="size-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                <span id="confirmIcon" class="material-symbols-outlined text-primary text-3xl">warning</span>
+                <span id="confirmIcon" class="material-symbols-outlined text-[--highlight] text-3xl">warning</span>
             </div>
             <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter text-white mb-2">Confirm
                 Changes</h3>
@@ -1383,10 +1537,82 @@ $active_page = "settings";
                 configurations to the system? This will update the appearance for all users immediately.</p>
             <div class="flex justify-center gap-4">
                 <button type="button" onclick="toggleActionModal(false)"
-                    class="px-8 py-3 rounded-xl bg-white/5 text-[--secondary] text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
-                <button id="confirmExecuteBtn" type="button"
-                    class="px-10 py-3 rounded-xl bg-primary text-black text-[10px] font-black uppercase tracking-widest hover:bg-primary/90 hover:shadow-primary/30 transition-all shadow-lg shadow-primary/20">Confirm
+                    class="flex-1 h-[50px] rounded-xl bg-white/5 text-[--secondary] text-[12px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Cancel</button>
+                <button type="button" id="confirmExecuteBtn"
+                    class="flex-1 h-[50px] rounded-xl bg-primary text-black text-[12px] font-black uppercase tracking-widest hover:bg-primary/90 transition-all">Confirm
                     Action</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan Details View Modal -->
+    <div id="planViewModal" class="modal-overlay" onclick="if(event.target === this) togglePlanViewModal(false)">
+        <div class="glass-card w-full max-w-2xl p-10 relative animate-in fade-in zoom-in duration-300">
+            <button type="button" onclick="togglePlanViewModal(false)"
+                class="absolute top-6 right-6 size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-rose-500 hover:text-white transition-all z-10 group">
+                <span class="material-symbols-outlined text-lg group-hover:rotate-90 transition-transform">close</span>
+            </button>
+
+            <div class="flex items-center gap-4 mb-8">
+                <div class="size-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-primary text-2xl">visibility</span>
+                </div>
+                <div>
+                    <h3 class="text-xl font-black italic uppercase tracking-tighter text-white">Archived <span
+                            class="text-primary italic">PLAN DETAILS</span></h3>
+                    <p class="text-[11px] font-black uppercase tracking-widest text-gray-500 mt-1">Reviewing details for
+                        archived plan</p>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Row 1: Plan Name -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
+                    <div id="view_plan_name" class="view-box text-white font-bold italic uppercase">--</div>
+                </div>
+
+                <!-- Row 2: Price & Duration -->
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Price
+                            (₱)</label>
+                        <div id="view_plan_price" class="view-box font-black text-primary">--</div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration
+                            (Months)</label>
+                        <div id="view_plan_duration" class="view-box text-white">--</div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Billing & Badge -->
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle
+                            Text</label>
+                        <div id="view_plan_billing" class="view-box text-gray-400 capitalize">--</div>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Featured
+                            Badge Text</label>
+                        <div id="view_plan_badge" class="view-box text-[--highlight] font-bold">--</div>
+                    </div>
+                </div>
+
+                <!-- Row 4: Features -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Features</label>
+                    <div id="view_plan_features"
+                        class="view-box view-box-long text-gray-400 font-medium leading-relaxed">
+                        --
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-10 pt-8 border-t border-white/5 flex gap-4">
+                <button type="button" onclick="togglePlanViewModal(false)"
+                    class="flex-1 h-[50px] rounded-xl border border-white/10 text-[12px] font-black uppercase tracking-widest hover:bg-white/5 transition-all">Close</button>
             </div>
         </div>
     </div>
@@ -1396,13 +1622,13 @@ $active_page = "settings";
             // Update UI
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
+
             const activeBtn = document.getElementById(`tab-${tabId}`);
             const activeContent = document.getElementById(`content-${tabId}`);
-            
+
             if (activeBtn) activeBtn.classList.add('active');
             if (activeContent) activeContent.classList.add('active');
-            
+
             // Update Hidden Input for Persistence
             const tabInput = document.getElementById('activeTabInput');
             if (tabInput) tabInput.value = tabId;
@@ -1527,6 +1753,11 @@ $active_page = "settings";
                 return;
             }
 
+            if (username.toLowerCase() === email.toLowerCase()) {
+                showError("Username and Email address cannot be the same.");
+                return;
+            }
+
             // 3. Contact Validation
             const rawContact = contact.replace(/\D/g, '');
             if (rawContact.length !== 11) {
@@ -1610,12 +1841,12 @@ $active_page = "settings";
             constructor(containerId, itemsPerPage, itemSelector) {
                 this.container = document.getElementById(containerId);
                 if (!this.container) return;
-                
+
                 this.pageSize = itemsPerPage;
                 this.itemSelector = itemSelector;
                 this.currentPage = 1;
                 this.paginationContainerId = `${containerId}-pagination`;
-                
+
                 this.init();
             }
 
@@ -1624,11 +1855,20 @@ $active_page = "settings";
             }
 
             update() {
-                const items = Array.from(this.container.querySelectorAll(this.itemSelector));
+                // First, completely hide items that are manually filtered out
+                const allItems = Array.from(this.container.querySelectorAll(this.itemSelector));
+                allItems.forEach(item => {
+                    if (item.classList.contains('filtered-out')) {
+                        item.classList.add('hidden');
+                    }
+                });
+
+                // Only paginate items that match the filters
+                const items = Array.from(this.container.querySelectorAll(`${this.itemSelector}:not(.filtered-out):not(.no-results-row)`));
                 const totalItems = items.length;
                 const totalPages = Math.ceil(totalItems / this.pageSize);
 
-                // If fewer items than page size, hide existing pagination and show all items
+                // If fewer items than page size, hide existing pagination and show all valid items
                 if (totalItems <= this.pageSize) {
                     items.forEach(item => item.classList.remove('hidden'));
                     const existing = document.getElementById(this.paginationContainerId);
@@ -1663,11 +1903,11 @@ $active_page = "settings";
                 }
 
                 const end = Math.min(endReached, totalItems);
-                
+
                 controls.innerHTML = `
                     <div class="flex flex-col gap-1">
-                        <span class="text-[9px] font-black uppercase text-gray-500 tracking-widest">Navigation Status</span>
-                        <p class="text-[10px] font-black uppercase tracking-tight text-white">
+                        <span class="text-[11px] font-black uppercase text-gray-500 tracking-widest">Navigation Status</span>
+                        <p class="text-[12px] font-black uppercase tracking-tight text-white">
                             Showing <span class="text-primary">${start + 1}</span> to <span class="text-primary">${end}</span> of <span class="opacity-50">${totalItems} entries</span>
                         </p>
                     </div>
@@ -1698,7 +1938,7 @@ $active_page = "settings";
                     const isActive = i === this.currentPage;
                     html += `
                         <button type="button" onclick="horizonPaginators['${this.container.id}'].setPage(${i})"
-                            class="size-8 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${isActive ? 'bg-primary text-black' : 'text-gray-500 hover:text-white'}">
+                            class="size-8 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${isActive ? 'bg-primary text-[--tab-active-text]' : 'text-gray-500 hover:text-white'}">
                             ${i}
                         </button>
                     `;
@@ -1724,10 +1964,8 @@ $active_page = "settings";
             }
 
             // Paginate Archived Table (10 per page)
-            const archivedTable = document.querySelector('#archivedPlansContainer tbody');
+            const archivedTable = document.getElementById('archivedPlansTableBody');
             if (archivedTable) {
-                // We wrap the tbody to treat rows as items
-                archivedTable.id = 'archivedPlansTableBody';
                 horizonPaginators['archivedPlansTableBody'] = new ElitePaginator('archivedPlansTableBody', 10, 'tr');
             }
         }
@@ -1741,17 +1979,20 @@ $active_page = "settings";
             const archivedContainer = document.getElementById('archivedPlansContainer');
             const toggleActive = document.getElementById('planViewToggleActive');
             const toggleArchived = document.getElementById('planViewToggleArchived');
+            const addBtn = document.getElementById('addNewPlanBtn');
 
             if (view === 'active') {
                 activeContainer.classList.remove('hidden');
                 archivedContainer.classList.add('hidden');
-                toggleActive.className = 'px-5 py-2 rounded-lg bg-primary text-black text-[9px] font-black uppercase tracking-widest transition-all';
-                toggleArchived.className = 'px-5 py-2 rounded-lg text-[--secondary] hover:text-white text-[9px] font-black uppercase tracking-widest transition-all';
+                if (addBtn) addBtn.classList.remove('hidden');
+                toggleActive.className = 'px-5 py-2 rounded-lg bg-primary text-[--tab-active-text] text-[11px] font-black uppercase tracking-widest transition-all';
+                toggleArchived.className = 'px-5 py-2 rounded-lg text-[--text-main] hover:text-white text-[11px] font-black uppercase tracking-widest transition-all opacity-70';
             } else {
                 activeContainer.classList.add('hidden');
                 archivedContainer.classList.remove('hidden');
-                toggleActive.className = 'px-5 py-2 rounded-lg text-[--secondary] hover:text-white text-[9px] font-black uppercase tracking-widest transition-all';
-                toggleArchived.className = 'px-5 py-2 rounded-lg bg-primary text-black text-[9px] font-black uppercase tracking-widest transition-all';
+                if (addBtn) addBtn.classList.add('hidden');
+                toggleActive.className = 'px-5 py-2 rounded-lg text-[--text-main] hover:text-white text-[11px] font-black uppercase tracking-widest transition-all opacity-70';
+                toggleArchived.className = 'px-5 py-2 rounded-lg bg-primary text-[--tab-active-text] text-[11px] font-black uppercase tracking-widest transition-all';
             }
         }
 
@@ -1825,7 +2066,6 @@ $active_page = "settings";
             const secondaryInput = document.getElementById('secondary_color_input');
             const textColorInput = document.getElementById('text_color_input');
             const bgInput = document.getElementById('bg_color_input');
-            const fontInput = document.getElementById('font_family_input');
             const nameInput = document.getElementById('system_name_input');
             const isAutoCardInput = document.getElementById('auto_card_theme_input');
             const cardColorInput = document.getElementById('card_color_input');
@@ -1836,7 +2076,6 @@ $active_page = "settings";
             root.style.setProperty('--highlight', secondaryInput.value);
             root.style.setProperty('--text-main', textColorInput.value);
             root.style.setProperty('--background', bgInput.value);
-            if (fontInput) document.body.style.fontFamily = `'${fontInput.value}', sans-serif`;
 
             const sidebarName = document.getElementById('sidebarSystemName');
             if (sidebarName && nameInput) sidebarName.textContent = nameInput.value;
@@ -1887,7 +2126,7 @@ $active_page = "settings";
         document.addEventListener('DOMContentLoaded', () => {
             initPagination();
             updateLiveBranding();
-            
+
             const successAlert = document.getElementById('successAlert');
             if (successAlert) {
                 setTimeout(() => {
@@ -1920,8 +2159,7 @@ $active_page = "settings";
                     document.getElementById('text_color_input').value = '#d1d5db';
                     document.getElementById('tab_active_text_input').value = '#ffffff';
                     document.getElementById('bg_color_input').value = '#0a090d';
-                    document.getElementById('font_family_input').value = 'Lexend';
-                    
+
                     const isAutoInput = document.getElementById('auto_card_theme_input');
                     if (isAutoInput) isAutoInput.checked = true;
 
@@ -1945,7 +2183,7 @@ $active_page = "settings";
         function addNewPlanCard() {
             const container = document.getElementById('activePlansContainer');
             const newId = `new_plan_${newPlanCount++}`;
-            
+
             const card = document.createElement('div');
             // Starts with .is-editing by default
             card.className = "glass-card p-8 flex flex-col gap-6 relative group/plan animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-2xl is-editing";
@@ -1953,7 +2191,7 @@ $active_page = "settings";
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-4">
                         <div class="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-emerald-500">add_reaction</span>
+                            <span class="material-symbols-outlined text-[--highlight]">add_reaction</span>
                         </div>
                         <h3 class="text-sm font-black italic uppercase tracking-widest text-emerald-500 plan-title-preview">Draft Plan</h3>
                     </div>
@@ -1997,8 +2235,8 @@ $active_page = "settings";
                     </div>
 
                     <div class="flex flex-col gap-1.5">
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Features</label>
-                        <div class="view-box view-box-long text-[10px] text-gray-500 italic opacity-40">
+                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Features</label>
+                        <div class="view-box view-box-long text-gray-500 italic opacity-40">
                             Drafting features...
                         </div>
                     </div>
@@ -2040,13 +2278,13 @@ $active_page = "settings";
                 </div>
             `;
             container.prepend(card);
-            
+
             // Sync with pagination engine
             if (horizonPaginators['activePlansContainer']) {
                 horizonPaginators['activePlansContainer'].currentPage = 1; // Back to first page to see the new card
                 horizonPaginators['activePlansContainer'].update();
             }
-            
+
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
@@ -2094,6 +2332,105 @@ $active_page = "settings";
                     toggleActionModal(false);
                 }
             );
+        }
+
+        function togglePlanViewModal(show) {
+            const modal = document.getElementById('planViewModal');
+            if (modal) {
+                modal.classList.toggle('active', show);
+                document.body.style.overflow = show ? 'hidden' : 'auto';
+            }
+        }
+
+        function viewPlanDetails(plan) {
+            document.getElementById('view_plan_name').innerText = plan.plan_name;
+            document.getElementById('view_plan_price').innerText = '₱' + parseInt(plan.price).toLocaleString();
+            document.getElementById('view_plan_duration').innerText = plan.duration_months + (plan.duration_months > 1 ? ' Months' : ' Month');
+            document.getElementById('view_plan_billing').innerText = plan.billing_cycle || 'N/A';
+            document.getElementById('view_plan_badge').innerText = plan.badge_text || 'None';
+            document.getElementById('view_plan_features').innerText = plan.features || 'No features listed';
+
+            togglePlanViewModal(true);
+        }
+
+        function resetArchivedFilters() {
+            document.getElementById('archivedPlanSearch').value = '';
+            document.getElementById('archivedIDSort').value = 'newest';
+            document.getElementById('archivedPriceSort').value = 'none';
+            filterArchivedPlans();
+        }
+
+        function filterArchivedPlans(source = 'all') {
+            const query = document.getElementById('archivedPlanSearch').value.toLowerCase();
+            const idSort = document.getElementById('archivedIDSort');
+            const priceSort = document.getElementById('archivedPriceSort');
+
+            // Sync logic: If one is used, the other resets to its neutral state to avoid conflict
+            if (source === 'id') {
+                priceSort.value = 'none';
+            } else if (source === 'price' && priceSort.value !== 'none') {
+                // No specific neutral state for ID, but we know price takes priority now
+            }
+
+            let sortValue = priceSort.value !== 'none' ? priceSort.value : idSort.value;
+
+            const tbody = document.getElementById('archivedPlansTableBody');
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.no-results-row)'));
+
+            // 1. Sort Rows
+            rows.sort((a, b) => {
+                const idA = parseInt(a.getAttribute('data-id'));
+                const idB = parseInt(b.getAttribute('data-id'));
+                const priceA = parseFloat(a.getAttribute('data-price'));
+                const priceB = parseFloat(b.getAttribute('data-price'));
+
+                switch (sortValue) {
+                    case 'newest': return idB - idA;
+                    case 'oldest': return idA - idB;
+                    case 'price_low': return priceA - priceB;
+                    case 'price_high': return priceB - priceA;
+                    default: return idB - idA;
+                }
+            });
+
+            // 2. Re-append Sorted Rows
+            rows.forEach(row => tbody.appendChild(row));
+
+            // 3. Apply Filters and Update Visibility
+            let visibleCount = 0;
+            rows.forEach(row => {
+                const nameEl = row.querySelector('.plan-name-text');
+                if (!nameEl) return;
+
+                const planName = nameEl.innerText.toLowerCase();
+                const matchesSearch = planName.includes(query);
+
+                if (matchesSearch) {
+                    row.classList.remove('filtered-out');
+                    visibleCount++;
+                } else {
+                    row.classList.add('filtered-out');
+                }
+            });
+
+            // Handle "No Results" row
+            const noResultsRow = document.querySelector('.no-results-row');
+            const noResultsText = noResultsRow.querySelector('.no-results-text');
+
+            if (visibleCount === 0) {
+                noResultsRow.classList.remove('hidden');
+                noResultsText.innerText = (query === '')
+                    ? 'No archived plans found'
+                    : 'No matching archived plans found';
+            } else {
+                noResultsRow.classList.add('hidden');
+            }
+
+            // Sync with pagination engine
+            if (horizonPaginators['archivedPlansTableBody']) {
+                horizonPaginators['archivedPlansTableBody'].currentPage = 1;
+                horizonPaginators['archivedPlansTableBody'].update();
+            }
         }
     </script>
 </body>
