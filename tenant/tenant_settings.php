@@ -125,10 +125,69 @@ $configs = array_merge($configs, $user_configs);
 $success = null;
 $error = null;
 
+// --- AUTO-MIGRATION: MEMBERSHIP SORT ORDER & FEATURES ---
+try {
+    $pdo->exec("ALTER TABLE membership_plans ADD COLUMN sort_order INT NOT NULL DEFAULT 0 AFTER price");
+} catch (Exception $e) { /* Column already exists */ }
+
+try {
+    $pdo->exec("ALTER TABLE membership_plans ADD COLUMN features TEXT AFTER description");
+} catch (Exception $e) { /* Column already exists */ }
+
+try {
+    $pdo->exec("ALTER TABLE membership_plans ADD COLUMN billing_cycle_text VARCHAR(255) AFTER duration_value");
+    $pdo->exec("ALTER TABLE membership_plans ADD COLUMN featured_badge_text VARCHAR(255) AFTER billing_cycle_text");
+} catch (Exception $e) { /* Column already exists */ }
+
+// --- AJAX HANDLER: SAVE MEMBERSHIP ORDER ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_membership_order') {
+    try {
+        $order = $_POST['order'] ?? [];
+        if (!empty($order)) {
+            // Only update plans owned by the gym.
+            $stmtSort = $pdo->prepare("UPDATE membership_plans SET sort_order = ? WHERE membership_plan_id = ? AND gym_id = ?");
+            foreach ($order as $index => $id) {
+                $stmtSort->execute([$index, (int)$id, $gym_id]);
+            }
+            echo json_encode(['success' => true]);
+        }
+    } catch (Exception $e) { echo json_encode(['success' => false, 'error' => $e->getMessage()]); }
+    exit;
+}
+
+// --- AJAX HANDLER: TOGGLE PLAN STATUS (Archive/Restore) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'toggle_plan_status') {
+    try {
+        $id = (int)$_POST['id'];
+        $new_status = (int)$_POST['is_active'];
+        
+        $stmtStatus = $pdo->prepare("UPDATE membership_plans SET is_active = ?, updated_at = NOW() WHERE membership_plan_id = ? AND gym_id = ?");
+        $stmtStatus->execute([$new_status, $id, $gym_id]);
+        
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) { echo json_encode(['success' => false, 'error' => $e->getMessage()]); }
+    exit;
+}
+
 // Default Branding Values
 $bg_color = $page['bg_color'] ?? '#0a090d';
 $theme_color = $page['theme_color'] ?? '#8c2bee';
 $secondary_color = $page['secondary_color'] ?? '#a1a1aa';
+
+// --- DATA FETCHING FOR MEMBERSHIP PLANS ---
+$stmtPlanTypes = $pdo->query("SELECT * FROM membership_plan_types ORDER BY type_name ASC");
+$plan_types = $stmtPlanTypes->fetchAll();
+
+$stmtPlans = $pdo->prepare("SELECT mp.*, mpt.type_name FROM membership_plans mp JOIN membership_plan_types mpt ON mp.plan_type_id = mpt.plan_type_id WHERE mp.gym_id = ? ORDER BY mp.is_active DESC, mp.sort_order ASC, mp.price ASC");
+$stmtPlans->execute([$gym_id]);
+$all_membership_plans = $stmtPlans->fetchAll();
+
+$active_plans = [];
+$archived_plans = [];
+foreach ($all_membership_plans as $p) {
+    if ($p['is_active']) $active_plans[] = $p;
+    else $archived_plans[] = $p;
+}
 
 // --- UNIFIED POST HANDLER ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -142,7 +201,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'secondary_color' => $_POST['secondary_color'] ?? '#a1a1aa',
             'text_color' => $_POST['text_color'] ?? '#d1d5db',
             'bg_color' => $_POST['bg_color'] ?? '#0a090d',
-            'font_family' => $_POST['font_family'] ?? 'Lexend',
             'card_color' => $_POST['card_color'] ?? '#141216',
             'auto_card_theme' => $_POST['auto_card_theme'] ?? '0',
             'is_active' => '1', // Default to active
@@ -186,13 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $now = date('Y-m-d H:i:s');
     
         try {
-            // Server-side validation
-            if (!$opening_time || !$closing_time || !$max_capacity) {
-                throw new Exception("Opening Time, Closing Time, and Max Capacity are required.");
-            }
-    
             $pdo->beginTransaction();
-    
             // 1. Update/Create System Settings
             $stmtUpdateSettings = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
             foreach ($system_keys as $key => $value) {
@@ -212,6 +264,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $stmtInsertDetails = $pdo->prepare("INSERT INTO gym_details (gym_id, opening_time, closing_time, max_capacity, has_lockers, has_shower, has_parking, has_wifi, rules_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmtInsertDetails->execute([$gym_id, $opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now]);
+            }
+
+            // 4. Handle Membership Plans Updates
+            if (isset($_POST['membership_plans']) && is_array($_POST['membership_plans'])) {
+                $stmtUpdateMPlan = $pdo->prepare("UPDATE membership_plans SET plan_name = ?, plan_type_id = ?, price = ?, duration_value = ?, billing_cycle_text = ?, featured_badge_text = ?, session_limit = ?, description = ?, features = ?, updated_at = NOW() WHERE membership_plan_id = ? AND gym_id = ?");
+                foreach ($_POST['membership_plans'] as $id => $data) {
+                    $stmtUpdateMPlan->execute([
+                        $data['name'],
+                        $data['type_id'],
+                        $data['price'],
+                        $data['duration'],
+                        $data['billing_cycle'] ?? null,
+                        $data['badge'] ?? null,
+                        !empty($data['sessions']) ? $data['sessions'] : null,
+                        $data['description'] ?? '',
+                        $data['features'] ?? '',
+                        $id,
+                        $gym_id
+                    ]);
+                }
+            }
+
+            // 5. Handle New Membership Plans
+            if (isset($_POST['new_membership_plans']) && is_array($_POST['new_membership_plans'])) {
+                // Get current max sort order for this gym
+                $stmtMaxOrder = $pdo->prepare("SELECT MAX(sort_order) FROM membership_plans WHERE gym_id = ?");
+                $stmtMaxOrder->execute([$gym_id]);
+                $max_order = (int)$stmtMaxOrder->fetchColumn();
+
+                $stmtInsMPlan = $pdo->prepare("INSERT INTO membership_plans (gym_id, plan_name, plan_type_id, price, duration_value, billing_cycle_text, featured_badge_text, session_limit, description, features, is_active, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW(), NOW())");
+                foreach ($_POST['new_membership_plans'] as $data) {
+                    if (empty($data['name'])) continue;
+                    $max_order++;
+                    $stmtInsMPlan->execute([
+                        $gym_id,
+                        $data['name'],
+                        $data['type_id'],
+                        $data['price'],
+                        $data['duration'],
+                        $data['billing_cycle'] ?? null,
+                        $data['badge'] ?? null,
+                        !empty($data['sessions']) ? $data['sessions'] : null,
+                        $data['description'] ?? '',
+                        $data['features'] ?? '',
+                        $max_order
+                    ]);
+                }
+            }
+
+            // 6. Handle Archive/Restore
+            if (isset($_POST['archive_plan_id'])) {
+                $stmtArchive = $pdo->prepare("UPDATE membership_plans SET is_active = 0 WHERE membership_plan_id = ? AND gym_id = ?");
+                $stmtArchive->execute([$_POST['archive_plan_id'], $gym_id]);
+            }
+            if (isset($_POST['restore_plan_id'])) {
+                $stmtRestore = $pdo->prepare("UPDATE membership_plans SET is_active = 1 WHERE membership_plan_id = ? AND gym_id = ?");
+                $stmtRestore->execute([$_POST['restore_plan_id'], $gym_id]);
             }
     
             $pdo->commit();
@@ -241,6 +350,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
@@ -259,7 +369,136 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         body { font-family: '<?= $configs['font_family'] ?? 'Lexend' ?>', sans-serif; background-color: var(--background); color: var(--text-main); overflow: hidden; }
         .glass-card { background: var(--card-bg); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(var(--card-blur)); }
-        
+        .glass-card:hover { border-color: rgba(var(--primary-rgb), 0.2); transform: translateY(-4px); }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
+            background: rgba(10, 9, 13, 0.85);
+            backdrop-filter: blur(12px);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .side-nav:hover ~ .modal-overlay {
+            left: 300px;
+        }
+
+        .modal-overlay.flex { display: flex !important; }
+
+        .modal-content-scroll {
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 2rem;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .modal-content-scroll::-webkit-scrollbar { display: none; }
+
+        .plan-card-elite {
+            background: rgba(var(--primary-rgb), 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .plan-card-elite:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 30px rgba(var(--primary-rgb), 0.1);
+        }
+
+        .shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+        .shimmer::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent 20%,
+                rgba(255,255,255,0.05) 50%,
+                transparent 80%
+            );
+            animation: shimmer 4s infinite linear;
+        }
+        @keyframes shimmer {
+            0% { transform: translate(-30%, -30%) rotate(0deg); }
+            100% { transform: translate(30%, 30%) rotate(0deg); }
+        }
+
+        .sortable-ghost { opacity: 0.3; transform: scale(0.95); }
+        .sortable-drag { cursor: grabbing; }
+
+        /* MATCH IMAGE LOOK */
+        .plan-header-bar {
+            background: #1a1a1a;
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 24px 32px;
+        }
+        .elite-red-card {
+            background: #1a1a1a;
+            border-radius: 32px;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.3s ease;
+        }
+        .elite-red-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 0 40px rgba(var(--primary-rgb), 0.05);
+        }
+        .input-dark-elite {
+            background: #0f0f0f;
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: white;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+        .input-dark-elite:focus {
+            border-color: var(--primary);
+            outline: none;
+            background: #141414;
+        }
+        .label-elite {
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: #4a4a4a;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .tab-btn-match {
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.3s ease;
+        }
+        .tab-btn-match.active {
+            background: var(--primary);
+            color: white;
+        }
+        .tab-btn-match.inactive {
+            color: #666;
+        }
+
         .side-nav {
             width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -376,6 +615,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transform-origin: top left;
         }
 
+        /* Tabs Styling */
+        .tab-btn {
+            position: relative;
+            padding: 12px 24px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: #94a3b8;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .tab-btn:hover { background: rgba(255, 255, 255, 0.05); color: white; }
+        .tab-btn.active { 
+            background: rgba(var(--primary-rgb), 0.1); 
+            border-color: var(--primary); 
+            color: white; 
+            box-shadow: 0 10px 30px -10px rgba(var(--primary-rgb), 0.3);
+        }
+        .tab-panel { display: none; animation: tabFadeIn 0.5s ease; }
+        .tab-panel.active { display: block; }
+
+        @keyframes tabFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         /* RESTRICTION BLUR */
         .blur-overlay { position: relative; }
         .blur-overlay-content { filter: blur(12px); pointer-events: none; user-select: none; }
@@ -407,7 +679,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if ($is_restricted): ?>
             showSubWarning();
             <?php endif; ?>
+
+            <?php if ($success): ?>
+            showEliteToast('<?= addslashes($success) ?>', 'check_circle', 'bg-emerald-500');
+            <?php endif; ?>
+            <?php if ($error): ?>
+            showEliteToast('<?= addslashes($error) ?>', 'error', 'bg-rose-500');
+            <?php endif; ?>
         });
+
+        function showEliteToast(msg, icon, colorClass) {
+            const area = document.getElementById('notificationArea');
+            if (!area) return;
+
+            const iconMap = {
+                'check_circle': 'check_circle',
+                'error': 'warning',
+                'reorder': 'swap_vert',
+                'info': 'info'
+            };
+            
+            const resolvedIcon = iconMap[icon] || icon;
+            const id = 'notif-' + Date.now();
+            
+            const alert = document.createElement('div');
+            alert.id = id;
+            alert.className = `px-8 h-[46px] rounded-xl flex items-center justify-between transition-all duration-700 select-none animate-in slide-in-from-top-4 ${colorClass}/10`;
+            
+            // Text color logic
+            let textColor = 'text-white';
+            if (colorClass.includes('emerald')) textColor = 'text-emerald-400';
+            else if (colorClass.includes('rose')) textColor = 'text-rose-400';
+            else if (colorClass.includes('primary')) textColor = 'text-primary';
+
+            alert.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-sm ${textColor.replace('400', '500')}">${resolvedIcon}</span>
+                    <span class="${textColor} text-[12px] font-bold">${msg}</span>
+                </div>
+                <button type="button" onclick="const a = document.getElementById('${id}'); if(a){ a.style.opacity='0'; a.style.transform='translateY(-10px)'; setTimeout(()=>a.remove(), 500); }"
+                    class="${textColor.replace('400', '500')}/50 hover:${textColor.replace('400', '500')} transition-colors p-2 shrink-0 outline-none">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+            `;
+            
+            area.appendChild(alert);
+
+            setTimeout(() => {
+                const a = document.getElementById(id);
+                if (a) {
+                    a.style.opacity = '0';
+                    a.style.transform = 'translateY(-10px)';
+                    setTimeout(() => a.remove(), 500);
+                }
+            }, 10000); // 10 seconds auto-hide
+        }
     </script>
 </head>
 <body class="flex h-screen overflow-hidden">
@@ -483,10 +809,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </nav>
 
-<main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar <?= $is_restricted ? 'blur-overlay' : '' ?>">
+<main class="main-content flex-1 p-8 overflow-y-auto no-scrollbar <?= $is_restricted ? 'blur-overlay' : '' ?>">
     <div class="<?= $is_restricted ? 'blur-overlay-content' : '' ?>">
     <!-- Header synchronized with my_users.php -->
-    <header class="mb-10 flex justify-between items-end px-2">
+    <header class="mb-6 flex justify-between items-end px-2">
         <div>
             <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic">Tenant <span class="text-primary italic">Settings</span></h2>
             <p class="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1 italic">
@@ -504,22 +830,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </header>
-
-    <?php if ($error): ?>
-    <div class="mb-10 p-5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[11px] font-black uppercase italic tracking-widest flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
-        <span class="material-symbols-outlined text-base">error</span> <?= $error ?>
-    </div>
-    <?php endif; ?>
-
-    <div class="<?= !$is_sub_active ? 'blur-overlay' : '' ?>">
-        <?php if (!$is_sub_active): ?>
-            <!-- Premium Modal shown via JS on load -->
+    <div id="notificationArea" class="space-y-4 mb-6">
+        <?php if ($error): ?>
+            <div id="errorAlert" class="px-8 h-[46px] bg-rose-500/10 text-rose-400 text-[12px] font-bold rounded-xl flex items-center justify-between transition-all duration-700 select-none animate-in slide-in-from-top-4">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-sm text-rose-500">warning</span>
+                    <span><?= $error ?></span>
+                </div>
+                <button type="button" onclick="const a = document.getElementById('errorAlert'); if(a){ a.style.opacity='0'; a.style.transform='translateY(-10px)'; setTimeout(()=>a.remove(), 500); }"
+                    class="text-rose-500/50 hover:text-rose-500 transition-colors p-2 shrink-0 outline-none">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+            </div>
+            <script>
+                setTimeout(() => {
+                    const a = document.getElementById('errorAlert');
+                    if(a){ a.style.opacity='0'; a.style.transform='translateY(-10px)'; setTimeout(()=>a.remove(), 500); }
+                }, 10000);
+            </script>
         <?php endif; ?>
+    </div>
 
-        <form id="unifiedSettingsForm" method="POST" enctype="multipart/form-data" class="space-y-12 pb-20 max-w-[1700px] mx-auto <?= !$is_sub_active ? 'blur-overlay-content' : '' ?>">
-        
-        <!-- TOP: LIVE PREVIEW TERMINAL -->
-        <div class="space-y-6">
+        <!-- TOP: LIVE PREVIEW TERMINAL (ALWAYS VISIBLE) -->
+        <div class="space-y-6 mb-8">
             <div class="flex items-center justify-between px-4">
                 <div class="flex items-center gap-3">
                     <div class="size-8 rounded-lg bg-primary/20 flex items-center justify-center">
@@ -537,18 +870,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 
                 <div id="portalContainer" class="w-full relative shadow-3xl border border-white/5 rounded-3xl overflow-y-auto bg-black shadow-inner origin-top no-scrollbar">
-                    <!-- High-Fidelity Desktop Mockup -->
                     <!-- High-Fidelity Desktop Mockup (Always Use portal.php?preview=1) -->
-                    <iframe id="portalFrame" src="../portal.php?gym=<?= $page['page_slug'] ?? '' ?>&preview=1" class="absolute top-0 left-0 w-[1600px] h-[2000px] border-none origin-top-left"></iframe>
+                    <iframe id="portalFrame" src="../portal.php?gym=<?= $page['page_slug'] ?? '' ?>&preview=1" class="absolute top-0 left-0 w-[1600px] h-[2000px] border-none origin-top-left" onload="updateMockup()"></iframe>
                 </div>
             </div>
         </div>
 
-        <!-- BOTTOM GRID -->
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-10 items-start">
-            
+    <div class="<?= !$is_sub_active ? 'blur-overlay' : '' ?>">
+        <?php if (!$is_sub_active): ?>
+            <!-- Premium Modal shown via JS on load -->
+        <?php endif; ?>
+
+        <form id="unifiedSettingsForm" method="POST" enctype="multipart/form-data" class="space-y-6 pb-20 max-w-[1700px] mx-auto <?= !$is_sub_active ? 'blur-overlay-content' : '' ?>">
+
+        <!-- TAB NAVIGATION + SAVE BUTTON -->
+        <div class="sticky top-0 z-[100] bg-background-dark/80 backdrop-blur-xl border-b border-white/5 py-3 flex items-center justify-between gap-6 px-2">
+            <div class="flex items-center gap-3">
+                <button type="button" onclick="switchTab('tabBranding', this)" class="tab-btn active">
+                    <span class="material-symbols-outlined text-base">brush</span>
+                    Branding & Appearance
+                </button>
+                <button type="button" onclick="switchTab('tabOperations', this)" class="tab-btn">
+                    <span class="material-symbols-outlined text-base">schedule</span>
+                    Operational Rules
+                </button>
+                <button type="button" onclick="switchTab('tabPortal', this)" class="tab-btn">
+                    <span class="material-symbols-outlined text-base">edit_document</span>
+                    Portal Content
+                </button>
+                <button type="button" onclick="switchTab('tabMembership', this)" class="tab-btn">
+                    <span class="material-symbols-outlined text-base">card_membership</span>
+                    Membership Plans
+                </button>
+            </div>
+
+            <button type="submit" name="update_settings" class="h-11 px-6 rounded-xl bg-primary text-white text-[10px] font-black uppercase italic tracking-[0.2em] shadow-lg shadow-primary/20 hover:scale-[1.05] active:scale-95 transition-all flex items-center gap-3">
+                <span class="material-symbols-outlined text-base">verified</span>
+                Update Settings
+            </button>
+        </div>
+
+        <div id="tabBranding" class="tab-panel active mt-4">
             <!-- System Appearance Panel (Sync with Superadmin) -->
-            <div class="glass-card p-8 h-full">
+            <div class="glass-card p-8 max-w-5xl mx-auto">
                 <div class="flex items-center justify-between mb-8 text-primary">
                     <div class="flex items-center gap-4">
                         <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -564,17 +928,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="space-y-8">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">System Name</label>
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Gym Name</label>
                             <input type="text" name="system_name" oninput="updateMockup()" value="<?= htmlspecialchars($configs['system_name'] ?? $gym['gym_name']) ?>" class="input-dark">
-                        </div>
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Font Style</label>
-                            <select name="font_family" onchange="updateMockup()" class="input-dark cursor-pointer">
-                                <option value="Lexend" <?= ($configs['font_family'] ?? '') === 'Lexend' ? 'selected' : '' ?>>Lexend (Default)</option>
-                                <option value="Inter" <?= ($configs['font_family'] ?? '') === 'Inter' ? 'selected' : '' ?>>Inter</option>
-                                <option value="Outfit" <?= ($configs['font_family'] ?? '') === 'Outfit' ? 'selected' : '' ?>>Outfit</option>
-                                <option value="Plus Jakarta Sans" <?= ($configs['font_family'] ?? '') === 'Plus Jakarta Sans' ? 'selected' : '' ?>>Plus Jakarta Sans</option>
-                            </select>
                         </div>
                     </div>
 
@@ -632,30 +987,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
             </div>
+        </div>
+    </div>
+</div>
 
+        <div id="tabOperations" class="tab-panel mt-4">
             <!-- Operations Panel -->
-            <div class="glass-card p-8">
-                <h4 class="text-[12px] font-black italic uppercase tracking-widest text-primary mb-10 flex items-center gap-4">
+            <div class="glass-card p-8 max-w-5xl mx-auto">
+                <h4 class="text-[12px] font-black italic uppercase tracking-widest text-primary mb-6 flex items-center gap-4">
                     <span class="material-symbols-outlined text-xl">schedule</span> 2. Operational Rules
                 </h4>
                 <div class="space-y-8">
-                    <div class="grid grid-cols-2 gap-8">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Opening Time</label>
-                            <input type="time" name="opening_time" oninput="updateMockup()" value="<?= htmlspecialchars($gym['opening_time'] ?? '') ?>" class="input-dark" required>
+                            <input type="time" name="opening_time" oninput="updateMockup()" value="<?= htmlspecialchars($gym['opening_time'] ?? '') ?>" class="input-dark">
                         </div>
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Closing Time</label>
-                            <input type="time" name="closing_time" oninput="updateMockup()" value="<?= htmlspecialchars($gym['closing_time'] ?? '') ?>" class="input-dark" required>
+                            <input type="time" name="closing_time" oninput="updateMockup()" value="<?= htmlspecialchars($gym['closing_time'] ?? '') ?>" class="input-dark">
                         </div>
-                    </div>
-                    
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Max Member Capacity</label>
-                        <input type="number" name="max_capacity" oninput="updateMockup()" value="<?= htmlspecialchars($gym['max_capacity'] ?? '') ?>" class="input-dark" placeholder="Enter capacity (e.g. 50)" required>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Max Member Capacity</label>
+                            <input type="number" name="max_capacity" oninput="updateMockup()" value="<?= htmlspecialchars($gym['max_capacity'] ?? '') ?>" class="input-dark" placeholder="Enter capacity (e.g. 50)">
+                        </div>
                     </div>
 
                     <div class="pt-8 border-t border-white/5">
@@ -685,16 +1041,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <textarea name="rules_text" rows="5" class="input-dark" placeholder="Enter terms of service..."><?= htmlspecialchars($gym['rules_text'] ?? '') ?></textarea>
                     </div>
 
-
-                </div>
-            </div>
         </div>
+    </div>
+</div>
 
-        <!-- Section 3: Portal Content Customization -->
-        <div class="glass-card p-8 mt-10">
-            <h4 class="text-[12px] font-black italic uppercase tracking-widest text-primary mb-10 flex items-center gap-4">
-                <span class="material-symbols-outlined text-xl">edit_document</span> 3. Portal Content Customization
-            </h4>
+        <div id="tabPortal" class="tab-panel mt-4">
+            <!-- Section 3: Portal Content Customization -->
+            <div class="glass-card p-8 max-w-5xl mx-auto">
+                <h4 class="text-[12px] font-black italic uppercase tracking-widest text-primary mb-6 flex items-center gap-4">
+                    <span class="material-symbols-outlined text-xl">edit_document</span> 3. Portal Content Customization
+                </h4>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
                 <!-- Hero Section -->
@@ -703,11 +1059,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-4">
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Hero Label</label>
-                            <input type="text" name="portal_hero_label" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_hero_label'] ?? '') ?>" class="input-dark" placeholder="Open for Membership">
+                            <textarea name="portal_hero_label" oninput="updateMockup()" rows="3" class="input-dark" placeholder="Open for Membership"><?= htmlspecialchars($configs['portal_hero_label'] ?? '') ?></textarea>
                         </div>
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Hero Title</label>
-                            <input type="text" name="portal_hero_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_hero_title'] ?? '') ?>" class="input-dark" placeholder="Elevate Your Fitness at <?= htmlspecialchars($gym['gym_name']) ?>">
+                            <textarea name="portal_hero_title" oninput="updateMockup()" rows="3" class="input-dark" placeholder="Elevate Your Fitness at <?= htmlspecialchars($gym['gym_name']) ?>"><?= htmlspecialchars($configs['portal_hero_title'] ?? '') ?></textarea>
                         </div>
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Hero Subtitle</label>
@@ -722,11 +1078,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-4">
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Features Label</label>
-                            <input type="text" name="portal_features_label" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_features_label'] ?? '') ?>" class="input-dark" placeholder="Experience the Difference">
+                            <textarea name="portal_features_label" oninput="updateMockup()" rows="3" class="input-dark" placeholder="Experience the Difference"><?= htmlspecialchars($configs['portal_features_label'] ?? '') ?></textarea>
                         </div>
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Features Title</label>
-                            <input type="text" name="portal_features_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_features_title'] ?? '') ?>" class="input-dark" placeholder="Premium Training. Elite Management.">
+                            <textarea name="portal_features_title" oninput="updateMockup()" rows="3" class="input-dark" placeholder="Premium Training. Elite Management."><?= htmlspecialchars($configs['portal_features_title'] ?? '') ?></textarea>
                         </div>
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Features Description</label>
@@ -741,11 +1097,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Philosophy Label</label>
-                            <input type="text" name="portal_philosophy_label" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_philosophy_label'] ?? '') ?>" class="input-dark" placeholder="The Philosophy">
+                            <textarea name="portal_philosophy_label" oninput="updateMockup()" rows="3" class="input-dark" placeholder="The Philosophy"><?= htmlspecialchars($configs['portal_philosophy_label'] ?? '') ?></textarea>
                         </div>
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Philosophy Title</label>
-                            <input type="text" name="portal_philosophy_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_philosophy_title'] ?? '') ?>" class="input-dark" placeholder="Modern technology meets unwavering dedication.">
+                            <textarea name="portal_philosophy_title" oninput="updateMockup()" rows="3" class="input-dark" placeholder="Modern technology meets unwavering dedication."><?= htmlspecialchars($configs['portal_philosophy_title'] ?? '') ?></textarea>
                         </div>
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Philosophy Description</label>
@@ -760,7 +1116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Plans Section Title</label>
-                            <input type="text" name="portal_plans_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_plans_title'] ?? '') ?>" class="input-dark" placeholder="Elite Membership Plans">
+                            <input type="text" name="portal_plans_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_plans_title'] ?? '') ?>" class="input-dark" placeholder="Membership Plans">
                         </div>
                         <div class="space-y-2">
                             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Plans Section Subtitle</label>
@@ -768,38 +1124,301 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
 
-                <!-- Footer Titles Section -->
-                <div class="space-y-6 md:col-span-2">
-                    <h5 class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">Footer Labels</h5>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Links Label</label>
-                            <input type="text" name="portal_footer_links_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_footer_links_title'] ?? '') ?>" class="input-dark" placeholder="Quick Links">
+        <div id="tabMembership" class="tab-panel mt-4">
+            <!-- MATCH HEADER BAR -->
+            <div class="plan-header-bar flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
+                <div>
+                    <h4 class="text-xl font-black italic uppercase tracking-tighter text-white mb-1">System Subscription Plans</h4>
+                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em]">Manage what plans are available for new gyms</p>
+                </div>
+                
+                <div class="flex items-center gap-6">
+                    <button type="button" onclick="addNewMembershipPlanCard()" class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:opacity-80 transition-all">
+                        <span class="material-symbols-outlined text-lg">add_circle</span> Add New Plan
+                    </button>
+
+                    <div class="bg-black/40 p-1 rounded-xl flex items-center border border-white/5">
+                        <button type="button" onclick="togglePlanView('active')" id="activeTabBtn" class="tab-btn-match active px-6 h-9">Active</button>
+                        <button type="button" onclick="togglePlanView('archived')" id="archivedTabBtn" class="tab-btn-match inactive px-6 h-9">Archived (<?= count($archived_plans) ?>)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ACTIVE MATCH CARDS GRID -->
+            <div id="activePlansContainer" class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-10">
+                <?php if (empty($active_plans)): ?>
+                    <div class="col-span-full py-20 flex flex-col items-center justify-center opacity-40">
+                        <span class="material-symbols-outlined text-4xl mb-4">info</span>
+                        <p class="text-[10px] font-black uppercase tracking-[0.2em]">No active plans found.</p>
+                        <p class="text-[8px] text-gray-600 mt-2 uppercase tracking-widest italic">Create a new tier to get started</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($active_plans as $plan): ?>
+                        <div class="elite-red-card p-10 group relative overflow-hidden" 
+                             data-id="<?= $plan['membership_plan_id'] ?>"
+                             data-name="<?= htmlspecialchars($plan['plan_name']) ?>"
+                             data-type="<?= htmlspecialchars($plan['type_name'] ?? 'Plan') ?>"
+                             data-price="<?= (int)$plan['price'] ?>"
+                             data-duration="<?= (int)($plan['duration_value'] ?? 1) ?>"
+                             data-billing="<?= htmlspecialchars($plan['billing_cycle_text'] ?? 'Default') ?>">
+                            <div class="flex items-center justify-between mb-10">
+                                <div class="flex items-center gap-4">
+                                    <span class="material-symbols-outlined text-gray-700 hover:text-primary transition-all cursor-grab active:cursor-grabbing drag-handle">drag_indicator</span>
+                                    <span class="material-symbols-outlined text-primary text-2xl">workspace_premium</span>
+                                    <h5 class="text-xs font-black italic uppercase tracking-widest text-primary"><?= htmlspecialchars($plan['plan_name'] ?: 'Unnamed Plan') ?></h5>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="focusCard(this)" class="size-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-primary transition-all">
+                                        <span class="material-symbols-outlined text-lg">edit</span>
+                                    </button>
+                                    <button type="button" onclick="confirmArchiveMPlan(<?= $plan['membership_plan_id'] ?>)" class="size-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-white transition-all">
+                                        <span class="material-symbols-outlined text-lg">archive</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-x-6 gap-y-8">
+                                <div class="col-span-2">
+                                    <label class="label-elite text-center">Plan Name</label>
+                                    <input type="text" name="membership_plans[<?= $plan['membership_plan_id'] ?>][name]" value="<?= htmlspecialchars($plan['plan_name']) ?>" class="input-dark-elite text-center font-black uppercase italic tracking-tighter" required>
+                                </div>
+
+                                <div class="col-span-1">
+                                    <label class="label-elite text-center">Price (₱)</label>
+                                    <input type="number" name="membership_plans[<?= $plan['membership_plan_id'] ?>][price]" value="<?= (int)$plan['price'] ?>" class="input-dark-elite text-center font-black" required>
+                                </div>
+
+                                <div class="col-span-1">
+                                    <label class="label-elite text-center">Duration (Months)</label>
+                                    <input type="number" name="membership_plans[<?= $plan['membership_plan_id'] ?>][duration]" value="<?= $plan['duration_value'] ?>" class="input-dark-elite text-center font-black" required>
+                                </div>
+
+                                <div class="col-span-1">
+                                    <label class="label-elite text-center">Billing Cycle Text</label>
+                                    <input type="text" name="membership_plans[<?= $plan['membership_plan_id'] ?>][billing_cycle]" value="<?= htmlspecialchars($plan['billing_cycle_text'] ?? '') ?>" class="input-dark-elite text-center font-bold" placeholder="None">
+                                </div>
+
+                                <div class="col-span-1">
+                                    <label class="label-elite text-center">Featured Badge Text</label>
+                                    <input type="text" name="membership_plans[<?= $plan['membership_plan_id'] ?>][badge]" value="<?= htmlspecialchars($plan['featured_badge_text'] ?? '') ?>" class="input-dark-elite text-center font-bold" placeholder="None">
+                                </div>
+
+                                <div class="col-span-2">
+                                    <label class="label-elite text-center">Features</label>
+                                    <textarea name="membership_plans[<?= $plan['membership_plan_id'] ?>][features]" rows="3" class="input-dark-elite !bg-[#141414] resize-none text-center font-bold leading-relaxed"><?= htmlspecialchars($plan['features'] ?? '') ?></textarea>
+                                </div>
+                            </div>
                         </div>
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Contact Label</label>
-                            <input type="text" name="portal_footer_contact_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_footer_contact_title'] ?? '') ?>" class="input-dark" placeholder="Contact Facility">
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                
+                <!-- NEW PLANS GO HERE -->
+                <div id="newPlansContainer" class="contents"></div>
+            </div>
+
+            <!-- ARCHIVED VIEW (Modern Table UI) -->
+            <div id="archivedPlansContainer" class="hidden space-y-6">
+                <!-- Advanced Filter Bar -->
+                <div class="glass-card p-4 flex flex-col xl:flex-row items-center gap-4 bg-white/5 border-white/5 shadow-2xl">
+                    <div class="relative flex-1 w-full">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
+                        <input type="text" id="archivedSearch" oninput="filterArchivedPlans()" placeholder="Search by plan name..." class="input-dark !h-12 !pl-11 !text-xs font-medium w-full">
+                    </div>
+                    
+                    <div class="flex items-center gap-3 w-full xl:w-auto">
+                        <div class="relative w-full xl:w-48">
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">expand_more</span>
+                            <select id="archivedSortDate" onchange="filterArchivedPlans()" class="input-dark !rounded-xl !h-12 !px-6 !text-[11px] font-bold appearance-none cursor-pointer hover:border-primary/50 transition-all">
+                                <option value="newest">Newest to Oldest</option>
+                                <option value="oldest">Oldest to Newest</option>
+                            </select>
                         </div>
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">App Label</label>
-                            <input type="text" name="portal_footer_app_title" oninput="updateMockup()" value="<?= htmlspecialchars($configs['portal_footer_app_title'] ?? '') ?>" class="input-dark" placeholder="Get the App">
+
+                        <div class="relative w-full xl:w-48">
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none">expand_more</span>
+                            <select id="archivedSortPrice" onchange="filterArchivedPlans()" class="input-dark !rounded-xl !h-12 !px-6 !text-[11px] font-bold appearance-none cursor-pointer hover:border-primary/50 transition-all">
+                                <option value="default">Sort by Price</option>
+                                <option value="low">Price: Low to High</option>
+                                <option value="high">Price: High to Low</option>
+                            </select>
                         </div>
+
+                        <button type="button" onclick="resetArchivedFilters()" class="size-12 rounded-xl bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all border border-white/5 group">
+                            <span class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform">restart_alt</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-card overflow-hidden border-white/5">
+                    <div class="overflow-x-auto no-scrollbar">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-white/5 bg-white/[0.02]">
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Plan Name</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Price (₱)</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Duration</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Billing Cycle</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="archivedTableBody">
+                                <?php if (empty($archived_plans)): ?>
+                                    <tr>
+                                        <td colspan="5" class="px-8 py-20 text-center">
+                                            <div class="flex flex-col items-center justify-center opacity-40">
+                                                <span class="material-symbols-outlined text-4xl mb-4">history</span>
+                                                <p class="text-[10px] font-black uppercase tracking-[0.2em]">No archived plans found.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($archived_plans as $p): ?>
+                                        <tr class="archived-row group border-b border-white/5 hover:bg-white/[0.02] transition-colors" 
+                                            data-id="<?= $p['membership_plan_id'] ?>"
+                                            data-name="<?= strtolower(htmlspecialchars($p['plan_name'])) ?>" 
+                                            data-raw-name="<?= htmlspecialchars($p['plan_name']) ?>" 
+                                            data-type="<?= htmlspecialchars($p['type_name'] ?? 'Plan') ?>"
+                                            data-price="<?= (int)$p['price'] ?>" 
+                                            data-duration="<?= (int)($p['duration_value'] ?? 1) ?>"
+                                            data-billing="<?= htmlspecialchars($p['billing_cycle_text'] ?? 'Default') ?>"
+                                            data-date="<?= strtotime($p['created_at']) ?>">
+                                            <td class="px-8 py-5">
+                                                <div class="flex items-center gap-4">
+                                                    <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-600">
+                                                        <span class="material-symbols-outlined text-xl">archive</span>
+                                                    </div>
+                                                    <div>
+                                                        <p class="text-xs font-black italic uppercase tracking-widest text-gray-400"><?= htmlspecialchars($p['plan_name']) ?></p>
+                                                        <p class="text-[9px] font-bold text-gray-600 uppercase tracking-widest mt-0.5"><?= htmlspecialchars($p['type_name'] ?? 'Plan') ?></p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-8 py-5 text-center">
+                                                <span class="text-xs font-bold text-gray-400">₱<?= number_format($p['price'], 2) ?></span>
+                                            </td>
+                                            <td class="px-8 py-5 text-center">
+                                                <span class="px-3 py-1 rounded-lg bg-white/5 text-[9px] font-black text-gray-500 uppercase tracking-widest">
+                                                    <?= (int)($p['duration_value'] ?? 1) ?> Months
+                                                </span>
+                                            </td>
+                                            <td class="px-8 py-5 text-center">
+                                                <span class="text-[10px] font-medium text-gray-500"><?= htmlspecialchars($p['billing_cycle_text'] ?? 'Default') ?></span>
+                                            </td>
+                                            <td class="px-8 py-5 text-right">
+                                                <button type="button" onclick="confirmRestoreMPlan(<?= $p['membership_plan_id'] ?>)" class="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white flex items-center gap-2 text-[9px] font-black uppercase tracking-widest ml-auto transition-all">
+                                                    <span class="material-symbols-outlined text-base">settings_backup_restore</span> Restore
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- SAVE COMMAND FOOTER (Reduced Size) -->
-        <div class="flex items-center justify-end pt-8 border-t border-white/5">
-            <button type="submit" class="h-16 px-12 rounded-2xl bg-primary hover:bg-opacity-90 shadow-2xl shadow-primary/40 transition-all text-[12px] font-black italic uppercase tracking-[0.3em] flex items-center justify-center gap-4 group hover:scale-[1.02] active:scale-95">
-                <span class="material-symbols-outlined text-2xl group-hover:rotate-12 transition-transform">verified</span> 
-                Update Global Settings
-            </button>
-        </div>
-        </div>
     </div>
 </form>
+
+    </div>
+</div>
+
+<!-- ELITE MODALS (SIDEBAR-AWARE) -->
+
+<!-- Add/Edit Membership Plan Modal -->
+<div id="addPlanModal" class="modal-overlay" onclick="if(event.target === this) closeEliteModal('addPlanModal')">
+    <div class="glass-card w-full max-w-xl p-0 relative overflow-hidden backdrop-blur-2xl">
+        <div class="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="size-11 rounded-2xl bg-primary/10 flex items-center justify-center">
+                    <span id="modalIcon" class="material-symbols-outlined text-primary text-xl">add_card</span>
+                </div>
+                <div>
+                    <h3 id="modalTitle" class="text-xl font-black italic uppercase tracking-tighter text-white">New Membership Tier</h3>
+                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Configure your member scaling rules</p>
+                </div>
+            </div>
+            <button onclick="closeEliteModal('addPlanModal')" class="size-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all shadow-lg hover:bg-white/10">
+                <span class="material-symbols-outlined text-xl">close</span>
+            </button>
+        </div>
+
+        <form id="elitePlanForm" method="POST">
+            <div class="modal-content-scroll space-y-8">
+                <input type="hidden" id="edit_plan_id" name="edit_plan_id" value="">
+                
+                <div class="space-y-6">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Plan Name</label>
+                        <input type="text" id="p_name" name="new_membership_plans[0][name]" placeholder="Elite Monthly Access" class="input-dark !h-14" required>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Plan Type</label>
+                            <select id="p_type" name="new_membership_plans[0][type_id]" class="input-dark !h-14 cursor-pointer">
+                                <?php foreach ($plan_types as $type): ?>
+                                    <option value="<?= $type['plan_type_id'] ?>"><?= htmlspecialchars($type['type_name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Price (₱)</label>
+                            <input type="number" id="p_price" name="new_membership_plans[0][price]" placeholder="₱1,500" class="input-dark !h-14 font-black" required>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Interval (Days)</label>
+                            <input type="number" id="p_duration" name="new_membership_plans[0][duration]" placeholder="30" class="input-dark !h-14" required>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Usage Limit (Sessions)</label>
+                            <input type="number" id="p_sessions" name="new_membership_plans[0][sessions]" placeholder="Unlimited (leave empty)" class="input-dark !h-14">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Tier Description</label>
+                        <textarea id="p_desc" name="new_membership_plans[0][description]" rows="3" class="input-dark resize-none no-scrollbar text-[12px] leading-relaxed p-5" placeholder="Briefly describe the target audience..."></textarea>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Plan Features (One per line)</label>
+                        <textarea id="p_features" name="new_membership_plans[0][features]" rows="4" class="input-dark resize-none no-scrollbar text-[12px] leading-relaxed p-5 border-primary/20" placeholder="• Elite workout tracking&#10;• Priority support&#10;• Locker access..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-8 py-6 border-t border-white/5 bg-white/[0.02] flex items-center justify-end gap-4">
+                <button type="button" onclick="closeEliteModal('addPlanModal')" class="h-12 px-8 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Cancel</button>
+                <button type="submit" class="h-12 px-10 rounded-xl bg-primary text-white text-[11px] font-black italic uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
+                    Register Tier
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Elite Confirmation Modals (Archive/Restore) -->
+<div id="confirmActionModal" class="modal-overlay" onclick="if(event.target === this) closeEliteModal('confirmActionModal')">
+    <div class="glass-card w-full max-w-sm p-8 text-center animate-in zoom-in duration-300">
+        <div id="confirmIconBox" class="size-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mx-auto mb-6">
+            <span id="confirmIcon" class="material-symbols-outlined text-3xl text-orange-500">archive</span>
+        </div>
+        <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter text-white mb-2">Archive Tier</h3>
+        <p id="confirmDesc" class="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-8 leading-relaxed italic">Are you sure? This plan will be hidden from members but kept in history.</p>
+        
+        <div class="grid grid-cols-2 gap-4">
+            <button type="button" onclick="closeEliteModal('confirmActionModal')" class="h-12 rounded-xl border border-white/5 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-all">Cancel</button>
+            <button type="button" id="confirmActionBtn" class="h-12 rounded-xl bg-orange-500 text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-orange-500/20 hover:scale-[1.02] active:scale-95 transition-all">Archive Now</button>
+        </div>
 </main>
 
 <script>
@@ -829,6 +1448,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    function switchTab(tabId, btn) {
+        // Panels
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        
+        // Buttons
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // Save current tab in session/local storage if needed
+        localStorage.setItem('activeSettingsTab', tabId);
+    }
+
+    // Restore tab on load
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedTab = localStorage.getItem('activeSettingsTab') || 'tabBranding';
+        const btn = document.querySelector(`[onclick*="${savedTab}"]`);
+        if (btn) btn.click();
+    });
+
     function updateMockup() {
         const titleInput = document.querySelector('input[name="system_name"]');
         const colorInput = document.querySelector('input[name="theme_color"]');
@@ -837,7 +1476,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const bgInput = document.querySelector('input[name="bg_color"]');
         const cardInput = document.querySelector('input[name="card_color"]');
         const syncInput = document.querySelector('input[name="auto_card_theme"]:checked');
-        const fontInput = document.querySelector('select[name="font_family"]');
         
         if (!colorInput) return;
 
@@ -870,17 +1508,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        if (fontInput) {
-            document.body.style.fontFamily = `"${fontInput.value}", sans-serif`;
-        }
-
         const data = {
             page_title: titleInput ? titleInput.value : '',
             theme_color: colorInput ? colorInput.value : '#8c2bee',
             secondary_color: secondaryInput ? secondaryInput.value : '#a1a1aa',
             text_color: textInput ? textInput.value : '#d1d5db',
             bg_color: bgInput ? bgInput.value : '#0a090d',
-            font_family: fontInput ? fontInput.value : 'Lexend',
             card_color: cardInput ? cardInput.value : '#141216',
             auto_card_theme: syncInput ? syncInput.value : '0',
             // Operational Data Sync
@@ -892,22 +1525,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             has_parking: document.querySelector('input[name="has_parking"]')?.checked ? 1 : 0,
             has_wifi: document.querySelector('input[name="has_wifi"]')?.checked ? 1 : 0,
             // CMS Content Sync
-            portal_hero_title: document.querySelector('input[name="portal_hero_title"]')?.value || '',
-            portal_hero_subtitle: document.querySelector('textarea[name="portal_hero_subtitle"]')?.value || '',
-            portal_features_title: document.querySelector('input[name="portal_features_title"]')?.value || '',
-            portal_features_desc: document.querySelector('textarea[name="portal_features_desc"]')?.value || '',
-            portal_philosophy_title: document.querySelector('input[name="portal_philosophy_title"]')?.value || '',
-            portal_philosophy_desc: document.querySelector('textarea[name="portal_philosophy_desc"]')?.value || '',
+            portal_hero_title: document.querySelector('[name="portal_hero_title"]')?.value || '',
+            portal_hero_subtitle: document.querySelector('[name="portal_hero_subtitle"]')?.value || '',
+            portal_features_title: document.querySelector('[name="portal_features_title"]')?.value || '',
+            portal_features_desc: document.querySelector('[name="portal_features_desc"]')?.value || '',
+            portal_philosophy_title: document.querySelector('[name="portal_philosophy_title"]')?.value || '',
+            portal_philosophy_desc: document.querySelector('[name="portal_philosophy_desc"]')?.value || '',
             // Expanded CMS Content Sync
-            portal_hero_label: document.querySelector('input[name="portal_hero_label"]')?.value || '',
-            portal_features_label: document.querySelector('input[name="portal_features_label"]')?.value || '',
-            portal_philosophy_label: document.querySelector('input[name="portal_philosophy_label"]')?.value || '',
-            portal_plans_title: document.querySelector('input[name="portal_plans_title"]')?.value || '',
-            portal_plans_title: document.querySelector('input[name="portal_plans_title"]')?.value || '',
-            portal_plans_subtitle: document.querySelector('input[name="portal_plans_subtitle"]')?.value || '',
-            portal_footer_links_title: document.querySelector('input[name="portal_footer_links_title"]')?.value || '',
-            portal_footer_contact_title: document.querySelector('input[name="portal_footer_contact_title"]')?.value || '',
-            portal_footer_app_title: document.querySelector('input[name="portal_footer_app_title"]')?.value || ''
+            portal_hero_label: document.querySelector('[name="portal_hero_label"]')?.value || '',
+            portal_features_label: document.querySelector('[name="portal_features_label"]')?.value || '',
+            portal_philosophy_label: document.querySelector('[name="portal_philosophy_label"]')?.value || '',
+            portal_plans_title: document.querySelector('[name="portal_plans_title"]')?.value || '',
+            portal_plans_subtitle: document.querySelector('[name="portal_plans_subtitle"]')?.value || '',
+            portal_footer_links_title: document.querySelector('[name="portal_footer_links_title"]')?.value || '',
+            portal_footer_contact_title: document.querySelector('[name="portal_footer_contact_title"]')?.value || '',
+            portal_footer_app_title: document.querySelector('[name="portal_footer_app_title"]')?.value || ''
         };
         
         // Update Hex Displays
@@ -921,6 +1553,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (bhex && data.bg_color) bhex.textContent = data.bg_color.toUpperCase();
         const chex = document.getElementById('cardHex');
         if (chex && data.card_color) chex.textContent = data.card_color.toUpperCase();
+
+        // Scrape Membership Plans for Real-time Sync (Ensuring precise DOM order)
+        const activeContainer = document.getElementById('activePlansContainer');
+        const newContainer = document.getElementById('newPlansContainer');
+        const planCards = [
+            ...(activeContainer ? Array.from(activeContainer.querySelectorAll('.elite-red-card')) : []),
+            ...(newContainer ? Array.from(newContainer.querySelectorAll('.elite-red-card')) : [])
+        ];
+
+        data.plans = planCards.map(card => {
+            const inputs = card.querySelectorAll('input, textarea');
+            const planData = {};
+            
+            inputs.forEach(input => {
+                if (input.name.includes('[name]')) planData.name = input.value;
+                if (input.name.includes('[price]')) planData.price = input.value;
+                if (input.name.includes('[duration]')) planData.duration = input.value;
+                if (input.name.includes('[billing_cycle]')) planData.billing = input.value;
+                if (input.name.includes('[badge]')) planData.badge = input.value;
+                if (input.name.includes('[features]')) planData.features = input.value;
+            });
+
+            planData.type = card.getAttribute('data-type') || 'Standard';
+            return planData;
+        });
 
         const portalFrame = document.getElementById('portalFrame');
         if (portalFrame && portalFrame.contentWindow) {
@@ -937,8 +1594,428 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             container.style.height = '600px'; 
         }
     }
-    window.onload = handleResize;
+    window.onload = function() {
+        handleResize();
+        updateMockup();
+    };
     window.addEventListener('resize', handleResize);
+
+    // --- ELITE MATCH: MEMBERSHIP PLAN LOGIC ---
+    
+    function togglePlanView(view) {
+        const activeContainer = document.getElementById('activePlansContainer');
+        const archivedContainer = document.getElementById('archivedPlansContainer');
+        const activeBtn = document.getElementById('activeTabBtn');
+        const archivedBtn = document.getElementById('archivedTabBtn');
+
+        if (view === 'active') {
+            activeContainer.classList.remove('hidden');
+            archivedContainer.classList.add('hidden');
+            activeBtn.className = 'tab-btn-match active px-6 h-9';
+            archivedBtn.className = 'tab-btn-match inactive px-6 h-9';
+        } else {
+            activeContainer.classList.add('hidden');
+            archivedContainer.classList.remove('hidden');
+            activeBtn.className = 'tab-btn-match inactive px-6 h-9';
+            archivedBtn.className = 'tab-btn-match active px-6 h-9';
+        }
+    }
+
+    let newPlanMatchCount = 0;
+    function addNewMembershipPlanCard() {
+        const container = document.getElementById('newPlansContainer');
+        const count = newPlanMatchCount++;
+        
+        const html = `
+            <div class="elite-red-card p-10 animate-in zoom-in duration-300 border-dashed border-primary/40 relative overflow-hidden">
+                <div class="absolute top-0 right-0 px-4 py-1.5 bg-primary text-white text-[8px] font-black uppercase tracking-widest rounded-bl-xl">New Tier</div>
+                
+                <div class="flex items-center justify-between mb-10">
+                    <div class="flex items-center gap-4">
+                        <span class="material-symbols-outlined text-primary text-2xl">add_box</span>
+                        <h5 class="text-xs font-black italic uppercase tracking-widest text-primary">Proposed Plan</h5>
+                    </div>
+                    <button type="button" onclick="this.closest('.elite-red-card').remove()" class="size-8 rounded-lg flex items-center justify-center text-rose-500 hover:bg-rose-500/10 transition-all">
+                        <span class="material-symbols-outlined text-lg">delete</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-x-6 gap-y-8">
+                    <div class="col-span-2">
+                        <label class="label-elite text-center">Plan Name</label>
+                        <input type="text" name="new_membership_plans[${count}][name]" placeholder="Enter Plan Name" class="input-dark-elite text-center font-black uppercase italic tracking-tighter" required>
+                    </div>
+
+                    <div class="col-span-1">
+                        <label class="label-elite text-center">Price (₱)</label>
+                        <input type="number" name="new_membership_plans[${count}][price]" placeholder="1500" class="input-dark-elite text-center font-black" required>
+                    </div>
+
+                    <div class="col-span-1">
+                        <label class="label-elite text-center">Duration (Months)</label>
+                        <input type="number" name="new_membership_plans[${count}][duration]" placeholder="1" class="input-dark-elite text-center font-black" required>
+                    </div>
+
+                    <div class="col-span-1">
+                        <label class="label-elite text-center">Billing Cycle Text</label>
+                        <input type="text" name="new_membership_plans[${count}][billing_cycle]" placeholder="e.g. 1 Month" class="input-dark-elite text-center font-bold">
+                    </div>
+
+                    <div class="col-span-1">
+                        <label class="label-elite text-center">Featured Badge Text</label>
+                        <input type="text" name="new_membership_plans[${count}][badge]" placeholder="e.g. Popular" class="input-dark-elite text-center font-bold">
+                    </div>
+
+                    <div class="col-span-2">
+                        <label class="label-elite text-center">Features</label>
+                        <textarea name="new_membership_plans[${count}][features]" rows="3" class="input-dark-elite !bg-[#141414] resize-none text-center font-bold leading-relaxed" placeholder="List key features..."></textarea>
+                    </div>
+
+                    <input type="hidden" name="new_membership_plans[${count}][type_id]" value="1">
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+        
+        // Scroll to new card
+        setTimeout(() => {
+            container.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }
+
+    function openEliteModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('flex');
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeEliteModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('flex');
+            document.body.style.overflow = '';
+        }
+    }
+
+    function confirmArchiveMPlan(id) {
+        setConfirmModal('archive', id, 'Archive Tier', 'archive', 'Archive Now', 'bg-orange-500');
+    }
+
+    function confirmRestoreMPlan(id) {
+        setConfirmModal('restore', id, 'Restore Tier', 'settings_backup_restore', 'Restore Now', 'bg-emerald-500');
+    }
+
+    function setConfirmModal(type, id, title, icon, btnText, btnClass) {
+        const modal = document.getElementById('confirmActionModal');
+        const btn = document.getElementById('confirmActionBtn');
+        
+        document.getElementById('confirmTitle').textContent = title;
+        document.getElementById('confirmIcon').textContent = icon;
+        btn.textContent = btnText;
+        btn.className = `h-12 rounded-xl text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl transition-all hover:scale-[1.02] ${btnClass}`;
+        
+        // Attach AJAX Action
+        btn.onclick = () => autoTogglePlanStatus(id, type);
+        
+        openEliteModal('confirmActionModal');
+    }
+
+    function autoTogglePlanStatus(id, action) {
+        const btn = document.getElementById('confirmActionBtn');
+        const isActive = action === 'restore' ? 1 : 0;
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-base">sync</span>';
+
+        const formData = new FormData();
+        formData.append('action', 'toggle_plan_status');
+        formData.append('id', id);
+        formData.append('is_active', isActive);
+
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                closeEliteModal('confirmActionModal');
+                movePlanUI(id, action);
+            } else {
+                alert(data.error || 'Failed to update plan status.');
+            }
+        })
+        .catch(err => {
+            console.error('AJAX Error:', err);
+            alert('Something went wrong. Please try again.');
+        })
+        .finally(() => {
+            btn.disabled = false;
+        });
+    }
+
+    function movePlanUI(id, action) {
+        const activeContainer = document.getElementById('activePlansContainer');
+        const archivedBody = document.getElementById('archivedTableBody');
+
+        if (action === 'archive') {
+            const card = activeContainer.querySelector(`[data-id="${id}"]`);
+            if (!card) return;
+
+            // Extract data for table row
+            const data = {
+                name: card.getAttribute('data-name'),
+                rawName: card.getAttribute('data-name'),
+                type: card.getAttribute('data-type'),
+                price: card.getAttribute('data-price'),
+                duration: card.getAttribute('data-duration'),
+                billing: card.getAttribute('data-billing')
+            };
+
+            // Animate out
+            card.classList.add('scale-75', 'opacity-0');
+            setTimeout(() => {
+                card.remove();
+                
+                // Add to table
+                const row = document.createElement('tr');
+                row.className = 'archived-row group border-b border-white/5 hover:bg-white/[0.02] transition-colors animate-in slide-in-from-left duration-500';
+                row.setAttribute('data-id', id);
+                row.setAttribute('data-name', data.name.toLowerCase());
+                row.setAttribute('data-raw-name', data.name);
+                row.setAttribute('data-price', data.price);
+                row.setAttribute('data-type', data.type);
+                row.setAttribute('data-duration', data.duration);
+                row.setAttribute('data-billing', data.billing);
+                row.setAttribute('data-date', Math.floor(Date.now() / 1000));
+
+                row.innerHTML = `
+                    <td class="px-8 py-5">
+                        <div class="flex items-center gap-4">
+                            <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-600">
+                                <span class="material-symbols-outlined text-xl">archive</span>
+                            </div>
+                            <div>
+                                <p class="text-xs font-black italic uppercase tracking-widest text-gray-400">${data.rawName}</p>
+                                <p class="text-[9px] font-bold text-gray-600 uppercase tracking-widest mt-0.5">${data.type}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-8 py-5 text-center px-8 py-5 text-center">
+                        <span class="text-xs font-bold text-gray-400">₱${parseFloat(data.price).toLocaleString()}</span>
+                    </td>
+                    <td class="px-8 py-5 text-center">
+                        <span class="px-3 py-1 rounded-lg bg-white/5 text-[9px] font-black text-gray-500 uppercase tracking-widest">
+                            ${data.duration} Months
+                        </span>
+                    </td>
+                    <td class="px-8 py-5 text-center">
+                        <span class="text-[10px] font-medium text-gray-500">${data.billing}</span>
+                    </td>
+                    <td class="px-8 py-5 text-right">
+                        <button type="button" onclick="confirmRestoreMPlan(${id})" class="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white flex items-center gap-2 text-[9px] font-black uppercase tracking-widest ml-auto transition-all">
+                            <span class="material-symbols-outlined text-base">settings_backup_restore</span> Restore
+                        </button>
+                    </td>
+                `;
+
+                // Remove "No Data" row if exists
+                const noData = archivedBody.querySelector('.no-data-row');
+                if (noData) noData.remove();
+
+                archivedBody.insertBefore(row, archivedBody.firstChild);
+            }, 300);
+
+        } else if (action === 'restore') {
+            const row = archivedBody.querySelector(`[data-id="${id}"]`);
+            if (!row) return;
+
+            // Extract data for card
+            const data = {
+                name: row.getAttribute('data-raw-name'),
+                type: row.getAttribute('data-type'),
+                price: row.getAttribute('data-price'),
+                duration: row.getAttribute('data-duration'),
+                billing: row.getAttribute('data-billing')
+            };
+
+            // Animate out
+            row.classList.add('opacity-0', '-translate-x-10');
+            setTimeout(() => {
+                row.remove();
+
+                // Add to Grid (Simplified version for preview, actual render comes from refresh, but this ensures UI sync)
+                // Actually, just let it vanish for now if generating the whole card HTML is too risky/complex, 
+                // but user said "auto save" so they expect to see it.
+                // I'll create a simplified card or alert them a refresh is needed for "Edit" access while it's restored.
+                // Better: Create the card HTML.
+                
+                const cardHtml = `
+                    <div class="elite-red-card p-10 group relative overflow-hidden animate-in zoom-in duration-500" 
+                         data-id="${id}"
+                         data-name="${data.name}"
+                         data-type="${data.type}"
+                         data-price="${data.price}"
+                         data-duration="${data.duration}"
+                         data-billing="${data.billing}">
+                        <div class="flex items-center justify-between mb-10">
+                            <div class="flex items-center gap-4">
+                                <span class="material-symbols-outlined text-gray-700 hover:text-primary transition-all cursor-grab active:cursor-grabbing drag-handle">drag_indicator</span>
+                                <span class="material-symbols-outlined text-primary text-2xl">workspace_premium</span>
+                                <h5 class="text-xs font-black italic uppercase tracking-widest text-primary">${data.name}</h5>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button type="button" onclick="focusCard(this)" class="size-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-primary transition-all">
+                                    <span class="material-symbols-outlined text-lg">edit</span>
+                                </button>
+                                <button type="button" onclick="confirmArchiveMPlan(${id})" class="size-8 rounded-lg flex items-center justify-center text-gray-600 hover:text-white transition-all">
+                                    <span class="material-symbols-outlined text-lg">archive</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="text-center py-6 border border-dashed border-white/5 rounded-2xl opacity-50">
+                            <p class="text-[9px] font-black uppercase tracking-widest text-primary italic">Plan Restored Successfully</p>
+                            <p class="text-[8px] text-gray-500 uppercase font-bold mt-2">Refresh to unlock full editing features</p>
+                        </div>
+                    </div>
+                `;
+                
+                activeContainer.insertAdjacentHTML('beforeend', cardHtml);
+                
+                // If it was the first one, remove the "No Data" placeholder in active grid
+                const emptyState = activeContainer.querySelector('.col-span-full');
+                if (emptyState && emptyState.querySelector('.material-symbols-outlined')) emptyState.remove();
+
+                updateMockup();
+            }, 300);
+        }
+    }
+
+    function focusCard(btn) {
+        const card = btn.closest('.elite-red-card');
+        card.querySelector('input').focus();
+    }
+
+    // --- ARCHIVED PLANS FILTERING & SORTING ---
+    function filterArchivedPlans() {
+        const query = document.getElementById('archivedSearch').value.toLowerCase();
+        const dateSort = document.getElementById('archivedSortDate').value;
+        const priceSort = document.getElementById('archivedSortPrice').value;
+        const tbody = document.getElementById('archivedTableBody');
+        const rows = Array.from(tbody.querySelectorAll('.archived-row'));
+
+        let filteredRows = rows.filter(row => {
+            const name = row.getAttribute('data-name');
+            return name.includes(query);
+        });
+
+        // Sorting Logic
+        filteredRows.sort((a, b) => {
+            // Sort by Date
+            const dateA = parseInt(a.getAttribute('data-date'));
+            const dateB = parseInt(b.getAttribute('data-date'));
+            
+            if (dateSort === 'newest') {
+                if (dateB !== dateA) return dateB - dateA;
+            } else {
+                if (dateA !== dateB) return dateA - dateB;
+            }
+
+            // Sort by Price (as secondary or if date is same)
+            const priceA = parseInt(a.getAttribute('data-price'));
+            const priceB = parseInt(b.getAttribute('data-price'));
+
+            if (priceSort === 'low') return priceA - priceB;
+            if (priceSort === 'high') return priceB - priceA;
+            
+            return 0;
+        });
+
+        // Toggle visibility and re-append sorted rows
+        rows.forEach(row => row.classList.add('hidden'));
+        filteredRows.forEach(row => {
+            row.classList.remove('hidden');
+            tbody.appendChild(row);
+        });
+
+        // Handle empty state
+        const existingNoData = tbody.querySelector('.no-data-row');
+        if (filteredRows.length === 0) {
+            if (!existingNoData) {
+                const tr = document.createElement('tr');
+                tr.className = 'no-data-row';
+                tr.innerHTML = `
+                    <td colspan="5" class="px-8 py-20 text-center">
+                        <div class="flex flex-col items-center justify-center opacity-40">
+                            <span class="material-symbols-outlined text-4xl mb-4">search_off</span>
+                            <p class="text-[10px] font-black uppercase tracking-[0.2em]">No matching plans found.</p>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        } else if (existingNoData) {
+            existingNoData.remove();
+        }
+    }
+
+    function resetArchivedFilters() {
+        document.getElementById('archivedSearch').value = '';
+        document.getElementById('archivedSortDate').value = 'newest';
+        document.getElementById('archivedSortPrice').value = 'default';
+        filterArchivedPlans();
+    }
+
+    // --- SORTABLE JS INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', function() {
+        const container = document.getElementById('activePlansContainer');
+        if (container) {
+            new Sortable(container, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'opacity-50',
+                onEnd: function() {
+                    const order = Array.from(container.querySelectorAll('.elite-red-card'))
+                        .map(card => card.getAttribute('data-id'))
+                        .filter(id => id); // Exclude new unsaved plans
+
+                    if (order.length > 0) {
+                        const formData = new FormData();
+                        formData.append('action', 'save_membership_order');
+                        order.forEach(id => formData.append('order[]', id));
+
+                        fetch(window.location.href, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                console.log('Order saved successfully');
+                                showEliteToast('New plan order saved', 'reorder', 'bg-primary');
+                            }
+                        })
+                        .catch(err => console.error('Error saving order:', err));
+                    }
+                    setTimeout(() => {
+                        updateMockup();
+                    }, 50);
+                }
+            });
+        }
+
+        // --- REAL-TIME PLAN SYNC LISTENER ---
+        const planParent = document.getElementById('activePlansContainer')?.parentElement;
+        if (planParent) {
+            planParent.addEventListener('input', (e) => {
+                if (e.target.closest('.elite-red-card')) {
+                    updateMockup();
+                }
+            });
+        }
+    });
 </script>
 
     <!-- Restriction Modal (Sidebar-Aware) -->

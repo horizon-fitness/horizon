@@ -83,8 +83,8 @@ try {
 
     // 2. Resolve Plan Details & Amount
     $amount = 0.0;
-    // Check for both gym-specific and global plans (gym_id IS NULL)
-    $stmtPlan = $pdo->prepare("SELECT * FROM membership_plans WHERE membership_plan_id = ? AND (gym_id = ? OR gym_id IS NULL) LIMIT 1");
+    // Check for gym-specific plans only (Global plans removed)
+    $stmtPlan = $pdo->prepare("SELECT * FROM membership_plans WHERE membership_plan_id = ? AND gym_id = ? LIMIT 1");
     $stmtPlan->execute([$plan_id, $gym_id]);
     $plan = $stmtPlan->fetch();
 
@@ -94,13 +94,10 @@ try {
             $sessions_total = (int)$plan['session_limit'];
         }
     } else {
-        payment_debug_log("PLAN NOT FOUND: Falling back to standard values for plan_id $plan_id");
-        // Fallback default prices based on standard app definitions
-        if ($plan_id == 1) $amount = 1500.00;
-        elseif ($plan_id == 2) $amount = 4000.00;
-        elseif ($plan_id == 3) $amount = 14000.00;
-        
-        if ($sessions_total === -1 && $plan_id == 1) $sessions_total = 30;
+        payment_debug_log("PLAN NOT FOUND: Plan ID $plan_id does not belong to gym $gym_id or is invalid.");
+        ob_end_clean();
+        echo json_encode(['success' => false, 'message' => "Invalid membership plan selected for this gym."]);
+        exit;
     }
 
     $pdo->beginTransaction();

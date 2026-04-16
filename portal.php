@@ -2,8 +2,9 @@
 require_once 'db.php';
 
 $gym_slug = $_GET['gym'] ?? '';
+$is_preview = isset($_GET['preview']);
 
-if (empty($gym_slug)) {
+if (empty($gym_slug) && !$is_preview) {
     header("Location: index.php");
     exit;
 }
@@ -21,10 +22,11 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         'gym_email' => 'contact@gym.com',
         'gym_contact' => '123-456-7890'
     ];
+    $configs = [];
     $gym_details = [
-        'opening_time' => '08:00',
-        'closing_time' => '22:00',
-        'max_capacity' => 50,
+        'opening_time' => '',
+        'closing_time' => '',
+        'max_capacity' => 0,
         'has_lockers' => 0,
         'has_shower' => 0,
         'has_parking' => 0,
@@ -224,8 +226,8 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
     $stmtDetails = $pdo->prepare("SELECT * FROM gym_details WHERE gym_id = ?");
     $stmtDetails->execute([$page['gym_id']]);
     $gym_details = $stmtDetails->fetch() ?: [
-        'opening_time' => '08:00',
-        'closing_time' => '22:00',
+        'opening_time' => '',
+        'closing_time' => '',
         'max_capacity' => 0,
         'has_lockers' => 0,
         'has_shower' => 0,
@@ -237,8 +239,8 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
     $stmtMembership = $pdo->prepare("SELECT mp.*, mpt.type_name 
                                     FROM membership_plans mp 
                                     JOIN membership_plan_types mpt ON mp.plan_type_id = mpt.plan_type_id 
-                                    WHERE (mp.gym_id = ? OR mp.gym_id IS NULL) AND mp.is_active = 1 
-                                    ORDER BY mp.price ASC");
+                                    WHERE mp.gym_id = ? AND mp.is_active = 1 
+                                    ORDER BY mp.sort_order ASC, mp.price ASC");
     $stmtMembership->execute([$page['gym_id']]);
     $membership_plans = $stmtMembership->fetchAll();
 }
@@ -254,7 +256,7 @@ $cms = [
     'hero_label' => $configs['portal_hero_label'] ?? 'Open for Membership',
     'features_label' => $configs['portal_features_label'] ?? 'Experience the Difference',
     'philosophy_label' => $configs['portal_philosophy_label'] ?? 'The Philosophy',
-    'plans_title' => $configs['portal_plans_title'] ?? 'Elite Membership Plans',
+    'plans_title' => $configs['portal_plans_title'] ?? 'Membership Plans',
     'plans_subtitle' => $configs['portal_plans_subtitle'] ?? ('Select a plan to start your journey at ' . htmlspecialchars($page['gym_name'])),
     'footer_links_title' => $configs['portal_footer_links_title'] ?? 'Quick Links',
     'footer_contact_title' => $configs['portal_footer_contact_title'] ?? 'Contact Facility',
@@ -320,7 +322,7 @@ $primary_rgb = hexToRgb($primary_color);
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title><?= htmlspecialchars($page['page_title']) ?> | Horizon Systems</title>
+    <title><?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?> | Horizon Systems</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
     <link
@@ -619,6 +621,33 @@ $primary_rgb = hexToRgb($primary_color);
                 transform: scale(1.1);
             }
         }
+
+        /* Premium Visible Scrollbar Override (from index) */
+        .custom-scrollbar::-webkit-scrollbar {
+            display: block !important;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.01);
+            border-radius: 20px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            transition: all 0.3s ease;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(<?= $primary_rgb ?>, 0.3);
+        }
+        .custom-scrollbar {
+            scrollbar-width: thin !important;
+            scrollbar-color: rgba(255, 255, 255, 0.05) transparent !important;
+            -ms-overflow-style: none;
+        }
+
+        #membership-plans-grid { cursor: grab; user-select: none; }
+        #membership-plans-grid:active { cursor: grabbing; }
 
         .btn-modern {
             background: linear-gradient(135deg, var(--pg-primary) 0%, rgba(<?= $primary_rgb ?>, 0.8) 100%);
@@ -962,11 +991,11 @@ $primary_rgb = hexToRgb($primary_color);
                                 Opening Hours</p>
                             <div class="flex justify-between items-center">
                                 <span id="opening-time-display"
-                                    class="text-2xl font-black text-white italic"><?= date('h:i A', strtotime($gym_details['opening_time'])) ?></span>
+                                    class="text-2xl font-black text-white italic"><?= !empty($gym_details['opening_time']) ? date('h:i A', strtotime($gym_details['opening_time'])) : '--:--' ?></span>
                                 <span class="material-symbols-outlined text-primary/40 text-2xl">schedule</span>
                             </div>
                             <p class="text-[8px] text-gray-600 uppercase font-bold mt-3">Until
-                                <?= date('h:i A', strtotime($gym_details['closing_time'])) ?></p>
+                                <?= !empty($gym_details['closing_time']) ? date('h:i A', strtotime($gym_details['closing_time'])) : '--:--' ?></p>
                         </div>
 
                         <div class="metric-card border border-primary/20">
@@ -1048,19 +1077,19 @@ $primary_rgb = hexToRgb($primary_color);
                     <p id="plans-subtitle-display" class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]"><?= htmlspecialchars($cms['plans_subtitle']) ?></p>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div id="membership-plans-grid" class="flex overflow-x-auto snap-x snap-mandatory gap-10 pt-14 pb-12 px-10 no-scrollbar custom-scrollbar scroll-smooth <?= count($membership_plans) <= 2 ? 'justify-center' : '' ?>">
                     <?php if (empty($membership_plans)): ?>
-                        <div class="col-span-full py-20 dashboard-window rounded-3xl opacity-50">
+                        <div class="w-full max-w-2xl py-20 dashboard-window rounded-3xl opacity-50 text-center shrink-0">
                             <span class="material-symbols-outlined text-4xl mb-4">info</span>
                             <p class="text-xs font-bold uppercase tracking-widest">No membership plans available at this time.</p>
                         </div>
                     <?php else: ?>
                         <?php foreach ($membership_plans as $plan): 
-                            $isElite = strpos(strtoupper($plan['plan_name']), 'ELITE') !== false || strpos(strtoupper($plan['plan_name']), 'VIP') !== false;
+                            $badgeText = !empty($plan['featured_badge_text']) ? $plan['featured_badge_text'] : ( (strpos(strtoupper($plan['plan_name'] ?? ''), 'ELITE') !== false || strpos(strtoupper($plan['plan_name'] ?? ''), 'VIP') !== false) ? 'Recommended' : '' );
                         ?>
-                        <div class="dashboard-window rounded-2xl p-10 flex flex-col text-left transition-all hover:scale-[1.02] hover:border-primary/40 duration-500 <?= $isElite ? 'border-primary/30 relative' : '' ?>">
-                            <?php if ($isElite): ?>
-                                <div class="absolute -top-3 right-8 bg-primary text-white text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full shadow-lg shadow-primary/20">Recommended</div>
+                        <div class="dashboard-window rounded-2xl p-10 flex flex-col text-left transition-all hover:scale-[1.02] hover:border-primary/40 duration-500 shrink-0 w-[85%] md:w-[400px] snap-start <?= !empty($badgeText) ? 'border-primary/30 relative' : '' ?>">
+                            <?php if (!empty($badgeText)): ?>
+                                <div class="absolute -top-3 right-8 bg-primary text-white text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full shadow-lg shadow-primary/20"><?= htmlspecialchars($badgeText) ?></div>
                             <?php endif; ?>
                             
                             <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
@@ -1068,25 +1097,40 @@ $primary_rgb = hexToRgb($primary_color);
                             
                             <div class="mb-10">
                                 <span class="text-4xl font-display font-black text-white">₱<?= number_format($plan['price'], 2) ?></span>
-                                <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ <?= htmlspecialchars($plan['duration_value']) ?> Days</span>
+                                <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ <?= !empty($plan['billing_cycle_text']) ? htmlspecialchars($plan['billing_cycle_text']) : htmlspecialchars($plan['duration_value']) . ' Days' ?></span>
                             </div>
                             
                             <ul class="space-y-4 mb-12 flex-grow">
-                                <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
-                                    <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
-                                    <?= !empty($plan['description']) ? htmlspecialchars($plan['description']) : 'Full access to all facility equipment and amenities.' ?>
-                                </li>
+                                <?php 
+                                if (!empty($plan['features'])) {
+                                    $featuresList = explode("\n", str_replace(["\r\n", "\r"], "\n", $plan['features']));
+                                    foreach ($featuresList as $feature) {
+                                        $feature = trim($feature);
+                                        if (empty($feature)) continue;
+                                        ?>
+                                        <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
+                                            <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
+                                            <?= htmlspecialchars($feature) ?>
+                                        </li>
+                                        <?php
+                                    }
+                                } else {
+                                    ?>
+                                    <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
+                                        <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
+                                        <?= !empty($plan['description']) ? htmlspecialchars($plan['description']) : 'Full access to all facility equipment and amenities.' ?>
+                                    </li>
+                                    <?php
+                                }
+                                ?>
                                 <?php if ($plan['session_limit']): ?>
                                 <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
-                                    <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
+                                    <span class="material-symbols-outlined text-primary text-sm opacity-60">verified</span> 
                                     <?= htmlspecialchars($plan['session_limit']) ?> Total Sessions included
                                 </li>
                                 <?php endif; ?>
                             </ul>
                             
-                            <a href="member/member_register.php?gym=<?= $gym_slug ?>" class="w-full py-4 bg-white/5 border border-white/10 hover:bg-primary hover:border-primary hover:text-white text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-center">
-                                Choose This Plan
-                            </a>
                         </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -1249,6 +1293,39 @@ $primary_rgb = hexToRgb($primary_color);
             if (e.key === 'Escape') closeQRModal();
         });
 
+        // --- Drag-to-Scroll Engine (Matching Index) ---
+        const slider = document.getElementById('membership-plans-grid');
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        if (slider) {
+            slider.addEventListener('mousedown', (e) => {
+                isDown = true;
+                slider.style.scrollSnapType = 'none'; 
+                slider.style.scrollBehavior = 'auto'; 
+                startX = e.pageX - slider.offsetLeft;
+                scrollLeft = slider.scrollLeft;
+            });
+            slider.addEventListener('mouseleave', () => {
+                isDown = false;
+                slider.style.scrollSnapType = 'x mandatory';
+                slider.style.scrollBehavior = 'smooth';
+            });
+            slider.addEventListener('mouseup', () => {
+                isDown = false;
+                slider.style.scrollSnapType = 'x mandatory';
+                slider.style.scrollBehavior = 'smooth';
+            });
+            slider.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - slider.offsetLeft;
+                const walk = (x - startX) * 2; 
+                slider.scrollLeft = scrollLeft - walk;
+            });
+        }
+
         // Real-time Preview Listener
         window.addEventListener('message', function (event) {
             if (event.data.type === 'updateStyles') {
@@ -1328,7 +1405,7 @@ $primary_rgb = hexToRgb($primary_color);
                 }
                 if (data.portal_plans_title !== undefined) {
                     const el = document.getElementById('plans-title-display');
-                    if (el) el.innerText = data.portal_plans_title || 'Elite Membership Plans';
+                    if (el) el.innerText = data.portal_plans_title || 'Membership Plans';
                 }
                 if (data.portal_plans_subtitle !== undefined) {
                     const el = document.getElementById('plans-subtitle-display');
@@ -1349,7 +1426,20 @@ $primary_rgb = hexToRgb($primary_color);
 
                 if (data.opening_time) {
                     const el = document.getElementById('opening-time-display');
-                    if (el) el.innerText = data.opening_time;
+                    if (el) {
+                        try {
+                            const [hours, minutes] = data.opening_time.split(':');
+                            const h = parseInt(hours);
+                            const ampm = h >= 12 ? 'PM' : 'AM';
+                            const h12 = h % 12 || 12;
+                            el.innerText = `${h12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+                        } catch (e) {
+                            el.innerText = data.opening_time;
+                        }
+                    }
+                } else {
+                    const el = document.getElementById('opening-time-display');
+                    if (el) el.innerText = '--:--';
                 }
 
                 if (data.max_capacity !== undefined) {
@@ -1373,6 +1463,73 @@ $primary_rgb = hexToRgb($primary_color);
                         }
                     }
                 });
+
+                if (data.plans && Array.isArray(data.plans)) {
+                    const grid = document.getElementById('membership-plans-grid');
+                    if (grid) {
+                        if (data.plans.length === 0) {
+                            grid.classList.add('justify-center');
+                            grid.innerHTML = `
+                                <div class="w-full max-w-2xl py-20 dashboard-window rounded-3xl opacity-50 text-center shrink-0">
+                                    <span class="material-symbols-outlined text-4xl mb-4">info</span>
+                                    <p class="text-xs font-bold uppercase tracking-widest">No membership plans available at this time.</p>
+                                </div>
+                            `;
+                        } else {
+                            if (data.plans.length <= 2) {
+                                grid.classList.add('justify-center');
+                            } else {
+                                grid.classList.remove('justify-center');
+                            }
+                            grid.innerHTML = data.plans.map(plan => {
+                                const name = plan.name || 'Unnamed Tier';
+                                const type = plan.type || 'Standard';
+                                const price = parseFloat(plan.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                const duration = plan.duration || 1;
+                                const billing = plan.billing || (duration + ' Days');
+                                const badgeText = plan.badge || (
+                                    (name.toUpperCase().includes('ELITE') || name.toUpperCase().includes('VIP')) ? 'Recommended' : ''
+                                );
+                                
+                                let featuresHtml = '';
+                                if (plan.features) {
+                                    const featuresList = plan.features.split('\n').map(f => f.trim()).filter(f => f);
+                                    featuresHtml = featuresList.map(f => `
+                                        <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
+                                            <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
+                                            ${f}
+                                        </li>
+                                    `).join('');
+                                } else {
+                                    featuresHtml = `
+                                        <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
+                                            <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
+                                            Full access to all facility equipment and amenities.
+                                        </li>
+                                    `;
+                                }
+
+                                return `
+                                    <div class="dashboard-window rounded-2xl p-10 flex flex-col text-left transition-all hover:scale-[1.02] hover:border-primary/40 duration-500 shrink-0 w-[85%] md:w-[400px] snap-start ${badgeText ? 'border-primary/30 relative' : ''}">
+                                        ${badgeText ? `<div class="absolute -top-3 right-8 bg-primary text-white text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full shadow-lg shadow-primary/20">${badgeText}</div>` : ''}
+                                        
+                                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">${name}</h3>
+                                        <p class="text-[9px] text-primary font-black uppercase tracking-widest mb-8">${type}</p>
+                                        
+                                        <div class="mb-10">
+                                            <span class="text-4xl font-display font-black text-white">₱${price}</span>
+                                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ ${billing}</span>
+                                        </div>
+                                        
+                                        <ul class="space-y-4 mb-12 flex-grow">
+                                            ${featuresHtml}
+                                        </ul>
+                                    </div>
+                                `;
+                            }).join('');
+                        }
+                    }
+                }
             }
         });
     </script>
