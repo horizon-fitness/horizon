@@ -281,6 +281,11 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
     $stmtMembership = $pdo->prepare("SELECT * FROM membership_plans WHERE gym_id = ? AND is_active = 1 ORDER BY sort_order ASC, price ASC");
     $stmtMembership->execute([$page['gym_id']]);
     $membership_plans = $stmtMembership->fetchAll();
+
+    // Fetch Services Catalog (Per-session services)
+    $stmtServices = $pdo->prepare("SELECT * FROM service_catalog WHERE gym_id = ? AND is_active = 1 ORDER BY service_name ASC");
+    $stmtServices->execute([$page['gym_id']]);
+    $portal_services = $stmtServices->fetchAll();
 }
 
 // Map CMS Content with Fallbacks
@@ -1222,6 +1227,63 @@ $primary_rgb = hexToRgb($primary_color);
                 </div>
             </div>
         </section>
+
+        <!-- Section: Services Catalog (Per Session) -->
+        <?php if (!empty($portal_services)): ?>
+        <section id="services" class="py-32 px-6 relative border-t border-white/5 bg-white/[0.01]">
+            <div class="max-w-7xl mx-auto text-center">
+                <div class="mb-16">
+                    <div class="inline-flex items-center justify-center p-3 rounded-xl bg-primary/10 border border-primary/20 mb-6">
+                        <span class="material-symbols-outlined text-primary">exercise</span>
+                    </div>
+                    <h2 class="text-4xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
+                        Services & Session Rates
+                    </h2>
+                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">
+                        Specialized sessions and per-session pricing for <?= htmlspecialchars($page['gym_name']) ?>
+                    </p>
+                </div>
+
+                <div id="services-catalog-grid"
+                    class="flex overflow-x-auto snap-x snap-mandatory gap-8 pt-6 pb-12 px-10 no-scrollbar custom-scrollbar scroll-smooth <?= count($portal_services) <= 3 ? 'justify-center' : '' ?>">
+                    <?php foreach ($portal_services as $service): ?>
+                        <div class="dashboard-window rounded-3xl p-10 flex flex-col text-left hover:border-primary/40 transition-all duration-500 shrink-0 w-[85%] md:w-[350px] snap-start relative group overflow-hidden">
+                            <div class="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity">
+                                <span class="material-symbols-outlined text-8xl">fitness_center</span>
+                            </div>
+
+                            <div class="mb-6">
+                                <span class="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[8px] font-black uppercase tracking-widest italic leading-none">
+                                    <?= htmlspecialchars($service['service_category']) ?>
+                                </span>
+                            </div>
+
+                            <h3 class="text-2xl font-display font-black text-white uppercase italic mb-8 leading-tight">
+                                <?= htmlspecialchars($service['service_name']) ?>
+                            </h3>
+
+                            <div class="mb-10">
+                                <span class="text-4xl font-display font-black text-white leading-none">₱<?= number_format($service['price'], 2) ?></span>
+                                <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest ml-2 italic">Per Session</span>
+                            </div>
+
+                            <p class="text-[11px] text-gray-500 font-medium italic leading-relaxed line-clamp-4 flex-grow">
+                                <?= htmlspecialchars($service['description'] ?: 'Inquire at our front desk for session details, schedule, and coach availability.') ?>
+                            </p>
+
+                            <div class="mt-12 pt-8 border-t border-white/5">
+                                <a href="member/member_register.php?gym=<?= $gym_slug ?>&service=<?= $service['catalog_service_id'] ?>" 
+                                   class="flex items-center justify-between group/link">
+                                    <span class="text-[10px] font-black uppercase tracking-widest text-white group-hover/link:text-primary transition-colors">Book Session</span>
+                                    <span class="material-symbols-outlined text-sm text-primary group-hover/link:translate-x-1 transition-transform">arrow_forward</span>
+                                </a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </section>
+        <?php endif; ?>
     </main>
 
     <footer id="contact" class="bg-[#08080a] border-t border-white/5 pt-24 pb-12 px-6">

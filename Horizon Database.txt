@@ -51,9 +51,14 @@ CREATE TABLE website_plan_features (
 
 CREATE TABLE service_catalog (
     catalog_service_id INT AUTO_INCREMENT PRIMARY KEY,
+    gym_id INT NOT NULL,
     service_name VARCHAR(100) NOT NULL,
     service_category VARCHAR(50) NOT NULL,
-    default_description TEXT NOT NULL
+    price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    description TEXT,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- System Configurations & Unified Branding

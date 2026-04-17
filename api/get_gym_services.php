@@ -16,13 +16,14 @@ if ($gym_id <= 0) {
 try {
     $stmt = $pdo->prepare("
         SELECT 
-            gs.gym_service_id, 
-            COALESCE(gs.custom_service_name, sc.service_name) as custom_service_name, 
-            gs.price, 
-            gs.duration_minutes
-        FROM gym_services gs
-        JOIN service_catalog sc ON gs.catalog_service_id = sc.catalog_service_id
-        WHERE gs.gym_id = ? AND gs.is_active = 1
+            catalog_service_id as id, 
+            service_name as name, 
+            service_category as category,
+            price, 
+            description
+        FROM service_catalog
+        WHERE gym_id = ? AND is_active = 1
+        ORDER BY service_name ASC
     ");
     $stmt->execute([$gym_id]);
     $services = $stmt->fetchAll(PDO::FETCH_ASSOC);

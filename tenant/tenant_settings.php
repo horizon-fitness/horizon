@@ -291,6 +291,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// --- AJAX HANDLER: RESET BRANDING ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'reset_branding') {
+    try {
+        $keys_to_reset = ['system_name', 'system_logo', 'theme_color', 'secondary_color', 'text_color', 'bg_color', 'card_color', 'auto_card_theme', 'font_family'];
+        $placeholders = implode(',', array_fill(0, count($keys_to_reset), '?'));
+        $stmtReset = $pdo->prepare("DELETE FROM system_settings WHERE user_id = ? AND setting_key IN ($placeholders)");
+        $stmtReset->execute(array_merge([$user_id], $keys_to_reset));
+        
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // Default Branding Values
 $bg_color = $page['bg_color'] ?? '#0a090d';
 $theme_color = $page['theme_color'] ?? '#8c2bee';
@@ -309,6 +324,7 @@ foreach ($all_membership_plans as $p) {
     else
         $archived_plans[] = $p;
 }
+
 
 // --- UNIFIED POST HANDLER ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
@@ -1156,6 +1172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                 <span class="material-symbols-outlined text-base">card_membership</span>
                                 Membership Plans
                             </button>
+
                         </div>
 
                         <button type="button" onclick="confirmSaveSettings()"
@@ -1169,18 +1186,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         <!-- System Appearance Panel (Sync with Superadmin) -->
                         <div class="glass-card p-8 max-w-5xl mx-auto">
                             <div class="flex items-center justify-between mb-8 text-primary">
-                                <div class="flex items-center gap-4">
-                                    <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                        <span class="material-symbols-outlined text-primary">brush</span>
+                                    <div class="flex items-center gap-4">
+                                        <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                            <span class="material-symbols-outlined text-primary">brush</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">1.
+                                                System Appearance</h3>
+                                            <p
+                                                class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight line-clamp-1">
+                                                Brand identity & glassmorphism</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">1.
-                                            System Appearance</h3>
-                                        <p
-                                            class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight line-clamp-1">
-                                            Brand identity & glassmorphism</p>
-                                    </div>
-                                </div>
+                                    <button type="button" onclick="resetBranding()"
+                                        class="h-9 px-6 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all active:scale-95">
+                                        <span class="material-symbols-outlined text-base">restart_alt</span>
+                                        Reset to Defaults
+                                    </button>
                             </div>
 
                             <div class="space-y-8">
@@ -1861,10 +1883,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
                         </div>
+                              </div>
                     </div>
-            </div>
+                </div>
             </form>
 
         </div>
@@ -1897,6 +1919,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 </div>
             </div>
         </div>
+
+
     </main>
 
     <script>
@@ -1919,37 +1943,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             }, 4000);
         }
 
-        function confirmSaveSettings() {
-            const modal = document.getElementById('confirmActionModal');
-            const title = document.getElementById('confirmTitle');
-            const desc = document.getElementById('confirmDesc');
-            const btn = document.getElementById('confirmActionBtn');
-            const icon = document.getElementById('confirmIcon');
-            const iconBox = document.getElementById('confirmIconBox');
 
-            title.innerText = "Save Configuration";
-            desc.innerText = "This will update your gym's branding and operational content across the entire Horizon platform. High-priority system update.";
-            icon.innerText = "published_with_changes";
-            iconBox.className = "size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6";
-            btn.className = "h-12 rounded-xl bg-primary text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all";
-            btn.innerText = "Save Changes Now";
-
-            btn.onclick = () => {
-                document.getElementById('gymSettingsForm').submit();
-            };
-
-            modal.classList.add('active');
-        }
-
-        function handleFormSubmit(form, event) {
-            // Show loading state on all submit buttons
-            const submitBtn = document.querySelector('button[onclick="confirmSaveSettings()"]');
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-base">refresh</span> Saving...';
-            }
-            return true;
-        }
 
         function updateTopClock() {
             const clockEl = document.getElementById('topClock');
@@ -2011,6 +2005,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             form.submit();
             return true;
         }
+        function resetBranding() {
+            setConfirmModal('reset', null, 'Reset Branding', 'restart_alt', 'Confirm Reset', 'bg-rose-500');
+        }
+
+        async function performBrandingReset() {
+            const formData = new FormData();
+            formData.append('action', 'reset_branding');
+
+            try {
+                const response = await fetch('tenant_settings.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showEliteToast('Branding Reset to Defaults!', 'check_circle', 'bg-emerald-500');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showEliteToast(error.message || 'Reset failed.', 'error', 'bg-red-500');
+            }
+        }
 
         function confirmSaveSettings() {
             setConfirmModal('save', null, 'Save Changes', 'save', 'Confirm & Save', 'bg-primary');
@@ -2045,6 +2064,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             } else if (type === 'restore') {
                 descEl.textContent = 'Restore this plan to active status? It will be visible to members again.';
                 btn.onclick = () => autoTogglePlanStatus(id, type);
+            } else if (type === 'reset') {
+                descEl.textContent = 'Are you sure you want to reset your gym branding to default system values? This will erase your custom colors and logo.';
+                btn.onclick = () => performBrandingReset();
             }
 
             openEliteModal('confirmActionModal');
@@ -2892,6 +2914,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 });
             }
         });
+
+        // --- SERVICES CATALOG FILTERING & SORTING ---
+        function filterServices() {
+            const query = document.getElementById('serviceSearch').value.toLowerCase();
+            const dateSort = document.getElementById('serviceSortDate').value;
+            const priceSort = document.getElementById('serviceSortPrice').value;
+            
+            // Determine active view
+            const isActiveView = !document.getElementById('activeServicesContainer').classList.contains('hidden');
+            const tbody = isActiveView ? document.getElementById('activeServicesTableBody') : document.getElementById('archivedServicesTableBody');
+            
+            if (!tbody) return;
+            
+            const rows = Array.from(tbody.querySelectorAll('.service-row'));
+            if (rows.length === 0) return;
+
+            let filteredRows = rows.filter(row => {
+                const name = row.getAttribute('data-name');
+                const category = row.getAttribute('data-category');
+                return name.includes(query) || category.includes(query);
+            });
+
+            // Sorting Logic
+            filteredRows.sort((a, b) => {
+                // Sort by Date
+                const dateA = parseInt(a.getAttribute('data-date'));
+                const dateB = parseInt(b.getAttribute('data-date'));
+
+                let dateResult = 0;
+                if (dateSort === 'newest') dateResult = dateB - dateA;
+                else dateResult = dateA - dateB;
+
+                if (dateResult !== 0) return dateResult;
+
+                // Sort by Price
+                const priceA = parseFloat(a.getAttribute('data-price'));
+                const priceB = parseFloat(b.getAttribute('data-price'));
+
+                if (priceSort === 'low') return priceA - priceB;
+                if (priceSort === 'high') return priceB - priceA;
+
+                return 0;
+            });
+
+            // Toggle visibility and re-append sorted rows
+            rows.forEach(row => row.classList.add('hidden'));
+            filteredRows.forEach(row => {
+                row.classList.remove('hidden');
+                tbody.appendChild(row);
+            });
+
+            // Handle empty state
+            const existingNoData = tbody.querySelector('.no-data-row');
+            if (filteredRows.length === 0) {
+                if (!existingNoData) {
+                    const colCount = isActiveView ? 5 : 5;
+                    const tr = document.createElement('tr');
+                    tr.className = 'no-data-row animate-in fade-in duration-300';
+                    tr.innerHTML = `
+                        <td colspan="${colCount}" class="px-8 py-20 text-center">
+                            <div class="flex flex-col items-center justify-center opacity-40">
+                                <span class="material-symbols-outlined text-4xl mb-4 text-primary">search_off</span>
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em]">No matching services found.</p>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            } else if (existingNoData) {
+                existingNoData.remove();
+            }
+        }
+
+        function resetServiceFilters() {
+            document.getElementById('serviceSearch').value = '';
+            document.getElementById('serviceSortDate').value = 'newest';
+            document.getElementById('serviceSortPrice').value = 'default';
+            filterServices();
+        }
+
+        // Refine toggleServiceView to auto-re-filter if needed
+        const originalToggleServiceView = toggleServiceView;
+        toggleServiceView = function(view) {
+            originalToggleServiceView(view);
+            filterServices(); // Apply filters to the new view
+        };
     </script>
 
     <!-- Restriction Modal (Sidebar-Aware) -->
