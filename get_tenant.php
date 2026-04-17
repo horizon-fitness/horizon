@@ -25,7 +25,10 @@ try {
             'tenant_code'  => '000',
             'logo_path'    => null,
             'theme_color'  => '#8c2bee',
-            'bg_color'     => '#0a090d',
+            'bg_color'     => '#0d0d0d',
+            'text_color'   => '#d1d5db',
+            'icon_color'   => '#a1a1aa',
+            'surface_color'=> '#141216',
             'font_family'  => 'Inter'
         ]);
         exit;
@@ -37,7 +40,8 @@ try {
             g.gym_id,
             g.gym_name,
             g.tenant_code,
-            g.owner_user_id
+            g.owner_user_id,
+            g.profile_picture
         FROM gyms g
         WHERE LOWER(REPLACE(g.tenant_code, '-', '')) = LOWER(?)
            OR LOWER(g.gym_name) = LOWER(?)
@@ -49,7 +53,7 @@ try {
     // If not found by code/name, try page_slug from system_settings
     if (!$gym) {
         $stmtSlug = $pdo->prepare("
-            SELECT g.gym_id, g.gym_name, g.tenant_code, g.owner_user_id
+            SELECT g.gym_id, g.gym_name, g.tenant_code, g.owner_user_id, g.profile_picture
             FROM system_settings ss
             JOIN gyms g ON ss.user_id = g.owner_user_id
             WHERE ss.setting_key = 'page_slug' AND LOWER(ss.setting_value) = LOWER(?)
@@ -83,10 +87,13 @@ try {
         'gym_name'    => $gym['gym_name'],
         'tenant_code' => $gym['tenant_code'],
         'page_slug'   => $branding['page_slug'] ?? strtolower(preg_replace('/[^a-z0-9]/i', '', $gym['gym_name'])),
-        'logo_path'   => $branding['system_logo'] ?? null,
-        'theme_color' => $branding['theme_color'] ?? '#8c2bee',
-        'bg_color'    => $branding['bg_color'] ?? '#0a090d',
-        'font_family' => $branding['font_family'] ?? 'Inter'
+        'logo_path'   => $branding['system_logo'] ?? $gym['profile_picture'] ?? null,
+        'theme_color'   => $branding['theme_color'] ?? '#8c2bee',
+        'bg_color'      => $branding['bg_color'] ?? '#0d0d0d',
+        'text_color'    => $branding['text_color'] ?? '#d1d5db',
+        'icon_color'    => $branding['icon_color'] ?? '#a1a1aa',
+        'surface_color' => $branding['surface_color'] ?? '#141216',
+        'font_family'   => $branding['font_family'] ?? 'Inter'
     ]);
     exit;
 
