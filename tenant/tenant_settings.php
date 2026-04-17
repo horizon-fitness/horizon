@@ -33,26 +33,28 @@ if (!$gym) {
     die("Gym profile not found. Please contact support.");
 }
 
-// --- Database Migration: Ensure system_settings table exists ---
+// --- Database Migration: Ensure portal_settings table exists ---
 try {
     $pdo->exec("
-        CREATE TABLE IF NOT EXISTS system_settings (
-            user_id INT NOT NULL,
-            setting_key VARCHAR(50) NOT NULL,
-            setting_value TEXT,
-            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (user_id, setting_key)
+        CREATE TABLE IF NOT EXISTS portal_settings (
+            gym_id INT NOT NULL PRIMARY KEY,
+            hero_label TEXT,
+            hero_title TEXT,
+            hero_subtitle TEXT,
+            features_label TEXT,
+            features_title TEXT,
+            features_desc TEXT,
+            philosophy_label TEXT,
+            philosophy_title TEXT,
+            philosophy_desc TEXT,
+            plans_title TEXT,
+            plans_subtitle TEXT,
+            footer_label TEXT,
+            footer_desc TEXT,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
     ");
-
-    // Check if we need to migrate from the old single-user schema
-    $res = $pdo->query("SHOW COLUMNS FROM system_settings LIKE 'user_id'");
-    if (!$res->fetch()) {
-        $pdo->exec("ALTER TABLE system_settings ADD COLUMN user_id INT NOT NULL DEFAULT 1 FIRST");
-        $pdo->exec("ALTER TABLE system_settings DROP PRIMARY KEY, ADD PRIMARY KEY (user_id, setting_key)");
-    }
-} catch (Exception $e) { /* Table creation/migration failed or already exists */
-}
+} catch (Exception $e) { /* Already exists */ }
 
 // Fetch Branding Logic with Fallbacks
 try {
@@ -61,13 +63,54 @@ try {
     $stmtGlobal->execute();
     $global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
 
-    // Fetch Tenant System Settings (user_id = ?)
+    // Fetch Tenant Branding Settings (user_id = ?)
     $stmtTenant = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
     $stmtTenant->execute([$user_id]);
     $tenant_configs = $stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
+
+    // Fetch Portal Customization (Normalized Table - 3NF)
+    $stmtPortal = $pdo->prepare("SELECT * FROM portal_settings WHERE gym_id = ?");
+    $stmtPortal->execute([$gym_id]);
+    $portal_data = $stmtPortal->fetch(PDO::FETCH_ASSOC);
+
+    // AUTO-SEED: If no data exists, create a default row for this gym
+    if (!$portal_data) {
+        $default_portal = [
+            'gym_id' => $gym_id,
+            'hero_label' => 'Open for Membership',
+            'hero_title' => 'Elevate Your Fitness at ' . ($gym['gym_name'] ?? 'Corsano Fitness'),
+            'hero_subtitle' => "Discover a premium workout experience powered by Horizon's elite technology. Join our community and transform your life with the support of our world-class trainers and cutting-edge facilities.",
+            'features_label' => 'Experience the Difference',
+            'features_title' => 'Premium Training. Elite Management.',
+            'features_desc' => 'Access our elite workout tracking and world-class management platform to streamline your fitness journey.',
+            'philosophy_label' => 'The Philosophy',
+            'philosophy_title' => 'Modern technology meets unwavering dedication.',
+            'philosophy_desc' => 'Experience fitness like never before with our cutting-edge multi-tenant facility management system.',
+            'plans_title' => 'Membership Plans',
+            'plans_subtitle' => 'Select a plan to start your journey towards a healthier, stronger you.',
+            'footer_label' => 'Expand Your Horizon',
+            'footer_desc' => 'Powered by Horizon Systems. Elevating fitness center management through cutting-edge technology.'
+        ];
+
+        try {
+            $cols = implode(', ', array_keys($default_portal));
+            $placeholders = implode(', ', array_fill(0, count($default_portal), '?'));
+            $stmtSeed = $pdo->prepare("INSERT INTO portal_settings ($cols) VALUES ($placeholders)");
+            $stmtSeed->execute(array_values($default_portal));
+            $portal_data = $default_portal;
+        } catch (Exception $e) { /* Fallback to runtime defaults */ }
+    }
+
+    // Clean up nulls and convert to configs
+    if ($portal_data) {
+        foreach ($portal_data as $pk => $pv) {
+            if ($pk !== 'gym_id' && $pk !== 'updated_at' && ($pv !== null)) {
+                $tenant_configs['portal_' . $pk] = $pv;
+            }
+        }
+    }
 } catch (Exception $e) {
-    // Graceful fallback if table is missing or structural error occurs
-    $global_configs = [];
+    if (!isset($global_configs)) $global_configs = [];
     $tenant_configs = [];
 }
 
@@ -273,8 +316,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     if (false) { // Relaxed restriction
         $error = "Action restricted. Your subscription is currently $sub_status.";
     } else {
-        // System Settings Data
-        $system_keys = [
+        // 1. Branding Settings (Key-Value system_settings)
+        $branding_keys = [
             'system_name' => $_POST['system_name'] ?? $gym['gym_name'],
             'theme_color' => $_POST['theme_color'] ?? '#8c2bee',
             'secondary_color' => $_POST['secondary_color'] ?? '#a1a1aa',
@@ -282,48 +325,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             'bg_color' => $_POST['bg_color'] ?? '#0a090d',
             'card_color' => $_POST['card_color'] ?? '#141216',
             'auto_card_theme' => $_POST['auto_card_theme'] ?? '0',
-            'is_active' => '1', // Default to active
-            'page_slug' => $page['page_slug'] ?? strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name'])),
-            'portal_hero_title' => $_POST['portal_hero_title'] ?? '',
-            'portal_hero_subtitle' => $_POST['portal_hero_subtitle'] ?? '',
-            'portal_features_title' => $_POST['portal_features_title'] ?? '',
-            'portal_features_desc' => $_POST['portal_features_desc'] ?? '',
-            'portal_philosophy_title' => $_POST['portal_philosophy_title'] ?? '',
-            'portal_philosophy_desc' => $_POST['portal_philosophy_desc'] ?? '',
-            'portal_hero_label' => $_POST['portal_hero_label'] ?? '',
-            'portal_features_label' => $_POST['portal_features_label'] ?? '',
-            'portal_philosophy_label' => $_POST['portal_philosophy_label'] ?? '',
-            'portal_plans_title' => $_POST['portal_plans_title'] ?? '',
-            'portal_plans_subtitle' => $_POST['portal_plans_subtitle'] ?? '',
-            'portal_footer_links_title' => $_POST['portal_footer_links_title'] ?? '',
-            'portal_footer_contact_title' => $_POST['portal_footer_contact_title'] ?? '',
-            'portal_footer_app_title' => $_POST['portal_footer_app_title'] ?? ''
+            'is_active' => '1',
+            'page_slug' => $page['page_slug'] ?? strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name']))
         ];
 
+        // 2. Portal Content (Normalized portal_settings - 3NF)
+        $portal_keys = [
+            'hero_title' => $_POST['portal_hero_title'] ?? '',
+            'hero_subtitle' => $_POST['portal_hero_subtitle'] ?? '',
+            'features_title' => $_POST['portal_features_title'] ?? '',
+            'features_desc' => $_POST['portal_features_desc'] ?? '',
+            'philosophy_title' => $_POST['portal_philosophy_title'] ?? '',
+            'philosophy_desc' => $_POST['portal_philosophy_desc'] ?? '',
+            'hero_label' => $_POST['portal_hero_label'] ?? '',
+            'features_label' => $_POST['portal_features_label'] ?? '',
+            'philosophy_label' => $_POST['portal_philosophy_label'] ?? '',
+            'plans_title' => $_POST['portal_plans_title'] ?? '',
+            'plans_subtitle' => $_POST['portal_plans_subtitle'] ?? '',
+            'footer_label' => $_POST['portal_footer_label'] ?? '',
+            'footer_desc' => $_POST['portal_footer_desc'] ?? ''
+        ];
 
-        // Facility Data (Safe defaults to prevent DB NOT NULL constraint failures)
+        // Facility Data
         $opening_time = !empty($_POST['opening_time']) ? $_POST['opening_time'] : '00:00:00';
         $closing_time = !empty($_POST['closing_time']) ? $_POST['closing_time'] : '23:59:59';
         $max_capacity = !empty($_POST['max_capacity']) ? (int) $_POST['max_capacity'] : 0;
+        $rules_text = $_POST['rules_text'] ?? '';
 
         $has_lockers = isset($_POST['has_lockers']) ? 1 : 0;
         $has_shower = isset($_POST['has_shower']) ? 1 : 0;
         $has_parking = isset($_POST['has_parking']) ? 1 : 0;
         $has_wifi = isset($_POST['has_wifi']) ? 1 : 0;
-        $rules_text = $_POST['rules_text'] ?? '';
 
         $now = date('Y-m-d H:i:s');
 
         try {
             $pdo->beginTransaction();
-            // 1. Update/Create System Settings
-            $stmtUpdateSettings = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
-            foreach ($system_keys as $key => $value) {
-                $stmtUpdateSettings->execute([$user_id, $key, $value]);
+
+            // A. Update Branding Settings
+            $stmtUpdateBranding = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+            foreach ($branding_keys as $key => $value) {
+                $stmtUpdateBranding->execute([$user_id, $key, $value]);
             }
 
-            // Update local configs immediately for the preview/render
-            $configs = array_merge($configs, $system_keys);
+            // B. Update Portal Content (Single Row per Gym)
+            $portal_cols = implode(', ', array_keys($portal_keys));
+            $portal_placeholders = implode(', ', array_fill(0, count($portal_keys), '?'));
+            $portal_updates = implode(', ', array_map(fn($k) => "$k = VALUES($k)", array_keys($portal_keys)));
+            
+            $stmtUpdatePortal = $pdo->prepare("INSERT INTO portal_settings (gym_id, $portal_cols) VALUES (?, $portal_placeholders) ON DUPLICATE KEY UPDATE $portal_updates");
+            $stmtUpdatePortal->execute(array_merge([$gym_id], array_values($portal_keys)));
+
+            // Update local configs immediately
+            $configs = array_merge($configs, $branding_keys);
+            foreach($portal_keys as $pk => $pv) {
+                $configs['portal_' . $pk] = $pv;
+            }
 
             // 3. Update/Create Gym Details
             $stmtCheckDetails = $pdo->prepare("SELECT 1 FROM gym_details WHERE gym_id = ?");
@@ -1077,6 +1134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                     onsubmit="return handleFormSubmit(this, event)"
                     class="space-y-6 pb-20 max-w-[1700px] mx-auto <?= !$is_sub_active ? 'blur-overlay-content' : '' ?>">
                     <input type="hidden" name="active_tab" id="activeTabInput" value="branding">
+                    <input type="hidden" name="save_settings" value="1">
 
                     <!-- TAB NAVIGATION + SAVE BUTTON -->
                     <div
@@ -1316,13 +1374,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                 Customization
                             </h4>
 
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            <div class="grid grid-cols-1 gap-10">
                                 <!-- Hero Section -->
                                 <div class="space-y-6">
                                     <h5
                                         class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">
                                         Hero Section</h5>
-                                    <div class="space-y-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div class="space-y-2">
                                             <label
                                                 class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Hero
@@ -1355,7 +1413,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                     <h5
                                         class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">
                                         Features Highlight</h5>
-                                    <div class="space-y-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div class="space-y-2">
                                             <label
                                                 class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Features
@@ -1384,11 +1442,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                 </div>
 
                                 <!-- Philosophy Section -->
-                                <div class="space-y-6 md:col-span-2">
+                                <div class="space-y-6">
                                     <h5
                                         class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">
                                         Facility Philosophy</h5>
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div class="space-y-2">
                                             <label
                                                 class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Philosophy
@@ -1417,7 +1475,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                 </div>
 
                                 <!-- Membership Plans Section -->
-                                <div class="space-y-6 md:col-span-2">
+                                <div class="space-y-6">
                                     <h5
                                         class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">
                                         Membership Plans Content</h5>
@@ -1426,17 +1484,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                             <label
                                                 class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Plans
                                                 Section Title</label>
-                                            <input type="text" name="portal_plans_title" oninput="updateMockup()"
-                                                value="<?= htmlspecialchars($configs['portal_plans_title'] ?? '') ?>"
-                                                class="input-dark" placeholder="Membership Plans">
+                                            <textarea name="portal_plans_title" oninput="updateMockup()" rows="3"
+                                                class="input-dark"
+                                                placeholder="Membership Plans"><?= htmlspecialchars($configs['portal_plans_title'] ?? '') ?></textarea>
                                         </div>
                                         <div class="space-y-2">
                                             <label
                                                 class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Plans
                                                 Section Subtitle</label>
-                                            <input type="text" name="portal_plans_subtitle" oninput="updateMockup()"
-                                                value="<?= htmlspecialchars($configs['portal_plans_subtitle'] ?? '') ?>"
-                                                class="input-dark" placeholder="Select a plan to start your journey...">
+                                            <textarea name="portal_plans_subtitle" oninput="updateMockup()" rows="3"
+                                                class="input-dark"
+                                                placeholder="Select a plan to start your journey..."><?= htmlspecialchars($configs['portal_plans_subtitle'] ?? '') ?></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer Mission Section -->
+                                <div class="space-y-6">
+                                    <h5
+                                        class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">
+                                        Footer Mission & Description</h5>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div class="space-y-2">
+                                            <label
+                                                class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Footer
+                                                Headline</label>
+                                            <textarea name="portal_footer_label" oninput="updateMockup()" rows="3"
+                                                class="input-dark"
+                                                placeholder="Expand Your Horizon"><?= htmlspecialchars($configs['portal_footer_label'] ?? '') ?></textarea>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label
+                                                class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Mission
+                                                Statement / Description</label>
+                                            <textarea name="portal_footer_desc" oninput="updateMockup()" rows="3"
+                                                class="input-dark"
+                                                placeholder="Powered by Horizon Systems. Elevating fitness center management..."><?= htmlspecialchars($configs['portal_footer_desc'] ?? '') ?></textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -1836,6 +1919,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             }, 4000);
         }
 
+        function confirmSaveSettings() {
+            const modal = document.getElementById('confirmActionModal');
+            const title = document.getElementById('confirmTitle');
+            const desc = document.getElementById('confirmDesc');
+            const btn = document.getElementById('confirmActionBtn');
+            const icon = document.getElementById('confirmIcon');
+            const iconBox = document.getElementById('confirmIconBox');
+
+            title.innerText = "Save Configuration";
+            desc.innerText = "This will update your gym's branding and operational content across the entire Horizon platform. High-priority system update.";
+            icon.innerText = "published_with_changes";
+            iconBox.className = "size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6";
+            btn.className = "h-12 rounded-xl bg-primary text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all";
+            btn.innerText = "Save Changes Now";
+
+            btn.onclick = () => {
+                document.getElementById('gymSettingsForm').submit();
+            };
+
+            modal.classList.add('active');
+        }
+
+        function handleFormSubmit(form, event) {
+            // Show loading state on all submit buttons
+            const submitBtn = document.querySelector('button[onclick="confirmSaveSettings()"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-base">refresh</span> Saving...';
+            }
+            return true;
+        }
+
         function updateTopClock() {
             const clockEl = document.getElementById('topClock');
             const dateEl = document.getElementById('topDate');
@@ -2041,6 +2156,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 has_shower: document.querySelector('input[name="has_shower"]')?.checked ? 1 : 0,
                 has_parking: document.querySelector('input[name="has_parking"]')?.checked ? 1 : 0,
                 has_wifi: document.querySelector('input[name="has_wifi"]')?.checked ? 1 : 0,
+                rules_text: document.querySelector('textarea[name="rules_text"]')?.value || '',
                 // CMS Content Sync
                 portal_hero_title: document.querySelector('[name="portal_hero_title"]')?.value || '',
                 portal_hero_subtitle: document.querySelector('[name="portal_hero_subtitle"]')?.value || '',
@@ -2054,9 +2170,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 portal_philosophy_label: document.querySelector('[name="portal_philosophy_label"]')?.value || '',
                 portal_plans_title: document.querySelector('[name="portal_plans_title"]')?.value || '',
                 portal_plans_subtitle: document.querySelector('[name="portal_plans_subtitle"]')?.value || '',
-                portal_footer_links_title: document.querySelector('[name="portal_footer_links_title"]')?.value || '',
-                portal_footer_contact_title: document.querySelector('[name="portal_footer_contact_title"]')?.value || '',
-                portal_footer_app_title: document.querySelector('[name="portal_footer_app_title"]')?.value || '',
+                portal_footer_label: document.querySelector('[name="portal_footer_label"]')?.value || '',
+                portal_footer_desc: document.querySelector('[name="portal_footer_desc"]')?.value || '',
                 logo_url: document.getElementById('sidebarLogoImg')?.src || ''
             };
 
@@ -2315,6 +2430,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 checkActivePlansEmptyState();
                 updateMockup();
             }, 300);
+        }
+
+        function confirmSaveSettings() {
+            const modal = document.getElementById('confirmActionModal');
+            const btn = document.getElementById('confirmActionBtn');
+
+            document.getElementById('confirmTitle').textContent = 'Sync & Update Settings?';
+            document.getElementById('confirmIcon').textContent = 'sync';
+            btn.textContent = 'Sync & Update';
+            btn.className = `h-12 rounded-xl text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl transition-all hover:scale-[1.02] bg-primary px-8`;
+
+            btn.onclick = () => {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-base">sync</span>';
+                document.getElementById('gymSettingsForm').submit();
+            };
+
+            openEliteModal('confirmActionModal');
+        }
+
+        function handleFormSubmit(form, event) {
+            return true;
         }
 
         function openEliteModal(modalId) {

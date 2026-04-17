@@ -206,18 +206,6 @@ CREATE TABLE membership_plans (
     updated_at DATETIME NOT NULL
 );
 
-CREATE TABLE staff_invitations (
-    invitation_id INT AUTO_INCREMENT PRIMARY KEY,
-    gym_id INT NOT NULL,
-    email VARCHAR(150) NOT NULL,
-    staff_role VARCHAR(50) NOT NULL,
-    invited_by INT NOT NULL,
-    token VARCHAR(50) NOT NULL,
-    invitation_status VARCHAR(50) NOT NULL,
-    expires_at DATETIME NOT NULL,
-    accepted_at DATETIME,
-    created_at DATETIME NOT NULL
-);
 
 CREATE TABLE staff (
     staff_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -232,17 +220,6 @@ CREATE TABLE staff (
     updated_at DATETIME NOT NULL
 );
 
-CREATE TABLE user_verifications (
-    verification_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    gym_id INT,
-    verification_type VARCHAR(50) NOT NULL,
-    code VARCHAR(50) NOT NULL,
-    status VARCHAR(50) NOT NULL,
-    expires_at DATETIME NOT NULL,
-    verified_at DATETIME,
-    created_at DATETIME NOT NULL
-);
 
 CREATE TABLE member_registrations (
     member_registration_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -417,17 +394,23 @@ CREATE TABLE audit_logs (
     created_at DATETIME NOT NULL
 );
 
-CREATE TABLE member_workouts (
-    workout_id INT AUTO_INCREMENT PRIMARY KEY,
-    member_id INT NOT NULL,
-    coach_id INT NOT NULL,
-    gym_id INT NOT NULL,
-    workout_name VARCHAR(100) NOT NULL,
-    workout_description TEXT,
-    workout_status VARCHAR(50) NOT NULL DEFAULT 'Assigned',
-    scheduled_date DATE,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL
+-- Gym Portal Customization (3NF Compliant)
+CREATE TABLE portal_settings (
+    gym_id INT NOT NULL PRIMARY KEY,
+    hero_label TEXT,
+    hero_title TEXT,
+    hero_subtitle TEXT,
+    features_label TEXT,
+    features_title TEXT,
+    features_desc TEXT,
+    philosophy_label TEXT,
+    philosophy_title TEXT,
+    philosophy_desc TEXT,
+    plans_title TEXT,
+    plans_subtitle TEXT,
+    footer_label TEXT,
+    footer_desc TEXT,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- =========================================================================

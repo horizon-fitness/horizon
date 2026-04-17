@@ -42,18 +42,36 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         die("Gym page not found or is currently inactive.");
     }
 
-    // Fetch All Settings for this User
+    // Fetch All branding Settings for this User
     $stmtSettings = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
     $stmtSettings->execute([$user_id]);
-    $configs = $stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR);
+    $configs = $stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
 
-    // Fetch Gym Details linked to this owner
-    $stmtGym = $pdo->prepare("SELECT *, profile_picture as gym_logo, email as gym_email, contact_number as gym_contact FROM gyms WHERE owner_user_id = ? LIMIT 1");
+    // Fetch Gym Details and Address linked to this owner
+    $stmtGym = $pdo->prepare("
+        SELECT g.*, g.profile_picture as gym_logo, g.email as gym_email, g.contact_number as gym_contact, 
+               a.address_line, a.barangay, a.city, a.province
+        FROM gyms g
+        LEFT JOIN addresses a ON g.address_id = a.address_id
+        WHERE g.owner_user_id = ? LIMIT 1
+    ");
     $stmtGym->execute([$user_id]);
     $gym_info = $stmtGym->fetch();
 
     if (!$gym_info) {
         die("Gym details not found.");
+    }
+
+    // Fetch Portal Customization (Normalized Table - 3NF)
+    $stmtPortal = $pdo->prepare("SELECT * FROM portal_settings WHERE gym_id = ?");
+    $stmtPortal->execute([$gym_info['gym_id']]);
+    $portal_data = $stmtPortal->fetch(PDO::FETCH_ASSOC) ?: [];
+    
+    // Map to $configs with 'portal_' prefix to maintain compatibility with existing CMS logic
+    foreach($portal_data as $pk => $pv) {
+        if ($pk !== 'gym_id' && $pk !== 'updated_at' && $pv !== null) {
+            $configs['portal_' . $pk] = $pv;
+        }
     }
 
     // Map system_settings to the $page structure used by existing logic
@@ -72,7 +90,9 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         'gym_logo' => $gym_info['gym_logo'],
         'gym_email' => $gym_info['gym_email'],
         'gym_contact' => $gym_info['gym_contact'],
-        'gym_name' => $gym_info['gym_name']
+        'gym_name' => $gym_info['gym_name'],
+        'gym_address' => trim(($gym_info['address_line'] ?? '') . ', ' . ($gym_info['barangay'] ?? '') . ', ' . ($gym_info['city'] ?? '') . ', ' . ($gym_info['province'] ?? '')),
+        'tenant_code' => $gym_info['tenant_code'] ?? $gym_info['gym_id']
     ];
 
     $portal_suspended = false;
@@ -109,32 +129,38 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
 
     if ($portal_suspended && !$is_preview) {
         $theme_color = $configs['theme_color'] ?? '#8c2bee';
-        $bg_color = '#050508'; 
-        
+        $bg_color = '#050508';
+
         $hex = str_replace("#", "", $theme_color);
-        if(strlen($hex) == 3) {
-            $r = hexdec(substr($hex,0,1).substr($hex,0,1));
-            $g = hexdec(substr($hex,1,1).substr($hex,1,1));
-            $b = hexdec(substr($hex,2,1).substr($hex,2,1));
+        if (strlen($hex) == 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
         } else {
-            $r = hexdec(substr($hex,0,2));
-            $g = hexdec(substr($hex,2,2));
-            $b = hexdec(substr($hex,4,2));
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
         }
         $theme_rgb = "$r, $g, $b";
         ?>
         <!DOCTYPE html>
         <html class="dark" lang="en">
+
         <head>
-            <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+            <meta charset="utf-8" />
+            <meta content="width=device-width, initial-scale=1.0" name="viewport" />
             <title>Access Restricted | Horizon Systems</title>
             <script src="https://cdn.tailwindcss.com"></script>
-            <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;900&display=swap" rel="stylesheet"/>
-            <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+            <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700;900&display=swap"
+                rel="stylesheet" />
+            <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+                rel="stylesheet" />
             <style>
-                body { 
-                    font-family: 'Lexend', sans-serif; 
-                    background-color: <?= $bg_color ?> !important; 
+                body {
+                    font-family: 'Lexend', sans-serif;
+                    background-color:
+                        <?= $bg_color ?>
+                        !important;
                     color: white;
                     margin: 0;
                     overflow: hidden;
@@ -144,65 +170,80 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
                     align-items: center;
                     justify-content: center;
                 }
+
                 .dark-overlay {
                     position: fixed;
                     inset: 0;
                     background: radial-gradient(circle at 50% 50%, rgba(<?= $theme_rgb ?>, 0.08) 0%, #050508 100%);
                     z-index: 0;
                 }
-                .hero-glow { 
+
+                .hero-glow {
                     position: fixed;
                     inset: 0;
                     background: radial-gradient(circle at 50% 0%, rgba(<?= $theme_rgb ?>, 0.15) 0%, transparent 50%);
                     z-index: 1;
                 }
-                .glass-card { 
-                    background: rgba(255, 255, 255, 0.03); 
-                    backdrop-filter: blur(32px); 
-                    border: 1px solid rgba(255, 255, 255, 0.08); 
+
+                .glass-card {
+                    background: rgba(255, 255, 255, 0.03);
+                    backdrop-filter: blur(32px);
+                    border: 1px solid rgba(255, 255, 255, 0.08);
                     border-radius: 32px;
                     box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.5);
                 }
             </style>
         </head>
+
         <body class="p-6 text-center">
             <div class="dark-overlay"></div>
             <div class="hero-glow"></div>
 
-            <div class="fixed top-[-10%] left-[-10%] size-[500px] rounded-full blur-[130px] pointer-events-none opacity-30" style="background-color: rgb(<?= $theme_rgb ?>); z-index: 2;"></div>
-            <div class="fixed bottom-[-10%] right-[-10%] size-[400px] rounded-full blur-[100px] pointer-events-none opacity-20" style="background-color: rgb(<?= $theme_rgb ?>); z-index: 2;"></div>
-            
+            <div class="fixed top-[-10%] left-[-10%] size-[500px] rounded-full blur-[130px] pointer-events-none opacity-30"
+                style="background-color: rgb(<?= $theme_rgb ?>); z-index: 2;"></div>
+            <div class="fixed bottom-[-10%] right-[-10%] size-[400px] rounded-full blur-[100px] pointer-events-none opacity-20"
+                style="background-color: rgb(<?= $theme_rgb ?>); z-index: 2;"></div>
+
             <div class="max-w-lg w-full text-center relative" style="z-index: 10;">
                 <div class="mb-8">
-                    <div class="size-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto relative shadow-xl">
-                        <div class="absolute inset-0 blur-2xl rounded-full opacity-40" style="background-color: rgb(<?= $theme_rgb ?>)"></div>
-                        <span class="material-symbols-outlined text-3xl relative z-10" style="color: <?= $theme_color ?>; font-variation-settings: 'FILL' 1, 'wght' 200;">lock</span>
+                    <div
+                        class="size-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto relative shadow-xl">
+                        <div class="absolute inset-0 blur-2xl rounded-full opacity-40"
+                            style="background-color: rgb(<?= $theme_rgb ?>)"></div>
+                        <span class="material-symbols-outlined text-3xl relative z-10"
+                            style="color: <?= $theme_color ?>; font-variation-settings: 'FILL' 1, 'wght' 200;">lock</span>
                     </div>
                 </div>
 
                 <h1 class="text-4xl md:text-5xl font-black text-white uppercase italic tracking-tighter mb-8 leading-none">
                     SERVICE <span style="color: <?= $theme_color ?>" class="italic">RESTRICTED</span>
                 </h1>
-                
+
                 <div class="glass-card p-8 md:p-10 mb-10">
-                    <p class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 opacity-80" style="color: <?= $theme_color ?>">Portal Notification</p>
+                    <p class="text-[10px] font-black uppercase tracking-[0.3em] mb-6 opacity-80"
+                        style="color: <?= $theme_color ?>">Portal Notification</p>
                     <p class="text-xs md:text-sm text-gray-300 font-medium leading-relaxed italic mx-auto">
-                        This gym portal is currently undergoing administrative maintenance or the professional subscription has been suspended. 
+                        This gym portal is currently undergoing administrative maintenance or the professional subscription has
+                        been suspended.
                         Full access for registration and member login is temporarily unavailable.
                     </p>
                 </div>
 
                 <div class="flex flex-col items-center gap-8">
-                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] mb-[-12px]">If you have concerns, you may contact:</p>
-                    <div class="flex flex-wrap items-center justify-center gap-8 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.3em] mb-[-12px]">If you have concerns,
+                        you may contact:</p>
+                    <div
+                        class="flex flex-wrap items-center justify-center gap-8 text-[10px] font-bold uppercase tracking-widest text-gray-400">
                         <?php if (!empty($page['gym_email'])): ?>
-                            <a href="mailto:<?= htmlspecialchars($page['gym_email']) ?>" class="flex items-center gap-2 hover:text-white transition-all">
+                            <a href="mailto:<?= htmlspecialchars($page['gym_email']) ?>"
+                                class="flex items-center gap-2 hover:text-white transition-all">
                                 <span class="material-symbols-outlined text-base">mail</span>
                                 <?= htmlspecialchars($page['gym_email']) ?>
                             </a>
                         <?php endif; ?>
                         <?php if (!empty($page['gym_contact'])): ?>
-                            <a href="tel:<?= htmlspecialchars($page['gym_contact']) ?>" class="flex items-center gap-2 hover:text-white transition-all">
+                            <a href="tel:<?= htmlspecialchars($page['gym_contact']) ?>"
+                                class="flex items-center gap-2 hover:text-white transition-all">
                                 <span class="material-symbols-outlined text-base">call</span>
                                 <?= htmlspecialchars($page['gym_contact']) ?>
                             </a>
@@ -210,13 +251,14 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
                     </div>
 
                     <div class="h-px w-24 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                    
+
                     <p class="text-[9px] font-black text-white/50 uppercase tracking-[0.6em] transition-all">
                         &copy; 2026 HORIZON SYSTEM
                     </p>
                 </div>
             </div>
         </body>
+
         </html>
         <?php
         exit;
@@ -243,37 +285,39 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
 
 // Map CMS Content with Fallbacks
 $cms = [
-    'hero_title' => $configs['portal_hero_title'] ?? ('Elevate Your <br /> <span class="text-gradient px-4 -ml-4">Fitness</span> at <br class="md:hidden" /> ' . htmlspecialchars($page['page_title'] ?? $page['gym_name'])),
+    'hero_title' => $configs['portal_hero_title'] ?? ('Elevate Your <br /> Fitness at <br class="md:hidden" /> ' . htmlspecialchars($page['page_title'] ?? $page['gym_name'])),
     'hero_subtitle' => $configs['portal_hero_subtitle'] ?? 'Discover a premium workout experience powered by Horizon\'s elite technology and world-class coaching staff.',
-    'features_title' => $configs['portal_features_title'] ?? 'Premium Training.<br /> <span class="text-gradient">Elite Management.</span>',
+    'features_title' => $configs['portal_features_title'] ?? 'Premium Training.<br /> Elite Management.',
     'features_desc' => $configs['portal_features_desc'] ?? 'Access our elite workout tracking and world-class management platform. For membership inquiries and registrations, please visit our front desk or register online to get started.',
-    'philosophy_title' => $configs['portal_philosophy_title'] ?? ('Modern technology meets <br /> <span class="text-gradient">' . (strpos($configs['portal_philosophy_title'] ?? '', 'dedication') !== false ? '' : 'unwavering dedication.') . '</span>'),
+    'philosophy_title' => $configs['portal_philosophy_title'] ?? ('Modern technology meets <br /> ' . (strpos($configs['portal_philosophy_title'] ?? '', 'dedication') !== false ? '' : 'unwavering dedication.')),
     'philosophy_desc' => $configs['portal_philosophy_desc'] ?? 'Experience fitness like never before with our cutting-edge multi-tenant facility.',
     'hero_label' => $configs['portal_hero_label'] ?? 'Open for Membership',
     'features_label' => $configs['portal_features_label'] ?? 'Experience the Difference',
     'philosophy_label' => $configs['portal_philosophy_label'] ?? 'The Philosophy',
     'plans_title' => $configs['portal_plans_title'] ?? 'Membership Plans',
     'plans_subtitle' => $configs['portal_plans_subtitle'] ?? ('Select a plan to start your journey at ' . htmlspecialchars($page['gym_name'])),
-    'footer_links_title' => $configs['portal_footer_links_title'] ?? 'Quick Links',
-    'footer_contact_title' => $configs['portal_footer_contact_title'] ?? 'Contact Facility',
-    'footer_app_title' => $configs['portal_footer_app_title'] ?? 'Get the App'
+    'footer_links_title' => 'Quick Links',
+    'footer_contact_title' => 'Contact Facility',
+    'footer_app_title' => 'Get the App',
+    'footer_label' => $configs['portal_footer_label'] ?? 'Expand Your Horizon',
+    'footer_desc' => $configs['portal_footer_desc'] ?? 'Powered by Horizon Systems. Elevating fitness center management through cutting-edge technology.'
 ];
 
 // Refined Logic for Philosophy Title Fallback
 if (empty($configs['portal_philosophy_title'])) {
-    $cms['philosophy_title'] = 'Modern technology meets <br /> <span class="text-gradient">unwavering dedication.</span>';
+    $cms['philosophy_title'] = 'Modern technology meets <br /> unwavering dedication.';
 } else {
     $cms['philosophy_title'] = nl2br(htmlspecialchars($configs['portal_philosophy_title']));
 }
 
 if (empty($configs['portal_hero_title'])) {
-    $cms['hero_title'] = 'Elevate Your <br /> <span class="text-gradient px-4 -ml-4">Fitness</span> at <br class="md:hidden" /> ' . htmlspecialchars($page['page_title'] ?? $page['gym_name']);
+    $cms['hero_title'] = 'Elevate Your <br /> Fitness at <br class="md:hidden" /> ' . htmlspecialchars($page['page_title'] ?? $page['gym_name']);
 } else {
     $cms['hero_title'] = nl2br($configs['portal_hero_title']);
 }
 
 if (empty($configs['portal_features_title'])) {
-    $cms['features_title'] = 'Premium Training.<br /> <span class="text-gradient">Elite Management.</span>';
+    $cms['features_title'] = 'Premium Training.<br /> Elite Management.';
 } else {
     $cms['features_title'] = nl2br($configs['portal_features_title']);
 }
@@ -350,28 +394,44 @@ $primary_rgb = hexToRgb($primary_color);
     </script>
     <style id="dynamic-styles">
         :root {
-            --pg-bg: <?= $bg_color ?>;
-            --pg-primary: <?= $primary_color ?>;
-            --pg-primary-rgb: <?= $primary_rgb ?>;
-            --pg-secondary: <?= $secondary_color ?>;
-            --pg-text: <?= $page['text_color'] ?? '#d1d5db' ?>;
+            --pg-bg:
+                <?= $bg_color ?>
+            ;
+            --pg-primary:
+                <?= $primary_color ?>
+            ;
+            --pg-primary-rgb:
+                <?= $primary_rgb ?>
+            ;
+            --pg-secondary:
+                <?= $secondary_color ?>
+            ;
+            --pg-text:
+                <?= $page['text_color'] ?? '#d1d5db' ?>
+            ;
             --pg-font: '<?= $font_family ?>', 'Plus Jakarta Sans', sans-serif;
         }
 
-        html {
+        html,
+        body {
             scroll-behavior: smooth;
-            scrollbar-width: none; /* Firefox */
-            -ms-overflow-style: none; /* IE/Edge */
+            scrollbar-width: none !important;
+            /* Firefox */
+            -ms-overflow-style: none !important;
+            /* IE/Edge */
+            overflow-x: hidden;
         }
 
-        /* Invisible Scroll System */
+        /* Invisible Scroll System (Global) */
         * {
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
         }
 
         *::-webkit-scrollbar {
-            display: none;
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
         }
 
         body {
@@ -409,13 +469,6 @@ $primary_rgb = hexToRgb($primary_color);
             position: relative;
         }
 
-        .text-gradient {
-            background: linear-gradient(to right, #ffffff 10%, #bf80ff 50%, var(--pg-primary) 95%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            display: inline-block;
-            filter: drop-shadow(0 0 25px rgba(var(--pg-primary-rgb), 0.4));
-        }
 
         .hero-glow {
             background: radial-gradient(circle at 50% -10%, rgba(var(--pg-primary-rgb), 0.18), transparent 70%);
@@ -614,32 +667,25 @@ $primary_rgb = hexToRgb($primary_color);
             }
         }
 
-        /* Premium Visible Scrollbar Override (from index) */
-        .custom-scrollbar::-webkit-scrollbar {
-            display: block !important;
-            height: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.01);
-            border-radius: 20px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.02);
-            transition: all 0.3s ease;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(<?= $primary_rgb ?>, 0.3);
-        }
+        /* Premium Invisible Scrollbar Override */
         .custom-scrollbar {
-            scrollbar-width: thin !important;
-            scrollbar-color: rgba(255, 255, 255, 0.05) transparent !important;
-            -ms-overflow-style: none;
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+            overflow-y: auto;
         }
 
-        #membership-plans-grid { cursor: grab; user-select: none; }
-        #membership-plans-grid:active { cursor: grabbing; }
+        .custom-scrollbar::-webkit-scrollbar {
+            display: none !important;
+        }
+
+        #membership-plans-grid {
+            cursor: grab;
+            user-select: none;
+        }
+
+        #membership-plans-grid:active {
+            cursor: grabbing;
+        }
 
         .btn-modern {
             background: linear-gradient(135deg, var(--pg-primary) 0%, rgba(var(--pg-primary-rgb), 0.8) 100%);
@@ -745,6 +791,7 @@ $primary_rgb = hexToRgb($primary_color);
 </head>
 
 <body class="antialiased min-h-screen flex flex-col font-display selection:bg-primary/30 selection:text-white">
+    <?php $logo_src = !empty($page['logo_path']) ? $page['logo_path'] : ($page['gym_logo'] ?? ''); ?>
 
     <nav id="topNav" class="glass-nav fixed top-0 w-full z-50">
         <div class="max-w-7xl mx-auto px-6 py-4 transition-all duration-300">
@@ -752,18 +799,17 @@ $primary_rgb = hexToRgb($primary_color);
                 <div class="flex items-center gap-12">
                     <div class="flex items-center gap-3">
                         <div id="portalLogoContainer"
-                            class="size-10 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
-                            <?php
-                            $logo_src = !empty($page['logo_path']) ? $page['logo_path'] : ($page['gym_logo'] ?? '');
-                            ?>
+                            class="size-10 bg-primary/20 rounded-lg flex items-center justify-center overflow-hidden">
                             <?php if (!empty($logo_src)): ?>
-                                <img id="portalLogoImg" src="<?= htmlspecialchars($logo_src) ?>" class="size-full object-cover">
+                                <img id="portalLogoImg" src="<?= htmlspecialchars($logo_src) ?>"
+                                    class="size-full object-cover">
                             <?php else: ?>
                                 <span id="portalDefaultLogo" class="material-symbols-outlined text-primary">blur_on</span>
                             <?php endif; ?>
                         </div>
                         <h2 class="text-xl font-display font-bold text-white uppercase italic tracking-tighter">
-                            <?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h2>
+                            <?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?>
+                        </h2>
                     </div>
 
                     <div
@@ -812,7 +858,8 @@ $primary_rgb = hexToRgb($primary_color);
                         <?= $cms['hero_title'] ?>
                     </h1>
 
-                    <p id="hero-subtitle-display" class="text-lg text-gray-400 font-medium leading-relaxed max-w-2xl mx-auto md:mx-0 mb-10 italic">
+                    <p id="hero-subtitle-display"
+                        class="text-lg text-gray-400 font-medium leading-relaxed max-w-2xl mx-auto md:mx-0 mb-10 italic">
                         <?= htmlspecialchars($cms['hero_subtitle']) ?>
                     </p>
 
@@ -821,7 +868,7 @@ $primary_rgb = hexToRgb($primary_color);
                             class="font-display h-16 px-10 bg-primary text-white font-bold rounded-custom text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20 flex items-center justify-center">
                             Join Now
                         </a>
-                        <button onclick="openQRModal()"
+                        <button onclick="openQRModal('download')"
                             class="font-display h-16 px-10 bg-white/5 hover:bg-white/10 text-white border border-white/10 font-bold rounded-custom text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-3">
                             <span class="material-symbols-outlined text-xl">smartphone</span>
                             Get the App
@@ -867,19 +914,30 @@ $primary_rgb = hexToRgb($primary_color);
                                 <div class="flex-1 px-8 pt-8 flex flex-col overflow-hidden">
                                     <!-- Branding -->
                                     <div class="text-center mb-10">
-                                        <h5 class="text-[12px] font-black tracking-[0.2em] text-white/90 uppercase mb-6">
+                                        <h5
+                                            class="text-[12px] font-black tracking-[0.2em] text-white/90 uppercase mb-6">
                                             <?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?>
                                         </h5>
 
                                         <!-- Circular Logo with lightning/diag icon -->
-                                        <div class="size-20 rounded-full mx-auto relative flex items-center justify-center border border-white/5 shadow-2xl mb-8">
-                                            <div class="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-transparent rounded-full opacity-20"></div>
-                                            <div class="size-16 rounded-full border border-primary/40 flex items-center justify-center bg-black/40 backdrop-blur-md">
-                                                <span class="material-symbols-outlined text-primary text-3xl font-light" style="font-variation-settings: 'wght' 200;">bolt</span>
+                                        <div
+                                            class="size-20 rounded-full mx-auto relative flex items-center justify-center shadow-2xl mb-8">
+                                            <div
+                                                class="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-transparent rounded-full opacity-20">
+                                            </div>
+                                            <div
+                                                class="size-16 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-md overflow-hidden">
+                                                <?php if (!empty($logo_src)): ?>
+                                                    <img src="<?= htmlspecialchars($logo_src) ?>" class="size-full object-cover opacity-80">
+                                                <?php else: ?>
+                                                    <span class="material-symbols-outlined text-primary text-3xl font-light"
+                                                        style="font-variation-settings: 'wght' 200;">bolt</span>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
 
-                                        <h4 class="text-3xl font-display font-black text-white leading-none tracking-tight uppercase mb-3">
+                                        <h4
+                                            class="text-3xl font-display font-black text-white leading-none tracking-tight uppercase mb-3">
                                             WELCOME BACK
                                         </h4>
                                         <p class="text-[11px] text-gray-500 font-medium tracking-tight">
@@ -893,7 +951,8 @@ $primary_rgb = hexToRgb($primary_color);
                                             <label>Username:</label>
                                             <div class="mockup-input-wrapper">
                                                 <span class="material-symbols-outlined mockup-icon">person</span>
-                                                <div class="mockup-input flex items-center text-white/30">Enter username</div>
+                                                <div class="mockup-input flex items-center text-white/30">Enter username
+                                                </div>
                                             </div>
                                         </div>
 
@@ -901,15 +960,19 @@ $primary_rgb = hexToRgb($primary_color);
                                             <label>Password:</label>
                                             <div class="mockup-input-wrapper">
                                                 <span class="material-symbols-outlined mockup-icon">lock</span>
-                                                <div class="mockup-input flex items-center text-white/30">Enter password</div>
-                                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 text-lg">visibility</span>
+                                                <div class="mockup-input flex items-center text-white/30">Enter password
+                                                </div>
+                                                <span
+                                                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 text-lg">visibility</span>
                                             </div>
                                         </div>
 
                                         <div class="flex items-center justify-between mt-2">
                                             <div class="flex items-center gap-2">
-                                                <div class="size-4 rounded border border-primary bg-primary/20 flex items-center justify-center">
-                                                    <span class="material-symbols-outlined text-[12px] text-white">check</span>
+                                                <div
+                                                    class="size-4 rounded border border-primary bg-primary/20 flex items-center justify-center">
+                                                    <span
+                                                        class="material-symbols-outlined text-[12px] text-white">check</span>
                                                 </div>
                                                 <span class="text-[10px] font-bold text-gray-500">Remember Me</span>
                                             </div>
@@ -922,7 +985,8 @@ $primary_rgb = hexToRgb($primary_color);
 
                                         <div class="mockup-separator">OR</div>
 
-                                        <div class="mockup-footer-btn">
+                                        <div class="mockup-footer-btn hover:bg-white/5 transition-colors cursor-pointer"
+                                            onclick="openQRModal('connect')">
                                             <span class="material-symbols-outlined text-lg opacity-40">apps</span>
                                             <span>Switch Gym</span>
                                         </div>
@@ -945,7 +1009,8 @@ $primary_rgb = hexToRgb($primary_color);
                                     <span class="material-symbols-outlined text-xl">token</span>
                                 </div>
                                 <div class="pr-6">
-                                    <p class="text-[9px] font-black uppercase text-white tracking-widest">Smart Login</p>
+                                    <p class="text-[9px] font-black uppercase text-white tracking-widest">Smart Login
+                                    </p>
                                     <p class="text-[8px] text-primary font-bold uppercase tracking-tighter">Session
                                         Active</p>
                                 </div>
@@ -969,7 +1034,8 @@ $primary_rgb = hexToRgb($primary_color);
                             class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6">
                             <?= htmlspecialchars($cms['features_label']) ?>
                         </div>
-                        <h2 id="features-title-display" class="text-4xl font-display font-black text-white uppercase italic leading-tight mb-8">
+                        <h2 id="features-title-display"
+                            class="text-4xl font-display font-black text-white uppercase italic leading-tight mb-8">
                             <?= $cms['features_title'] ?>
                         </h2>
                         <p id="features-desc-display" class="text-gray-400 italic leading-relaxed mb-10">
@@ -987,19 +1053,20 @@ $primary_rgb = hexToRgb($primary_color);
                                 <span class="material-symbols-outlined text-primary/40 text-2xl">schedule</span>
                             </div>
                             <p class="text-[8px] text-gray-600 uppercase font-bold mt-3">Until
-                                <?= !empty($gym_details['closing_time']) ? date('h:i A', strtotime($gym_details['closing_time'])) : '--:--' ?></p>
+                                <?= !empty($gym_details['closing_time']) ? date('h:i A', strtotime($gym_details['closing_time'])) : '--:--' ?>
+                            </p>
                         </div>
 
                         <div class="metric-card border border-primary/20">
                             <p class="text-[9px] text-gray-500 uppercase font-black mb-3 tracking-widest text-primary">
-                                Member Capacity</p>
+                                Closing Time</p>
                             <div class="flex justify-between items-center">
-                                <span id="max-capacity-display"
-                                    class="text-2xl font-black text-white italic"><?= $gym_details['max_capacity'] ?: 'N/A' ?></span>
-                                <span class="material-symbols-outlined text-primary/40 text-2xl">groups</span>
+                                <span id="closing-time-display-card"
+                                    class="text-2xl font-black text-white italic"><?= !empty($gym_details['closing_time']) ? date('h:i A', strtotime($gym_details['closing_time'])) : '--:--' ?></span>
+                                <span
+                                    class="material-symbols-outlined text-primary/40 text-2xl">history_toggle_off</span>
                             </div>
-                            <p class="text-[8px] text-gray-600 uppercase font-bold mt-3 text-emerald-500">Live
-                                Availability</p>
+                            <p class="text-[8px] text-gray-600 uppercase font-bold mt-3">Daily Operations</p>
                         </div>
 
                         <div class="metric-card md:col-span-2 border border-white/5">
@@ -1032,6 +1099,17 @@ $primary_rgb = hexToRgb($primary_color);
                                 </div>
                             </div>
                         </div>
+
+                        <?php if (!empty($gym_details['rules_text'])): ?>
+                            <div class="metric-card md:col-span-2 border border-white/5">
+                                <p class="text-[9px] text-gray-500 uppercase font-black mb-4 tracking-widest">Gym House
+                                    Rules / TOS</p>
+                                <div id="rules-text-display"
+                                    class="text-[11px] text-gray-500 italic leading-relaxed whitespace-pre-line">
+                                    <?= htmlspecialchars($gym_details['rules_text']) ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -1060,69 +1138,85 @@ $primary_rgb = hexToRgb($primary_color);
         <section id="plans" class="py-32 px-6 relative border-t border-white/5">
             <div class="max-w-7xl mx-auto text-center">
                 <div class="mb-16">
-                    <div class="inline-flex items-center justify-center p-3 rounded-xl bg-primary/10 border border-primary/20 mb-6">
+                    <div
+                        class="inline-flex items-center justify-center p-3 rounded-xl bg-primary/10 border border-primary/20 mb-6">
                         <span class="material-symbols-outlined text-primary">workspace_premium</span>
                     </div>
-                    <h2 id="plans-title-display" class="text-4xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
+                    <h2 id="plans-title-display"
+                        class="text-4xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
                         <?= $cms['plans_title'] ?>
                     </h2>
-                    <p id="plans-subtitle-display" class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]"><?= htmlspecialchars($cms['plans_subtitle']) ?></p>
+                    <p id="plans-subtitle-display"
+                        class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">
+                        <?= htmlspecialchars($cms['plans_subtitle']) ?>
+                    </p>
                 </div>
 
-                <div id="membership-plans-grid" class="flex overflow-x-auto snap-x snap-mandatory gap-10 pt-14 pb-12 px-10 no-scrollbar custom-scrollbar scroll-smooth <?= count($membership_plans) <= 2 ? 'justify-center' : '' ?>">
+                <div id="membership-plans-grid"
+                    class="flex overflow-x-auto snap-x snap-mandatory gap-10 pt-14 pb-12 px-10 no-scrollbar custom-scrollbar scroll-smooth <?= count($membership_plans) <= 2 ? 'justify-center' : '' ?>">
                     <?php if (empty($membership_plans)): ?>
                         <div class="w-full max-w-2xl py-20 dashboard-window rounded-3xl opacity-50 text-center shrink-0">
                             <span class="material-symbols-outlined text-4xl mb-4">info</span>
-                            <p class="text-xs font-bold uppercase tracking-widest">No membership plans available at this time.</p>
+                            <p class="text-xs font-bold uppercase tracking-widest">No membership plans available at this
+                                time.</p>
                         </div>
                     <?php else: ?>
-                        <?php foreach ($membership_plans as $plan): 
-                            $badgeText = !empty($plan['featured_badge_text']) ? $plan['featured_badge_text'] : ( (strpos(strtoupper($plan['plan_name'] ?? ''), 'ELITE') !== false || strpos(strtoupper($plan['plan_name'] ?? ''), 'VIP') !== false) ? 'Recommended' : '' );
-                        ?>
-                        <div class="dashboard-window rounded-2xl p-10 flex flex-col text-left transition-all hover:scale-[1.02] hover:border-primary/40 duration-500 shrink-0 w-[85%] md:w-[400px] snap-start <?= !empty($badgeText) ? 'border-primary/30 relative' : '' ?>">
-                            <?php if (!empty($badgeText)): ?>
-                                <div class="absolute -top-3 right-8 bg-primary text-white text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full shadow-lg shadow-primary/20"><?= htmlspecialchars($badgeText) ?></div>
-                            <?php endif; ?>
-                            
-                            <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
-                            
-                            <div class="mb-10">
-                                <span class="text-4xl font-display font-black text-white">₱<?= number_format($plan['price'], 2) ?></span>
-                                <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ <?= !empty($plan['billing_cycle_text']) ? htmlspecialchars($plan['billing_cycle_text']) : htmlspecialchars($plan['duration_value']) . ' Days' ?></span>
-                            </div>
-                            
-                            <ul class="space-y-4 mb-12 flex-grow">
-                                <?php 
-                                if (!empty($plan['features'])) {
-                                    $featuresList = explode("\n", str_replace(["\r\n", "\r"], "\n", $plan['features']));
-                                    foreach ($featuresList as $feature) {
-                                        $feature = trim($feature);
-                                        if (empty($feature)) continue;
+                        <?php foreach ($membership_plans as $plan):
+                            $badgeText = !empty($plan['featured_badge_text']) ? $plan['featured_badge_text'] : ((strpos(strtoupper($plan['plan_name'] ?? ''), 'ELITE') !== false || strpos(strtoupper($plan['plan_name'] ?? ''), 'VIP') !== false) ? 'Recommended' : '');
+                            ?>
+                            <div
+                                class="dashboard-window rounded-2xl p-10 flex flex-col text-left transition-all hover:scale-[1.02] hover:border-primary/40 duration-500 shrink-0 w-[85%] md:w-[400px] snap-start <?= !empty($badgeText) ? 'border-primary/30 relative' : '' ?>">
+                                <?php if (!empty($badgeText)): ?>
+                                    <div
+                                        class="absolute -top-3 right-8 bg-primary text-white text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full shadow-lg shadow-primary/20">
+                                        <?= htmlspecialchars($badgeText) ?>
+                                    </div>
+                                <?php endif; ?>
+
+                                <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">
+                                    <?= htmlspecialchars($plan['plan_name']) ?>
+                                </h3>
+
+                                <div class="mb-10">
+                                    <span
+                                        class="text-4xl font-display font-black text-white">₱<?= number_format($plan['price'], 2) ?></span>
+                                    <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/
+                                        <?= !empty($plan['billing_cycle_text']) ? htmlspecialchars($plan['billing_cycle_text']) : htmlspecialchars($plan['duration_value']) . ' Days' ?></span>
+                                </div>
+
+                                <ul class="space-y-4 mb-12 flex-grow">
+                                    <?php
+                                    if (!empty($plan['features'])) {
+                                        $featuresList = explode("\n", str_replace(["\r\n", "\r"], "\n", $plan['features']));
+                                        foreach ($featuresList as $feature) {
+                                            $feature = trim($feature);
+                                            if (empty($feature))
+                                                continue;
+                                            ?>
+                                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
+                                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+                                                <?= htmlspecialchars($feature) ?>
+                                            </li>
+                                            <?php
+                                        }
+                                    } else {
                                         ?>
                                         <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
-                                            <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
-                                            <?= htmlspecialchars($feature) ?>
+                                            <span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+                                            <?= !empty($plan['description']) ? htmlspecialchars($plan['description']) : 'Full access to all facility equipment and amenities.' ?>
                                         </li>
                                         <?php
                                     }
-                                } else {
                                     ?>
-                                    <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
-                                        <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
-                                        <?= !empty($plan['description']) ? htmlspecialchars($plan['description']) : 'Full access to all facility equipment and amenities.' ?>
-                                    </li>
-                                    <?php
-                                }
-                                ?>
-                                <?php if ($plan['session_limit']): ?>
-                                <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
-                                    <span class="material-symbols-outlined text-primary text-sm opacity-60">verified</span> 
-                                    <?= htmlspecialchars($plan['session_limit']) ?> Total Sessions included
-                                </li>
-                                <?php endif; ?>
-                            </ul>
-                            
-                        </div>
+                                    <?php if ($plan['session_limit']): ?>
+                                        <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
+                                            <span class="material-symbols-outlined text-primary text-sm opacity-60">verified</span>
+                                            <?= htmlspecialchars($plan['session_limit']) ?> Total Sessions included
+                                        </li>
+                                    <?php endif; ?>
+                                </ul>
+
+                            </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
@@ -1136,16 +1230,23 @@ $primary_rgb = hexToRgb($primary_color);
                 <div class="space-y-8">
                     <div>
                         <div class="flex items-center gap-3 mb-6">
-                            <span class="material-symbols-outlined text-primary text-3xl">blur_on</span>
+                            <div class="size-10 bg-primary/20 rounded-lg flex items-center justify-center overflow-hidden">
+                                <?php if (!empty($logo_src)): ?>
+                                    <img src="<?= htmlspecialchars($logo_src) ?>" class="size-full object-cover">
+                                <?php else: ?>
+                                    <span class="material-symbols-outlined text-primary text-xl">blur_on</span>
+                                <?php endif; ?>
+                            </div>
                             <h2
                                 class="text-2xl font-display font-bold text-white uppercase italic tracking-tighter transition-all gym-name-display">
-                                <?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?></h2>
+                                <?= htmlspecialchars($page['page_title'] ?? $page['gym_name']) ?>
+                            </h2>
                         </div>
-                        <p class="text-[10px] text-primary font-black uppercase tracking-[0.4em] mb-6">Expand Your
-                            Horizon</p>
-                        <p class="text-xs text-gray-500 font-medium leading-relaxed italic max-w-sm">
-                            Powered by Horizon Systems. Elevating fitness center management through cutting-edge
-                            technology.
+                        <p id="portal-footer-label" class="text-[10px] text-primary font-black uppercase tracking-[0.4em] mb-6">
+                            <?= htmlspecialchars($cms['footer_label']) ?>
+                        </p>
+                        <p id="portal-footer-desc" class="text-xs text-gray-500 font-medium leading-relaxed italic max-w-sm">
+                            <?= nl2br(htmlspecialchars($cms['footer_desc'])) ?>
                         </p>
                     </div>
                 </div>
@@ -1179,7 +1280,7 @@ $primary_rgb = hexToRgb($primary_color);
                             </div>
                             <p id="contact-text-display"
                                 class="text-xs text-gray-500 font-medium leading-relaxed italic">
-                                <?= nl2br(htmlspecialchars($page['contact_text'] ?? 'Visit us at our primary training facility.')) ?>
+                                <?= !empty($page['gym_address']) && $page['gym_address'] !== ', , , ' ? htmlspecialchars($page['gym_address']) : 'Visit us at our primary training facility.' ?>
                             </p>
                         </div>
                         <div class="flex items-center gap-4">
@@ -1188,7 +1289,8 @@ $primary_rgb = hexToRgb($primary_color);
                                 <span class="material-symbols-outlined text-xl">call</span>
                             </div>
                             <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">
-                                <?= htmlspecialchars($page['gym_contact']) ?></p>
+                                <?= htmlspecialchars($page['gym_contact']) ?>
+                            </p>
                         </div>
                         <div class="flex items-center gap-4">
                             <div
@@ -1196,7 +1298,8 @@ $primary_rgb = hexToRgb($primary_color);
                                 <span class="material-symbols-outlined text-xl">mail</span>
                             </div>
                             <p class="text-xs text-gray-500 font-medium lowercase tracking-wider">
-                                <?= htmlspecialchars($page['gym_email']) ?></p>
+                                <?= htmlspecialchars($page['gym_email']) ?>
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -1211,49 +1314,147 @@ $primary_rgb = hexToRgb($primary_color);
         </div>
     </footer>
 
-    <!-- QR Download Modal -->
+    <!-- QR Actions Modal -->
     <div id="qr-modal" class="fixed inset-0" onclick="event.target === this && closeQRModal()">
         <div
-            class="modal-content dashboard-window max-w-[420px] w-full mx-4 rounded-2xl overflow-y-auto transform scale-95 transition-all duration-500">
-            <div class="p-10 flex flex-col items-center relative">
+            class="modal-content dashboard-window max-w-[420px] w-full mx-4 rounded-2xl overflow-hidden transform scale-95 transition-all duration-500 relative flex flex-col max-h-[90vh]">
+            <!-- Header Fixed: Clear Hierarchy -->
+            <div class="p-8 pt-16 pb-4 flex-shrink-0 relative">
+                <!-- Simple Exit Button (Top Right) -->
                 <button onclick="closeQRModal()"
-                    class="absolute top-6 right-6 size-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all hover:rotate-90">
-                    <span class="material-symbols-outlined text-xl">close</span>
+                    class="absolute top-5 right-5 text-gray-400 hover:text-white transition-all z-20">
+                    <span class="material-symbols-outlined text-2xl">close</span>
                 </button>
 
+                <!-- Centered Tabs (Below Button) -->
                 <div
-                    class="size-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-6 border border-primary/20">
-                    <span class="material-symbols-outlined text-4xl relative">qr_code_scanner</span>
+                    class="max-w-[300px] mx-auto flex bg-white/5 p-1 rounded-xl relative border border-white/5 z-10 box-border">
+                    <div id="tabIndicator"
+                        class="absolute top-1 bottom-1 bg-primary rounded-lg transition-all duration-300 shadow-lg shadow-primary/20"
+                        style="width: calc(50% - 4px); left: 4px;"></div>
+                    <button onclick="switchQRTab('download')" id="tabBtnDownload"
+                        class="flex-1 py-2.5 text-[10px] font-black uppercase tracking-tighter text-white relative z-10 transition-colors text-center flex items-center justify-center">Get
+                        App</button>
+                    <button onclick="switchQRTab('connect')" id="tabBtnConnect"
+                        class="flex-1 py-2.5 text-[10px] font-black uppercase tracking-tighter text-gray-500 relative z-10 transition-colors text-center flex items-center justify-center">Connect</button>
+                </div>
+            </div>
+
+            <!-- Scrollable Content Area: Flow Container -->
+            <div class="p-8 pt-2 overflow-y-auto custom-scrollbar flex-grow relative flex flex-col items-center">
+
+                <!-- Download App Content -->
+                <div id="tabContentDownload"
+                    class="w-full flex-shrink-0 flex flex-col items-center transition-all duration-300 pb-4 relative opacity-100">
+                    <!-- QR Logo -->
+                    <div
+                        class="size-16 rounded-2xl bg-white/5 text-primary flex items-center justify-center mb-6 border border-white/5 shrink-0">
+                        <span class="material-symbols-outlined text-4xl relative">qr_code</span>
+                    </div>
+
+                    <h3 id="footer-app-title"
+                        class="text-3xl font-display font-black text-white mb-2 tracking-tighter text-center uppercase italic">
+                        DOWNLOAD APP
+                    </h3>
+                    <p
+                        class="text-gray-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-8 leading-relaxed text-center px-2">
+                        Scan the code below to download the official Horizon application.
+                    </p>
+
+                    <div
+                        class="p-5 bg-white rounded-3xl shadow-2xl transition-transform hover:scale-[1.02] duration-500 shrink-0">
+                        <img id="qr-code-modal-img"
+                            src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=<?= urlencode($final_download_link) ?>"
+                            alt="APK QR Code" class="size-48 rounded-xl object-contain">
+                    </div>
+
+                    <div class="w-full flex items-center gap-4 mt-10 mb-6">
+                        <div class="h-px flex-1 bg-white/5"></div>
+                        <span class="text-[9px] font-black uppercase tracking-[0.3em] text-gray-700">Manual Link</span>
+                        <div class="h-px flex-1 bg-white/5"></div>
+                    </div>
+
+                    <div class="w-full space-y-4">
+                        <a href="<?= $final_download_link ?>" download
+                            class="w-full h-14 bg-primary hover:bg-primary-dark rounded-xl text-white text-[11px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all shadow-[0_10px_40px_-10px_rgba(var(--pg-primary-rgb),0.5)]">
+                            <span class="material-symbols-outlined text-xl">download</span>
+                            Direct Download APK
+                        </a>
+                        <p class="text-[9px] text-gray-600 font-bold uppercase tracking-[0.3em] text-center">Version
+                            2.0.4 • 42.5 MB</p>
+                    </div>
                 </div>
 
-                <h3 id="footer-app-title"
-                    class="text-3xl font-display font-black text-white mb-3 tracking-tighter text-center uppercase italic">
-                    <?= htmlspecialchars($cms['footer_app_title']) ?></h3>
-                <p class="text-gray-500 text-sm mb-10 leading-relaxed text-center italic">
-                    Scan the code below to unlock your premium training experience on the go.
-                </p>
+                <!-- Connect Device Content -->
+                <div id="tabContentConnect"
+                    class="w-full flex-shrink-0 flex flex-col items-center transition-all duration-300 pb-4 absolute top-2 opacity-0 pointer-events-none">
+                    <div
+                        class="size-16 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center mb-6 border border-emerald-500/20 shrink-0">
+                        <span class="material-symbols-outlined text-4xl relative">qr_code_scanner</span>
+                    </div>
 
-                <div class="p-6 bg-white rounded-3xl shadow-2xl transition-transform hover:scale-[1.02] duration-500">
-                    <img id="qr-code-modal-img"
-                        src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=<?= urlencode($final_download_link) ?>"
-                        alt="QR Code" class="size-52 rounded-xl">
+                    <h3
+                        class="text-3xl font-display font-black text-white mb-2 tracking-tighter text-center uppercase italic">
+                        SWITCH GYM
+                    </h3>
+                    <p class="text-gray-500 text-xs mb-8 leading-relaxed text-center italic px-2">
+                        Open the Horizon Mobile App, tap "Switch Gym" and scan this code to connect.
+                    </p>
+
+                    <div
+                        class="p-5 bg-white rounded-3xl shadow-2xl transition-transform hover:scale-[1.02] duration-500 relative shrink-0">
+                        <div
+                            class="absolute inset-0 border-4 border-emerald-500/30 rounded-3xl animate-[pulse_3s_ease-in-out_infinite] pointer-events-none">
+                        </div>
+                        <?php
+                        $connect_payload = "horizon://connect?tenant_code=" . urlencode($page['tenant_code']);
+                        ?>
+                        <!-- Generates a QR Code containing a deep link -->
+                        <img id="qr-code-connect-img"
+                            src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=<?= urlencode($connect_payload) ?>"
+                            alt="Connect QR Code" class="size-48 rounded-xl object-contain">
+                    </div>
+
+                    <div class="w-full flex items-center gap-4 mt-8 mb-6">
+                        <div class="h-px flex-1 bg-white/5"></div>
+                        <span class="text-[9px] font-black uppercase tracking-[0.3em] text-gray-700">Other
+                            Options</span>
+                        <div class="h-px flex-1 bg-white/5"></div>
+                    </div>
+
+                    <div class="w-full space-y-3">
+                        <!-- Tenant Code -->
+                        <div
+                            class="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between group">
+                            <div class="flex flex-col">
+                                <span class="text-[8px] text-gray-500 font-bold uppercase tracking-widest mb-1">Tenant
+                                    Code</span>
+                                <span class="text-sm text-white font-mono font-bold"><?= htmlspecialchars($page['tenant_code']) ?></span>
+                            </div>
+                            <button onclick="copyToClipboard('<?= htmlspecialchars($page['tenant_code']) ?>', this)"
+                                class="size-9 rounded-lg bg-white/5 flex items-center justify-center text-gray-400 hover:text-emerald-500 transition-all">
+                                <span class="material-symbols-outlined text-lg">content_copy</span>
+                            </button>
+                        </div>
+
+                        <!-- Full Link -->
+                        <div
+                            class="p-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between group">
+                            <div class="flex flex-col max-w-[240px]">
+                                <span class="text-[8px] text-gray-500 font-bold uppercase tracking-widest mb-1">Gym
+                                    Link</span>
+                                <span
+                                    class="text-[10px] text-white font-medium truncate italic opacity-60"><?= (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]" ?></span>
+                            </div>
+                            <button
+                                onclick="copyToClipboard('<?= (isset($_SERVER['HTTPS']) ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]" ?>', this)"
+                                class="size-9 rounded-lg bg-white/5 flex items-center justify-center text-gray-400 hover:text-emerald-500 transition-all">
+                                <span class="material-symbols-outlined text-lg">link</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Manual Link Divider -->
-                <div class="w-full flex items-center gap-4 mt-12 mb-6">
-                    <div class="h-px flex-1 bg-white/5"></div>
-                    <span class="text-[9px] font-black uppercase tracking-[0.3em] text-gray-700">Manual Link</span>
-                    <div class="h-px flex-1 bg-white/5"></div>
-                </div>
-
-                <div class="w-full space-y-4">
-                    <a href="<?= $final_download_link ?>" download
-                        class="w-full h-16 bg-primary hover:bg-primary-dark rounded-xl text-white text-[11px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all shadow-[0_10px_40px_-10px_rgba(var(--pg-primary-rgb),0.5)]">
-                        <span class="material-symbols-outlined text-xl">download</span>
-                        Direct Download APK
-                    </a>
-                    <p class="text-[9px] text-gray-600 font-bold uppercase tracking-[0.3em] text-center">Version 2.0.4 • 42.5 MB</p>
-                </div>
             </div>
         </div>
     </div>
@@ -1268,16 +1469,66 @@ $primary_rgb = hexToRgb($primary_color);
             }
         };
 
-        function openQRModal() {
+        function openQRModal(tab = 'download') {
             const modal = document.getElementById('qr-modal');
             modal.classList.add('active');
             document.body.style.overflow = 'hidden';
+            switchQRTab(tab);
         }
 
         function closeQRModal() {
             const modal = document.getElementById('qr-modal');
             modal.classList.remove('active');
             document.body.style.overflow = '';
+        }
+
+        function copyToClipboard(text, btn) {
+            navigator.clipboard.writeText(text).then(() => {
+                const icon = btn.querySelector('.material-symbols-outlined');
+                const original = icon.innerText;
+                if (icon) {
+                    icon.innerText = 'check';
+                    btn.classList.add('bg-emerald-500/20', 'text-emerald-500');
+                    setTimeout(() => {
+                        icon.innerText = original;
+                        btn.classList.remove('bg-emerald-500/20', 'text-emerald-500');
+                    }, 2000);
+                }
+            });
+        }
+
+        function switchQRTab(tab) {
+            const ind = document.getElementById('tabIndicator');
+            const dBtn = document.getElementById('tabBtnDownload');
+            const cBtn = document.getElementById('tabBtnConnect');
+            const dContent = document.getElementById('tabContentDownload');
+            const cContent = document.getElementById('tabContentConnect');
+
+            if (tab === 'download') {
+                ind.style.left = '4px';
+                dBtn.classList.replace('text-gray-500', 'text-white');
+                cBtn.classList.replace('text-white', 'text-gray-500');
+
+                dContent.style.opacity = '1';
+                dContent.style.position = 'relative';
+                dContent.style.pointerEvents = 'auto';
+
+                cContent.style.opacity = '0';
+                cContent.style.position = 'absolute';
+                cContent.style.pointerEvents = 'none';
+            } else {
+                ind.style.left = '50%';
+                cBtn.classList.replace('text-gray-500', 'text-white');
+                dBtn.classList.replace('text-white', 'text-gray-500');
+
+                cContent.style.opacity = '1';
+                cContent.style.position = 'relative';
+                cContent.style.pointerEvents = 'auto';
+
+                dContent.style.opacity = '0';
+                dContent.style.position = 'absolute';
+                dContent.style.pointerEvents = 'none';
+            }
         }
 
         document.addEventListener('keydown', (e) => {
@@ -1293,8 +1544,8 @@ $primary_rgb = hexToRgb($primary_color);
         if (slider) {
             slider.addEventListener('mousedown', (e) => {
                 isDown = true;
-                slider.style.scrollSnapType = 'none'; 
-                slider.style.scrollBehavior = 'auto'; 
+                slider.style.scrollSnapType = 'none';
+                slider.style.scrollBehavior = 'auto';
                 startX = e.pageX - slider.offsetLeft;
                 scrollLeft = slider.scrollLeft;
             });
@@ -1312,7 +1563,7 @@ $primary_rgb = hexToRgb($primary_color);
                 if (!isDown) return;
                 e.preventDefault();
                 const x = e.pageX - slider.offsetLeft;
-                const walk = (x - startX) * 2; 
+                const walk = (x - startX) * 2;
                 slider.scrollLeft = scrollLeft - walk;
             });
         }
@@ -1320,8 +1571,8 @@ $primary_rgb = hexToRgb($primary_color);
         // Real-time Preview Listener
         const hexToRgb = (hex) => {
             let h = hex.replace('#', '');
-            if(h.length === 3) h = h.split('').map(x => x+x).join('');
-            return `${parseInt(h.substr(0,2),16)}, ${parseInt(h.substr(2,2),16)}, ${parseInt(h.substr(4,2),16)}`;
+            if (h.length === 3) h = h.split('').map(x => x + x).join('');
+            return `${parseInt(h.substr(0, 2), 16)}, ${parseInt(h.substr(2, 2), 16)}, ${parseInt(h.substr(4, 2), 16)}`;
         };
 
         window.addEventListener('message', function (event) {
@@ -1413,17 +1664,13 @@ $primary_rgb = hexToRgb($primary_color);
                     const el = document.getElementById('plans-subtitle-display');
                     if (el) el.innerText = data.portal_plans_subtitle || 'Select a plan to start your journey...';
                 }
-                if (data.portal_footer_links_title !== undefined) {
-                    const el = document.getElementById('footer-links-title');
-                    if (el) el.innerText = data.portal_footer_links_title || 'Quick Links';
+                if (data.portal_footer_label !== undefined) {
+                    const el = document.getElementById('portal-footer-label');
+                    if (el) el.innerText = data.portal_footer_label || 'Expand Your Horizon';
                 }
-                if (data.portal_footer_contact_title !== undefined) {
-                    const el = document.getElementById('footer-contact-title');
-                    if (el) el.innerText = data.portal_footer_contact_title || 'Contact Facility';
-                }
-                if (data.portal_footer_app_title !== undefined) {
-                    const el = document.getElementById('footer-app-title');
-                    if (el) el.innerText = data.portal_footer_app_title || 'Get the App';
+                if (data.portal_footer_desc !== undefined) {
+                    const el = document.getElementById('portal-footer-desc');
+                    if (el) el.innerText = data.portal_footer_desc || 'Powered by Horizon Systems. Elevating fitness center management through cutting-edge technology.';
                 }
 
                 if (data.logo_url) {
@@ -1459,9 +1706,24 @@ $primary_rgb = hexToRgb($primary_color);
                     if (el) el.innerText = '--:--';
                 }
 
-                if (data.max_capacity !== undefined) {
-                    const el = document.getElementById('max-capacity-display');
-                    if (el) el.innerText = data.max_capacity || 'N/A';
+                if (data.closing_time) {
+                    const el = document.getElementById('closing-time-display-card');
+                    if (el) {
+                        try {
+                            const [hours, minutes] = data.closing_time.split(':');
+                            const h = parseInt(hours);
+                            const ampm = h >= 12 ? 'PM' : 'AM';
+                            const h12 = h % 12 || 12;
+                            el.innerText = `${h12.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+                        } catch (e) {
+                            el.innerText = data.closing_time;
+                        }
+                    }
+                }
+
+                if (data.rules_text !== undefined) {
+                    const el = document.getElementById('rules-text-display');
+                    if (el) el.innerText = data.rules_text;
                 }
 
                 const amenMap = {
@@ -1507,7 +1769,7 @@ $primary_rgb = hexToRgb($primary_color);
                                 const badgeText = plan.badge || (
                                     (name.toUpperCase().includes('ELITE') || name.toUpperCase().includes('VIP')) ? 'Recommended' : ''
                                 );
-                                
+
                                 let featuresHtml = '';
                                 if (plan.features) {
                                     const featuresList = plan.features.split('\n').map(f => f.trim()).filter(f => f);

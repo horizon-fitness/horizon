@@ -3,8 +3,8 @@
 require_once 'db.php';
 $slug = $_GET['gym'] ?? '';
 
-$stmt = $pdo->prepare("SELECT tp.*, g.gym_name, g.tenant_code FROM tenant_pages tp JOIN gyms g ON tp.gym_id = g.gym_id WHERE tp.page_slug = ? LIMIT 1");
-$stmt->execute([$slug]);
+$stmt = $pdo->prepare("SELECT tp.*, g.gym_name, g.tenant_code FROM tenant_pages tp JOIN gyms g ON tp.gym_id = g.gym_id WHERE LOWER(tp.page_slug) = LOWER(?) OR LOWER(g.tenant_code) = LOWER(?) LIMIT 1");
+$stmt->execute([$slug, $slug]);
 $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$result) {
