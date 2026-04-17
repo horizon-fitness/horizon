@@ -235,12 +235,8 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         'has_wifi' => 0
     ];
 
-    // Fetch Gym Membership Plans (Specific to Gym or Global)
-    $stmtMembership = $pdo->prepare("SELECT mp.*, mpt.type_name 
-                                    FROM membership_plans mp 
-                                    JOIN membership_plan_types mpt ON mp.plan_type_id = mpt.plan_type_id 
-                                    WHERE mp.gym_id = ? AND mp.is_active = 1 
-                                    ORDER BY mp.sort_order ASC, mp.price ASC");
+    // Fetch Gym Membership Plans (Specific to Gym or Gym Global)
+    $stmtMembership = $pdo->prepare("SELECT * FROM membership_plans WHERE gym_id = ? AND is_active = 1 ORDER BY sort_order ASC, price ASC");
     $stmtMembership->execute([$page['gym_id']]);
     $membership_plans = $stmtMembership->fetchAll();
 }
@@ -1089,7 +1085,6 @@ $primary_rgb = hexToRgb($primary_color);
                             <?php endif; ?>
                             
                             <h3 class="text-xl font-display font-black text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
-                            <p class="text-[9px] text-primary font-black uppercase tracking-widest mb-8"><?= htmlspecialchars($plan['type_name']) ?></p>
                             
                             <div class="mb-10">
                                 <span class="text-4xl font-display font-black text-white">₱<?= number_format($plan['price'], 2) ?></span>
