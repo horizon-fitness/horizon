@@ -107,7 +107,7 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         }
     }
 
-    if ($portal_suspended) {
+    if ($portal_suspended && !$is_preview) {
         $theme_color = $configs['theme_color'] ?? '#8c2bee';
         $bg_color = '#050508'; 
         
@@ -337,11 +337,11 @@ $primary_rgb = hexToRgb($primary_color);
             theme: {
                 extend: {
                     colors: {
-                        "primary": "<?= $primary_color ?>",
-                        "primary-dark": "<?= $page['theme_color'] ?? '#5e0eb3' ?>",
-                        "background-dark": "<?= $bg_color ?>",
+                        "primary": "var(--pg-primary)",
+                        "primary-dark": "var(--pg-primary-dark, #5e0eb3)",
+                        "background-dark": "var(--pg-bg)",
                         "surface-dark": "rgba(21, 21, 24, 0.4)",
-                        "text-secondary": "<?= $secondary_color ?>"
+                        "text-secondary": "var(--pg-secondary)"
                     },
                     fontFamily: {
                         "display": ["Lexend", "sans-serif"],
@@ -354,15 +354,11 @@ $primary_rgb = hexToRgb($primary_color);
     </script>
     <style id="dynamic-styles">
         :root {
-            --pg-bg:
-                <?= $bg_color ?>
-            ;
-            --pg-primary:
-                <?= $primary_color ?>
-            ;
-            --pg-secondary:
-                <?= $secondary_color ?>
-            ;
+            --pg-bg: <?= $bg_color ?>;
+            --pg-primary: <?= $primary_color ?>;
+            --pg-primary-rgb: <?= $primary_rgb ?>;
+            --pg-secondary: <?= $secondary_color ?>;
+            --pg-text: <?= $page['text_color'] ?? '#d1d5db' ?>;
             --pg-font: '<?= $font_family ?>', 'Plus Jakarta Sans', sans-serif;
         }
 
@@ -384,7 +380,7 @@ $primary_rgb = hexToRgb($primary_color);
 
         body {
             background-color: var(--pg-bg);
-            color: #f3f4f6;
+            color: var(--pg-text);
             font-family: var(--pg-font);
         }
 
@@ -422,11 +418,11 @@ $primary_rgb = hexToRgb($primary_color);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             display: inline-block;
-            filter: drop-shadow(0 0 25px rgba(<?= $primary_rgb ?>, 0.4));
+            filter: drop-shadow(0 0 25px rgba(var(--pg-primary-rgb), 0.4));
         }
 
         .hero-glow {
-            background: radial-gradient(circle at 50% -10%, rgba(<?= $primary_rgb ?>, 0.18), transparent 70%);
+            background: radial-gradient(circle at 50% -10%, rgba(var(--pg-primary-rgb), 0.18), transparent 70%);
         }
 
         /* Static Elite Mobile Mockup (iPhone 15 Pro Style) */
@@ -580,7 +576,7 @@ $primary_rgb = hexToRgb($primary_color);
             border-radius: 16px;
             /* Reduced from 24px for a sharper, modern edge */
             box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8),
-                0 0 80px -10px rgba(<?= $primary_rgb ?>, 0.15);
+                0 0 80px -10px rgba(var(--pg-primary-rgb), 0.15);
             transform: scale(0.9);
             transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
             overflow: hidden;
@@ -650,14 +646,14 @@ $primary_rgb = hexToRgb($primary_color);
         #membership-plans-grid:active { cursor: grabbing; }
 
         .btn-modern {
-            background: linear-gradient(135deg, var(--pg-primary) 0%, rgba(<?= $primary_rgb ?>, 0.8) 100%);
-            box-shadow: 0 10px 30px -5px rgba(<?= $primary_rgb ?>, 0.4);
+            background: linear-gradient(135deg, var(--pg-primary) 0%, rgba(var(--pg-primary-rgb), 0.8) 100%);
+            box-shadow: 0 10px 30px -5px rgba(var(--pg-primary-rgb), 0.4);
             transition: all 0.3s ease;
         }
 
         .btn-modern:hover {
             transform: translateY(-2px);
-            box-shadow: 0 15px 40px -5px rgba(<?= $primary_rgb ?>, 0.6);
+            box-shadow: 0 15px 40px -5px rgba(var(--pg-primary-rgb), 0.6);
         }
 
         /* Mockup Login Field Styles */
@@ -713,7 +709,7 @@ $primary_rgb = hexToRgb($primary_color);
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 10px 25px -5px rgba(<?= $primary_rgb ?>, 0.4);
+            box-shadow: 0 10px 25px -5px rgba(var(--pg-primary-rgb), 0.4);
             margin-top: 1.5rem;
         }
 
@@ -759,15 +755,15 @@ $primary_rgb = hexToRgb($primary_color);
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-12">
                     <div class="flex items-center gap-3">
-                        <div
+                        <div id="portalLogoContainer"
                             class="size-10 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
                             <?php
                             $logo_src = !empty($page['logo_path']) ? $page['logo_path'] : ($page['gym_logo'] ?? '');
                             ?>
                             <?php if (!empty($logo_src)): ?>
-                                <img src="<?= htmlspecialchars($logo_src) ?>" class="size-full object-cover">
+                                <img id="portalLogoImg" src="<?= htmlspecialchars($logo_src) ?>" class="size-full object-cover">
                             <?php else: ?>
-                                <span class="material-symbols-outlined text-primary">blur_on</span>
+                                <span id="portalDefaultLogo" class="material-symbols-outlined text-primary">blur_on</span>
                             <?php endif; ?>
                         </div>
                         <h2 class="text-xl font-display font-bold text-white uppercase italic tracking-tighter">
@@ -1257,7 +1253,7 @@ $primary_rgb = hexToRgb($primary_color);
 
                 <div class="w-full space-y-4">
                     <a href="<?= $final_download_link ?>" download
-                        class="w-full h-16 bg-primary hover:bg-primary-dark rounded-xl text-white text-[11px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all shadow-[0_10px_40px_-10px_rgba(<?= $primary_rgb ?>,0.5)]">
+                        class="w-full h-16 bg-primary hover:bg-primary-dark rounded-xl text-white text-[11px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all shadow-[0_10px_40px_-10px_rgba(var(--pg-primary-rgb),0.5)]">
                         <span class="material-symbols-outlined text-xl">download</span>
                         Direct Download APK
                     </a>
@@ -1327,16 +1323,27 @@ $primary_rgb = hexToRgb($primary_color);
         }
 
         // Real-time Preview Listener
+        const hexToRgb = (hex) => {
+            let h = hex.replace('#', '');
+            if(h.length === 3) h = h.split('').map(x => x+x).join('');
+            return `${parseInt(h.substr(0,2),16)}, ${parseInt(h.substr(2,2),16)}, ${parseInt(h.substr(4,2),16)}`;
+        };
+
         window.addEventListener('message', function (event) {
             if (event.data.type === 'updateStyles') {
                 const data = event.data.data;
                 const primary = data.theme_color || '<?= $primary_color ?>';
+                const secondary = data.secondary_color || '<?= $secondary_color ?>';
                 const bg = data.bg_color || '<?= $bg_color ?>';
+                const text = data.text_color || '<?= $page['text_color'] ?? '#d1d5db' ?>';
                 const font = data.font_family || '<?= $font_family ?>';
 
                 // Update CSS variables
                 document.documentElement.style.setProperty('--pg-bg', bg);
+                document.documentElement.style.setProperty('--pg-text', text);
                 document.documentElement.style.setProperty('--pg-primary', primary);
+                document.documentElement.style.setProperty('--pg-primary-rgb', hexToRgb(primary));
+                document.documentElement.style.setProperty('--pg-secondary', secondary);
                 document.documentElement.style.setProperty('--pg-font', `'${font}', 'Plus Jakarta Sans', sans-serif`);
 
                 if (data.page_title) {
@@ -1422,6 +1429,21 @@ $primary_rgb = hexToRgb($primary_color);
                 if (data.portal_footer_app_title !== undefined) {
                     const el = document.getElementById('footer-app-title');
                     if (el) el.innerText = data.portal_footer_app_title || 'Get the App';
+                }
+
+                if (data.logo_url) {
+                    const container = document.getElementById('portalLogoContainer');
+                    const defaultIcon = document.getElementById('portalDefaultLogo');
+                    let img = document.getElementById('portalLogoImg');
+
+                    if (!img) {
+                        img = document.createElement('img');
+                        img.id = 'portalLogoImg';
+                        img.className = 'size-full object-cover';
+                        container.innerHTML = '';
+                        container.appendChild(img);
+                    }
+                    img.src = data.logo_url;
                 }
 
                 if (data.opening_time) {

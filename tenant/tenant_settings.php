@@ -32,16 +32,67 @@ if (!$gym) {
     die("Gym profile not found. Please contact support.");
 }
 
-// Fetch Branding Data from system_settings
-$stmtPage = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
-$stmtPage->execute([$user_id]);
-$page = $stmtPage->fetchAll(PDO::FETCH_KEY_PAIR);
-// Map system_settings keys to expected names for UI if necessary
-$page['logo_path'] = $page['system_logo'] ?? '';
-$page['theme_color'] = $page['theme_color'] ?? '#8c2bee';
-$page['bg_color'] = $page['bg_color'] ?? '#0a090d';
-$page['page_slug'] = $page['page_slug'] ?? '';
-$page['page_title'] = $page['system_name'] ?? '';
+// --- Database Migration: Ensure system_settings table exists ---
+try {
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS system_settings (
+            user_id INT NOT NULL,
+            setting_key VARCHAR(50) NOT NULL,
+            setting_value TEXT,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, setting_key)
+        )
+    ");
+
+    // Check if we need to migrate from the old single-user schema
+    $res = $pdo->query("SHOW COLUMNS FROM system_settings LIKE 'user_id'");
+    if (!$res->fetch()) {
+        $pdo->exec("ALTER TABLE system_settings ADD COLUMN user_id INT NOT NULL DEFAULT 1 FIRST");
+        $pdo->exec("ALTER TABLE system_settings DROP PRIMARY KEY, ADD PRIMARY KEY (user_id, setting_key)");
+    }
+} catch (Exception $e) { /* Table creation/migration failed or already exists */ }
+
+// Fetch Branding Logic with Fallbacks
+try {
+    // Fetch Global Branding Defaults (user_id = 0)
+    $stmtGlobal = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+    $stmtGlobal->execute();
+    $global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
+
+    // Fetch Tenant System Settings (user_id = ?)
+    $stmtTenant = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+    $stmtTenant->execute([$user_id]);
+    $tenant_configs = $stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
+} catch (Exception $e) {
+    // Graceful fallback if table is missing or structural error occurs
+    $global_configs = [];
+    $tenant_configs = [];
+}
+
+// Initialize with Hard Defaults (Fallbacks)
+// We prioritize individual Gym Identity (Name/Logo) to ensure every tenant is unique by default.
+$configs = [
+    'system_name' => $gym['gym_name'] ?? 'Horizon System',
+    'system_logo' => $gym['profile_picture'] ?? '',
+    'theme_color' => '#8c2bee',
+    'secondary_color' => '#a1a1aa',
+    'text_color' => '#d1d5db',
+    'bg_color' => '#0a090d',
+    'card_color' => '#141216',
+    'auto_card_theme' => '1',
+    'font_family' => 'Lexend'
+];
+
+// Merge: Hard Defaults -> Global Defaults -> Tenant Overrides
+$configs = array_merge($configs, $global_configs, $tenant_configs);
+
+// Map common keys for convenience
+$page['logo_path'] = $configs['system_logo'] ?? '';
+$page['theme_color'] = $configs['theme_color'];
+$page['bg_color'] = $configs['bg_color'];
+$page['page_slug'] = $configs['page_slug'] ?? '';
+$page['page_title'] = $configs['system_name'];
+$page['text_color'] = $configs['text_color'];
 
 $stmtSub = $pdo->prepare("
     SELECT ws.plan_name 
@@ -78,49 +129,6 @@ function hexToRgb($hex) {
     }
     return "$r, $g, $b";
 }
-
-// Fetch Tenant System Settings
-$stmtSync = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
-$stmtSync->execute([$user_id]);
-$user_configs = $stmtSync->fetchAll(PDO::FETCH_KEY_PAIR);
-
-// --- AUTO-MIGRATION FROM TENANT_PAGES (Legacy Support) ---
-if (empty($user_configs)) {
-    try {
-        $stmtOld = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
-        $stmtOld->execute([$gym_id]);
-        $old = $stmtOld->fetch();
-        if ($old) {
-            $migration_map = [
-                'page_slug' => $old['page_slug'],
-                'system_name' => $old['page_title'],
-                'system_logo' => $old['logo_path'],
-                'theme_color' => $old['theme_color'],
-                'secondary_color' => $old['secondary_color'] ?? '#a1a1aa',
-                'bg_color' => $old['bg_color'],
-                'font_family' => $old['font_family'],
-                'is_active' => $old['is_active']
-            ];
-            $stmtMigrate = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?)");
-            foreach ($migration_map as $mk => $mv) {
-                $stmtMigrate->execute([$user_id, $mk, $mv]);
-            }
-            $user_configs = $migration_map; // Use migrated data
-        }
-    } catch (Exception $e) { /* Table might already be deleted */ }
-}
-
-$configs = [
-    'system_name' => $gym['gym_name'] ?? 'Horizon System',
-    'theme_color' => '#8c2bee',
-    'secondary_color' => '#a1a1aa',
-    'text_color' => '#d1d5db',
-    'bg_color' => '#0a090d',
-    'card_color' => '#141216',
-    'auto_card_theme' => '1',
-    'font_family' => 'Lexend'
-];
-$configs = array_merge($configs, $user_configs);
 
 $success = null;
 $error = null;
@@ -191,7 +199,8 @@ foreach ($all_membership_plans as $p) {
 
 // --- UNIFIED POST HANDLER ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!$is_sub_active) {
+    // We allow settings updates even if not active, so users can brand their gym during onboarding.
+    if (false) { // Relaxed restriction
         $error = "Action restricted. Your subscription is currently $sub_status.";
     } else {
         // System Settings Data
@@ -227,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = file_get_contents($_FILES['logo']['tmp_name']);
             $system_keys['system_logo'] = 'data:image/' . $type . ';base64,' . base64_encode($data);
         } else {
-            $system_keys['system_logo'] = $page['system_logo'] ?? '';
+            $system_keys['system_logo'] = $configs['system_logo'] ?? '';
         }
     
         // Facility Data (Required for saving)
@@ -326,10 +335,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->commit();
             $success = "All configurations saved and synchronized successfully!";
             
-            // Refresh local data
-            $stmtGym->execute([$gym_id]); $gym = $stmtGym->fetch();
-            $stmtSync->execute([$user_id]); $configs = $stmtSync->fetchAll(PDO::FETCH_KEY_PAIR);
-            $page = $configs; // For UI consistency
+            // Refresh local data after successful save
+            $stmtTenant->execute([$user_id]); 
+            $tenant_configs = $stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: [];
+            $configs = array_merge($configs, $tenant_configs);
+            $page = $configs; 
+
             $page['logo_path'] = $page['system_logo'] ?? '';
             $page['page_title'] = $page['system_name'] ?? '';
         } catch (Exception $e) {
@@ -369,7 +380,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         body { font-family: '<?= $configs['font_family'] ?? 'Lexend' ?>', sans-serif; background-color: var(--background); color: var(--text-main); overflow: hidden; }
         .glass-card { background: var(--card-bg); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); backdrop-filter: blur(var(--card-blur)); }
-        .glass-card:hover { border-color: rgba(var(--primary-rgb), 0.2); transform: translateY(-4px); }
+        .glass-card:hover { border-color: rgba(var(--primary-rgb), 0.2); }
+
+        label { color: var(--text-main); opacity: 0.6; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; font-style: italic; }
 
         .modal-overlay {
             display: none;
@@ -566,24 +579,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             align-items: center;
             gap: 16px;
             padding: 10px 38px;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
             text-decoration: none;
             white-space: nowrap;
             font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #94a3b8;
+            letter-spacing: 0.1em;
+            color: var(--text-main);
+            opacity: 0.5;
         }
 
         .nav-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .nav-item span.material-symbols-outlined {
+            color: var(--highlight);
+            transition: color 0.3s ease;
         }
 
         .nav-item.active {
+            opacity: 1;
             color: var(--primary) !important;
+            background: rgba(var(--primary-rgb), 0.05);
             position: relative;
+        }
+
+        .nav-item.active span.material-symbols-outlined {
+            color: var(--primary);
         }
 
         .nav-item.active::after {
@@ -596,6 +621,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             height: 24px;
             background: var(--primary);
             border-radius: 4px 0 0 4px;
+            box-shadow: 0 0 15px var(--primary);
         }
 
         .input-dark { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: white; padding: 12px 16px; font-size: 12px; width: 100%; outline: none; transition: all 0.2s; backdrop-filter: blur(10px); }
@@ -738,76 +764,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body class="flex h-screen overflow-hidden">
 
-<nav class="side-nav bg-background-dark border-r border-white/5 z-50">
-    <div class="px-7 py-8 mb-4 shrink-0">
-        <div class="flex items-center gap-4">
-            <div class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($page['logo_path']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
-                <?php if (!empty($page['logo_path'])): ?>
-                    <img src="<?= htmlspecialchars($page['logo_path']) ?>" class="size-full object-cover">
-                <?php else: ?>
-                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
-                <?php endif; ?>
-            </div>
-            <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Owner Portal</h1>
-        </div>
-    </div>
-    
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Main Menu</span></div>
-        <a href="tenant_dashboard.php" class="nav-item">
-            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
-            <span class="nav-label">Dashboard</span>
-        </a>
-        
-        <a href="my_users.php" class="nav-item">
-            <span class="material-symbols-outlined text-xl shrink-0">group</span> 
-            <span class="nav-label">Users</span>
-        </a>
+<?php require_once '../includes/tenant_sidebar.php'; ?>
 
-        <a href="transactions.php" class="nav-item">
-            <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span> 
-            <span class="nav-label">Transactions</span>
-        </a>
-
-        <a href="attendance.php" class="nav-item">
-            <span class="material-symbols-outlined text-xl shrink-0">history</span> 
-            <span class="nav-label">Attendance</span>
-        </a>
-
-        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
-
-        <a href="staff.php" class="nav-item">
-            <span class="material-symbols-outlined text-xl shrink-0">badge</span> 
-            <span class="nav-label">Staff</span>
-        </a>
-
-        <a href="reports.php" class="nav-item">
-            <span class="material-symbols-outlined text-xl shrink-0">analytics</span> 
-            <span class="nav-label">Reports</span>
-        </a>
-
-        <a href="sales_report.php" class="nav-item">
-            <span class="material-symbols-outlined text-xl shrink-0">payments</span> 
-            <span class="nav-label">Sales Reports</span>
-        </a>
-    </div>
-
-    <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
-        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
-        <a href="tenant_settings.php" class="nav-item active">
-            <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
-            <span class="nav-label">Settings</span>
-        </a>
-        <a href="profile.php" class="nav-item">
-            <span class="material-symbols-outlined text-xl shrink-0">account_circle</span> 
-            <span class="nav-label">Profile</span>
-        </a>
-        <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors">
-            <span class="material-symbols-outlined text-xl shrink-0">logout</span> 
-            <span class="nav-label">Sign Out</span>
-        </a>
-    </div>
-</nav>
 
 <main class="main-content flex-1 p-8 overflow-y-auto no-scrollbar <?= $is_restricted ? 'blur-overlay' : '' ?>">
     <div class="<?= $is_restricted ? 'blur-overlay-content' : '' ?>">
@@ -823,8 +781,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="flex items-center gap-8">
 
             <div class="text-right">
-                <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
-                <p id="topDate" class="text-primary text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 italic">
+                <p id="topClock" class="font-black italic text-2xl leading-none tracking-tighter" style="color: var(--text-main);">00:00:00 AM</p>
+                <p id="topDate" class="text-[--primary] text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 italic">
                     <?= date('l, M d, Y') ?>
                 </p>
             </div>
@@ -928,35 +886,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="space-y-8">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Gym Name</label>
+                            <label class="ml-1">Gym Name</label>
                             <input type="text" name="system_name" oninput="updateMockup()" value="<?= htmlspecialchars($configs['system_name'] ?? $gym['gym_name']) ?>" class="input-dark">
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label class="ml-1">System Logo</label>
+                            <div class="flex items-center gap-4">
+                                <label class="flex-grow cursor-pointer group">
+                                    <div class="input-dark h-11 flex items-center px-4 gap-3 group-hover:border-primary/50 transition-all">
+                                        <span class="material-symbols-outlined text-sm text-gray-500 group-hover:text-primary transition-colors">cloud_upload</span>
+                                        <span class="text-[10px] text-gray-400 font-bold uppercase tracking-widest group-hover:text-white transition-colors truncate" id="logoFileName"><?= !empty($page['logo_path']) ? basename($page['logo_path']) : 'Click to upload logo...' ?></span>
+                                    </div>
+                                    <input type="file" name="system_logo" onchange="previewLogo(this)" class="hidden" accept="image/*">
+                                </label>
+                            </div>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-6">
                         <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Main Color</label>
+                            <label class="ml-1">Main Color</label>
                             <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
                                 <input type="color" name="theme_color" oninput="updateMockup()" value="<?= htmlspecialchars($configs['theme_color'] ?? '#8c2bee') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
                                 <span id="colorHex" class="text-[10px] font-black uppercase text-gray-400"><?= $configs['theme_color'] ?? '#8c2bee' ?></span>
                             </div>
                         </div>
                         <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Icon Color</label>
+                            <label class="ml-1">Icon Color</label>
                             <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
                                 <input type="color" name="secondary_color" oninput="updateMockup()" value="<?= htmlspecialchars($configs['secondary_color'] ?? '#a1a1aa') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
                                 <span id="secondaryHex" class="text-[10px] font-black uppercase text-gray-400"><?= $configs['secondary_color'] ?? '#a1a1aa' ?></span>
                             </div>
                         </div>
                         <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Text Color</label>
+                            <label class="ml-1">Text Color</label>
                             <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
                                 <input type="color" name="text_color" oninput="updateMockup()" value="<?= htmlspecialchars($configs['text_color'] ?? '#d1d5db') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
                                 <span id="textHex" class="text-[10px] font-black uppercase text-gray-400"><?= $configs['text_color'] ?? '#d1d5db' ?></span>
                             </div>
                         </div>
                         <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Background Color</label>
+                            <label class="ml-1">Background Color</label>
                             <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
                                 <input type="color" name="bg_color" oninput="updateMockup()" value="<?= htmlspecialchars($configs['bg_color'] ?? '#0a090d') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
                                 <span id="bgHex" class="text-[10px] font-black uppercase text-gray-400"><?= $configs['bg_color'] ?? '#0a090d' ?></span>
@@ -980,7 +950,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         <div class="grid grid-cols-2 gap-6">
                             <div class="flex flex-col gap-1.5">
-                                <label class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Surface Color</label>
+                                <label class="ml-1">Surface Color</label>
                                 <div class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
                                     <input type="color" name="card_color" oninput="updateMockup()" value="<?= htmlspecialchars($configs['card_color'] ?? '#141216') ?>" class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
                                     <span id="cardHex" class="text-[10px] font-black uppercase text-gray-400"><?= $configs['card_color'] ?? '#141216' ?></span>
@@ -1150,13 +1120,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <!-- ACTIVE MATCH CARDS GRID -->
             <div id="activePlansContainer" class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-10">
-                <?php if (empty($active_plans)): ?>
-                    <div class="col-span-full py-20 flex flex-col items-center justify-center opacity-40">
-                        <span class="material-symbols-outlined text-4xl mb-4">info</span>
-                        <p class="text-[10px] font-black uppercase tracking-[0.2em]">No active plans found.</p>
-                        <p class="text-[8px] text-gray-600 mt-2 uppercase tracking-widest italic">Create a new tier to get started</p>
-                    </div>
-                <?php else: ?>
+                <div id="activePlansEmptyState" class="col-span-full py-20 flex flex-col items-center justify-center opacity-40 <?= !empty($active_plans) ? 'hidden' : '' ?>">
+                    <span class="material-symbols-outlined text-4xl mb-4">info</span>
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em]">No active plans found.</p>
+                    <p class="text-[8px] text-gray-600 mt-2 uppercase tracking-widest italic">Create a new tier to get started</p>
+                </div>
+
+                <?php if (!empty($active_plans)): ?>
                     <?php foreach ($active_plans as $plan): ?>
                         <div class="elite-red-card p-10 group relative overflow-hidden" 
                              data-id="<?= $plan['membership_plan_id'] ?>"
@@ -1433,6 +1403,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setInterval(updateTopClock, 1000);
     window.addEventListener('DOMContentLoaded', updateTopClock);
 
+    function previewLogo(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            const fileName = input.files[0].name;
+            const fileLabel = document.getElementById('logoFileName');
+            if (fileLabel) fileLabel.innerText = fileName;
+
+            reader.onload = function(e) {
+                // Update Sidebar
+                const container = document.getElementById('sidebarLogoContainer');
+                const bolt = document.getElementById('sidebarBoltIcon');
+                let img = document.getElementById('sidebarLogoImg');
+
+                if (!img) {
+                    img = document.createElement('img');
+                    img.id = 'sidebarLogoImg';
+                    img.className = 'size-full object-cover';
+                    container.innerHTML = '';
+                    container.appendChild(img);
+                }
+                img.src = e.target.result;
+                container.classList.remove('bg-primary', 'shadow-lg', 'shadow-primary/20');
+                
+                // Update Portal Preview (if we pass data.logo_url)
+                updateMockup();
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
     function previewImg(input, targetId, placeholderId) {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
@@ -1475,7 +1475,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const textInput = document.querySelector('input[name="text_color"]');
         const bgInput = document.querySelector('input[name="bg_color"]');
         const cardInput = document.querySelector('input[name="card_color"]');
-        const syncInput = document.querySelector('input[name="auto_card_theme"]:checked');
+        const syncInput = document.querySelector('input[name="auto_card_theme"][value="1"]');
         
         if (!colorInput) return;
 
@@ -1490,6 +1490,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         document.documentElement.style.setProperty('--primary', colorInput.value);
         document.documentElement.style.setProperty('--primary-rgb', hexToRgbVals(colorInput.value));
         
+        if (titleInput) {
+            const sidebarName = document.getElementById('sidebarSystemName');
+            if (sidebarName) sidebarName.innerText = titleInput.value || 'Owner Portal';
+        }
+
+        const logoContainer = document.getElementById('sidebarLogoContainer');
+        if (logoContainer && !logoContainer.querySelector('img')) {
+            logoContainer.style.backgroundColor = colorInput.value;
+        }
+        
+        if (secondaryInput) {
+            document.documentElement.style.setProperty('--highlight', secondaryInput.value);
+        }
+
         if (textInput) {
             document.documentElement.style.setProperty('--text-main', textInput.value);
             document.body.style.color = textInput.value;
@@ -1501,7 +1515,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         if (cardInput && syncInput) {
-            if (syncInput.value === '1') {
+            if (syncInput.checked) {
                 document.documentElement.style.setProperty('--card-bg', `rgba(${hexToRgbVals(colorInput.value)}, 0.05)`);
             } else {
                 document.documentElement.style.setProperty('--card-bg', cardInput.value);
@@ -1539,7 +1553,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             portal_plans_subtitle: document.querySelector('[name="portal_plans_subtitle"]')?.value || '',
             portal_footer_links_title: document.querySelector('[name="portal_footer_links_title"]')?.value || '',
             portal_footer_contact_title: document.querySelector('[name="portal_footer_contact_title"]')?.value || '',
-            portal_footer_app_title: document.querySelector('[name="portal_footer_app_title"]')?.value || ''
+            portal_footer_app_title: document.querySelector('[name="portal_footer_app_title"]')?.value || '',
+            logo_url: document.getElementById('sidebarLogoImg')?.src || ''
         };
         
         // Update Hex Displays
@@ -1621,6 +1636,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    function checkActivePlansEmptyState() {
+        const container = document.getElementById('activePlansContainer');
+        const emptyState = document.getElementById('activePlansEmptyState');
+        if (!emptyState || !container) return;
+
+        // Count both existing active plans and newly proposed plans
+        const cards = container.querySelectorAll('.elite-red-card:not(.animate-out)');
+        if (cards.length > 0) {
+            emptyState.classList.add('hidden');
+        } else {
+            emptyState.classList.remove('hidden');
+        }
+    }
+
     let newPlanMatchCount = 0;
     function addNewMembershipPlanCard() {
         const container = document.getElementById('newPlansContainer');
@@ -1635,7 +1664,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <span class="material-symbols-outlined text-primary text-2xl">add_box</span>
                         <h5 class="text-xs font-black italic uppercase tracking-widest text-primary">Proposed Plan</h5>
                     </div>
-                    <button type="button" onclick="this.closest('.elite-red-card').remove()" class="size-8 rounded-lg flex items-center justify-center text-rose-500 hover:bg-rose-500/10 transition-all">
+                    <button type="button" onclick="removeProposedPlan(this)" class="size-8 rounded-lg flex items-center justify-center text-rose-500 hover:bg-rose-500/10 transition-all">
                         <span class="material-symbols-outlined text-lg">delete</span>
                     </button>
                 </div>
@@ -1677,10 +1706,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         `;
         container.insertAdjacentHTML('beforeend', html);
         
+        // Hide empty state if visible
+        checkActivePlansEmptyState();
+        
         // Scroll to new card
         setTimeout(() => {
             container.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);
+    }
+
+    function removeProposedPlan(btn) {
+        const card = btn.closest('.elite-red-card');
+        card.classList.add('scale-75', 'opacity-0');
+        setTimeout(() => {
+            card.remove();
+            checkActivePlansEmptyState();
+            updateMockup();
+        }, 300);
     }
 
     function openEliteModal(modalId) {
@@ -1821,11 +1863,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </td>
                 `;
 
-                // Remove "No Data" row if exists
-                const noData = archivedBody.querySelector('.no-data-row');
-                if (noData) noData.remove();
+                const emptyState = archivedBody.querySelector('.no-data-row');
+                if (emptyState) emptyState.remove();
 
                 archivedBody.insertBefore(row, archivedBody.firstChild);
+                checkActivePlansEmptyState();
             }, 300);
 
         } else if (action === 'restore') {
@@ -1883,11 +1925,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 `;
                 
                 activeContainer.insertAdjacentHTML('beforeend', cardHtml);
-                
-                // If it was the first one, remove the "No Data" placeholder in active grid
-                const emptyState = activeContainer.querySelector('.col-span-full');
-                if (emptyState && emptyState.querySelector('.material-symbols-outlined')) emptyState.remove();
-
+                checkActivePlansEmptyState();
                 updateMockup();
             }, 300);
         }
