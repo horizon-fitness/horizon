@@ -25,10 +25,7 @@ try {
             'tenant_code'  => '000',
             'logo_path'    => null,
             'theme_color'  => '#8c2bee',
-            'bg_color'     => '#0d0d0d',
-            'text_color'   => '#d1d5db',
-            'icon_color'   => '#a1a1aa',
-            'surface_color'=> '#141216',
+            'bg_color'     => '#0a090d',
             'font_family'  => 'Inter'
         ]);
         exit;
@@ -88,12 +85,9 @@ try {
         'tenant_code' => $gym['tenant_code'],
         'page_slug'   => $branding['page_slug'] ?? strtolower(preg_replace('/[^a-z0-9]/i', '', $gym['gym_name'])),
         'logo_path'   => $branding['system_logo'] ?? $gym['profile_picture'] ?? null,
-        'theme_color'   => $branding['theme_color'] ?? '#8c2bee',
-        'bg_color'      => $branding['bg_color'] ?? '#0d0d0d',
-        'text_color'    => $branding['text_color'] ?? '#d1d5db',
-        'icon_color'    => $branding['icon_color'] ?? '#a1a1aa',
-        'surface_color' => $branding['surface_color'] ?? '#141216',
-        'font_family'   => $branding['font_family'] ?? 'Inter'
+        'theme_color' => $branding['theme_color'] ?? '#8c2bee',
+        'bg_color'    => $branding['bg_color'] ?? '#0a090d',
+        'font_family' => $branding['font_family'] ?? 'Inter'
     ]);
     exit;
 

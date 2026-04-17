@@ -58,10 +58,14 @@ try {
 
         $pdo->beginTransaction();
 
-        $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? OR email = ? LIMIT 1");
-        $stmtCheck->execute([$username, $email]);
+        // Gym-Scoped Uniqueness Check: Only block if the username or email is already registered FOR THIS GYM
+        $stmtCheck = $pdo->prepare("SELECT u.user_id FROM users u 
+                                    JOIN user_roles ur ON u.user_id = ur.user_id 
+                                    WHERE (u.username = ? OR u.email = ?) 
+                                    AND ur.gym_id = ? LIMIT 1");
+        $stmtCheck->execute([$username, $email, $gym_id]);
         if ($stmtCheck->fetch()) {
-            throw new Exception("Username or Email already exists.");
+            throw new Exception("Username or Email already exists in this gym.");
         }
 
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
