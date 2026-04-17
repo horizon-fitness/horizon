@@ -8,14 +8,20 @@
 <nav class="side-nav bg-background-dark border-r border-white/5 z-50">
     <div class="px-7 py-8 mb-4 shrink-0">
         <div class="flex items-center gap-4">
-            <div id="sidebarLogoContainer" class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($page['logo_path']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
-                <?php if (!empty($page['logo_path'])): ?>
-                    <img id="sidebarLogoImg" src="<?= htmlspecialchars($page['logo_path']) ?>" class="size-full object-cover">
+            <?php 
+                // Flexible branding fallbacks
+                $logo = !empty($page['logo_path']) ? $page['logo_path'] : ($configs['system_logo'] ?? '');
+                $name = !empty($configs['system_name']) ? $configs['system_name'] : ($page['system_name'] ?? 'Owner Portal');
+            ?>
+            <div id="sidebarLogoContainer" class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($logo) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
+                <?php if (!empty($logo)): ?>
+                    <img id="sidebarLogoImg" src="<?= htmlspecialchars($logo) ?>" class="size-full object-cover">
                 <?php else: ?>
                     <span id="sidebarBoltIcon" class="material-symbols-outlined text-white text-2xl">bolt</span>
                 <?php endif; ?>
             </div>
-            <h1 id="sidebarSystemName" class="nav-label text-lg font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($configs['system_name'] ?? 'Owner Portal') ?></h1>
+            <h1 id="sidebarSystemName" class="nav-label text-lg font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($name) ?></h1>
+
         </div>
     </div>
     

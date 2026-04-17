@@ -83,8 +83,14 @@ $configs = [
     'font_family' => 'Lexend'
 ];
 
-// Merge: Hard Defaults -> Global Defaults -> Tenant Overrides
-$configs = array_merge($configs, $global_configs, $tenant_configs);
+// Merge with Priority: Hard Defaults -> Global Defaults (non-empty) -> Tenant Overrides (non-empty)
+foreach ($global_configs as $k => $v) {
+    if (!empty($v) || $v === '0') $configs[$k] = $v;
+}
+foreach ($tenant_configs as $k => $v) {
+    if (!empty($v) || $v === '0') $configs[$k] = $v;
+}
+
 
 // Map common keys for convenience
 $page['logo_path'] = $configs['system_logo'] ?? '';
@@ -603,7 +609,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .nav-item.active {
             opacity: 1;
             color: var(--primary) !important;
-            background: rgba(var(--primary-rgb), 0.05);
             position: relative;
         }
 
@@ -617,12 +622,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             right: 0px;
             top: 50%;
             transform: translateY(-50%);
-            width: 4px;
-            height: 24px;
+            width: 2px;
+            height: 18px;
             background: var(--primary);
             border-radius: 4px 0 0 4px;
-            box-shadow: 0 0 15px var(--primary);
+            box-shadow: 0 0 8px var(--primary);
         }
+
+
+
+
 
         .input-dark { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; color: white; padding: 12px 16px; font-size: 12px; width: 100%; outline: none; transition: all 0.2s; backdrop-filter: blur(10px); }
         .input-dark:focus { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.05); box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.1); }
@@ -818,16 +827,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <h4 class="text-[12px] font-black italic uppercase tracking-widest text-white">Live Gym Portal Preview</h4>
                 </div>
+                <a href="../portal.php?gym=<?= htmlspecialchars($page['page_slug'] ?? '') ?>" target="_blank" class="h-10 px-6 rounded-xl bg-white/5 border border-white/10 flex items-center gap-3 hover:bg-white/10 transition-all text-gray-400 hover:text-white group mt-[-4px]">
+                    <span class="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">open_in_new</span>
+                    <span class="text-[10px] font-black uppercase tracking-widest">View Website</span>
+                </a>
             </div>
             
-            <div class="glass-card p-4 overflow-hidden shadow-2xl relative">
+            <div class="glass-card p-1.5 overflow-hidden shadow-2xl relative max-w-[1300px] mx-auto">
                 <div class="absolute top-8 left-8 flex items-center gap-1.5 z-10 p-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
                     <div class="size-2.5 rounded-full bg-red-400"></div>
                     <div class="size-2.5 rounded-full bg-amber-400"></div>
                     <div class="size-2.5 rounded-full bg-green-400"></div>
                 </div>
                 
-                <div id="portalContainer" class="w-full relative shadow-3xl border border-white/5 rounded-3xl overflow-y-auto bg-black shadow-inner origin-top no-scrollbar">
+                <div id="portalContainer" class="w-full relative border border-white/[0.03] rounded-3xl overflow-y-auto bg-black origin-top no-scrollbar">
                     <!-- High-Fidelity Desktop Mockup (Always Use portal.php?preview=1) -->
                     <iframe id="portalFrame" src="../portal.php?gym=<?= $page['page_slug'] ?? '' ?>&preview=1" class="absolute top-0 left-0 w-[1600px] h-[2000px] border-none origin-top-left" onload="updateMockup()"></iframe>
                 </div>
@@ -862,9 +875,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </button>
             </div>
 
-            <button type="submit" name="update_settings" class="h-11 px-6 rounded-xl bg-primary text-white text-[10px] font-black uppercase italic tracking-[0.2em] shadow-lg shadow-primary/20 hover:scale-[1.05] active:scale-95 transition-all flex items-center gap-3">
-                <span class="material-symbols-outlined text-base">verified</span>
-                Update Settings
+            <button type="submit" name="update_settings" class="h-11 px-8 rounded-xl bg-primary text-white text-[10px] font-black uppercase italic tracking-[0.2em] shadow-lg shadow-primary/20 hover:scale-[1.05] active:scale-95 transition-all flex items-center gap-3">
+                <span class="material-symbols-outlined text-base">save</span>
+                Save
             </button>
         </div>
 
@@ -1606,7 +1619,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (container && frame) {
             const scale = container.offsetWidth / 1600;
             frame.style.transform = `scale(${scale})`;
-            container.style.height = '600px'; 
+            container.style.height = '650px'; 
         }
     }
     window.onload = function() {
