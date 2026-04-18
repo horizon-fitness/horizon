@@ -5,158 +5,215 @@ require_once '../db.php';
 
 try {
     $input = json_decode(file_get_contents('php://input'), true);
-    $action = $input['action'] ?? 'register';
+    $action = $input['action'] ?? 'request_otp'; // Default to request_otp for the new flow
 
-    if ($action === 'register') {
+    // Utility to ensure registration_otps table exists
+    $pdo->exec("CREATE TABLE IF NOT EXISTS registration_otps (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        code VARCHAR(6) NOT NULL,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME NOT NULL,
+        INDEX (email)
+    )");
+
+    if ($action === 'request_otp') {
         $gym_id = $input['gym_id'] ?? $input['tenant_code'] ?? '';
-        $first_name = trim($input['first_name'] ?? '');
-        $middle_name = trim($input['middle_name'] ?? '');
-        $last_name = trim($input['last_name'] ?? '');
         $email = trim($input['email'] ?? '');
         $username = trim($input['username'] ?? '');
-        $password = $input['password'] ?? '';
-        $phone = trim($input['phone_number'] ?? $input['contact_number'] ?? $input['phone'] ?? '');
         
-        $birth_date = $input['birth_date'] ?? '2000-01-01';
-        $sex = $input['sex'] ?? 'Not Specified';
-        $occupation = trim($input['occupation'] ?? '');
-        $address = trim($input['address'] ?? '');
-        $medical_history = trim($input['medical_history'] ?? '');
-        $emergency_name = trim($input['emergency_contact_name'] ?? $input['emergency_name'] ?? '');
-        $emergency_phone = trim($input['emergency_contact_number'] ?? $input['emergency_phone'] ?? '');
+        // 1. Validate Gym
+        $stmtGym = $pdo->prepare("SELECT gym_id FROM gyms WHERE LOWER(tenant_code) = LOWER(?) LIMIT 1");
+        $stmtGym->execute([$gym_id]);
+        $gData = $stmtGym->fetch();
+        $target_gym_id = $gData['gym_id'] ?? 1;
 
-        $now = date('Y-m-d H:i:s');
-
-        // Expanded required fields check
-        if (empty($gym_id) || empty($first_name) || empty($last_name) || empty($email) || empty($username) || empty($password) || empty($phone) || empty($birth_date) || empty($sex) || empty($emergency_name) || empty($emergency_phone)) {
+        // 2. Separate Uniqueness Checks
+        // Check Username
+        $stmtU = $pdo->prepare("SELECT u.user_id FROM users u 
+                                JOIN user_roles ur ON u.user_id = ur.user_id 
+                                WHERE u.username = ? AND ur.gym_id = ? LIMIT 1");
+        $stmtU->execute([$username, $target_gym_id]);
+        if ($stmtU->fetch()) {
             ob_end_clean();
-            echo json_encode(['success' => false, 'message' => 'Missing required fields. Please ensure all personal and emergency details are filled.']);
+            echo json_encode(['success' => false, 'message' => "The Username '$username' is already taken in this gym."]);
             exit;
         }
 
-        $role_name = 'Member';
-        $invitation_id = null;
-        $tenant_code = null;
-        $raw_gym_input = trim($gym_id);
-        
-        $stmtLookup = $pdo->prepare("SELECT gym_id, tenant_code FROM gyms WHERE LOWER(tenant_code) = LOWER(?) LIMIT 1");
-        $stmtLookup->execute([$raw_gym_input]);
-        $gym_data = $stmtLookup->fetch();
-
-        if ($gym_data) {
-            $gym_id = $gym_data['gym_id'];
-            $tenant_code = $gym_data['tenant_code'];
-            $role_name = 'Member';
-        } else {
-            // Disabled invitation-based staff registration for Mobile
-            $gym_id = 1; 
-            $role_name = 'Member';
-            $stmtT = $pdo->prepare("SELECT tenant_code FROM gyms WHERE gym_id = 1 LIMIT 1");
-            $stmtT->execute();
-            $tenant_code = $stmtT->fetchColumn() ?: '000';
+        // Check Email
+        $stmtE = $pdo->prepare("SELECT u.user_id FROM users u 
+                                JOIN user_roles ur ON u.user_id = ur.user_id 
+                                WHERE u.email = ? AND ur.gym_id = ? LIMIT 1");
+        $stmtE->execute([$email, $target_gym_id]);
+        if ($stmtE->fetch()) {
+            ob_end_clean();
+            echo json_encode(['success' => false, 'message' => "The Email '$email' is already registered in this gym."]);
+            exit;
         }
 
-        $pdo->beginTransaction();
-
-        // Gym-Scoped Uniqueness Check: Only block if the username or email is already registered FOR THIS GYM
-        $stmtCheck = $pdo->prepare("SELECT u.user_id FROM users u 
-                                    JOIN user_roles ur ON u.user_id = ur.user_id 
-                                    WHERE (u.username = ? OR u.email = ?) 
-                                    AND ur.gym_id = ? LIMIT 1");
-        $stmtCheck->execute([$username, $email, $gym_id]);
-        if ($stmtCheck->fetch()) {
-            throw new Exception("Username or Email already exists in this gym.");
-        }
-
-        $password_hash = password_hash($password, PASSWORD_BCRYPT);
-        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, birth_date, sex, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)");
-        $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $birth_date, $sex, $now, $now]);
-        $new_user_id = $pdo->lastInsertId();
-
-        $stmtRoleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
-        $stmtRoleCheck->execute([$role_name]);
-        $role_id = $stmtRoleCheck->fetchColumn();
-
-        if (!$role_id) {
-            $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)")->execute([$role_name]);
-            $role_id = $pdo->lastInsertId();
-        }
-
-        $stmtUR = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, tenant_code, role_status, assigned_at) VALUES (?, ?, ?, ?, 'Pending', ?)");
-        $stmtUR->execute([$new_user_id, $role_id, $gym_id, $tenant_code, $now]);
-
-        if ($role_name === 'Member') {
-            // 3NF: Insert address into dedicated table
-            $stmtAddr = $pdo->prepare("INSERT INTO addresses (address_line, barangay, city, province, region, created_at, updated_at) VALUES (?, '', '', '', '', ?, ?)");
-            $stmtAddr->execute([$address, $now, $now]);
-            $address_id = $pdo->lastInsertId();
-
-            $member_code = 'MBR-' . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
-            $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-            $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $now, $now]);
-        } else {
-            $stmtStaff = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, 'Full-Time', ?, 'Active', ?, ?)");
-            $stmtStaff->execute([$new_user_id, $gym_id, $role_name, date('Y-m-d'), $now, $now]);
-
-            if ($invitation_id) {
-                $stmtInvUpdate = $pdo->prepare("UPDATE staff_invitations SET invitation_status = 'Accepted', accepted_at = ? WHERE invitation_id = ?");
-                $stmtInvUpdate->execute([$now, $invitation_id]);
-            }
-        }
-
+        // 3. Generate and Store OTP
         $otp_code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
         $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+        $now = date('Y-m-d H:i:s');
+
+        // Delete old OTPs for this email
+        $pdo->prepare("DELETE FROM registration_otps WHERE email = ?")->execute([$email]);
         
-        $stmtV = $pdo->prepare("INSERT INTO user_verifications (user_id, gym_id, verification_type, code, status, expires_at, created_at) VALUES (?, ?, 'email', ?, 'pending', ?, ?)");
-        $stmtV->execute([$new_user_id, $gym_id, $otp_code, $expires, $now]);
+        $stmtV = $pdo->prepare("INSERT INTO registration_otps (email, code, expires_at, created_at) VALUES (?, ?, ?, ?)");
+        $stmtV->execute([$email, $otp_code, $expires, $now]);
 
-        $pdo->commit();
-            // No separate logging table insertion for email here for 3NF
-            // The registration is tracked via the member_registrations table if needed, 
-            // but api/register.php doesn't seem to have a separate log entry for 'email' 
-            // besides the member_registrations which I should check.
-
+        // 4. Send Email
         if (file_exists('../includes/mailer.php')) {
             require_once '../includes/mailer.php';
-            $subject = "Your Verification PIN";
-            $emailBody = getEmailTemplate("Verify Your Account", "<p>Your pin is: <strong>$otp_code</strong></p>");
-            sendSystemEmail($email, $subject, $emailBody);
+            $stmtG = $pdo->prepare("SELECT gym_name, profile_picture FROM gyms WHERE gym_id = ? LIMIT 1");
+            $stmtG->execute([$target_gym_id]);
+            $gymInfo = $stmtG->fetch();
+            $gName = $gymInfo['gym_name'] ?? 'Horizon System';
+            $gLogo = $gymInfo['profile_picture'] ?? '';
+
+            $subject = "$gName - Your Verification PIN";
+            $emailBody = getFormalEmailTemplate("Verify Your Account", "
+                <p>Welcome to <strong>$gName</strong>!</p>
+                <p>Thank you for initiating your membership registration. To verify your email address, please use the following One-Time Password (OTP):</p>
+                <div style='background: #f1f5f9; padding: 20px; text-align: center; border-radius: 8px; margin: 25px 0;'>
+                    <span style='font-size: 32px; font-weight: 800; letter-spacing: 5px; color: #1a202c;'>$otp_code</span>
+                </div>
+                <p style='font-size: 14px; color: #718096;'>This code is valid for 1 hour. If you did not request this registration, please ignore this email.</p>
+            ", $gName, $gLogo);
+            $errorString = '';
+            $mailSent = sendSystemEmail($email, $subject, $emailBody, $errorString);
+            
+            if (!$mailSent) {
+                // Delete the OTP we just created since the email failed
+                $pdo->prepare("DELETE FROM registration_otps WHERE email = ?")->execute([$email]);
+                
+                ob_end_clean();
+                echo json_encode([
+                    'success' => false, 
+                    'message' => 'Failed to send Verification PIN. ' . ($errorString ?: 'SMTP Error. Ensure provided email is valid.')
+                ]);
+                exit;
+            }
         }
 
         ob_end_clean();
         echo json_encode([
             'success' => true, 
-            'message' => 'Registration initiated. Please verify with the PIN sent to your email.',
-            'user_id' => (int)$new_user_id
+            'message' => 'Verification PIN sent to your email.'
         ]);
 
-    } elseif ($action === 'verify_pin') {
-        $user_id = $input['user_id'] ?? '';
+    } elseif ($action === 'register') {
         $pin = $input['pin'] ?? '';
-
-        if (empty($user_id) || empty($pin)) {
+        $email = trim($input['email'] ?? '');
+        
+        // 1. Verify PIN First (without creating user yet)
+        $stmtPin = $pdo->prepare("SELECT * FROM registration_otps WHERE email = ? AND code = ? AND expires_at > NOW() LIMIT 1");
+        $stmtPin->execute([$email, $pin]);
+        if (!$stmtPin->fetch()) {
             ob_end_clean();
-            echo json_encode(['success' => false, 'message' => 'User ID and PIN are required.']);
+            echo json_encode(['success' => false, 'message' => 'Invalid or expired PIN. Please request a new one.']);
             exit;
         }
 
-        $stmt = $pdo->prepare("SELECT * FROM user_verifications WHERE user_id = ? AND code = ? AND status = 'pending' AND expires_at > NOW() LIMIT 1");
-        $stmt->execute([$user_id, $pin]);
-        $ver = $stmt->fetch();
+        // 2. If PIN is valid, proceed with Full Registration
+        $gym_id = $input['gym_id'] ?? $input['tenant_code'] ?? '';
+        $first_name = trim($input['first_name'] ?? '');
+        $middle_name = trim($input['middle_name'] ?? '');
+        $last_name = trim($input['last_name'] ?? '');
+        $username = trim($input['username'] ?? '');
+        $password = $input['password'] ?? '';
+        $phone = trim($input['phone_number'] ?? $input['contact_number'] ?? $input['phone'] ?? '');
+        $birth_date = $input['birth_date'] ?? '2000-01-01';
+        $sex = $input['sex'] ?? 'Not Specified';
+        $occupation = trim($input['occupation'] ?? '');
+        $medical_history = trim($input['medical_history'] ?? '');
+        $emergency_name = trim($input['emergency_contact_name'] ?? $input['emergency_name'] ?? '');
+        $emergency_phone = trim($input['emergency_contact_number'] ?? $input['emergency_phone'] ?? '');
+        $parent_name = trim($input['parent_name'] ?? '');
+        $parent_phone = trim($input['parent_contact_number'] ?? $input['parent_phone'] ?? '');
+        $address_line = trim($input['address_line'] ?? $input['address'] ?? '');
+        $barangay = trim($input['barangay'] ?? '');
+        $city = trim($input['city'] ?? '');
+        $province = trim($input['province'] ?? '');
+        $region = trim($input['region'] ?? '');
+        $reg_source = trim($input['registration_source'] ?? 'Mobile');
+        $now = date('Y-m-d H:i:s');
 
-        if ($ver) {
-            $pdo->beginTransaction();
-            $pdo->prepare("UPDATE user_verifications SET status = 'verified', verified_at = NOW() WHERE verification_id = ?")->execute([$ver['verification_id']]);
-            $pdo->prepare("UPDATE users SET is_verified = 1 WHERE user_id = ?")->execute([$user_id]);
-            $pdo->prepare("UPDATE user_roles SET role_status = 'Active' WHERE user_id = ?")->execute([$user_id]);
-            $pdo->commit();
+        $pdo->beginTransaction();
 
-            ob_end_clean();
-            echo json_encode(['success' => true, 'message' => 'Account verified successfully.']);
-        } else {
-            ob_end_clean();
-            echo json_encode(['success' => false, 'message' => 'Invalid or expired PIN.']);
+        // Target Gym Lookup
+        $stmtLookup = $pdo->prepare("SELECT gym_id, tenant_code FROM gyms WHERE LOWER(tenant_code) = LOWER(?) LIMIT 1");
+        $stmtLookup->execute([trim($gym_id)]);
+        $gym_data = $stmtLookup->fetch();
+        $gym_id = $gym_data['gym_id'] ?? 1;
+        $tenant_code = $gym_data['tenant_code'] ?? '000';
+
+        // Final uniqueness check inside transaction
+        $stmtFinalCheck = $pdo->prepare("SELECT u.user_id FROM users u JOIN user_roles ur ON u.user_id = ur.user_id WHERE (u.username = ? OR u.email = ?) AND ur.gym_id = ? LIMIT 1");
+        $stmtFinalCheck->execute([$username, $email, $gym_id]);
+        if ($stmtFinalCheck->fetch()) {
+            throw new Exception("Username or Email was taken during the verification process.");
         }
+
+        // Create User
+        $password_hash = password_hash($password, PASSWORD_BCRYPT);
+        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, birth_date, sex, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)");
+        $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $birth_date, $sex, $now, $now]);
+        $new_user_id = $pdo->lastInsertId();
+
+        // Assign Role
+        $role_name = 'Member';
+        $stmtRoleCheck = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
+        $stmtRoleCheck->execute([$role_name]);
+        $role_id = $stmtRoleCheck->fetchColumn();
+        if (!$role_id) {
+            $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)")->execute([$role_name]);
+            $role_id = $pdo->lastInsertId();
+        }
+        $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, tenant_code, role_status, assigned_at) VALUES (?, ?, ?, ?, 'Active', ?)")
+            ->execute([$new_user_id, $role_id, $gym_id, $tenant_code, $now]);
+
+        // Member Data & Address
+        $stmtAddr = $pdo->prepare("INSERT INTO addresses (address_line, barangay, city, province, region, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmtAddr->execute([$address_line, $barangay, $city, $province, $region, $now, $now]);
+        $address_id = $pdo->lastInsertId();
+
+        $member_code = 'MBR-' . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
+        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, parent_name, parent_contact, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $parent_name, $parent_phone, $now, $now]);
+
+        $pdo->prepare("INSERT INTO member_registrations (gym_id, user_id, registration_source, registration_status, created_at) VALUES (?, ?, ?, 'Completed', ?)")
+            ->execute([$gym_id, $new_user_id, $reg_source, $now]);
+
+        // Cleanup OTP
+        $pdo->prepare("DELETE FROM registration_otps WHERE email = ?")->execute([$email]);
+
+        $pdo->commit();
+
+        // Send Welcome Email
+        if (file_exists('../includes/mailer.php')) {
+            require_once '../includes/mailer.php';
+            $stmtG = $pdo->prepare("SELECT gym_name, profile_picture FROM gyms WHERE gym_id = ? LIMIT 1");
+            $stmtG->execute([$gym_id]);
+            $gym = $stmtG->fetch();
+            $gName = $gym['gym_name'] ?? 'Horizon System';
+            $gLogo = $gym['profile_picture'] ?? '';
+
+            $subject = "Welcome to $gName - Registration Confirmed";
+            $emailBody = getFormalEmailTemplate("Welcome to the Family", "
+                <p>Hello <strong>" . htmlspecialchars($first_name) . "</strong>,</p>
+                <p>Your account at <strong>$gName</strong> has been successfully created and verified! You can now access your member portal and start your fitness journey.</p>
+                <div style='background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;'>
+                    <p style='margin: 0; font-size: 14px;'><strong>Account Details:</strong></p>
+                    <p style='margin: 5px 0 0 0; color: #4a5568;'>Username: <strong>" . htmlspecialchars($username) . "</strong></p>
+                </div>
+                <p>Stay active and see you at the gym!</p>
+            ", $gName, $gLogo);
+            sendSystemEmail($email, $subject, $emailBody);
+        }
+
+        ob_end_clean();
+        echo json_encode(['success' => true, 'message' => 'Registration successful! You can now log in.']);
     }
 } catch (Exception $e) {
     if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();

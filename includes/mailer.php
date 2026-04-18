@@ -12,17 +12,13 @@ require_once __DIR__ . '/../PHPMailer/SMTP.php';
  * @param string $to Recipient email
  * @param string $subject Email subject
  * @param string $body HTML body of the email
+ * @param string &$errorString By-reference parameter to hold error message
  * @return bool True on success, false on failure
  */
-function sendSystemEmail($to, $subject, $body) {
+function sendSystemEmail($to, $subject, $body, &$errorString = null) {
     $mail = new PHPMailer(true);
 
     try {
-        // --- SMTP CONFIGURATION ---
-        // NOTE: For infinityfree, standard SMTP might be restricted. 
-        // Using local mail() or a secondary SMTP service is standard.
-        // For development/demo, we will use a generic structure.
-        
         $mail->isSMTP();
         $mail->Host       = 'smtp.gmail.com'; 
         $mail->SMTPAuth   = true;
@@ -31,11 +27,18 @@ function sendSystemEmail($to, $subject, $body) {
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = 587;
 
-        // Recipients
+        // Settings to ignore SSL errors on local setups
+        $mail->SMTPOptions = array(
+            'ssl' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            )
+        );
+
         $mail->setFrom('no-reply@horizonsystems.com', 'Horizon Systems');
         $mail->addAddress($to);
 
-        // Content
         $mail->isHTML(true);
         $mail->Subject = $subject;
         $mail->Body    = $body;
@@ -44,13 +47,14 @@ function sendSystemEmail($to, $subject, $body) {
         $mail->send();
         return true;
     } catch (Exception $e) {
+        $errorString = $mail->ErrorInfo;
         error_log("Mailer Error: {$mail->ErrorInfo}");
         return false;
     }
 }
 
 /**
- * Generates a consistent HTML template for Horizon emails
+ * Original Template for Web/Dashboard compatibility
  */
 function getEmailTemplate($title, $content) {
     return "
@@ -67,4 +71,53 @@ function getEmailTemplate($title, $content) {
             &copy; " . date('Y') . " Horizon Systems. All rights reserved.
         </div>
     </div>";
+}
+
+/**
+ * New Formal Template specifically for Mobile/Registration Branding
+ */
+function getFormalEmailTemplate($title, $content, $gymName = "Horizon System", $logoUrl = "") {
+    $currentYear = date('Y');
+    $accentColor = "#8c2bee";
+    $headerLogo = !empty($logoUrl) ? "<img src='$logoUrl' alt='$gymName Logo' style='max-height: 60px; margin-bottom: 20px;'>" : "<h1 style='color: $accentColor; margin: 0; font-size: 28px; letter-spacing: 2px;'>HORIZON</h1>";
+    
+    return "
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset='UTF-8'></head>
+    <body style='margin: 0; padding: 0; background-color: #f6f9fc; font-family: sans-serif;'>
+        <table width='100%' border='0' cellspacing='0' cellpadding='0' style='background-color: #f6f9fc; padding: 40px 0;'>
+            <tr>
+                <td align='center'>
+                    <table width='600' border='0' cellspacing='0' cellpadding='0' style='background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
+                        <tr>
+                            <td align='center' style='padding: 40px 40px 0 40px;'>
+                                $headerLogo
+                                <div style='height: 2px; width: 40px; background-color: $accentColor; margin: 20px 0;'></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style='padding: 20px 40px 40px 40px;'>
+                                <h1 style='color: #1a1a1a; font-size: 24px; margin: 0 0 20px 0; text-align: center;'>$title</h1>
+                                <div style='color: #4a5568; font-size: 16px; line-height: 1.6; margin-bottom: 30px;'>
+                                    $content
+                                </div>
+                                <div style='background-color: #f8fafc; padding: 25px; border-radius: 8px; border-left: 4px solid $accentColor;'>
+                                    <p style='margin: 0; font-size: 14px; color: #718096; font-style: italic;'>
+                                        Sent via <strong>$gymName</strong> Registration Service
+                                    </p>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style='background-color: #1a202c; padding: 30px 40px; text-align: center;'>
+                                <p style='color: #a0aec0; font-size: 12px; margin: 0;'>&copy; $currentYear $gymName. All rights reserved.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>";
 }
