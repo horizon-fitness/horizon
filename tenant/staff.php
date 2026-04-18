@@ -32,109 +32,128 @@ $is_restricted = (!$is_sub_active);
 
 // --- ADD STAFF LOGIC ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_staff') {
+    header('Content-Type: application/json');
     if (!$is_sub_active) {
-        $error = "Action restricted. Your subscription is currently $sub_status.";
+        echo json_encode(['success' => false, 'message' => "Action restricted. Your subscription is currently $sub_status."]);
+        exit;
     } else {
         // --- MAX STAFF LIMIT CHECK ---
         $stmtMaxStaff = $pdo->query("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'max_staff'");
         $max_staff = (int) $stmtMaxStaff->fetchColumn();
-        if ($max_staff <= 0) $max_staff = 10; // Fallback default
+        if ($max_staff <= 0) $max_staff = 10; 
 
         $stmtCurrentStaff = $pdo->prepare("SELECT COUNT(*) FROM staff WHERE gym_id = ?");
         $stmtCurrentStaff->execute([$gym_id]);
         $current_staff_count = (int) $stmtCurrentStaff->fetchColumn();
 
         if ($current_staff_count >= $max_staff) {
-            $error = "Action restricted. You have reached the maximum staff limit ($max_staff) set by the Superadmin.";
+            echo json_encode(['success' => false, 'message' => "Action restricted. Limit of $max_staff staff reached."]);
+            exit;
         } else {
             $fname = $_POST['first_name'] ?? '';
+            $mname = $_POST['middle_name'] ?? '';
             $lname = $_POST['last_name'] ?? '';
             $email = $_POST['email'] ?? '';
             $contact = $_POST['contact_number'] ?? '0000000000';
+            $bdate = !empty($_POST['birth_date']) ? $_POST['birth_date'] : null;
+            $sex = $_POST['sex'] ?? 'Prefer not to say';
+
+            // Age Validation (18+)
+            if ($bdate) {
+                $birthDateObj = new DateTime($bdate);
+                $today = new DateTime();
+                $age = $today->diff($birthDateObj)->y;
+                if ($birthDateObj > $today) {
+                    echo json_encode(['success' => false, 'message' => "Validation Error: Birthdate cannot be in the future protocol."]);
+                    exit;
+                }
+                if ($age < 18) {
+                    echo json_encode(['success' => false, 'message' => "Personnel Restriction: Minimum age for registration is 18 years."]);
+                    exit;
+                }
+            }
             $role = $_POST['role'] ?? 'Coach';
             $employment = $_POST['employment'] ?? 'FULL-TIME';
-            $auto_gen = true; // Forced auto-generation for Elite parity
             
             $password = bin2hex(random_bytes(4)); 
-            $confirm_password = $password;
-
+            
             if (empty($fname) || empty($lname) || empty($email) || empty($role)) {
-                $error = "Critical Exception: Missing required registration identity vectors.";
+                echo json_encode(['success' => false, 'message' => "Critical Exception: Missing required registration identity vectors."]);
+                exit;
             } else {
-                if ($auto_gen) {
-                    $base_username = strtolower(substr($fname, 0, 1) . $lname);
-                    $username = $base_username;
-                    $count = 1;
-                    while (true) {
-                        $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
-                        $stmtCheck->execute([$username]);
-                        if (!$stmtCheck->fetch()) break;
-                        $username = $base_username . $count++;
-                    }
-                } else {
-                    $username = trim($_POST['username'] ?? '');
-                    $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
-                    $stmtCheck->execute([$username]);
-                    if ($stmtCheck->fetch()) {
-                        $error = "The username '$username' is already taken.";
-                    }
+                // Global Email Uniqueness Check
+                $stmtEmailCheck = $pdo->prepare("SELECT user_id FROM users WHERE email = ? LIMIT 1");
+                $stmtEmailCheck->execute([$email]);
+                if ($stmtEmailCheck->fetch()) {
+                    echo json_encode(['success' => false, 'message' => "The email address '$email' is already registered in the system."]);
+                    exit;
                 }
 
-                if (!isset($error)) {
-                    $pass_hash = password_hash($password, PASSWORD_DEFAULT);
+                $base_username = strtolower(substr($fname, 0, 1) . $lname);
+                $username = $base_username;
+                $count = 1;
+                while (true) {
+                    $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
+                    $stmtCheck->execute([$username]);
+                    if (!$stmtCheck->fetch()) break;
+                    $username = $base_username . $count++;
+                }
 
-                    try {
-                        $pdo->beginTransaction();
+                $pass_hash = password_hash($password, PASSWORD_DEFAULT);
 
-                        // 1. Insert into Users
-                        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, 1, NOW(), NOW())");
-                        $stmtUser->execute([$username, $email, $pass_hash, $fname, $lname, $contact]);
-                        $new_user_id = $pdo->lastInsertId();
+                try {
+                    $pdo->beginTransaction();
 
-                        // 2. Insert into user_roles
-                        $role_name = (strtolower($role) === 'coach') ? 'Coach' : 'Staff';
-                        $stmtRoleLookup = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
-                        $stmtRoleLookup->execute([$role_name]);
-                        $role_row = $stmtRoleLookup->fetch();
-                        
-                        if (!$role_row) {
-                            $stmtAddRole = $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)");
-                            $stmtAddRole->execute([$role_name]);
-                            $role_id = $pdo->lastInsertId();
-                        } else {
-                            $role_id = $role_row['role_id'];
-                        }
+                    // 1. Insert into Users
+                    $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, birth_date, sex, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, NOW(), NOW())");
+                    $stmtUser->execute([$username, $email, $pass_hash, $fname, $mname, $lname, $contact, $bdate, $sex]);
+                    $new_user_id = $pdo->lastInsertId();
 
-                        $stmtUserRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', NOW())");
-                        $stmtUserRole->execute([$new_user_id, $role_id, $gym_id]);
-
-                        // 3. Insert into Staff
-                        $stmtStaffAdd = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_DATE, 'Active', NOW(), NOW())");
-                        $stmtStaffAdd->execute([$new_user_id, $gym_id, $role, $employment]);
-
-                        $pdo->commit();
-
-                        // Send Welcome Email
-                        $subject = "Welcome to " . ($gym['gym_name'] ?? 'Horizon') . "!";
-                        $login_url = "https://" . $_SERVER['HTTP_HOST'] . "/login.php"; 
-                        $content = "
-                            <p>Hello <strong>" . htmlspecialchars($fname) . "</strong>,</p>
-                            <p>Welcome to the <strong>" . htmlspecialchars($gym['gym_name'] ?? 'Horizon') . "</strong> team! Your staff account has been successfully created.</p>
-                            <div style='background: #f8f8f8; padding: 20px; border-radius: 10px; margin: 20px 0;'>
-                                <p style='margin: 0;'><strong>Username:</strong> " . htmlspecialchars($username) . "</p>
-                                <p style='margin: 5px 0 0 0;'><strong>Password:</strong> " . htmlspecialchars($password) . "</p>
-                            </div>
-                            <p>You can access the portal here: <a href='$login_url'>$login_url</a></p>
-                            <p>Please change your password after your first login for security.</p>
-                        ";
-                        sendSystemEmail($email, $subject, getEmailTemplate("Welcome to the Team!", $content));
-
-                        header("Location: staff.php?success=1");
-                        exit;
-                    } catch (Exception $e) {
-                        $pdo->rollBack();
-                        $error = "Error adding staff: " . $e->getMessage();
+                    // 2. Insert into user_roles
+                    $role_name = (strtolower($role) === 'coach') ? 'Coach' : 'Staff';
+                    $stmtRoleLookup = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
+                    $stmtRoleLookup->execute([$role_name]);
+                    $role_row = $stmtRoleLookup->fetch();
+                    
+                    if (!$role_row) {
+                        $stmtAddRole = $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)");
+                        $stmtAddRole->execute([$role_name]);
+                        $role_id = $pdo->lastInsertId();
+                    } else {
+                        $role_id = $role_row['role_id'];
                     }
+
+                    $stmtUserRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', NOW())");
+                    $stmtUserRole->execute([$new_user_id, $role_id, $gym_id]);
+
+                    // 3. Insert into Staff
+                    $stmtStaffAdd = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_DATE, 'Active', NOW(), NOW())");
+                    $stmtStaffAdd->execute([$new_user_id, $gym_id, $role, $employment]);
+
+                    $pdo->commit();
+
+                    // Send Welcome Email
+                    $subject = "Welcome to the Team!";
+                    $login_url = "https://" . $_SERVER['HTTP_HOST'] . "/login.php"; 
+                    $content = "
+                        <p>Hello <strong>" . htmlspecialchars($fname) . "</strong>,</p>
+                        <p>Your staff account has been successfully created.</p>
+                        <div style='background: #f8f8f8; padding: 20px; border-radius: 10px; margin: 20px 0;'>
+                            <p style='margin: 0;'><strong>Username:</strong> " . htmlspecialchars($username) . "</p>
+                            <p style='margin: 5px 0 0 0;'><strong>Password:</strong> " . htmlspecialchars($password) . "</p>
+                        </div>
+                        <p>You can access the portal here: <a href='$login_url'>$login_url</a></p>
+                    ";
+                    try {
+                        sendSystemEmail($email, $subject, getEmailTemplate("Welcome to the Team!", $content));
+                    } catch (Exception $e) {}
+
+                    echo json_encode(['success' => true, 'message' => "Staff account for $fname $lname has been successfully initialized."]);
+                    exit;
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    echo json_encode(['success' => false, 'message' => "Internal Error: " . $e->getMessage()]);
+                    exit;
                 }
             }
         }
@@ -441,6 +460,27 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
         .strength-weak { width: 33%; background: #f43f5e; }
         .strength-medium { width: 66%; background: #f59e0b; }
         .strength-strong { width: 100%; background: #10b981; }
+
+        /* Elite Notification System */
+        .elite-notify {
+            position: fixed; top: 40px; right: 40px; z-index: 9999;
+            background: rgba(20, 18, 22, 0.85); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 20px;
+            padding: 16px 24px; min-width: 320px; max-width: 450px;
+            transform: translateX(120%); transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            display: flex; align-items: center; gap: 16px; pointer-events: none;
+        }
+        .elite-notify.active { transform: translateX(0); pointer-events: auto; }
+        .elite-notify-icon {
+            size: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+            shrink-0; color: white;
+        }
+        .elite-notify-success .elite-notify-icon { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+        .elite-notify-error .elite-notify-icon { background: rgba(244, 63, 94, 0.15); color: #f43f5e; }
+        .elite-notify-content { flex: 1; }
+        .elite-notify-title { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
+        .elite-notify-msg { font-size: 10px; font-weight: 600; color: var(--text-main); opacity: 0.6; line-height: 1.5; }
     </style>
     <script>
         function showSubWarning() { document.getElementById('subModal').classList.add('active'); }
@@ -685,6 +725,14 @@ include '../includes/tenant_sidebar.php';
                         <p id="view_contact" class="text-xs font-bold text-[--text-main]">0917 XXX XXXX</p>
                     </div>
                     <div class="flex items-center justify-between">
+                        <label class="label-muted">Biological Sex</label>
+                        <p id="view_sex" class="text-xs font-bold text-[--text-main]">Male</p>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <label class="label-muted">Birthdate</label>
+                        <p id="view_birthdate" class="text-xs font-bold text-[--text-main]">Jan 01, 1990</p>
+                    </div>
+                    <div class="flex items-center justify-between">
                         <label class="label-muted">Initiation Date</label>
                         <p id="view_hire_date" class="text-xs font-bold text-[--text-main]">Jan 12, 2024</p>
                     </div>
@@ -718,14 +766,36 @@ include '../includes/tenant_sidebar.php';
                             <span class="material-symbols-outlined text-sm">badge</span>
                             <span class="text-[9px] font-black uppercase tracking-[0.3em]">Identity Details</span>
                         </div>
-                        <div class="grid grid-cols-2 gap-6">
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-6">
                             <div class="space-y-2.5">
                                 <label class="label-muted ml-1">First Name</label>
-                                <input type="text" name="first_name" required placeholder="GIVEN NAME" class="filter-input w-full uppercase" autocomplete="off">
+                                <input type="text" name="first_name" required placeholder="Ex. John" class="filter-input w-full" autocomplete="off">
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Middle Name</label>
+                                <input type="text" name="middle_name" placeholder="Ex. Quincey" class="filter-input w-full" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
                                 <label class="label-muted ml-1">Last Name</label>
-                                <input type="text" name="last_name" required placeholder="SURNAME" class="filter-input w-full uppercase" autocomplete="off">
+                                <input type="text" name="last_name" required placeholder="Ex. Doe" class="filter-input w-full" autocomplete="off">
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Sex</label>
+                                <select name="sex" class="filter-input w-full italic">
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Prefer not to say">Prefer not to say</option>
+                                </select>
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Birthdate</label>
+                                <input type="date" name="birth_date" id="birth_date" required 
+                                    max="<?= date('Y-m-d', strtotime('-18 years')) ?>"
+                                    class="filter-input w-full [color-scheme:dark]" autocomplete="off">
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Contact No.</label>
+                                <input type="text" name="contact_number" id="contact_number" required placeholder="09XX-XXX-XXXX" class="filter-input w-full" autocomplete="off">
                             </div>
                         </div>
                     </div>
@@ -733,45 +803,39 @@ include '../includes/tenant_sidebar.php';
                     <div class="space-y-6 pt-4">
                         <div class="flex items-center gap-3 mb-2 opacity-40">
                             <span class="material-symbols-outlined text-sm">contact_mail</span>
-                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Communication & Role</span>
+                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Account & Role</span>
                         </div>
-                        <div class="grid grid-cols-2 gap-6">
+                        <div class="space-y-6">
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Email Address</label>
-                                <input type="email" name="email" required placeholder="official@email.com" class="filter-input w-full lowercase" autocomplete="off">
+                                <label class="label-muted ml-1">Email Address (Gmail Only)</label>
+                                <input type="email" name="email" id="email" required placeholder="official@gmail.com" class="filter-input w-full" autocomplete="off">
                             </div>
-                            <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Contact No.</label>
-                                <input type="text" name="contact_number" required placeholder="09XX XXX XXXX" class="filter-input w-full" autocomplete="off">
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-6">
-                            <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Assigned Role</label>
-                                <select name="role" class="filter-input w-full italic">
-                                    <option value="Coach">COACH / TRAINER</option>
-                                    <option value="Staff">OPERATIONAL STAFF</option>
-                                    <option value="Manager">MANAGER</option>
-                                </select>
-                            </div>
-                            <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Employment Type</label>
-                                <select name="employment" class="filter-input w-full italic">
-                                    <option value="FULL-TIME">FULL-TIME</option>
-                                    <option value="PART-TIME">PART-TIME</option>
-                                    <option value="CONTRACTUAL">CONTRACTUAL</option>
-                                </select>
+                            
+                            <div class="grid grid-cols-2 gap-x-8 gap-y-6">
+                                <div class="space-y-2.5">
+                                    <label class="label-muted ml-1">Assigned Role</label>
+                                    <select name="role" class="filter-input w-full italic">
+                                        <option value="Coach">Coach / Trainer</option>
+                                        <option value="Staff">Operational Staff</option>
+                                    </select>
+                                </div>
+                                <div class="space-y-2.5">
+                                    <label class="label-muted ml-1">Employment Type</label>
+                                    <select name="employment" class="filter-input w-full italic">
+                                        <option value="FULL-TIME">Full-time</option>
+                                        <option value="PART-TIME">Part-time</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="p-6 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col gap-3">
+                    <div class="p-6 rounded-2xl bg-white/[0.02] border-l-2 border-primary/50 flex flex-col gap-3">
                         <div class="flex items-center gap-3">
-                            <span class="material-symbols-outlined text-primary text-xl">verified_user</span>
-                            <p class="text-[10px] font-black text-white uppercase tracking-widest">Autonomous Credentialing</p>
+                            <span class="material-symbols-outlined text-primary text-xl opacity-80">verified_user</span>
+                            <p class="text-[10px] font-black text-white/90 uppercase tracking-widest">Credentials</p>
                         </div>
-                        <p class="text-[9px] font-medium text-primary/70 uppercase leading-relaxed italic">The system will balance-generate a unique core identity and secure password. Credentials will be transmitted immediately to the provided email address upon registration.</p>
+                        <p class="text-[9px] font-medium text-white/40 uppercase leading-relaxed italic">For security, the account username and password will be automatically generated and securely delivered to the recipient's email address upon confirmation.</p>
                     </div>
                 </div>
 
@@ -801,6 +865,110 @@ include '../includes/tenant_sidebar.php';
             modal.classList.toggle('active');
         }
 
+        // --- VALIDATION LOGIC ---
+        const phoneInput = document.getElementById('contact_number');
+        if (phoneInput) {
+            phoneInput.addEventListener('input', function(e) {
+                let x = e.target.value.replace(/\D/g, '').match(/(\d{0,4})(\d{0,3})(\d{0,4})/);
+                e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
+            });
+        }
+
+        // --- ELITE NOTIFICATION SYSTEM ---
+        function showNotification(msg, type = 'success') {
+            const existing = document.querySelector('.elite-notify');
+            if (existing) existing.remove();
+
+            const notify = document.createElement('div');
+            notify.className = `elite-notify elite-notify-${type}`;
+            const icon = type === 'success' ? 'check_circle' : 'error';
+            const title = type === 'success' ? 'Protocol Success' : 'Input Violation';
+
+            notify.innerHTML = `
+                <div class="elite-notify-icon">
+                    <span class="material-symbols-outlined">${icon}</span>
+                </div>
+                <div class="elite-notify-content">
+                    <div class="elite-notify-title">${title}</div>
+                    <div class="elite-notify-msg">${msg}</div>
+                </div>
+            `;
+
+            document.body.appendChild(notify);
+            setTimeout(() => notify.classList.add('active'), 10);
+
+            setTimeout(() => {
+                notify.classList.remove('active');
+                setTimeout(() => notify.remove(), 600);
+            }, 5000);
+        }
+
+        document.querySelector('#addStaffModal form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            const email = document.getElementById('email').value.toLowerCase();
+            const phone = document.getElementById('contact_number').value;
+            const bdate = document.getElementById('birth_date').value;
+            const phoneRegex = /^09\d{2}-\d{3}-\d{4}$/;
+
+            if (bdate) {
+                const birthDate = new Date(bdate);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const m = today.getMonth() - birthDate.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+                
+                if (birthDate > today) {
+                    showNotification('Validation Error: Birthdate cannot be in the future.', 'error');
+                    return;
+                }
+                if (age < 18) {
+                    showNotification('Personnel Restriction: Staff must be at least 18 years old.', 'error');
+                    return;
+                }
+            }
+
+            if (!email.endsWith('@gmail.com')) {
+                showNotification('Registration Restricted: Only official @gmail.com addresses are permitted.', 'error');
+                return;
+            }
+
+            if (!phoneRegex.test(phone)) {
+                showNotification('Validation Error: Use the official 09XX-XXX-XXXX format.', 'error');
+                return;
+            }
+
+            // Lock & Load
+            btn.disabled = true;
+            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Deploying...`;
+
+            const formData = new FormData(this);
+            fetch('staff.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showNotification(data.message, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            })
+            .catch(err => {
+                showNotification('System Exception: Failed to transmit registration protocol.', 'error');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            });
+        });
+
         function openViewModal(s) {
             const modal = document.getElementById('viewStaffModal');
 
@@ -814,15 +982,22 @@ include '../includes/tenant_sidebar.php';
                 avatarDiv.innerHTML = `<span class="text-gray-500 font-black italic text-4xl tracking-tighter">${initials}</span>`;
             }
 
-            document.getElementById('view_full_name').innerText = s.first_name + ' ' + s.last_name;
+            document.getElementById('view_full_name').innerText = s.first_name + (s.middle_name ? ' ' + s.middle_name : '') + ' ' + s.last_name;
             document.getElementById('view_role_badge').innerText = s.staff_role;
             document.getElementById('view_email').innerText = s.email;
             document.getElementById('view_contact').innerText = s.contact_number || 'N/A';
             document.getElementById('view_employment').innerText = s.employment_type;
+            document.getElementById('view_sex').innerText = s.sex || 'N/A';
 
-            // Format Hire Date
-            const hireDate = new Date(s.hire_date);
+            // Format Dates
             const options = { year: 'numeric', month: 'short', day: 'numeric' };
+            if (s.birth_date) {
+                document.getElementById('view_birthdate').innerText = new Date(s.birth_date).toLocaleDateString('en-US', options);
+            } else {
+                document.getElementById('view_birthdate').innerText = 'N/A';
+            }
+
+            const hireDate = new Date(s.hire_date);
             document.getElementById('view_hire_date').innerText = hireDate.toLocaleDateString('en-US', options);
 
             // Status Badge

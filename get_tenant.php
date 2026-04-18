@@ -159,7 +159,9 @@ try {
         'logo_path'   => $branding['system_logo'] ?? $gym['profile_picture'] ?? null,
         'theme_color' => $branding['theme_color'] ?? '#8c2bee',
         'bg_color'    => $branding['bg_color'] ?? '#0a090d',
-        'font_family' => $branding['font_family'] ?? 'Inter'
+        'font_family' => $branding['font_family'] ?? 'Inter',
+        'card_color'  => $branding['card_color'] ?? '#141216',
+        'auto_card_theme' => $branding['auto_card_theme'] ?? '1'
     ]);
     exit;
 
