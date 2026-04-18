@@ -22,7 +22,7 @@ $user_id = null; // No user ID yet — data saved ONLY after OTP confirmed
 
 $error = '';
 $success = '';
-$branding = null;
+$branding = []; // Initialize as array to prevent PHP 8 null-access crash
 $is_auto_approved = false;
 
 if (isset($_GET['gym'])) {
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($is_staged) {
         // CASE A: STAGED REGISTRATION (In Session)
         $staged_otp = $_SESSION['staged_otp'] ?? null;
-        if ($staged_otp) {
+        if ($staged_otp && isset($staged_otp['code'], $staged_otp['expires_at'])) {
             if (time() > $staged_otp['expires_at']) {
                 $error = 'This verification code has expired. Please request a new one.';
             } elseif ($entered_code === $staged_otp['code'] || $entered_code === '999999') {
@@ -312,14 +312,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <style>
         *::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
-        html, body { background-color: #050505 !important; color: #f3f4f6; margin: 0; padding: 0; min-height: 100vh; }
+        html, body { background-color: #050505 !important; color: #f3f4f6; margin: 0; padding: 0; min-height: 100vh; font-family: 'Plus Jakarta Sans', sans-serif; }
         .hero-glow { background-image: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.18), transparent 70%); }
-        .login-bg-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(5,5,5,0.8), #050505), url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop'); background-size: cover; background-position: center; opacity: 0.4; z-index: -1; }
-        .dashboard-window { background: rgba(8, 8, 10, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1); }
+        .login-bg-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(5,5,5,0.8), #050505), url('https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070&auto=format&fit=crop'); background-size: cover; background-position: center; opacity: 0.3; z-index: -1; }
+        .dashboard-window { background: rgba(8, 8, 10, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1); }
         @keyframes fade-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-        .otp-box { background-color: #08080a !important; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); appearance: none; -webkit-appearance: none; }
+        .otp-box { background-color: rgba(255, 255, 255, 0.03) !important; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); appearance: none; -webkit-appearance: none; }
         .otp-box:focus { background-color: rgba(127, 19, 236, 0.05) !important; border-color: #7f13ec !important; box-shadow: 0 0 15px rgba(127, 19, 236, 0.2) !important; transform: translateY(-2px); outline: none !important; }
+        .btn-premium { background: linear-gradient(135deg, #7f13ec 0%, #6012b3 100%); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .btn-premium:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(127, 19, 236, 0.5); }
     </style>
 </head>
 
@@ -382,12 +384,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <?= $is_auto_approved ? 'Success! Your gym portal is now live.' : 'Confirmed! Redirecting you to login...' ?>
                                 </p>
                                 
-                                <div class="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-3">
+                                <div class="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-4">
                                     <div id="redirect-progress" class="absolute inset-y-0 left-0 <?= $is_auto_approved ? 'bg-primary' : 'bg-emerald-500' ?> transition-all duration-100 ease-linear" style="width: 100%"></div>
                                 </div>
-                                <div class="flex justify-between items-center text-[9px] font-black uppercase tracking-[0.2em] text-gray-600">
-                                    <span>Syncing Session</span>
-                                    <span id="countdown-text">10s</span>
+                                <div class="flex justify-between items-center text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">
+                                    <span class="flex items-center gap-2">
+                                        <span class="size-1 rounded-full bg-primary animate-pulse"></span>
+                                        Finalizing Session
+                                    </span>
+                                    <span id="countdown-text" class="text-white">10s</span>
                                 </div>
                             </div>
                         </div>
@@ -408,7 +413,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="hidden" name="otp_code" id="otp_full_code">
                     </div>
 
-                    <button class="w-full h-16 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98]" type="submit">
+                    <button class="w-full h-16 rounded-xl btn-premium text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all flex items-center justify-center gap-3 active:scale-[0.98]" type="submit">
                         Verify My Account
                         <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
