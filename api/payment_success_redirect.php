@@ -41,12 +41,12 @@ if ($gym_id > 0 && $user_id > 0) {
             }
 
             // Get Plan details for duration & sessions
-            $stmtPlan = $pdo->prepare("SELECT duration_value, session_limit, plan_name FROM membership_plans WHERE membership_plan_id = ?");
+            $stmtPlan = $pdo->prepare("SELECT duration_value, plan_name FROM membership_plans WHERE membership_plan_id = ?");
             $stmtPlan->execute([$plan_id]);
             $planDetails = $stmtPlan->fetch();
             
             $duration = $planDetails ? (int)$planDetails['duration_value'] : 30;
-            $sessions = $planDetails ? (int)$planDetails['session_limit'] : 0;
+            $sessions = 0; // Column session_limit does not exist in membership_plans
             $plan_name = $planDetails ? $planDetails['plan_name'] : "Subscription";
 
             $start_date = date('Y-m-d');

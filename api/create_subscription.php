@@ -90,8 +90,8 @@ try {
 
     if ($plan) {
         $amount = (float)$plan['price'];
-        if ($sessions_total === -1 && $plan['session_limit'] > 0) {
-            $sessions_total = (int)$plan['session_limit'];
+        if ($sessions_total === -1) {
+            $sessions_total = 0; // Column session_limit does not exist in membership_plans
         }
     } else {
         payment_debug_log("PLAN NOT FOUND: Plan ID $plan_id does not belong to gym $gym_id or is invalid.");

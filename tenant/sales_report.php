@@ -197,13 +197,21 @@ $active_page = "sales";
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
         }
 
-        .hover-lift:hover { 
-            transform: translateY(-10px); 
-            border-color: rgba(var(--primary-rgb), 0.4); 
-            box-shadow: 0 20px 40px -20px rgba(var(--primary-rgb), 0.3); 
+        /* Status Cards (Superadmin Sync) */
+        .status-card-primary {
+            border: 1px solid rgba(var(--primary-rgb), 0.3);
+            background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.01) 100%);
+        }
+        .status-card-green {
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.01) 100%);
+        }
+        .status-card-amber {
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.01) 100%);
         }
 
-        /* Sidebar Styles */
+        /* Sidebar & Layout Engine */
         .side-nav {
             width: 110px;
             transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
@@ -263,23 +271,9 @@ $active_page = "sales";
             width: 4px; height: 24px; background: var(--primary); border-radius: 4px 0 0 4px;
         }
 
-        /* 1. Global Invisible Scroll System */
+        /* Invisible Scroll System (Global) */
         *::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
-
-        /* Status Cards (Superadmin Sync) */
-        .status-card-primary {
-            border: 1px solid rgba(var(--primary-rgb), 0.3);
-            background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.01) 100%);
-        }
-        .status-card-green {
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.01) 100%);
-        }
-        .status-card-amber {
-            border: 1px solid rgba(245, 158, 11, 0.3);
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.01) 100%);
-        }
 
         .table-header-alt {
             font-size: 10px; font-weight: 900;

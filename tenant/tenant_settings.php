@@ -346,147 +346,153 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     if (false) { // Relaxed restriction
         $error = "Action restricted. Your subscription is currently $sub_status.";
     } else {
-        // 1. Branding Settings (Key-Value system_settings)
-        $branding_keys = [
-            'system_name' => $_POST['system_name'] ?? $gym['gym_name'],
-            'theme_color' => $_POST['theme_color'] ?? '#8c2bee',
-            'secondary_color' => $_POST['secondary_color'] ?? '#a1a1aa',
-            'text_color' => $_POST['text_color'] ?? '#d1d5db',
-            'bg_color' => $_POST['bg_color'] ?? '#0a090d',
-            'card_color' => $_POST['card_color'] ?? '#141216',
-            'auto_card_theme' => $_POST['auto_card_theme'] ?? '0',
-            'is_active' => '1',
-            'page_slug' => $page['page_slug'] ?? strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name']))
-        ];
+        // Only update branding/portal/facility if no specific horizontal sub-action is provided
+        $action = $_POST['action'] ?? '';
+        
+        if (empty($action)) {
+            // 1. Branding Settings (Key-Value system_settings)
+            $branding_keys = [
+                'system_name' => $_POST['system_name'] ?? $configs['system_name'],
+                'theme_color' => $_POST['theme_color'] ?? $configs['theme_color'],
+                'secondary_color' => $_POST['secondary_color'] ?? $configs['secondary_color'],
+                'text_color' => $_POST['text_color'] ?? $configs['text_color'],
+                'bg_color' => $_POST['bg_color'] ?? $configs['bg_color'],
+                'card_color' => $_POST['card_color'] ?? $configs['card_color'],
+                'auto_card_theme' => $_POST['auto_card_theme'] ?? '0',
+                'is_active' => '1',
+                'page_slug' => $page['page_slug'] ?? strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $gym['gym_name']))
+            ];
 
-        // 2. Portal Content (Normalized portal_settings - 3NF)
-        $portal_keys = [
-            'hero_title' => $_POST['portal_hero_title'] ?? '',
-            'hero_subtitle' => $_POST['portal_hero_subtitle'] ?? '',
-            'features_title' => $_POST['portal_features_title'] ?? '',
-            'features_desc' => $_POST['portal_features_desc'] ?? '',
-            'philosophy_title' => $_POST['portal_philosophy_title'] ?? '',
-            'philosophy_desc' => $_POST['portal_philosophy_desc'] ?? '',
-            'hero_label' => $_POST['portal_hero_label'] ?? '',
-            'features_label' => $_POST['portal_features_label'] ?? '',
-            'philosophy_label' => $_POST['portal_philosophy_label'] ?? '',
-            'plans_title' => $_POST['portal_plans_title'] ?? '',
-            'plans_subtitle' => $_POST['portal_plans_subtitle'] ?? '',
-            'footer_label' => $_POST['portal_footer_label'] ?? '',
-            'footer_desc' => $_POST['portal_footer_desc'] ?? ''
-        ];
+            // 2. Portal Content (Normalized portal_settings - 3NF)
+            $portal_keys = [
+                'hero_title' => $_POST['portal_hero_title'] ?? $configs['portal_hero_title'] ?? '',
+                'hero_subtitle' => $_POST['portal_hero_subtitle'] ?? $configs['portal_hero_subtitle'] ?? '',
+                'features_title' => $_POST['portal_features_title'] ?? $configs['portal_features_title'] ?? '',
+                'features_desc' => $_POST['portal_features_desc'] ?? $configs['portal_features_desc'] ?? '',
+                'philosophy_title' => $_POST['portal_philosophy_title'] ?? $configs['portal_philosophy_title'] ?? '',
+                'philosophy_desc' => $_POST['portal_philosophy_desc'] ?? $configs['portal_philosophy_desc'] ?? '',
+                'hero_label' => $_POST['portal_hero_label'] ?? $configs['portal_hero_label'] ?? '',
+                'features_label' => $_POST['portal_features_label'] ?? $configs['portal_features_label'] ?? '',
+                'philosophy_label' => $_POST['portal_philosophy_label'] ?? $configs['portal_philosophy_label'] ?? '',
+                'plans_title' => $_POST['portal_plans_title'] ?? $configs['portal_plans_title'] ?? '',
+                'plans_subtitle' => $_POST['portal_plans_subtitle'] ?? $configs['portal_plans_subtitle'] ?? '',
+                'footer_label' => $_POST['portal_footer_label'] ?? $configs['portal_footer_label'] ?? '',
+                'footer_desc' => $_POST['portal_footer_desc'] ?? $configs['portal_footer_desc'] ?? ''
+            ];
 
-        // Facility Data
-        $opening_time = !empty($_POST['opening_time']) ? $_POST['opening_time'] : '00:00:00';
-        $closing_time = !empty($_POST['closing_time']) ? $_POST['closing_time'] : '23:59:59';
-        $max_capacity = !empty($_POST['max_capacity']) ? (int) $_POST['max_capacity'] : 0;
-        $rules_text = $_POST['rules_text'] ?? '';
+            // Facility Data
+            $opening_time = !empty($_POST['opening_time']) ? $_POST['opening_time'] : ($gym['opening_time'] ?? '00:00:00');
+            $closing_time = !empty($_POST['closing_time']) ? $_POST['closing_time'] : ($gym['closing_time'] ?? '23:59:59');
+            $max_capacity = !empty($_POST['max_capacity']) ? (int) $_POST['max_capacity'] : (int)($gym['max_capacity'] ?? 0);
+            $rules_text = $_POST['rules_text'] ?? ($gym['rules_text'] ?? '');
 
-        $has_lockers = isset($_POST['has_lockers']) ? 1 : 0;
-        $has_shower = isset($_POST['has_shower']) ? 1 : 0;
-        $has_parking = isset($_POST['has_parking']) ? 1 : 0;
-        $has_wifi = isset($_POST['has_wifi']) ? 1 : 0;
+            $has_lockers = isset($_POST['has_lockers']) ? 1 : ($gym['has_lockers'] ?? 0);
+            $has_shower = isset($_POST['has_shower']) ? 1 : ($gym['has_shower'] ?? 0);
+            $has_parking = isset($_POST['has_parking']) ? 1 : ($gym['has_parking'] ?? 0);
+            $has_wifi = isset($_POST['has_wifi']) ? 1 : ($gym['has_wifi'] ?? 0);
+        }
 
         $now = date('Y-m-d H:i:s');
 
         try {
             $pdo->beginTransaction();
 
-            // A. Update Branding Settings
-            $stmtUpdateBranding = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
-            foreach ($branding_keys as $key => $value) {
-                $stmtUpdateBranding->execute([$user_id, $key, $value]);
-            }
-
-            // B. Update Portal Content (Single Row per Gym)
-            $portal_cols = implode(', ', array_keys($portal_keys));
-            $portal_placeholders = implode(', ', array_fill(0, count($portal_keys), '?'));
-            $portal_updates = implode(', ', array_map(fn($k) => "$k = VALUES($k)", array_keys($portal_keys)));
-            
-            $stmtUpdatePortal = $pdo->prepare("INSERT INTO portal_settings (gym_id, $portal_cols) VALUES (?, $portal_placeholders) ON DUPLICATE KEY UPDATE $portal_updates");
-            $stmtUpdatePortal->execute(array_merge([$gym_id], array_values($portal_keys)));
-
-            // Update local configs immediately
-            $configs = array_merge($configs, $branding_keys);
-            foreach($portal_keys as $pk => $pv) {
-                $configs['portal_' . $pk] = $pv;
-            }
-
-            // 3. Update/Create Gym Details
-            $stmtCheckDetails = $pdo->prepare("SELECT 1 FROM gym_details WHERE gym_id = ?");
-            $stmtCheckDetails->execute([$gym_id]);
-
-            if ($stmtCheckDetails->fetch()) {
-                $stmtUpdateDetails = $pdo->prepare("UPDATE gym_details SET opening_time = ?, closing_time = ?, max_capacity = ?, has_lockers = ?, has_shower = ?, has_parking = ?, has_wifi = ?, rules_text = ?, updated_at = ? WHERE gym_id = ?");
-                $stmtUpdateDetails->execute([$opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now, $gym_id]);
-            } else {
-                $stmtInsertDetails = $pdo->prepare("INSERT INTO gym_details (gym_id, opening_time, closing_time, max_capacity, has_lockers, has_shower, has_parking, has_wifi, rules_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmtInsertDetails->execute([$gym_id, $opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now]);
-            }
-
-            if (isset($_POST['membership_plans']) && is_array($_POST['membership_plans'])) {
-                $stmtUpdateMPlan = $pdo->prepare("UPDATE membership_plans SET plan_name = ?, price = ?, duration_value = ?, billing_cycle_text = ?, featured_badge_text = ?, description = ?, features = ?, updated_at = NOW() WHERE membership_plan_id = ? AND gym_id = ?");
-                foreach ($_POST['membership_plans'] as $id => $data) {
-                    $stmtUpdateMPlan->execute([
-                        $data['name'],
-                        (float) ($data['price'] ?? 0),
-                        (int) ($data['duration'] ?? 1),
-                        $data['billing_cycle'] ?? null,
-                        $data['badge'] ?? null,
-                        $data['description'] ?? '',
-                        $data['features'] ?? '',
-                        $id,
-                        $gym_id
-                    ]);
+            if (empty($action)) {
+                // A. Update Branding Settings
+                $stmtUpdateBranding = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+                foreach ($branding_keys as $key => $value) {
+                    $stmtUpdateBranding->execute([$user_id, $key, $value]);
                 }
-            }
 
-            if (isset($_POST['new_membership_plans']) && is_array($_POST['new_membership_plans'])) {
-                // Fetch current max sort order for this gym
-                $stmtMax = $pdo->prepare("SELECT MAX(sort_order) FROM membership_plans WHERE gym_id = ?");
-                $stmtMax->execute([$gym_id]);
-                $max_order = (int) $stmtMax->fetchColumn();
+                // B. Update Portal Content (Single Row per Gym)
+                $portal_cols = implode(', ', array_keys($portal_keys));
+                $portal_placeholders = implode(', ', array_fill(0, count($portal_keys), '?'));
+                $portal_updates = implode(', ', array_map(fn($k) => "$k = VALUES($k)", array_keys($portal_keys)));
+                
+                $stmtUpdatePortal = $pdo->prepare("INSERT INTO portal_settings (gym_id, $portal_cols) VALUES (?, $portal_placeholders) ON DUPLICATE KEY UPDATE $portal_updates");
+                $stmtUpdatePortal->execute(array_merge([$gym_id], array_values($portal_keys)));
 
-                $stmtInsMPlan = $pdo->prepare("INSERT INTO membership_plans (gym_id, plan_name, price, duration_value, billing_cycle_text, featured_badge_text, description, features, is_active, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW(), NOW())");
-                foreach ($_POST['new_membership_plans'] as $data) {
-                    if (empty($data['name']))
-                        continue;
-                    $max_order++;
-                    $stmtInsMPlan->execute([
-                        $gym_id,
-                        $data['name'],
-                        (float) ($data['price'] ?? 0),
-                        (int) ($data['duration'] ?? 1),
-                        $data['billing_cycle'] ?? null,
-                        $data['badge'] ?? null,
-                        $data['description'] ?? '',
-                        $data['features'] ?? '',
-                        $max_order
-                    ]);
+                // Update local configs immediately
+                $configs = array_merge($configs, $branding_keys);
+                foreach($portal_keys as $pk => $pv) {
+                    $configs['portal_' . $pk] = $pv;
                 }
-            }
 
-            // 6. Handle Archive/Restore
-            if (isset($_POST['archive_plan_id'])) {
-                $stmtArchive = $pdo->prepare("UPDATE membership_plans SET is_active = 0 WHERE membership_plan_id = ? AND gym_id = ?");
-                $stmtArchive->execute([$_POST['archive_plan_id'], $gym_id]);
-            }
-            if (isset($_POST['restore_plan_id'])) {
-                $stmtRestore = $pdo->prepare("UPDATE membership_plans SET is_active = 1 WHERE membership_plan_id = ? AND gym_id = ?");
-                $stmtRestore->execute([$_POST['restore_plan_id'], $gym_id]);
+                // 3. Update/Create Gym Details
+                $stmtCheckDetails = $pdo->prepare("SELECT 1 FROM gym_details WHERE gym_id = ?");
+                $stmtCheckDetails->execute([$gym_id]);
+
+                if ($stmtCheckDetails->fetch()) {
+                    $stmtUpdateDetails = $pdo->prepare("UPDATE gym_details SET opening_time = ?, closing_time = ?, max_capacity = ?, has_lockers = ?, has_shower = ?, has_parking = ?, has_wifi = ?, rules_text = ?, updated_at = ? WHERE gym_id = ?");
+                    $stmtUpdateDetails->execute([$opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now, $gym_id]);
+                } else {
+                    $stmtInsertDetails = $pdo->prepare("INSERT INTO gym_details (gym_id, opening_time, closing_time, max_capacity, has_lockers, has_shower, has_parking, has_wifi, rules_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmtInsertDetails->execute([$gym_id, $opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now]);
+                }
+
+                if (isset($_POST['membership_plans']) && is_array($_POST['membership_plans'])) {
+                    $stmtUpdateMPlan = $pdo->prepare("UPDATE membership_plans SET plan_name = ?, price = ?, duration_value = ?, billing_cycle_text = ?, featured_badge_text = ?, description = ?, features = ?, updated_at = NOW() WHERE membership_plan_id = ? AND gym_id = ?");
+                    foreach ($_POST['membership_plans'] as $id => $data) {
+                        $stmtUpdateMPlan->execute([
+                            $data['name'],
+                            (float) ($data['price'] ?? 0),
+                            (int) ($data['duration'] ?? 1),
+                            $data['billing_cycle'] ?? null,
+                            $data['badge'] ?? null,
+                            $data['description'] ?? '',
+                            $data['features'] ?? '',
+                            $id,
+                            $gym_id
+                        ]);
+                    }
+                }
+
+                if (isset($_POST['new_membership_plans']) && is_array($_POST['new_membership_plans'])) {
+                    // Fetch current max sort order for this gym
+                    $stmtMax = $pdo->prepare("SELECT MAX(sort_order) FROM membership_plans WHERE gym_id = ?");
+                    $stmtMax->execute([$gym_id]);
+                    $max_order = (int) $stmtMax->fetchColumn();
+
+                    $stmtInsMPlan = $pdo->prepare("INSERT INTO membership_plans (gym_id, plan_name, price, duration_value, billing_cycle_text, featured_badge_text, description, features, is_active, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, NOW(), NOW())");
+                    foreach ($_POST['new_membership_plans'] as $data) {
+                        if (empty($data['name']))
+                            continue;
+                        $max_order++;
+                        $stmtInsMPlan->execute([
+                            $gym_id,
+                            $data['name'],
+                            (float) ($data['price'] ?? 0),
+                            (int) ($data['duration'] ?? 1),
+                            $data['billing_cycle'] ?? null,
+                            $data['badge'] ?? null,
+                            $data['description'] ?? '',
+                            $data['features'] ?? '',
+                            $max_order
+                        ]);
+                    }
+                }
+
+                // 6. Handle Archive/Restore (Main Form Only)
+                if (isset($_POST['archive_plan_id'])) {
+                    $stmtArchive = $pdo->prepare("UPDATE membership_plans SET is_active = 0 WHERE membership_plan_id = ? AND gym_id = ?");
+                    $stmtArchive->execute([$_POST['archive_plan_id'], $gym_id]);
+                }
+                if (isset($_POST['restore_plan_id'])) {
+                    $stmtRestore = $pdo->prepare("UPDATE membership_plans SET is_active = 1 WHERE membership_plan_id = ? AND gym_id = ?");
+                    $stmtRestore->execute([$_POST['restore_plan_id'], $gym_id]);
+                }
             }
 
             // 7. Handle Service Catalog Actions
             if (isset($_POST['action'])) {
                 if ($_POST['action'] === 'add_catalog_service') {
                     $name = $_POST['service_name'] ?? '';
-                    $category = $_POST['service_category'] ?? 'Others';
                     $price = (float)($_POST['price'] ?? 0);
                     $desc = $_POST['description'] ?? '';
                     
                     if (!empty($name)) {
-                        $stmtAddService = $pdo->prepare("INSERT INTO service_catalog (gym_id, service_name, service_category, price, description, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())");
-                        $stmtAddService->execute([$gym_id, $name, $category, $price, $desc]);
+                        $stmtAddService = $pdo->prepare("INSERT INTO service_catalog (gym_id, service_name, price, description, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())");
+                        $stmtAddService->execute([$gym_id, $name, $price, $desc]);
                         
                         // Handle AJAX response if needed
                         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
@@ -2004,7 +2010,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                                 </div>
                                                 <div>
                                                     <h5 class="text-sm font-black italic uppercase tracking-widest text-primary"><?= htmlspecialchars($s['service_name']) ?></h5>
-                                                    <span class="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500 italic mt-0.5 block"><?= htmlspecialchars($s['service_category']) ?></span>
                                                 </div>
                                             </div>
                                             <button type="button" onclick="confirmArchiveService(<?= $s['catalog_service_id'] ?>)" 
@@ -2040,7 +2045,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                     <thead>
                                         <tr class="border-b border-white/5 bg-white/[0.02]">
                                             <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Service Name</th>
-                                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Category</th>
                                             <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Price</th>
                                             <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Status</th>
                                             <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Action</th>
@@ -2065,9 +2069,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                                     data-date="<?= strtotime($s['created_at']) ?>">
                                                     <td class="px-8 py-5">
                                                         <span class="text-xs font-black italic uppercase tracking-widest text-gray-500"><?= htmlspecialchars($s['service_name']) ?></span>
-                                                    </td>
-                                                    <td class="px-8 py-5">
-                                                        <span class="px-3 py-1 rounded bg-white/5 text-[9px] font-bold text-gray-600 uppercase tracking-widest italic"><?= htmlspecialchars($s['service_category']) ?></span>
                                                     </td>
                                                     <td class="px-8 py-5 text-center">
                                                         <span class="text-xs font-bold text-gray-600">₱<?= number_format($s['price'], 2) ?></span>
@@ -2146,18 +2147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         <input type="text" name="service_name" class="input-dark-elite uppercase italic" placeholder="e.g. Personal Training" required>
                     </div>
 
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-primary ml-1">Category</label>
-                        <select name="service_category" class="input-dark-elite" required>
-                            <option value="Personal Training">Personal Training</option>
-                            <option value="Group Classes">Group Classes</option>
-                            <option value="Amenities">Amenities</option>
-                            <option value="Consultation">Consultation</option>
-                            <option value="Others">Others</option>
-                        </select>
-                    </div>
-
-                    <div class="space-y-2">
+                    <div class="md:col-span-2 space-y-2">
                         <label class="text-[10px] font-black uppercase tracking-[0.2em] text-primary ml-1">Price (₱)</label>
                         <input type="number" name="price" step="0.01" class="input-dark-elite font-bold" placeholder="0.00" required>
                     </div>
