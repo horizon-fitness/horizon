@@ -990,8 +990,18 @@ unset($_SESSION['application_data']);
         const currentStepEl = document.querySelector(`.step-container[data-step="3"]`);
         const inputs = currentStepEl.querySelectorAll('input, select');
         
+        // First: manually validate the bank name (hidden field can't use reportValidity)
+        const bankNameVal = document.getElementById('bank_name_hidden').value.trim();
+        if (!bankNameVal) {
+            e.preventDefault();
+            showAlert('Please select or enter a Bank or E-Wallet name.', 'error');
+            document.getElementById('bank-search').focus();
+            return;
+        }
+
         let allValid = true;
         for (let input of inputs) {
+            if (input.type === 'hidden') continue; // Skip hidden inputs — handled manually above
             if (!input.checkValidity()) {
                 input.reportValidity();
                 allValid = false;

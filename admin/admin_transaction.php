@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // 1. Get Context for Email (Member Name, Email, Plan Name, Gym Name)
         $stmtCtx = $pdo->prepare("
-            SELECT u.email, u.first_name, mp.plan_name, g.gym_name, p.subscription_id
+            SELECT u.email, u.first_name, mp.plan_name, g.gym_name, p.subscription_id, p.amount, p.reference_number
             FROM payments p
             JOIN members m ON p.member_id = m.member_id
             JOIN users u ON m.user_id = u.user_id
@@ -101,16 +101,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmtUS->execute([$now, $sub_id]);
             }
             
-            // 4. Send Email
+            // 4. Send Email (E-Receipt)
             if ($ctx && !empty($ctx['email'])) {
-                $subject = "Payment Approved - Your " . ($ctx['plan_name'] ?? 'Membership') . " is now Active!";
-                $content = "
-                    <p>Hello " . htmlspecialchars($ctx['first_name']) . ",</p>
-                    <p>We are pleased to inform you that your payment for <strong>" . htmlspecialchars($ctx['gym_name']) . "</strong> has been approved.</p>
-                    <p>Your <strong>" . htmlspecialchars($ctx['plan_name'] ?? 'Membership') . "</strong> subscription is now active. You can now use your membership at the gym!</p>
-                    <p>Thank you for choosing Horizon!</p>
-                ";
-                sendSystemEmail($ctx['email'], $subject, getEmailTemplate("Payment Approved", $content));
+                $receiptData = [
+                    'reference_number' => $ctx['reference_number'] ?? 'TRX-' . $pay_id,
+                    'gym_name' => $ctx['gym_name'],
+                    'plan_name' => $ctx['plan_name'] ?? 'Membership Plan',
+                    'amount' => $ctx['amount'] ?? 0,
+                    'customer_name' => $ctx['first_name']
+                ];
+                $subject = "Official Receipt - Payment Approved for " . $ctx['gym_name'];
+                sendSystemEmail($ctx['email'], $subject, getReceiptTemplate($receiptData));
             }
 
             // 5. Log Audit
@@ -132,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pay_id = (int)$_POST['reject_id'];
         
         $stmtCtx = $pdo->prepare("
-            SELECT u.email, u.first_name, mp.plan_name, g.gym_name, p.subscription_id
+            SELECT u.email, u.first_name, mp.plan_name, g.gym_name, p.subscription_id, p.amount, p.reference_number
             FROM payments p
             JOIN members m ON p.member_id = m.member_id
             JOIN users u ON m.user_id = u.user_id
@@ -158,12 +159,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmtUS->execute([$now, $sub_id]);
             }
 
-            // 4. Send Email
+            // 4. Send Email (Rejection with Refund Notice)
             if ($ctx && !empty($ctx['email'])) {
                 $subject = "Payment Rejected - Action Required for " . $ctx['gym_name'];
                 $content = "
                     <p>Hello " . htmlspecialchars($ctx['first_name']) . ",</p>
                     <p>Your recent payment for the <strong>" . htmlspecialchars($ctx['plan_name'] ?? 'Membership') . "</strong> at <strong>" . htmlspecialchars($ctx['gym_name']) . "</strong> was not verified and has been <strong>Rejected</strong>.</p>
+                    
+                    <div style='margin: 20px 0; padding: 15px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px;'>
+                        <p style='margin: 0; font-size: 13px; color: #c53030;'><strong>Refund Notice:</strong> Since the system is currently in test mode, refunds will be processed manually within <strong>3 to 5 business days</strong>. Thank you for your patience.</p>
+                    </div>
+
                     <p>Please log in to your app to re-submit your payment or visit the front desk for assistance.</p>
                     <p>Thank you!</p>
                 ";

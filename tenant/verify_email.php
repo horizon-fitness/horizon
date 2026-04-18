@@ -2,20 +2,23 @@
 session_start();
 require_once '../db.php';
 
-if (!isset($_SESSION['verify_user_id']) && !isset($_SESSION['staged_registration'])) {
-    header("Location: ../login.php");
+// For tenant applications: ONLY accept staged (OTP-first) registrations.
+// The old "Case B" database-based flow is disabled to prevent double-data / pre-OTP DB saves.
+if (!isset($_SESSION['staged_registration'])) {
+    // Not a staged registration — no valid pre-OTP session found
+    if (isset($_SESSION['verify_user_id'])) {
+        // Old flow leftover session — clear it and send back to registration
+        unset($_SESSION['verify_user_id']);
+        unset($_SESSION['verify_email']);
+    }
+    header("Location: ../tenant/tenant_application.php");
     exit;
 }
 
-$is_staged = isset($_SESSION['staged_registration']);
-if ($is_staged) {
-    $staged_data = $_SESSION['staged_registration'];
-    $email = $_SESSION['verify_email'] ?? $staged_data['application']['email'];
-    $user_id = null; // No user ID yet for staged registration
-} else {
-    $user_id = $_SESSION['verify_user_id'];
-    $email = $_SESSION['verify_email'];
-}
+$is_staged = true;
+$staged_data = $_SESSION['staged_registration'];
+$email = $_SESSION['verify_email'] ?? $staged_data['application']['email'];
+$user_id = null; // No user ID yet — data saved ONLY after OTP confirmed
 
 $error = '';
 $success = '';
@@ -428,22 +431,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </footer>
 
     <script>
-        function startResendTimer() {
-            let seconds = 60;
-            const resendLink = document.getElementById('resendLink');
-            const resendCountdown = document.getElementById('resendCountdown');
-            if(!resendLink || !resendCountdown) return;
-            const timer = setInterval(() => {
-                seconds--;
-                if (seconds > 0) resendCountdown.textContent = `(${seconds}s)`;
-                else { clearInterval(timer); resendLink.classList.remove('pointer-events-none', 'opacity-40'); resendCountdown.textContent = ''; }
-            }, 1000);
+        // ── Toast Notification ──────────────────────────────────────────────
+        function showToast(message, type = 'error') {
+            const existing = document.getElementById('otp-toast');
+            if (existing) existing.remove();
+
+            const colors = {
+                error: 'bg-red-500/90 border-red-400/50',
+                warning: 'bg-amber-500/90 border-amber-400/50',
+                info: 'bg-primary/90 border-primary/50'
+            };
+            const icons = { error: 'error', warning: 'warning', info: 'info' };
+
+            const toast = document.createElement('div');
+            toast.id = 'otp-toast';
+            toast.className = `fixed top-6 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3 rounded-xl border backdrop-blur-md text-white text-[12px] font-bold uppercase tracking-widest shadow-2xl transition-all duration-300 opacity-0 -translate-y-2 ${colors[type]}`;
+            toast.innerHTML = `<span class="material-symbols-outlined text-base">${icons[type]}</span>${message}`;
+            document.body.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('opacity-0', '-translate-y-2');
+                toast.classList.add('opacity-100', 'translate-y-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
+        // ── OTP Form Guard ──────────────────────────────────────────────────
         function setupOTP() {
             const container = document.getElementById('otp-inputs');
             const inputs = container.querySelectorAll('input');
             const hiddenField = document.getElementById('otp_full_code');
+            const form = container.closest('form');
+
             inputs.forEach((input, index) => {
                 input.addEventListener('input', (e) => {
                     input.value = input.value.replace(/\D/g, '');
@@ -459,10 +482,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (/^\d+$/.test(data)) {
                         data.split('').forEach((char, i) => { if (index + i < inputs.length) inputs[index + i].value = char; });
                         updateHiddenField();
+                        inputs[Math.min(data.length - 1, inputs.length - 1)].focus();
                     }
                 });
             });
+
             function updateHiddenField() { hiddenField.value = Array.from(inputs).map(i => i.value).join(''); }
+
+            // Block form submit if OTP is incomplete
+            form.addEventListener('submit', (e) => {
+                updateHiddenField();
+                const code = hiddenField.value.trim();
+                if (code.length === 0) {
+                    e.preventDefault();
+                    showToast('Please enter your verification code.', 'warning');
+                    inputs[0].focus();
+                } else if (code.length < 6) {
+                    e.preventDefault();
+                    showToast('Please enter all 6 digits of your code.', 'warning');
+                    // Focus the first empty box
+                    const firstEmpty = Array.from(inputs).find(i => i.value === '');
+                    if (firstEmpty) firstEmpty.focus();
+                }
+            });
+        }
+
+        function startResendTimer() {
+            let seconds = 60;
+            const resendLink = document.getElementById('resendLink');
+            const resendCountdown = document.getElementById('resendCountdown');
+            if(!resendLink || !resendCountdown) return;
+            const timer = setInterval(() => {
+                seconds--;
+                if (seconds > 0) resendCountdown.textContent = `(${seconds}s)`;
+                else { clearInterval(timer); resendLink.classList.remove('pointer-events-none', 'opacity-40'); resendCountdown.textContent = ''; }
+            }, 1000);
         }
 
         window.onload = function() {

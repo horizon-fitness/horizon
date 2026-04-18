@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($user && password_verify($password, $user['password_hash'])) {
             if ($user['is_active'] == 0) {
-                $error = "Your account has been deactivated. Please contact support.";
+                $error = "Your account has been deactivated. Please try again another time.";
             } 
             elseif ($user['is_verified'] == 0) {
                 $stmtApp = $pdo->prepare("SELECT email FROM gym_owner_applications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1");
@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // GYM STATUS CHECK: Prevent login if gym is suspended or deactivated (unless superadmin)
                     if (strtolower($roleData['role_name']) !== 'superadmin' && !empty($roleData['gym_id'])) {
                         if ($roleData['gym_status'] === 'Suspended') {
-                            $error = "This gym's access has been suspended. Please contact your administrator.";
+                            $error = "This gym's access has been suspended. Please try again another time.";
                             $roleData = null; // Block further processing
                         } elseif ($roleData['gym_status'] === 'Deleted' || $roleData['gym_status'] === 'Deactivated') {
                             $error = "This gym account is no longer active.";
@@ -141,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             header("Location: member/member_dashboard.php");
                             exit;
                         default:
-                            $error = "Invalid role configuration. Please contact support.";
+                            $error = "Invalid role configuration. Please try again another time.";
                             break;
                     }
                 } else {
@@ -151,9 +151,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $roleCheck = $stmtCheckRole->fetch(PDO::FETCH_ASSOC);
 
                     if ($roleCheck && $roleCheck['role_status'] === 'Suspended') {
-                        $error = "Your account has been suspended. Please contact support.";
+                        $error = "Your account has been suspended. Please try again another time.";
                     } elseif ($roleCheck && ($roleCheck['role_status'] === 'Revoked' || $roleCheck['role_status'] === 'Deactivated')) {
-                        $error = "Your account has been deactivated. Please contact support.";
+                        $error = "Your account has been deactivated. Please try again another time.";
                     } else {
                         // Check for applications if no role or active role found
                         $stmtApp = $pdo->prepare("SELECT application_status FROM gym_owner_applications WHERE user_id = ? ORDER BY submitted_at DESC LIMIT 1");

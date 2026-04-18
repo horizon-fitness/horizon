@@ -121,3 +121,84 @@ function getFormalEmailTemplate($title, $content, $gymName = "Horizon System", $
     </body>
     </html>";
 }
+
+/**
+ * Professional Receipt Template for Payment Approvals
+ */
+function getReceiptTemplate($data) {
+    $currentYear = date('Y');
+    $accentColor = "#8c2bee";
+    $refNo = $data['reference_number'] ?? 'N/A';
+    $gymName = $data['gym_name'] ?? 'Horizon System';
+    $planName = $data['plan_name'] ?? 'Membership Plan';
+    $amount = number_format($data['amount'], 2);
+    $date = date('M d, Y');
+    $customerName = $data['customer_name'] ?? 'Valued Member';
+    
+    return "
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset='UTF-8'></head>
+    <body style='margin: 0; padding: 0; background-color: #f4f7f6; font-family: sans-serif; color: #333;'>
+        <table width='100%' border='0' cellspacing='0' cellpadding='0' style='padding: 40px 0;'>
+            <tr>
+                <td align='center'>
+                    <table width='600' border='0' cellspacing='0' cellpadding='0' style='background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05);'>
+                        <!-- Header -->
+                        <tr>
+                            <td style='background: linear-gradient(135deg, #8c2bee 0%, #6d22ba 100%); padding: 40px; text-align: center;'>
+                                <h1 style='color: #ffffff; margin: 0; font-size: 24px; letter-spacing: 2px; text-transform: uppercase;'>Official Receipt</h1>
+                                <p style='color: rgba(255,255,255,0.8); font-size: 11px; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px;'>$gymName</p>
+                            </td>
+                        </tr>
+                        <!-- Content -->
+                        <tr>
+                            <td style='padding: 40px;'>
+                                <p style='margin: 0; font-size: 16px; color: #555;'>Hello <strong>$customerName</strong>,</p>
+                                <p style='margin: 10px 0 30px 0; font-size: 14px; color: #777; line-height: 1.5;'>Thank you for your payment. Your subscription is now active. Please find your receipt details below for your records.</p>
+                                
+                                <table width='100%' border='0' cellspacing='0' cellpadding='0' style='border: 1px solid #eee; border-radius: 12px; overflow: hidden;'>
+                                    <tr style='background-color: #fcfcfc;'>
+                                        <td style='padding: 15px 20px; font-size: 12px; color: #999; text-transform: uppercase; border-bottom: 1px solid #eee;'>Transaction Details</td>
+                                        <td style='padding: 15px 20px; text-align: right; font-size: 12px; color: #999; text-transform: uppercase; border-bottom: 1px solid #eee;'>#$refNo</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 20px; font-size: 14px; border-bottom: 1px solid #eee;'><strong>Item/Plan</strong></td>
+                                        <td style='padding: 20px; text-align: right; font-size: 14px; border-bottom: 1px solid #eee;'>$planName</td>
+                                    </tr>
+                                    <tr>
+                                        <td style='padding: 20px; font-size: 14px; border-bottom: 1px solid #eee;'><strong>Date Paid</strong></td>
+                                        <td style='padding: 20px; text-align: right; font-size: 14px; border-bottom: 1px solid #eee;'>$date</td>
+                                    </tr>
+                                    <tr style='background-color: #fcfcfc;'>
+                                        <td style='padding: 25px 20px; font-size: 18px; color: $accentColor;'><strong>Total Amount</strong></td>
+                                        <td style='padding: 25px 20px; text-align: right; font-size: 22px; color: #1a1a1a;'><strong>₱$amount</strong></td>
+                                    </tr>
+                                </table>
+                                
+                                <div style='margin-top: 30px; padding: 20px; background-color: #f0f7f4; border-radius: 10px; border-left: 4px solid #22c55e;'>
+                                    <p style='margin: 0; font-size: 13px; color: #166534;'>
+                                        <strong>Status:</strong> Verified & Approved
+                                    </p>
+                                </div>
+                                
+                                <div style='text-align: center; margin-top: 40px;'>
+                                    <p style='font-size: 12px; color: #aaa;'>If you have any questions regarding this receipt, please contact our support team.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- Footer -->
+                        <tr>
+                            <td style='background-color: #fafafa; padding: 30px; text-align: center; border-top: 1px solid #eee;'>
+                                <p style='color: #999; font-size: 11px; margin: 0;'>&copy; $currentYear $gymName. All rights reserved.</p>
+                                <p style='color: #ccc; font-size: 10px; margin-top: 5px;'>This is an automated receipt generated by Horizon Systems.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>";
+}
+

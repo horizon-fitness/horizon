@@ -86,21 +86,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
             $stmtPay = $pdo->prepare("UPDATE payments SET payment_status = 'Paid', verified_by = ?, verified_at = NOW() WHERE client_subscription_id = ? AND payment_type IN ('Subscription', 'Subscription Installment')");
             $stmtPay->execute([$admin_id, $sub_id]);
 
+            // Fetch Payment Details for Receipt
+            $stmtPayInfo = $pdo->prepare("SELECT amount, reference_number FROM payments WHERE client_subscription_id = ? AND payment_type IN ('Subscription', 'Subscription Installment') ORDER BY created_at DESC LIMIT 1");
+            $stmtPayInfo->execute([$sub_id]);
+            $payInfo = $stmtPayInfo->fetch();
+
             $msg = "Approved payment for Subscription #$sub_id (" . $subData['gym_name'] . ")";
 
-            // Prepare Email
-            $subject = "Payment Confirmed - Your " . $subData['plan_name'] . " is now Active!";
-            $content = "
-                <p>Hello,</p>
-                <p>We are pleased to inform you that your payment for <strong>" . htmlspecialchars($subData['gym_name']) . "</strong> has been approved.</p>
-                <p>Your <strong>" . htmlspecialchars($subData['plan_name']) . "</strong> subscription is now active. You and your members can now enjoy all the premium features and management tools provided by the Horizon System.</p>
-                <div style='margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px;'>
-                    <p style='margin: 0; font-size: 14px;'><strong>Plan:</strong> " . htmlspecialchars($subData['plan_name']) . "</p>
-                    <p style='margin: 5px 0 0; font-size: 14px;'><strong>Status:</strong> Active</p>
-                </div>
-                <p>Thank you for choosing Horizon!</p>
-            ";
-            $email_sent = sendSystemEmail($subData['gym_email'], $subject, getEmailTemplate("Payment Approved", $content));
+            // Prepare E-Receipt
+            $receiptData = [
+                'reference_number' => $payInfo['reference_number'] ?? 'TRX-' . $sub_id,
+                'gym_name' => $subData['gym_name'],
+                'plan_name' => $subData['plan_name'],
+                'amount' => $payInfo['amount'] ?? 0,
+                'customer_name' => 'Gym Owner'
+            ];
+            $subject = "Official Receipt - Payment Approved for " . $subData['gym_name'];
+            $email_sent = sendSystemEmail($subData['gym_email'], $subject, getReceiptTemplate($receiptData));
 
         } elseif ($action === 'reject_payment') {
             // Update subscription to Rejected and Inactive
@@ -113,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
 
             $msg = "Rejected subscription payment for #" . $sub_id . " (" . $subData['gym_name'] . ")";
 
-            // Prepare High-Impact Rejection Email
+            // Prepare High-Impact Rejection Email with Refund Notice
             $subject = "Subscription Payment Rejected - Action Required for " . $subData['gym_name'];
             $content = "
                 <p>Hello,</p>
@@ -122,6 +124,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'], $_POST['sub
                 <div style='margin: 30px 0; padding: 25px; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 12px; border-left: 5px solid #f56565;'>
                     <h3 style='margin: 0 0 10px; color: #c53030; font-size: 16px;'>Why was this rejected?</h3>
                     <p style='margin: 0; font-size: 14px; color: #742a2a;'>Common reasons include invalid proof of payment, transaction mismatch, or an expired checkout session. Your current subscription has been set to <strong>Inactive</strong>.</p>
+                </div>
+
+                <div style='margin: 20px 0; padding: 15px; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px;'>
+                    <p style='margin: 0; font-size: 13px; color: #92400e;'><strong>Refund Notice:</strong> Since the system is currently in test mode, refunds will be processed manually within <strong>3 to 5 business days</strong>. Thank you for your patience.</p>
                 </div>
 
                 <h4 style='margin: 0 0 10px; color: #333;'>Next Steps:</h4>
