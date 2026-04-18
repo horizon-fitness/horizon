@@ -5,6 +5,13 @@
 // - $configs: Array containing branding (system_name, system_logo, etc.)
 // - $page: Mapping of logo_path
 ?>
+<style>
+    .nav-item:hover {
+        background: transparent !important;
+        color: white !important;
+    }
+</style>
+
 <nav class="side-nav bg-background-dark border-r border-white/5 z-50">
     <div class="px-7 py-8 mb-4 shrink-0">
         <div class="flex items-center gap-4">

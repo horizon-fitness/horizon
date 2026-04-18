@@ -325,6 +325,20 @@ foreach ($all_membership_plans as $p) {
         $archived_plans[] = $p;
 }
 
+// --- DATA FETCHING FOR SERVICES ---
+$services_stmt = $pdo->prepare("SELECT * FROM service_catalog WHERE gym_id = ? ORDER BY is_active DESC, service_name ASC");
+$services_stmt->execute([$gym_id]);
+$all_services = $services_stmt->fetchAll();
+
+$active_services = [];
+$archived_services = [];
+foreach ($all_services as $s) {
+    if ($s['is_active'])
+        $active_services[] = $s;
+    else
+        $archived_services[] = $s;
+}
+
 
 // --- UNIFIED POST HANDLER ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
@@ -460,6 +474,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             if (isset($_POST['restore_plan_id'])) {
                 $stmtRestore = $pdo->prepare("UPDATE membership_plans SET is_active = 1 WHERE membership_plan_id = ? AND gym_id = ?");
                 $stmtRestore->execute([$_POST['restore_plan_id'], $gym_id]);
+            }
+
+            // 7. Handle Service Catalog Actions
+            if (isset($_POST['action'])) {
+                if ($_POST['action'] === 'add_catalog_service') {
+                    $name = $_POST['service_name'] ?? '';
+                    $category = $_POST['service_category'] ?? 'Others';
+                    $price = (float)($_POST['price'] ?? 0);
+                    $desc = $_POST['description'] ?? '';
+                    
+                    if (!empty($name)) {
+                        $stmtAddService = $pdo->prepare("INSERT INTO service_catalog (gym_id, service_name, service_category, price, description, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())");
+                        $stmtAddService->execute([$gym_id, $name, $category, $price, $desc]);
+                        
+                        // Handle AJAX response if needed
+                        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+                            $pdo->commit();
+                            echo json_encode(['success' => true]);
+                            exit;
+                        }
+                    }
+                } elseif ($_POST['action'] === 'archive_catalog_service') {
+                    $sid = (int)$_POST['service_id'];
+                    $stmtArchiveService = $pdo->prepare("UPDATE service_catalog SET is_active = 0 WHERE catalog_service_id = ? AND gym_id = ?");
+                    $stmtArchiveService->execute([$sid, $gym_id]);
+                } elseif ($_POST['action'] === 'restore_catalog_service') {
+                    $sid = (int)$_POST['service_id'];
+                    $stmtRestoreService = $pdo->prepare("UPDATE service_catalog SET is_active = 1 WHERE catalog_service_id = ? AND gym_id = ?");
+                    $stmtRestoreService->execute([$sid, $gym_id]);
+                }
             }
 
             $pdo->commit();
@@ -820,7 +864,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 
         .nav-item:hover {
             opacity: 1;
-            background: rgba(255, 255, 255, 0.02);
+            background: transparent;
         }
 
         .nav-item span.material-symbols-outlined {
@@ -1171,6 +1215,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                             <button type="button" onclick="switchTab('membership')" class="tab-btn" data-tab="membership">
                                 <span class="material-symbols-outlined text-base">card_membership</span>
                                 Membership Plans
+                            </button>
+                            <button type="button" onclick="switchTab('services')" class="tab-btn" data-tab="services">
+                                <span class="material-symbols-outlined text-base">exercise</span>
+                                Services Offered
                             </button>
 
                         </div>
@@ -1886,8 +1934,161 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         </div>
                               </div>
                     </div>
-                </div>
-            </form>
+                    <div id="tabServices" class="tab-panel mt-4">
+                        <!-- SERVICE HEADER BAR (MATCHING REFERENCE) -->
+                        <div class="service-header-bar flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
+                            <div>
+                                <h4 class="text-xl font-black italic uppercase tracking-tighter text-white mb-1">SERVICE CATALOG</h4>
+                                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em]">MANAGE YOUR AVAILABLE GYM SERVICES AND OFFERINGS</p>
+                            </div>
+
+                            <div class="flex items-center gap-6">
+                                <button type="button" onclick="openAddServiceModal()"
+                                    class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:opacity-80 transition-all group">
+                                    <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">add_circle</span> ADD NEW SERVICE
+                                </button>
+
+                                <div class="bg-black/40 p-1 rounded-xl flex items-center border border-white/5">
+                                    <button type="button" onclick="toggleServiceView('active')" id="activeServiceTabBtn"
+                                        class="tab-btn-match active px-6 h-9">ACTIVE (<?= count($active_services) ?>)</button>
+                                    <button type="button" onclick="toggleServiceView('archived')" id="archivedServiceTabBtn"
+                                        class="tab-btn-match inactive px-6 h-9">ARCHIVED (<?= count($archived_services) ?>)</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ADVANCED FILTERS (ALIGNED TO REF) -->
+                        <div class="glass-card px-8 py-4 flex flex-row items-center gap-4 bg-white/[0.01] mb-10">
+                            <div class="relative flex-1">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
+                                <input type="text" id="servicesSearch" oninput="filterServices()" placeholder="Search archived plans..." class="input-dark !h-[44px] !pl-11 !text-[11px] font-medium w-full !bg-white/[0.03] !border-white/10 !rounded-xl">
+                            </div>
+                            
+                            <div class="flex items-center gap-3">
+                                <select id="servicesSortDate" onchange="filterServices()" class="input-dark !h-[44px] !px-6 !text-[10px] font-bold uppercase tracking-widest cursor-pointer !bg-white/[0.03] !border-white/10 !rounded-xl min-w-[160px]">
+                                    <option value="newest">Newest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
+                                
+                                <select id="servicesSortPrice" onchange="filterServices()" class="input-dark !h-[44px] !px-6 !text-[10px] font-bold uppercase tracking-widest cursor-pointer !bg-white/[0.03] !border-white/10 !rounded-xl min-w-[160px]">
+                                    <option value="default">Any Price</option>
+                                    <option value="low">Price: Low to High</option>
+                                    <option value="high">Price: High to Low</option>
+                                </select>
+
+                                <button type="button" onclick="resetServiceFilters()" class="size-[44px] rounded-xl bg-white/[0.03] border border-white/10 text-gray-500 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center group" title="Reset Filters">
+                                    <span class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform duration-500">refresh</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ACTIVE SERVICES GRID (CARD VIEW) -->
+                        <div id="activeServicesContainer" class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-10">
+                            <?php if (empty($active_services)): ?>
+                                <div class="col-span-full py-20 flex flex-col items-center justify-center opacity-40">
+                                    <span class="material-symbols-outlined text-4xl mb-4">info</span>
+                                    <p class="text-[10px] font-black uppercase tracking-[0.2em]">No active services found.</p>
+                                </div>
+                            <?php else: ?>
+                                <?php foreach ($active_services as $s): ?>
+                                    <div class="service-card elite-red-card p-10 group relative transition-all duration-300" 
+                                         data-id="<?= $s['catalog_service_id'] ?>" 
+                                         data-name="<?= strtolower(htmlspecialchars($s['service_name'])) ?>"
+                                         data-price="<?= (float)$s['price'] ?>"
+                                         data-date="<?= strtotime($s['created_at']) ?>">
+                                        
+                                        <div class="flex items-center justify-between mb-8">
+                                            <div class="flex items-center gap-4">
+                                                <div class="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                                                    <span class="material-symbols-outlined text-2xl font-bold">shopping_basket</span>
+                                                </div>
+                                                <div>
+                                                    <h5 class="text-sm font-black italic uppercase tracking-widest text-primary"><?= htmlspecialchars($s['service_name']) ?></h5>
+                                                    <span class="text-[8px] font-black uppercase tracking-[0.2em] text-gray-500 italic mt-0.5 block"><?= htmlspecialchars($s['service_category']) ?></span>
+                                                </div>
+                                            </div>
+                                            <button type="button" onclick="confirmArchiveService(<?= $s['catalog_service_id'] ?>)" 
+                                                class="size-10 rounded-xl bg-white/5 text-gray-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all active:scale-95 border border-white/5" title="Archive Service">
+                                                <span class="material-symbols-outlined text-lg">archive</span>
+                                            </button>
+                                        </div>
+
+                                        <div class="space-y-6">
+                                            <div class="flex flex-col gap-1.5">
+                                                <label class="label-elite">Price Tag</label>
+                                                <div class="view-box font-black text-white text-base justify-between">
+                                                    <span>₱<?= number_format($s['price'], 2) ?></span>
+                                                    <span class="px-2 py-0.5 rounded bg-primary/20 text-primary text-[8px] uppercase font-black tracking-widest">Premium</span>
+                                                </div>
+                                            </div>
+                                            <div class="flex flex-col gap-1.5">
+                                                <label class="label-elite">Description</label>
+                                                <div class="view-box view-box-long text-gray-400 italic">
+                                                    <?= !empty($s['description']) ? htmlspecialchars($s['description']) : 'No official description provided for this catalog offering.' ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- ARCHIVED SERVICES TABLE (STAYS AS TABLE TO MATCH ARCHIVED PLANS) -->
+                        <div id="archivedServicesContainer" class="glass-card overflow-hidden border-white/5 hidden">
+                            <div class="overflow-x-auto no-scrollbar">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="border-b border-white/5 bg-white/[0.02]">
+                                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Service Name</th>
+                                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Category</th>
+                                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Price</th>
+                                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Status</th>
+                                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="archivedServicesTableBody">
+                                        <?php if (empty($archived_services)): ?>
+                                            <tr class="no-data-row">
+                                                <td colspan="5" class="px-8 py-20 text-center">
+                                                    <div class="flex flex-col items-center justify-center opacity-40">
+                                                        <span class="material-symbols-outlined text-4xl mb-4">history</span>
+                                                        <p class="text-[10px] font-black uppercase tracking-[0.2em]">No archived services found.</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php else: ?>
+                                            <?php foreach ($archived_services as $s): ?>
+                                                <tr class="service-row archived-row border-b border-white/5 hover:bg-white/[0.02] transition-colors" 
+                                                    data-id="<?= $s['catalog_service_id'] ?>" 
+                                                    data-name="<?= strtolower(htmlspecialchars($s['service_name'])) ?>"
+                                                    data-price="<?= (float)$s['price'] ?>"
+                                                    data-date="<?= strtotime($s['created_at']) ?>">
+                                                    <td class="px-8 py-5">
+                                                        <span class="text-xs font-black italic uppercase tracking-widest text-gray-500"><?= htmlspecialchars($s['service_name']) ?></span>
+                                                    </td>
+                                                    <td class="px-8 py-5">
+                                                        <span class="px-3 py-1 rounded bg-white/5 text-[9px] font-bold text-gray-600 uppercase tracking-widest italic"><?= htmlspecialchars($s['service_category']) ?></span>
+                                                    </td>
+                                                    <td class="px-8 py-5 text-center">
+                                                        <span class="text-xs font-bold text-gray-600">₱<?= number_format($s['price'], 2) ?></span>
+                                                    </td>
+                                                    <td class="px-8 py-5 text-center">
+                                                        <span class="px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 text-[8px] font-black uppercase tracking-widest border border-rose-500/20">Archived</span>
+                                                    </td>
+                                                    <td class="px-8 py-5 text-center">
+                                                        <button type="button" onclick="confirmRestoreService(<?= $s['catalog_service_id'] ?>)" class="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest mx-auto active:scale-95">
+                                                            <span class="material-symbols-outlined text-base">settings_backup_restore</span> Restore
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </form>
 
         </div>
         </div>
@@ -1917,6 +2118,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         class="h-12 rounded-xl bg-primary text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">Confirm
                         Now</button>
                 </div>
+            </div>
+        </div>
+
+        <!-- Add Service Modal -->
+        <div id="addServiceModal" class="modal-overlay" onclick="if(event.target === this) closeEliteModal('addServiceModal')">
+            <div class="glass-card w-full max-w-lg p-10 animate-in zoom-in duration-300 relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4">
+                    <button type="button" onclick="closeEliteModal('addServiceModal')" class="text-gray-500 hover:text-white transition-colors">
+                        <span class="material-symbols-outlined text-2xl">close</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-4 mb-10">
+                    <div class="size-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                        <span class="material-symbols-outlined text-3xl">add_shopping_cart</span>
+                    </div>
+                    <div>
+                        <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white">New Service</h3>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-1">Expansion of your gym's catalog</p>
+                    </div>
+                </div>
+
+                <form id="addServiceForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="md:col-span-2 space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-primary ml-1">Service Name</label>
+                        <input type="text" name="service_name" class="input-dark-elite uppercase italic" placeholder="e.g. Personal Training" required>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-primary ml-1">Category</label>
+                        <select name="service_category" class="input-dark-elite" required>
+                            <option value="Personal Training">Personal Training</option>
+                            <option value="Group Classes">Group Classes</option>
+                            <option value="Amenities">Amenities</option>
+                            <option value="Consultation">Consultation</option>
+                            <option value="Others">Others</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-primary ml-1">Price (₱)</label>
+                        <input type="number" name="price" step="0.01" class="input-dark-elite font-bold" placeholder="0.00" required>
+                    </div>
+
+                    <div class="md:col-span-2 space-y-2">
+                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1">Description / Features</label>
+                        <textarea name="description" rows="3" class="input-dark-elite !bg-white/[0.01] resize-none" placeholder="What does this service include?"></textarea>
+                    </div>
+
+                    <div class="md:col-span-2 pt-6 flex gap-4">
+                        <button type="button" onclick="closeEliteModal('addServiceModal')" class="flex-1 h-14 rounded-2xl border border-white/5 text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-white transition-all">Discard</button>
+                        <button type="submit" class="flex-[1.5] h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">Create Service</button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -2915,42 +3170,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             }
         });
 
-        // --- SERVICES CATALOG FILTERING & SORTING ---
+        // --- SERVICES CATALOG FILTERING ---
         function filterServices() {
-            const query = document.getElementById('serviceSearch').value.toLowerCase();
-            const dateSort = document.getElementById('serviceSortDate').value;
-            const priceSort = document.getElementById('serviceSortPrice').value;
-            
-            // Determine active view
-            const isActiveView = !document.getElementById('activeServicesContainer').classList.contains('hidden');
-            const tbody = isActiveView ? document.getElementById('activeServicesTableBody') : document.getElementById('archivedServicesTableBody');
-            
-            if (!tbody) return;
-            
-            const rows = Array.from(tbody.querySelectorAll('.service-row'));
-            if (rows.length === 0) return;
+            const query = document.getElementById('servicesSearch').value.toLowerCase();
+            const dateSort = document.getElementById('servicesSortDate').value;
+            const priceSort = document.getElementById('servicesSortPrice').value;
 
-            let filteredRows = rows.filter(row => {
-                const name = row.getAttribute('data-name');
-                const category = row.getAttribute('data-category');
-                return name.includes(query) || category.includes(query);
+            const activeVisible = !document.getElementById('activeServicesContainer').classList.contains('hidden');
+            const container = activeVisible 
+                ? document.getElementById('activeServicesContainer') 
+                : document.getElementById('archivedServicesTableBody');
+
+            // Select either .service-card (grid) or .service-row (table row)
+            const items = Array.from(container.querySelectorAll('.service-card, .service-row'));
+            
+            // 1. Filtering
+            let filteredItems = items.filter(item => {
+                const name = item.getAttribute('data-name');
+                const matches = name.includes(query);
+                item.style.display = matches ? '' : 'none';
+                return matches;
             });
 
-            // Sorting Logic
-            filteredRows.sort((a, b) => {
-                // Sort by Date
-                const dateA = parseInt(a.getAttribute('data-date'));
-                const dateB = parseInt(b.getAttribute('data-date'));
+            // 2. Sorting
+            filteredItems.sort((a, b) => {
+                // Primary Sort: Date
+                const dateA = parseInt(a.getAttribute('data-date')) || 0;
+                const dateB = parseInt(b.getAttribute('data-date')) || 0;
 
-                let dateResult = 0;
-                if (dateSort === 'newest') dateResult = dateB - dateA;
-                else dateResult = dateA - dateB;
+                if (dateSort === 'newest') {
+                    if (dateB !== dateA) return dateB - dateA;
+                } else if (dateSort === 'oldest') {
+                    if (dateA !== dateB) return dateA - dateB;
+                }
 
-                if (dateResult !== 0) return dateResult;
-
-                // Sort by Price
-                const priceA = parseFloat(a.getAttribute('data-price'));
-                const priceB = parseFloat(b.getAttribute('data-price'));
+                // Secondary Sort: Price
+                const priceA = parseFloat(a.getAttribute('data-price')) || 0;
+                const priceB = parseFloat(b.getAttribute('data-price')) || 0;
 
                 if (priceSort === 'low') return priceA - priceB;
                 if (priceSort === 'high') return priceB - priceA;
@@ -2958,48 +3214,147 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 return 0;
             });
 
-            // Toggle visibility and re-append sorted rows
-            rows.forEach(row => row.classList.add('hidden'));
-            filteredRows.forEach(row => {
-                row.classList.remove('hidden');
-                tbody.appendChild(row);
-            });
+            // 3. Re-append sorted results without flickering
+            filteredItems.forEach(item => container.appendChild(item));
 
-            // Handle empty state
-            const existingNoData = tbody.querySelector('.no-data-row');
-            if (filteredRows.length === 0) {
+            // Handle Empty State
+            const existingNoData = container.querySelector('.no-data-search-row, .no-data-row');
+            if (filteredItems.length === 0) {
                 if (!existingNoData) {
-                    const colCount = isActiveView ? 5 : 5;
-                    const tr = document.createElement('tr');
-                    tr.className = 'no-data-row animate-in fade-in duration-300';
-                    tr.innerHTML = `
-                        <td colspan="${colCount}" class="px-8 py-20 text-center">
-                            <div class="flex flex-col items-center justify-center opacity-40">
-                                <span class="material-symbols-outlined text-4xl mb-4 text-primary">search_off</span>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em]">No matching services found.</p>
-                            </div>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
+                    const emptyHtml = activeVisible 
+                        ? `<div class="col-span-full py-20 flex flex-col items-center justify-center opacity-40 no-data-search-row animate-in fade-in duration-300">
+                             <span class="material-symbols-outlined text-4xl mb-4 text-primary">search_off</span>
+                             <p class="text-[10px] font-black uppercase tracking-[0.2em]">No matching services found.</p>
+                           </div>`
+                        : `<tr class="no-data-search-row animate-in fade-in duration-300">
+                             <td colspan="5" class="px-8 py-20 text-center">
+                               <div class="flex flex-col items-center justify-center opacity-40">
+                                 <span class="material-symbols-outlined text-4xl mb-4 text-primary">search_off</span>
+                                 <p class="text-[10px] font-black uppercase tracking-[0.2em]">No matching archived offerings.</p>
+                               </div>
+                             </td>
+                           </tr>`;
+                    
+                    if (activeVisible) {
+                        container.insertAdjacentHTML('beforeend', emptyHtml);
+                    } else {
+                        container.innerHTML = emptyHtml;
+                    }
                 }
-            } else if (existingNoData) {
+            } else if (existingNoData && existingNoData.classList.contains('no-data-search-row')) {
                 existingNoData.remove();
             }
         }
 
         function resetServiceFilters() {
-            document.getElementById('serviceSearch').value = '';
-            document.getElementById('serviceSortDate').value = 'newest';
-            document.getElementById('serviceSortPrice').value = 'default';
+            document.getElementById('servicesSearch').value = '';
+            document.getElementById('servicesSortDate').value = 'newest';
+            document.getElementById('servicesSortPrice').value = 'default';
             filterServices();
         }
 
-        // Refine toggleServiceView to auto-re-filter if needed
-        const originalToggleServiceView = toggleServiceView;
-        toggleServiceView = function(view) {
-            originalToggleServiceView(view);
-            filterServices(); // Apply filters to the new view
-        };
+        function toggleServiceView(view) {
+            const activeContainer = document.getElementById('activeServicesContainer');
+            const archivedContainer = document.getElementById('archivedServicesContainer');
+            const activeBtn = document.getElementById('activeServiceTabBtn');
+            const archivedBtn = document.getElementById('archivedServiceTabBtn');
+
+            if (view === 'active') {
+                activeContainer.classList.remove('hidden');
+                archivedContainer.classList.add('hidden');
+                activeBtn.classList.add('active');
+                activeBtn.classList.remove('inactive');
+                archivedBtn.classList.add('inactive');
+                archivedBtn.classList.remove('active');
+            } else {
+                activeContainer.classList.add('hidden');
+                archivedContainer.classList.remove('hidden');
+                activeBtn.classList.remove('active');
+                activeBtn.classList.add('inactive');
+                archivedBtn.classList.remove('inactive');
+                archivedBtn.classList.add('active');
+            }
+            filterServices();
+        }
+
+        function openAddServiceModal() {
+            document.getElementById('addServiceModal').classList.add('flex');
+            document.getElementById('addServiceForm').reset();
+        }
+
+        function confirmArchiveService(id) {
+            const confirmBtn = document.getElementById('confirmActionBtn');
+            const modalTitle = document.getElementById('confirmTitle');
+            const modalDesc = document.getElementById('confirmDesc');
+            const iconBox = document.getElementById('confirmIconBox');
+            const icon = document.getElementById('confirmIcon');
+
+            modalTitle.innerText = "Archive Service";
+            modalDesc.innerText = "Are you sure you want to archive this service? It will no longer be visible to members.";
+            
+            icon.innerText = "archive";
+            iconBox.className = "size-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto mb-6";
+            icon.className = "material-symbols-outlined text-3xl text-rose-500 font-bold";
+            
+            confirmBtn.className = "h-12 rounded-xl bg-rose-500 text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-rose-500/20 hover:scale-[1.02] active:scale-95 transition-all";
+            
+            confirmBtn.onclick = function() {
+                const formData = new FormData();
+                formData.append('save_settings', '1');
+                formData.append('action', 'archive_catalog_service');
+                formData.append('service_id', id);
+                formData.append('active_tab', 'services');
+
+                fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                }).then(() => window.location.reload());
+            };
+
+            document.getElementById('confirmActionModal').classList.add('flex');
+        }
+
+        function confirmRestoreService(id) {
+            const confirmBtn = document.getElementById('confirmActionBtn');
+            document.getElementById('confirmTitle').innerText = "Restore Service";
+            document.getElementById('confirmDesc').innerText = "Return this service to the active catalog?";
+            
+            confirmBtn.onclick = function() {
+                const formData = new FormData();
+                formData.append('save_settings', '1');
+                formData.append('action', 'restore_catalog_service');
+                formData.append('service_id', id);
+                formData.append('active_tab', 'services');
+
+                fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                }).then(() => window.location.reload());
+            };
+
+            document.getElementById('confirmActionModal').classList.add('flex');
+        }
+
+        // Add Service Form Handler
+        document.getElementById('addServiceForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            formData.append('save_settings', '1');
+            formData.append('action', 'add_catalog_service');
+            formData.append('active_tab', 'services');
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                }
+            });
+        });
     </script>
 
     <!-- Restriction Modal (Sidebar-Aware) -->

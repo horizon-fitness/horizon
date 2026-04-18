@@ -13,6 +13,20 @@ $action = $input['action'] ?? '';
 ob_start();
 
 try {
+    // Ensure user_verifications table exists
+    $pdo->exec("CREATE TABLE IF NOT EXISTS user_verifications (
+        verification_id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        verification_type VARCHAR(50) NOT NULL,
+        code VARCHAR(10) NOT NULL,
+        status ENUM('pending', 'verified', 'expired') DEFAULT 'pending',
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME NOT NULL,
+        verified_at DATETIME NULL,
+        INDEX (user_id),
+        INDEX (code)
+    )");
+
     if ($action === 'request_otp') {
         $email = trim($input['email'] ?? '');
         $tenant_code = trim($input['tenant_code'] ?? '');
@@ -119,7 +133,16 @@ try {
         if ($ver) {
             $pdo->beginTransaction();
             
-            // 1. Update Password
+            // 1. Check if new password is same as old
+            $stmtCurrent = $pdo->prepare("SELECT password_hash FROM users WHERE user_id = ?");
+            $stmtCurrent->execute([$user_id]);
+            $currentHash = $stmtCurrent->fetchColumn();
+
+            if ($currentHash && password_verify($new_password, $currentHash)) {
+                throw new Exception("New password cannot be the same as your old password. Please choose a different one.");
+            }
+
+            // 2. Update Password
             $hash = password_hash($new_password, PASSWORD_DEFAULT);
             $pdo->prepare("UPDATE users SET password_hash = ? WHERE user_id = ?")->execute([$hash, $user_id]);
             
