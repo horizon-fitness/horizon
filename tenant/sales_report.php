@@ -263,19 +263,37 @@ $active_page = "sales";
             width: 4px; height: 24px; background: var(--primary); border-radius: 4px 0 0 4px;
         }
 
-        /* Invisible Scroll System */
+        /* 1. Global Invisible Scroll System */
         *::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
-        /* Inputs */
-        .input-box {
+        /* Status Cards (Superadmin Sync) */
+        .status-card-primary {
+            border: 1px solid rgba(var(--primary-rgb), 0.3);
+            background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.01) 100%);
+        }
+        .status-card-green {
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.01) 100%);
+        }
+        .status-card-amber {
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.01) 100%);
+        }
+
+        .table-header-alt {
+            font-size: 10px; font-weight: 900;
+            text-transform: uppercase; letter-spacing: 0.3em;
+            color: var(--text-main); opacity: 0.35;
+        }
+
+        .filter-input {
             background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); 
             border-radius: 14px; padding: 12px 18px; color: var(--text-main); 
             font-size: 11px; font-weight: 700; outline: none; 
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); appearance: none;
         }
-        .input-box:focus { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.08); box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1); }
-        .input-box option { background: var(--background); color: var(--text-main); }
+        .filter-input:focus { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.08); box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1); }
 
         /* Muted label utility */
         .label-muted {
@@ -360,45 +378,47 @@ $active_page = "sales";
         </div>
     </header>
 
+    <!-- Summary Intelligence Cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div class="glass-card p-8 hover-lift">
-            <p class="label-muted mb-2 tracking-widest">Total Revenue</p>
-            <h3 class="text-3xl font-black italic tracking-tighter uppercase" style="color: var(--text-main)">₱<?= number_format($total_revenue, 2) ?></h3>
-            <div class="mt-4 flex items-center gap-2">
-                <span class="size-2 rounded-full bg-primary animate-pulse"></span>
-                <span class="text-[9px] font-black uppercase tracking-widest italic leading-none pt-0.5" style="color: var(--text-main); opacity: 0.5;">Filtered Results</span>
-            </div>
+        <!-- Filtered Revenue -->
+        <div class="glass-card p-8 status-card-primary relative overflow-hidden group hover:scale-[1.02] transition-all">
+            <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform" style="color:var(--primary)">payments</span>
+            <p class="label-muted mb-2 tracking-widest text-[10px]">Filtered Revenue</p>
+            <h3 class="text-2xl font-black italic uppercase" style="color:var(--text-main)">₱<?= number_format($total_revenue, 2) ?></h3>
+            <p class="text-primary text-[10px] font-black uppercase mt-2 italic shadow-sm">Sales Inflow</p>
         </div>
 
-        <div class="glass-card p-8 hover-lift border-l-4" style="border-color: rgba(var(--primary-rgb), 0.4)">
-            <p class="label-muted mb-2 tracking-widest">Lifetime Sales</p>
-            <h3 class="text-3xl font-black italic tracking-tighter text-primary uppercase">₱<?= number_format($lifetime_revenue, 2) ?></h3>
-            <p class="text-[9px] font-black uppercase tracking-widest mt-4 italic leading-none" style="color: var(--text-main); opacity: 0.5;">All-time Recorded</p>
+        <!-- Lifetime Sales -->
+        <div class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02] transition-all">
+            <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">database</span>
+            <p class="label-muted mb-2 tracking-widest text-[10px]">Lifetime Sales</p>
+            <h3 class="text-2xl font-black italic uppercase text-emerald-400">₱<?= number_format($lifetime_revenue, 2) ?></h3>
+            <p class="text-emerald-500/60 text-[10px] font-black uppercase mt-2 italic">All-time Recorded</p>
         </div>
 
-        <div class="glass-card p-8 hover-lift">
-            <p class="label-muted mb-2 tracking-widest">Today's Sales</p>
-            <h3 class="text-3xl font-black italic tracking-tighter uppercase" style="color: var(--text-main)">₱<?= number_format($daily_sales, 2) ?></h3>
-            <div class="mt-4 flex items-center gap-1.5 text-emerald-500">
-                <span class="text-[9px] font-black uppercase tracking-widest italic">Live Tracking</span>
-            </div>
+        <!-- Today's Performance -->
+        <div class="glass-card p-8 status-card-amber relative overflow-hidden group hover:scale-[1.02] transition-all">
+            <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">trending_up</span>
+            <p class="label-muted mb-2 tracking-widest text-[10px]">Today's Sales</p>
+            <h3 class="text-2xl font-black italic uppercase text-amber-500">₱<?= number_format($daily_sales, 2) ?></h3>
+            <p class="text-amber-500/60 text-[10px] font-black uppercase mt-2 italic">Daily Performance</p>
         </div>
     </div>
 
-    <!-- Filter Bar -->
+    <!-- Polished Filter Bar -->
     <div class="glass-card p-8 mb-10 border border-white/5 bg-white/[0.01]">
         <form method="GET" class="flex flex-wrap items-end gap-8 relative z-10">
             <div class="flex-1 min-w-[200px] flex flex-col gap-2.5">
-                <label class="label-muted ml-1 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-xs" style="color:var(--primary)">calendar_today</span> Start Date
+                <label class="label-muted ml-1 flex items-center gap-2 text-[10px]">
+                    <span class="material-symbols-outlined text-xs text-primary">calendar_today</span> Start Date
                 </label>
-                <input type="date" name="date_from" value="<?= $date_from ?>" class="input-box w-full">
+                <input type="date" name="date_from" value="<?= $date_from ?>" class="filter-input w-full">
             </div>
             <div class="flex-1 min-w-[200px] flex flex-col gap-2.5">
-                <label class="label-muted ml-1 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-xs" style="color:var(--primary)">event</span> End Date
+                <label class="label-muted ml-1 flex items-center gap-2 text-[10px]">
+                    <span class="material-symbols-outlined text-xs text-primary">event</span> End Date
                 </label>
-                <input type="date" name="date_to" value="<?= $date_to ?>" class="input-box w-full">
+                <input type="date" name="date_to" value="<?= $date_to ?>" class="filter-input w-full">
             </div>
             <div class="flex gap-3">
                 <button type="submit" class="h-12 px-10 rounded-2xl text-white text-[10px] font-black uppercase italic tracking-widest transition-all hover:scale-[1.03] active:scale-95 shadow-xl group" style="background:var(--primary); box-shadow: 0 10px 30px -10px rgba(var(--primary-rgb), 0.4)">
@@ -411,17 +431,18 @@ $active_page = "sales";
             </div>
 
             <div class="ml-auto flex gap-3 h-12">
-                <button type="button" onclick="exportReportToPDF('sales-table-container', 'Sales Report', true)" class="px-6 rounded-xl bg-white/5 border border-white/5 font-black italic uppercase text-[10px] tracking-widest opacity-60 hover:opacity-100 transition-all flex items-center gap-2" style="color: var(--text-main)">
+                <button type="button" onclick="exportReportToPDF('table-export-anchor', 'Sales Intelligence', true)" class="px-6 rounded-xl bg-white/5 border border-white/5 font-black italic uppercase text-[10px] tracking-widest opacity-60 hover:opacity-100 transition-all flex items-center gap-2" style="color: var(--text-main)">
                     <span class="material-symbols-outlined text-sm">visibility</span> View Report
                 </button>
-                <button type="button" onclick="exportReportToPDF('sales-table-container', 'Sales Report', false)" class="px-6 rounded-xl bg-primary/10 border border-primary/20 font-black italic uppercase text-[10px] tracking-widest text-primary hover:bg-primary/20 transition-all flex items-center gap-2">
+                <button type="button" onclick="exportReportToPDF('table-export-anchor', 'Sales Intelligence', false)" class="px-6 rounded-xl bg-primary/10 border border-primary/20 font-black italic uppercase text-[10px] tracking-widest text-primary hover:bg-primary/20 transition-all flex items-center gap-2">
                     <span class="material-symbols-outlined text-sm">picture_as_pdf</span> Get PDF
                 </button>
             </div>
         </form>
     </div>
 
-    <div id="sales-table-container" class="glass-card overflow-hidden shadow-2xl min-h-[500px] border border-white/5">
+    <!-- Export Anchor: This wraps only the table and its specific header for the PDF -->
+    <div id="table-export-anchor" class="glass-card overflow-hidden shadow-2xl min-h-[500px] border border-white/5">
         <div class="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
             <h4 class="font-black italic uppercase text-xs tracking-widest text-primary flex items-center gap-3">
                 <span class="material-symbols-outlined text-lg">payments</span>
@@ -436,10 +457,10 @@ $active_page = "sales";
             <table class="w-full text-left">
                 <thead>
                     <tr class="border-b border-white/5 bg-white/[0.01]">
-                        <th class="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] opacity-35" style="color: var(--text-main)">Ref ID</th>
-                        <th class="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] opacity-35" style="color: var(--text-main)">Payer / Member</th>
-                        <th class="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] opacity-35" style="color: var(--text-main)">Amount</th>
-                        <th class="px-10 py-6 text-[10px] font-black uppercase tracking-[0.3em] opacity-35 text-right" style="color: var(--text-main)">Date & Time</th>
+                        <th class="px-10 py-6 table-header-alt">Ref ID</th>
+                        <th class="px-10 py-6 table-header-alt">Payer / Member</th>
+                        <th class="px-10 py-6 table-header-alt">Amount</th>
+                        <th class="px-10 py-6 table-header-alt text-right">Date & Time</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-white/5 text-sm font-medium">
@@ -488,6 +509,14 @@ $active_page = "sales";
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </tbody>
+                <tfoot class="border-t-2 border-white/10 bg-white/[0.02]">
+                    <tr>
+                        <td colspan="2" class="px-10 py-6 text-xs font-black uppercase italic tracking-widest text-primary">Total Interval Revenue</td>
+                        <td colspan="2" class="px-10 py-6 text-right text-xl font-black italic" style="color: var(--text-main)">
+                            ₱<?= number_format($total_revenue, 2) ?>
+                        </td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>
@@ -541,7 +570,11 @@ $active_page = "sales";
         // 2. SURGICAL CLEANING
         const contentClone = element.cloneNode(true);
         // Remove UI clutter but protect table hierarchy
-        contentClone.querySelectorAll('button, form, span.material-symbols-outlined, header, .flex-wrap').forEach(el => el.remove());
+        contentClone.querySelectorAll('button, form, span.material-symbols-outlined, header, .flex-wrap, h4').forEach(el => el.remove());
+        
+        // Remove the dashboard-style header container from the PDF
+        const dashboardHeader = contentClone.querySelector('div.px-10.py-8');
+        if (dashboardHeader) dashboardHeader.remove();
 
         [contentClone, ...contentClone.querySelectorAll('*')].forEach(el => {
             // Capture alignment BEFORE stripping classes
@@ -578,6 +611,7 @@ $active_page = "sales";
                 th.style.setProperty('padding', '12px 14px', 'important');
                 th.style.setProperty('text-transform', 'uppercase', 'important');
                 th.style.setProperty('font-weight', '700', 'important');
+                th.style.setProperty('text-align', 'left', 'important');
             });
 
             table.querySelectorAll('tr').forEach(tr => {
@@ -589,6 +623,19 @@ $active_page = "sales";
                 td.style.setProperty('padding', '10px 14px', 'important');
                 td.style.setProperty('color', '#333', 'important');
             });
+
+            // Bold Footer styling for professional PDF
+            const tfoot = table.querySelector('tfoot');
+            if (tfoot) {
+                tfoot.querySelectorAll('td').forEach(td => {
+                    td.style.setProperty('background-color', '#fafafa', 'important');
+                    td.style.setProperty('font-weight', '900', 'important');
+                    td.style.setProperty('font-size', '12px', 'important');
+                    td.style.setProperty('border-top', '2px solid #000', 'important');
+                    td.style.setProperty('border-bottom', 'none', 'important');
+                    td.style.setProperty('padding', '14px 14px', 'important');
+                });
+            }
         }
 
         const footer = document.createElement('div');
