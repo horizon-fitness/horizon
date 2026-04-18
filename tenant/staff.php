@@ -48,104 +48,162 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $error = "Action restricted. You have reached the maximum staff limit ($max_staff) set by the Superadmin.";
         } else {
             $fname = $_POST['first_name'] ?? '';
-    $lname = $_POST['last_name'] ?? '';
-    $email = $_POST['email'] ?? '';
-    $contact = $_POST['contact_number'] ?? '0000000000';
-    $role = $_POST['role'] ?? 'Coach';
-    $employment = $_POST['employment'] ?? 'FULL-TIME';
-    $password = $_POST['password'] ?? '';
-    $confirm_pass = $_POST['confirm_password'] ?? '';
-
-    if (empty($password) || $password !== $confirm_pass) {
-        $error = "Passwords do not match or are empty!";
-    } else {
-        $username = trim($_POST['username'] ?? '');
-
-        // 1. Check if Username Already Exists (Unique Identifier)
-        $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
-        $stmtCheck->execute([$username]);
-        if ($stmtCheck->fetch()) {
-            $error = "The username '$username' is already taken. Please choose another.";
-        } else {
-        $pass_hash = password_hash($password, PASSWORD_DEFAULT);
-
-        try {
-            $pdo->beginTransaction();
-
-            // 1. Insert into Users
-            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, 1, NOW(), NOW())");
-            $stmtUser->execute([$username, $email, $pass_hash, $fname, $lname, $contact]);
-            $new_user_id = $pdo->lastInsertId();
-
-            // 2. Insert into user_roles (REQUIRED for login functionality)
-            $role_name = (strtolower($role) === 'coach') ? 'Coach' : 'Staff';
-            $stmtRoleLookup = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
-            $stmtRoleLookup->execute([$role_name]);
-            $role_row = $stmtRoleLookup->fetch();
+            $lname = $_POST['last_name'] ?? '';
+            $email = $_POST['email'] ?? '';
+            $contact = $_POST['contact_number'] ?? '0000000000';
+            $role = $_POST['role'] ?? 'Coach';
+            $employment = $_POST['employment'] ?? 'FULL-TIME';
+            $auto_gen = true; // Forced auto-generation for Elite parity
             
-            if (!$role_row) {
-                $stmtAddRole = $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)");
-                $stmtAddRole->execute([$role_name]);
-                $role_id = $pdo->lastInsertId();
+            $password = bin2hex(random_bytes(4)); 
+            $confirm_password = $password;
+
+            if (empty($fname) || empty($lname) || empty($email) || empty($role)) {
+                $error = "Critical Exception: Missing required registration identity vectors.";
             } else {
-                $role_id = $role_row['role_id'];
+                if ($auto_gen) {
+                    $base_username = strtolower(substr($fname, 0, 1) . $lname);
+                    $username = $base_username;
+                    $count = 1;
+                    while (true) {
+                        $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
+                        $stmtCheck->execute([$username]);
+                        if (!$stmtCheck->fetch()) break;
+                        $username = $base_username . $count++;
+                    }
+                } else {
+                    $username = trim($_POST['username'] ?? '');
+                    $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
+                    $stmtCheck->execute([$username]);
+                    if ($stmtCheck->fetch()) {
+                        $error = "The username '$username' is already taken.";
+                    }
+                }
+
+                if (!isset($error)) {
+                    $pass_hash = password_hash($password, PASSWORD_DEFAULT);
+
+                    try {
+                        $pdo->beginTransaction();
+
+                        // 1. Insert into Users
+                        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, 1, NOW(), NOW())");
+                        $stmtUser->execute([$username, $email, $pass_hash, $fname, $lname, $contact]);
+                        $new_user_id = $pdo->lastInsertId();
+
+                        // 2. Insert into user_roles
+                        $role_name = (strtolower($role) === 'coach') ? 'Coach' : 'Staff';
+                        $stmtRoleLookup = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = ? LIMIT 1");
+                        $stmtRoleLookup->execute([$role_name]);
+                        $role_row = $stmtRoleLookup->fetch();
+                        
+                        if (!$role_row) {
+                            $stmtAddRole = $pdo->prepare("INSERT INTO roles (role_name) VALUES (?)");
+                            $stmtAddRole->execute([$role_name]);
+                            $role_id = $pdo->lastInsertId();
+                        } else {
+                            $role_id = $role_row['role_id'];
+                        }
+
+                        $stmtUserRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', NOW())");
+                        $stmtUserRole->execute([$new_user_id, $role_id, $gym_id]);
+
+                        // 3. Insert into Staff
+                        $stmtStaffAdd = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_DATE, 'Active', NOW(), NOW())");
+                        $stmtStaffAdd->execute([$new_user_id, $gym_id, $role, $employment]);
+
+                        $pdo->commit();
+
+                        // Send Welcome Email
+                        $subject = "Welcome to " . ($gym['gym_name'] ?? 'Horizon') . "!";
+                        $login_url = "https://" . $_SERVER['HTTP_HOST'] . "/login.php"; 
+                        $content = "
+                            <p>Hello <strong>" . htmlspecialchars($fname) . "</strong>,</p>
+                            <p>Welcome to the <strong>" . htmlspecialchars($gym['gym_name'] ?? 'Horizon') . "</strong> team! Your staff account has been successfully created.</p>
+                            <div style='background: #f8f8f8; padding: 20px; border-radius: 10px; margin: 20px 0;'>
+                                <p style='margin: 0;'><strong>Username:</strong> " . htmlspecialchars($username) . "</p>
+                                <p style='margin: 5px 0 0 0;'><strong>Password:</strong> " . htmlspecialchars($password) . "</p>
+                            </div>
+                            <p>You can access the portal here: <a href='$login_url'>$login_url</a></p>
+                            <p>Please change your password after your first login for security.</p>
+                        ";
+                        sendSystemEmail($email, $subject, getEmailTemplate("Welcome to the Team!", $content));
+
+                        header("Location: staff.php?success=1");
+                        exit;
+                    } catch (Exception $e) {
+                        $pdo->rollBack();
+                        $error = "Error adding staff: " . $e->getMessage();
+                    }
+                }
             }
-
-            $stmtUserRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', NOW())");
-            $stmtUserRole->execute([$new_user_id, $role_id, $gym_id]);
-
-            // 3. Insert into Staff
-            $stmtStaffAdd = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_DATE, 'Active', NOW(), NOW())");
-            $stmtStaffAdd->execute([$new_user_id, $gym_id, $role, $employment]);
-
-            $pdo->commit();
-
-            // Send Welcome Email
-            $subject = "Welcome to " . ($gym['gym_name'] ?? 'Horizon') . "!";
-            $login_url = "https://" . $_SERVER['HTTP_HOST'] . "/login.php"; 
-            $content = "
-                <p>Hello <strong>" . htmlspecialchars($fname) . "</strong>,</p>
-                <p>Welcome to the <strong>" . htmlspecialchars($gym['gym_name'] ?? 'Horizon') . "</strong> team! Your staff account has been successfully created.</p>
-                <div style='background: #f8f8f8; padding: 20px; border-radius: 10px; margin: 20px 0;'>
-                    <p style='margin: 0;'><strong>Username:</strong> " . htmlspecialchars($username) . "</p>
-                    <p style='margin: 5px 0 0 0;'><strong>Password:</strong> " . htmlspecialchars($password) . "</p>
-                </div>
-                <p>You can access the portal here: <a href='$login_url'>$login_url</a></p>
-                <p>Please change your password after your first login for security.</p>
-            ";
-            sendSystemEmail($email, $subject, getEmailTemplate("Welcome to the Team!", $content));
-
-            header("Location: staff.php?success=1");
-            exit;
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $error = "Error adding staff: " . $e->getMessage();
         }
     }
 }
+
+// ── 4-Color Elite Branding System ─────────────────────────────────────────────
+if (!function_exists('hexToRgb')) {
+    function hexToRgb($hex) {
+        if (!$hex) return "0, 0, 0";
+        $hex = str_replace("#", "", $hex);
+        if (strlen($hex) == 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+        } else {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        }
+        return "$r, $g, $b";
+    }
 }
+
+$configs = [
+    'system_name'     => !empty($gym['gym_name']) ? $gym['gym_name'] : 'Owner Portal',
+    'system_logo'     => !empty($gym['logo_path']) ? $gym['logo_path'] : '',
+    'theme_color'     => '#8c2bee',
+    'secondary_color' => '#a1a1aa',
+    'text_color'      => '#d1d5db',
+    'bg_color'        => '#0a090d',
+    'card_color'      => '#141216',
+    'auto_card_theme' => '1',
+    'font_family'     => 'Lexend',
+];
+
+$stmtGlobal = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$stmtGlobal->execute();
+foreach (($stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
 }
+
+$stmtTenant = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtTenant->execute([$user_id]);
+foreach (($stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
 }
 
-// Fetch Gym Details
-$stmtGym = $pdo->prepare("SELECT gym_name, profile_picture as logo_path FROM gyms WHERE gym_id = ?");
-$stmtGym->execute([$gym_id]);
-$gym = $stmtGym->fetch();
+$theme_color     = $configs['theme_color'];
+$highlight_color = $configs['secondary_color'];
+$text_color      = $configs['text_color'];
+$bg_color        = $configs['bg_color'];
+$font_family     = $configs['font_family'] ?? 'Lexend';
+$auto_card_theme = $configs['auto_card_theme'] ?? '1';
+$card_color      = $configs['card_color'];
 
-// Fetch Branding Data from system_settings
-$stmtPage = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
-$stmtPage->execute([$user_id]);
-$page = $stmtPage->fetchAll(PDO::FETCH_KEY_PAIR);
+$primary_rgb   = hexToRgb($theme_color);
+$highlight_rgb = hexToRgb($highlight_color);
+$card_bg_css   = ($auto_card_theme === '1')
+    ? "rgba({$primary_rgb}, 0.05)"
+    : $card_color;
 
-// Map system_settings keys to expected names
-$page['logo_path'] = $page['system_logo'] ?? '';
-$page['theme_color'] = $page['theme_color'] ?? '#8c2bee';
-$page['bg_color'] = $page['bg_color'] ?? '#0a090d';
+$page = [
+    'logo_path'   => !empty($configs['system_logo']) ? $configs['system_logo'] : (!empty($gym['logo_path']) ? $gym['logo_path'] : ''),
+    'theme_color' => $theme_color,
+    'bg_color'    => $bg_color,
+    'system_name' => !empty($configs['system_name']) ? $configs['system_name'] : (!empty($gym['gym_name']) ? $gym['gym_name'] : 'Owner Portal'),
+];
 
-$theme_color = $page['theme_color'];
-$bg_color = $page['bg_color'];
-
-// Fetch Statistics
 $stmtTotal = $pdo->prepare("SELECT COUNT(*) FROM staff WHERE gym_id = ?");
 $stmtTotal->execute([$gym_id]);
 $total_staff = (int) $stmtTotal->fetchColumn();
@@ -154,7 +212,6 @@ $stmtActive = $pdo->prepare("SELECT COUNT(*) FROM staff WHERE gym_id = ? AND sta
 $stmtActive->execute([$gym_id]);
 $active_personnel = (int) $stmtActive->fetchColumn();
 
-// Fetch Staff List
 $search = $_GET['search'] ?? '';
 $f_role = $_GET['f_role'] ?? '';
 $f_status = $_GET['f_status'] ?? '';
@@ -187,7 +244,6 @@ $stmtStaff = $pdo->prepare("
 $stmtStaff->execute($params);
 $staff_list = $stmtStaff->fetchAll();
 
-// Fetch Distinct Roles for Filter
 $stmtRoles = $pdo->prepare("SELECT DISTINCT staff_role FROM staff WHERE gym_id = ?");
 $stmtRoles->execute([$gym_id]);
 $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
@@ -208,291 +264,183 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "<?= $theme_color ?>", "background-dark": "<?= $bg_color ?>", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
+            theme: { extend: { colors: { 
+                "primary": "var(--primary)",
+                "background-dark": "var(--background)", 
+                "surface-dark": "var(--card-bg)", 
+                "border-subtle": "rgba(255,255,255,0.05)"
+            }}}
         }
     </script>
     <style>
-        body {
-            font-family: 'Lexend', sans-serif;
-            background-color:
-                <?= $bg_color ?>
-            ;
-            color: white;
-            overflow: hidden;
+        :root {
+            --primary:       <?= $theme_color ?>;
+            --primary-rgb:   <?= $primary_rgb ?>;
+            --highlight:     <?= $highlight_color ?>;
+            --highlight-rgb: <?= $highlight_rgb ?>;
+            --text-main:     <?= $text_color ?>;
+            --background:    <?= $bg_color ?>;
+            --card-bg:       <?= $card_bg_css ?>;
+            --card-blur:     20px;
+        }
+
+        body { 
+            font-family: '<?= $font_family ?>', sans-serif; 
+            background-color: var(--background); 
+            color: var(--text-main); 
+            overflow: hidden; 
             color-scheme: dark;
         }
 
-        .glass-card {
-            background: #14121a;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 24px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        .glass-card { 
+            background: var(--card-bg); 
+            border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 24px; 
+            backdrop-filter: blur(var(--card-blur));
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
         }
 
-        .hover-lift:hover {
-            transform: translateY(-10px);
-            border-color:
-                <?= $theme_color ?>
-                40;
-            box-shadow: 0 20px 40px -20px
-                <?= $theme_color ?>
-                30;
-        }
-
-        /* Sidebar Styling */
         .side-nav {
             width: 110px;
-            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
             overflow: hidden;
             display: flex;
             flex-direction: column;
             position: fixed;
-            left: 0;
-            top: 0;
+            left: 0; top: 0;
             height: 100vh;
-            z-index: 150;
-            background-color:
-                <?= $bg_color ?>
-            ;
-            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 50;
+            background-color: var(--background);
+            border-right: 1px solid rgba(255,255,255,0.05);
         }
+        .side-nav:hover { width: 300px; }
 
-        .side-nav:hover {
-            width: 300px;
+        .main-content { 
+            margin-left: 110px; 
+            flex: 1; 
+            min-width: 0; 
+            transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
         }
-
-        .main-content {
-            margin-left: 110px;
-            flex: 1;
-            min-width: 0;
-            transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .side-nav:hover~.main-content {
-            margin-left: 300px;
-        }
+        .side-nav:hover ~ .main-content { margin-left: 300px; }
 
         .nav-label {
-            opacity: 0;
-            transform: translateX(-15px);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            white-space: nowrap;
-            pointer-events: none;
+            opacity: 0; transform: translateX(-15px);
+            transition: all 0.3s ease-in-out; white-space: nowrap;
+            pointer-events: none; color: var(--text-main);
         }
-
-        .side-nav:hover .nav-label {
-            opacity: 1;
-            transform: translateX(0);
-            pointer-events: auto;
-        }
+        .side-nav:hover .nav-label { opacity: 1; transform: translateX(0); pointer-events: auto; }
 
         .nav-section-label {
-            max-height: 0;
-            opacity: 0;
-            transform: translateX(-15px);
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            margin: 0 !important;
-            pointer-events: none;
+            max-height: 0; opacity: 0; overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+            margin: 0 !important; pointer-events: none;
         }
-
         .side-nav:hover .nav-section-label {
-            max-height: 20px;
-            opacity: 1;
-            transform: translateX(0);
-            margin-bottom: 8px !important;
-            pointer-events: auto;
+            max-height: 20px; opacity: 1;
+            margin-bottom: 8px !important; pointer-events: auto;
         }
 
         .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 10px 38px;
-            transition: all 0.2s ease;
-            text-decoration: none;
-            white-space: nowrap;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #94a3b8;
+            display: flex; align-items: center; gap: 16px;
+            padding: 10px 38px; transition: opacity 0.2s ease, color 0.2s ease;
+            text-decoration: none; white-space: nowrap;
+            font-size: 11px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            color: color-mix(in srgb, var(--text-main) 45%, transparent);
         }
-
-        .nav-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
-        }
-
-        .nav-item.active {
-            color:
-                <?= $theme_color ?>
-                !important;
-            position: relative;
-        }
-
+        .nav-item:hover { color: var(--text-main); }
+        .nav-item .material-symbols-outlined { color: var(--highlight); transition: transform 0.2s ease; }
+        .nav-item:hover .material-symbols-outlined { transform: scale(1.12); }
+        .nav-item.active { color: var(--primary) !important; position: relative; }
+        .nav-item.active .material-symbols-outlined { color: var(--primary); }
         .nav-item.active::after {
-            content: '';
-            position: absolute;
-            right: 0px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px;
-            height: 24px;
-            background:
-                <?= $theme_color ?>
-            ;
-            border-radius: 4px 0 0 4px;
+            content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+            width: 4px; height: 24px; background: var(--primary); border-radius: 4px 0 0 4px;
         }
 
-        /* Invisible Scroll System */
+        .label-muted {
+            color: var(--text-main); opacity: 0.6;
+            font-size: 10px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.15em;
+        }
+
+        .status-card-primary {
+            border: 1px solid rgba(var(--primary-rgb), 0.3);
+            background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.01) 100%);
+        }
+        .status-card-green {
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.01) 100%);
+        }
+
         *::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
-        /* Modal Overlay Shift with Sidebar */
         .modal-overlay {
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(8px);
-            display: none;
+            background: rgba(0, 0, 0, 0.82);
+            backdrop-filter: blur(12px);
+            display: none !important;
             position: fixed;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            left: 110px;
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            top: 0; right: 0; bottom: 0; left: 110px;
+            z-index: 100; align-items: center; justify-content: center;
+            padding: 24px; transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
-        .side-nav:hover~.modal-overlay {
-            left: 300px;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-        }
+        .side-nav:hover~.modal-overlay { left: 300px; }
+        .modal-overlay.active { display: flex !important; }
 
         .modal-content {
-            background: #14121a;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            width: 100%;
-            max-width: 500px;
-            transform: scale(0.95);
-            transition: all 0.3s ease-in-out;
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 28px;
+            width: 100%; max-width: 500px;
+            transform: scale(0.95); opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        .modal-overlay.active .modal-content { transform: scale(1); opacity: 1; }
 
-        .modal-overlay.active .modal-content {
-            transform: scale(1);
-        }
-
-        /* Filter Inputs */
         .filter-input {
-            background: rgba(255, 255, 255, 0.03) !important;
-            border: 1px solid rgba(255, 255, 255, 0.08) !important;
-            border-radius: 12px;
-            padding: 12px 18px;
-            color: white !important;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            outline: none;
-            transition: all 0.3s ease;
-            font-style: italic;
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); 
+            border-radius: 14px; padding: 12px 18px; color: var(--text-main); 
+            font-size: 11px; font-weight: 700; outline: none; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); appearance: none;
         }
-
-        .filter-input option {
-            background-color: #1a1625;
-            color: white;
-        }
-
-        .filter-input:focus {
-            border-color:
-                <?= $theme_color ?>
-                !important;
-            background: rgba(255, 255, 255, 0.05) !important;
-            box-shadow: 0 0 20px
-                <?= $theme_color ?>
-                20;
-        }
+        .filter-input:focus { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.08); box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1); }
 
         select.filter-input {
-            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23<?= str_replace('#', '', $theme_color) ?>'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 1rem center;
+            background-size: 1em; padding-right: 2.5rem;
             cursor: pointer;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7' /%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 12px;
-            padding-right: 40px;
         }
 
-        /* Password Strength & Visibility */
-        .strength-bar {
-            height: 4px;
-            border-radius: 2px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            width: 0;
+        select.filter-input option {
+            background-color: #141216;
+            color: var(--text-main);
+            padding: 15px;
+            font-weight: 600;
         }
 
-        .strength-weak {
-            background: #f43f5e;
-            width: 33%;
+        .table-header-alt {
+            font-size: 10px; font-weight: 900;
+            text-transform: uppercase; letter-spacing: 0.3em;
+            color: var(--text-main); opacity: 0.35;
         }
 
-        .strength-medium {
-            background: #fbbf24;
-            width: 66%;
-        }
+        .blur-overlay { position: relative; }
+        .blur-overlay-content { filter: blur(12px); pointer-events: none; user-select: none; }
 
-        .strength-strong {
-            background: #10b981;
-            width: 100%;
-        }
-
-        .pass-container {
-            position: relative;
-        }
-
-        .view-toggle {
-            position: absolute;
-            right: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            cursor: pointer;
-            color: #64748b;
-            font-size: 18px !important;
-            transition: all 0.3s ease;
-        }
-
-        .view-toggle:hover {
-            color: white;
-        }
-
-        .restricted-overlay {
-            position: relative;
-        }
-
-        /* Sidebar-Aware Sub Modal */
         #subModal { 
-            position: fixed; 
-            top: 0; 
-            right: 0; 
-            bottom: 0; 
-            left: 110px; 
-            z-index: 200; 
-            display: none !important; 
-            align-items: center; 
-            justify-content: center; 
-            padding: 24px; 
-            background: rgba(0, 0, 0, 0.8); 
-            backdrop-filter: blur(12px); 
+            position: fixed; top: 0; right: 0; bottom: 0; left: 110px; z-index: 200; 
+            display: none !important; align-items: center; justify-content: center; 
+            padding: 24px; background: rgba(0, 0, 0, 0.82); backdrop-filter: blur(12px); 
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
         }
         #subModal.active { display: flex !important; }
         .side-nav:hover ~ #subModal { left: 300px; }
+        .strength-bar { height: 100%; width: 0%; transition: all 0.3s ease; }
+        .strength-weak { width: 33%; background: #f43f5e; }
+        .strength-medium { width: 66%; background: #f59e0b; }
+        .strength-strong { width: 100%; background: #10b981; }
     </style>
     <script>
         function showSubWarning() { document.getElementById('subModal').classList.add('active'); }
@@ -508,110 +456,28 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
 
 <body class="flex h-screen overflow-hidden">
 
-    <nav class="side-nav">
-        <div class="px-7 py-8 mb-4 shrink-0">
-            <div class="flex items-center gap-4">
-                <div
-                    class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($gym['logo_path']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
-                    <?php if (!empty($gym['logo_path'])): ?>
-                        <img src="<?= htmlspecialchars($gym['logo_path']) ?>" class="size-full object-cover">
-                    <?php else: ?>
-                        <span class="material-symbols-outlined text-white text-2xl">bolt</span>
-                    <?php endif; ?>
-                </div>
-                <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Owner Portal</h1>
-            </div>
-        </div>
-
-        <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-            <div class="nav-section-label px-[38px] mb-2"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Main Menu</span></div>
-            <a href="tenant_dashboard.php" class="nav-item">
-                <span class="material-symbols-outlined text-xl shrink-0">grid_view</span>
-                <span class="nav-label">Dashboard</span>
-            </a>
-
-            <a href="my_users.php" class="nav-item">
-                <span class="material-symbols-outlined text-xl shrink-0">group</span>
-                <span class="nav-label">Users</span>
-            </a>
-
-            <a href="transactions.php" class="nav-item">
-                <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
-                <span class="nav-label">Transactions</span>
-            </a>
-
-            <a href="attendance.php" class="nav-item">
-                <span class="material-symbols-outlined text-xl shrink-0">history</span>
-                <span class="nav-label">Attendance</span>
-            </a>
-
-            <div class="nav-section-label px-[38px] mb-2 mt-6"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
-
-            <a href="staff.php" class="nav-item active">
-                <span class="material-symbols-outlined text-xl shrink-0">badge</span>
-                <span class="nav-label">Staff</span>
-            </a>
-
-            <a href="reports.php" class="nav-item">
-                <span class="material-symbols-outlined text-xl shrink-0">analytics</span>
-                <span class="nav-label">Reports</span>
-            </a>
-
-            <a href="sales_report.php" class="nav-item">
-                <span class="material-symbols-outlined text-xl shrink-0">payments</span>
-                <span class="nav-label">Sales Reports</span>
-            </a>
-        </div>
-
-        <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
-            <div class="nav-section-label px-[38px] mb-2"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">Account</span></div>
-            <a href="tenant_settings.php" class="nav-item">
-                <span class="material-symbols-outlined text-xl shrink-0">settings</span>
-                <span class="nav-label">Settings</span>
-            </a>
-            <a href="profile.php" class="nav-item">
-                <span class="material-symbols-outlined text-xl shrink-0">account_circle</span>
-                <span class="nav-label">Profile</span>
-            </a>
-            <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors">
-                <span class="material-symbols-outlined text-xl shrink-0">logout</span>
-                <span class="nav-label">Sign Out</span>
-            </a>
-        </div>
-    </nav>
+<?php 
+include '../includes/tenant_sidebar.php'; 
+?>
 
     <main class="main-content flex-1 p-10 overflow-y-auto no-scrollbar pb-10 <?= $is_restricted ? 'blur-overlay' : '' ?>">
     <div class="<?= $is_restricted ? 'blur-overlay-content' : '' ?>">
 
-        <header class="mb-10 flex justify-between items-end">
+        <header class="mb-10 flex flex-row justify-between items-end gap-6">
             <div>
-                <h2 class="text-3xl font-black uppercase tracking-tighter text-white italic">Staff <span
-                        class="text-primary italic">Management</span></h2>
-                <p class="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1 italic">
-                    <?= htmlspecialchars($gym['gym_name'] ?? 'Horizon Gym') ?> Personnel Management
-                </p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none" style="color:var(--text-main)">Staff <span class="text-primary">Management</span></h2>
+                <p class="text-[--text-main] opacity-40 text-xs font-bold uppercase tracking-widest mt-2"><?= htmlspecialchars($gym['gym_name'] ?? 'Horizon Gym') ?> Personnel Management</p>
             </div>
-
-            <div class="flex items-center gap-8">
-
-                <div class="text-right">
-                    <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
-                    <p class="text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80 italic">
-                        <span class="text-primary"><?= date('l, M d, Y') ?></span>
-                    </p>
-                </div>
+            <div class="text-right shrink-0">
+                <p id="topClock" class="text-[--text-main] font-black italic text-2xl tracking-tighter leading-none mb-2">00:00:00 AM</p>
+                <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none opacity-80"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
         <?php if (isset($_GET['success'])): ?>
-            <div
-                class="mb-8 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 animate-pulse">
+            <div class="mb-8 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 animate-pulse">
                 <span class="material-symbols-outlined text-emerald-500">check_circle</span>
-                <p class="text-[10px] font-black uppercase tracking-widest text-emerald-400 italic">Personnel registered
-                    successfully!</p>
+                <p class="text-[10px] font-black uppercase tracking-widest text-emerald-400 italic">Personnel registered successfully!</p>
             </div>
         <?php endif; ?>
 
@@ -624,47 +490,46 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
             </div>
         <?php endif; ?>
 
-        <div class="flex items-center justify-between gap-6 mb-10">
-            <div class="flex items-center gap-6">
-                <div class="glass-card hover-lift px-8 py-4 flex items-center gap-4">
-                    <div>
-                        <p class="text-[11px] font-black uppercase text-gray-500 tracking-widest leading-none">Total
-                            Staff</p>
-                        <h3 class="text-xl font-black italic tracking-tighter text-white mt-1">
-                            <?= number_format($total_staff) ?>
-                        </h3>
-                    </div>
-                    <div class="w-px h-8 bg-white/10 mx-2"></div>
-                    <div>
-                        <p class="text-[11px] font-black uppercase text-gray-500 tracking-widest leading-none">Active
-                            Now
-                        </p>
-                        <h3 class="text-xl font-black italic tracking-tighter text-emerald-400 mt-1">
-                            <?= number_format($active_personnel) ?>
-                        </h3>
-                    </div>
-                </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+            <div class="glass-card p-8 status-card-primary relative overflow-hidden group hover:scale-[1.02] transition-all">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform" style="color:var(--primary)">groups</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total Roster</p>
+                <h3 class="text-2xl font-black italic uppercase" style="color:var(--text-main)"><?= number_format($total_staff) ?> <span class="text-xs opacity-40">Staff Personnel</span></h3>
+                <p class="text-primary text-[10px] font-black uppercase mt-2 italic shadow-sm">Verified Team Size</p>
+            </div>
+
+            <div class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02] transition-all">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">how_to_reg</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Operational Strength</p>
+                <h3 class="text-2xl font-black italic uppercase text-emerald-400"><?= number_format($active_personnel) ?> <span class="text-xs opacity-40">Active</span></h3>
+                <p class="text-emerald-500/60 text-[10px] font-black uppercase mt-2 italic flex items-center gap-2">
+                    <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Currently Deployable
+                </p>
+            </div>
+
+            <div class="glass-card p-8 status-card-primary relative overflow-hidden group hover:scale-[1.02] transition-all lg:hidden xl:block">
+                <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform" style="color:var(--primary)">badge</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Team Density</p>
+                <h3 class="text-2xl font-black italic uppercase" style="color:var(--text-main)"><?= count($roles) ?> <span class="text-xs opacity-40">Active Roles</span></h3>
+                <p class="text-[10px] font-black uppercase mt-2 italic" style="color:var(--primary)">Specialization Index</p>
             </div>
         </div>
 
-        <div class="glass-card p-6 mb-8 border border-white/5">
-            <form method="GET" class="flex flex-wrap items-center gap-6">
-                <div class="flex flex-col gap-1.5 flex-1 min-w-[200px]">
-                    <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Search
-                        Member</label>
+        <div class="glass-card p-8 mb-10 border border-white/5 bg-white/[0.01]">
+            <form method="GET" class="flex flex-wrap items-end gap-8">
+                <div class="flex-1 min-w-[200px] flex flex-col gap-2.5">
+                    <label class="label-muted ml-1">Personnel Search</label>
                     <div class="relative group">
-                        <span
-                            class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-500 text-sm group-focus-within:text-primary transition-colors">search</span>
-                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                            placeholder="Name or Role..." class="filter-input w-full pl-12 italic">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm transition-transform group-hover:scale-110" style="color:var(--primary)">search</span>
+                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Name or Role..." class="filter-input w-full pl-12">
                     </div>
                 </div>
 
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Filter by
-                        Role</label>
-                    <select name="f_role" class="filter-input w-48 italic">
-                        <option value="">All Roles</option>
+                <div class="w-48 flex flex-col gap-2.5">
+                    <label class="label-muted ml-1">Department/Role</label>
+                    <select name="f_role" class="filter-input w-full">
+                        <option value="">All Disciplines</option>
                         <?php foreach ($roles as $r): ?>
                             <option value="<?= htmlspecialchars($r) ?>" <?= $f_role === $r ? 'selected' : '' ?>>
                                 <?= htmlspecialchars($r) ?>
@@ -673,26 +538,26 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
                     </select>
                 </div>
 
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Filter by
-                        Status</label>
-                    <select name="f_status" class="filter-input w-40 italic">
+                <div class="w-36 flex flex-col gap-2.5">
+                    <label class="label-muted ml-1">Staff Status</label>
+                    <select name="f_status" class="filter-input w-full">
                         <option value="">All Status</option>
                         <option value="Active" <?= $f_status === 'Active' ? 'selected' : '' ?>>Active</option>
                         <option value="Inactive" <?= $f_status === 'Inactive' ? 'selected' : '' ?>>Inactive</option>
                     </select>
                 </div>
 
-                <div class="flex items-end gap-3 ml-auto mt-4 md:mt-0">
-                    <button type="submit"
-                        class="bg-primary hover:bg-opacity-90 text-white px-8 py-2.5 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-primary/20 transition-all border border-primary/20">
-                        Apply Filters
+                <div class="flex gap-2.5">
+                    <button type="submit" class="h-12 flex items-center justify-center gap-3 px-8 rounded-2xl text-white text-[10px] font-black uppercase italic tracking-widest transition-all hover:scale-[1.03] active:scale-95 shadow-xl group" style="background:var(--primary); shadow-color:rgba(var(--primary-rgb),0.2)">
+                        <span class="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">filter_list</span>
+                        Sync Filter
                     </button>
-                    <a href="staff.php"
-                        class="px-6 py-2.5 bg-white/5 text-gray-400 rounded-xl font-black italic uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all">Clear</a>
-                    <button type="button" onclick="<?= $is_sub_active ? 'toggleAddModal()' : 'showSubWarning()' ?>"
-                        class="bg-white/5 border border-white/10 hover:border-primary/50 text-white px-8 py-2.5 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase italic tracking-widest transition-all <?= !$is_sub_active ? 'opacity-50 cursor-not-allowed' : '' ?>">
-                        <span class="material-symbols-outlined text-sm"><?= $is_sub_active ? 'person_add' : 'lock' ?></span> <?= $is_sub_active ? 'Add New' : 'Locked' ?>
+                    <a href="staff.php" class="h-12 w-12 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-gray-500 hover:text-white hover:bg-white/10 transition-all shadow-lg" title="Clear All">
+                        <span class="material-symbols-outlined text-xl">restart_alt</span>
+                    </a>
+                    <button type="button" onclick="<?= $is_sub_active ? 'toggleAddModal()' : 'showSubWarning()' ?>" class="h-12 flex items-center justify-center gap-3 px-8 rounded-2xl border border-white/10 text-white text-[10px] font-black uppercase italic tracking-widest transition-all hover:border-primary/50 hover:bg-white/5 active:scale-95 shadow-lg group <?= !$is_sub_active ? 'opacity-50 cursor-not-allowed' : '' ?>">
+                        <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform"><?= $is_sub_active ? 'person_add' : 'lock' ?></span>
+                        <?= $is_sub_active ? 'Add Personnel' : 'Access Locked' ?>
                     </button>
                 </div>
             </form>
@@ -700,82 +565,71 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
 
         <div class="glass-card overflow-hidden shadow-2xl">
             <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                <h4 class="font-black italic uppercase text-xs tracking-widest flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">groups</span> Team Roster
+                <h4 class="font-black italic uppercase text-xs tracking-widest flex items-center gap-2" style="color:var(--text-main)">
+                    <span class="material-symbols-outlined" style="color:var(--primary)">groups</span> Team Roster
                 </h4>
-                <div class="text-[10px] font-bold text-gray-500 italic uppercase">Showing <?= count($staff_list) ?>
-                    Staff Members</div>
+                <div class="label-muted italic">Showing <?= count($staff_list) ?> Personnel</div>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr
-                            class="text-[11px] font-black uppercase tracking-widest text-gray-500 border-b border-white/5">
-                            <th class="px-8 py-5">Member Name</th>
-                            <th class="px-8 py-5">Role</th>
-                            <th class="px-8 py-5">Employment</th>
-                            <th class="px-8 py-5 text-center">Status</th>
-                            <th class="px-8 py-5 text-right">Actions</th>
+                        <tr class="border-b border-white/5 bg-white/[0.01]">
+                            <th class="px-8 py-6 table-header-alt">Personnel Profile</th>
+                            <th class="px-8 py-6 table-header-alt">Core Role</th>
+                            <th class="px-8 py-6 table-header-alt">Employment Status</th>
+                            <th class="px-8 py-6 table-header-alt text-center">Protocol Status</th>
+                            <th class="px-8 py-6 table-header-alt text-right">Operations</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         <?php if (empty($staff_list)): ?>
                             <tr>
-                                <td colspan="5"
-                                    class="px-8 py-20 text-center text-gray-600 font-black italic uppercase text-xs">No
-                                    staff members found matching your search.</td>
+                                <td colspan="5" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">No personnel records detected.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($staff_list as $s): ?>
-                                <tr class="hover:bg-white/[0.02] transition-all group">
-                                    <td class="px-8 py-6 flex items-center gap-4">
-                                        <?php
-                                        $initials = strtoupper(substr($s['first_name'] ?? '', 0, 1) . substr($s['last_name'] ?? '', 0, 1));
-                                        ?>
-                                        <div
-                                            class="size-14 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shadow-lg shadow-black/20">
-                                            <?php if (!empty($s['profile_picture'])): ?>
-                                                <img src="<?= htmlspecialchars('../' . $s['profile_picture']) ?>"
-                                                    class="size-full object-cover"
-                                                    onerror="this.outerHTML='<span class=\'text-gray-500 font-black italic text-sm tracking-tighter\'><?= $initials ?></span>'">
-                                            <?php else: ?>
-                                                <span
-                                                    class="text-gray-500 font-black italic text-sm tracking-tighter"><?= $initials ?></span>
-                                            <?php endif; ?>
-                                        </div>
-                                        <div>
-                                            <p class="font-black italic uppercase tracking-tighter text-sm text-white">
-                                                <?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?>
-                                            </p>
-                                            <p class="text-[10px] font-bold text-gray-500 uppercase">
-                                                <?= htmlspecialchars($s['email']) ?>
-                                            </p>
+                                <tr class="hover:bg-white/[0.04] transition-all group">
+                                    <td class="px-8 py-6">
+                                        <div class="flex items-center gap-4">
+                                            <?php $initials = strtoupper(substr($s['first_name'] ?? '', 0, 1) . substr($s['last_name'] ?? '', 0, 1)); ?>
+                                            <div class="size-14 rounded-2xl bg-white/5 border border-white/5 overflow-hidden flex items-center justify-center relative group-hover:border-primary/20 transition-colors">
+                                                <?php if (!empty($s['profile_picture'])): ?>
+                                                    <img src="<?= htmlspecialchars('../' . $s['profile_picture']) ?>" class="size-full object-cover" onerror="this.outerHTML='<span class=\'text-[--text-main] opacity-40 font-black italic text-sm tracking-tighter\'><?= $initials ?></span>'">
+                                                <?php else: ?>
+                                                    <span class="text-[--text-main] opacity-40 font-black italic text-sm tracking-tighter"><?= $initials ?></span>
+                                                <?php endif; ?>
+                                                <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            </div>
+                                            <div>
+                                                <p class="font-black italic uppercase tracking-tighter text-[13.5px] text-white"><?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?></p>
+                                                <p class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mt-1"><?= htmlspecialchars($s['email']) ?></p>
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="px-8 py-6">
-                                        <span
-                                            class="px-3 py-1 rounded-lg bg-primary/5 border border-primary/10 text-primary text-[10px] font-black uppercase tracking-widest italic"><?= htmlspecialchars($s['staff_role']) ?></span>
+                                        <span class="px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary text-[9px] font-black uppercase tracking-widest italic"><?= htmlspecialchars($s['staff_role']) ?></span>
                                     </td>
                                     <td class="px-8 py-6">
-                                        <p class="text-[11px] font-black uppercase text-white tracking-tighter italic">
-                                            <?= $s['employment_type'] ?>
-                                        </p>
-                                        <p class="text-[10px] text-gray-600 font-bold uppercase italic">Hired:
-                                            <?= date('M d, Y', strtotime($s['hire_date'])) ?>
-                                        </p>
+                                        <p class="text-[11px] font-black uppercase text-white tracking-tighter italic"><?= $s['employment_type'] ?></p>
+                                        <p class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-30 mt-1 italic">Hired: <?= date('M d, Y', strtotime($s['hire_date'])) ?></p>
                                     </td>
                                     <td class="px-8 py-6 text-center">
-                                        <span
-                                            class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest italic <?= $s['status'] === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-500' ?>">
-                                            <?= $s['status'] ?>
-                                        </span>
+                                        <?php if($s['status'] === 'Active'): ?>
+                                            <span class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-[0.1em] italic flex items-center gap-2 justify-center mx-auto w-fit shadow-lg shadow-emerald-500/5">
+                                                <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                Operational
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[9px] font-black uppercase tracking-widest italic inline-flex items-center gap-2 justify-center w-fit">
+                                                Inactive
+                                            </span>
+                                        <?php endif; ?>
                                     </td>
                                     <td class="px-8 py-6 text-right">
                                         <div class="flex justify-end gap-2 outline-none">
-                                            <button onclick="openViewModal(<?= htmlspecialchars(json_encode($s)) ?>)"
-                                                class="size-9 rounded-xl bg-white/5 hover:bg-primary hover:text-white transition-all text-gray-500 border border-white/5 flex items-center justify-center shadow-lg group-hover:scale-110 active:scale-95">
-                                                <span class="material-symbols-outlined text-sm">visibility</span>
+                                            <button onclick="openViewModal(<?= htmlspecialchars(json_encode($s)) ?>)" class="size-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[--text-main] opacity-40 hover:opacity-100 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-lg active:scale-95 group/btn">
+                                                <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
                                             </button>
                                         </div>
                                     </td>
@@ -790,65 +644,55 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
 
     <!-- View Staff Modal -->
     <div id="viewStaffModal" class="modal-overlay">
-        <div class="modal-content overflow-hidden max-w-[450px]">
-            <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                <h4 class="font-black italic uppercase text-xs tracking-widest flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">person</span> Personnel Details
+        <div class="modal-content overflow-hidden max-w-[480px]">
+            <div class="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <h4 class="font-black italic uppercase text-sm tracking-widest flex items-center gap-3" style="color:var(--text-main)">
+                    <span class="material-symbols-outlined" style="color:var(--primary)">person</span> Personnel Details
                 </h4>
-                <button onclick="hideViewModal()" class="text-gray-500 hover:text-white transition-colors">
-                    <span class="material-symbols-outlined">close</span>
+                <button onclick="hideViewModal()" class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined text-xl">close</span>
                 </button>
             </div>
-            <div class="p-8 space-y-8">
-                <div class="flex items-center gap-6">
-                    <div id="view_avatar"
-                        class="size-28 rounded-3xl bg-white/5 border-2 border-white/10 flex items-center justify-center overflow-hidden shadow-2xl shadow-primary/10 transition-all">
-                        <!-- Avatar will be set by JS -->
+            <div class="p-8 space-y-8 text-left">
+                <div class="flex items-center gap-6 group">
+                    <div id="view_avatar" class="size-24 rounded-3xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shadow-2xl relative transition-transform duration-500 group-hover:scale-105">
+                        <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </div>
-                    <div class="space-y-2">
-                        <h2 id="view_full_name"
-                            class="text-3xl font-black italic uppercase tracking-tighter text-white leading-tight">
-                            -</h2>
-                        <span id="view_role_badge"
-                            class="px-4 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary text-[11px] font-black uppercase tracking-widest italic">-</span>
+                    <div>
+                        <h5 id="view_full_name" class="text-2xl font-black italic uppercase tracking-tighter text-white leading-none mb-2">Personnel Name</h5>
+                        <div id="view_status_badge" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest italic w-fit">ACTIVE</div>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-8">
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest">Email
-                            Address</label>
-                        <p id="view_email" class="text-white font-bold text-xs truncate">-</p>
+                <div class="grid grid-cols-2 gap-6 pb-2">
+                    <div class="space-y-1.5">
+                        <label class="label-muted">Staff Role</label>
+                        <p id="view_role_badge" class="text-xs font-black italic uppercase text-primary tracking-widest leading-none mt-2">Team Lead</p>
                     </div>
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest">Contact
-                            Number</label>
-                        <p id="view_contact" class="text-white font-bold text-xs">-</p>
+                    <div class="space-y-1.5 text-right">
+                        <label class="label-muted">Employment</label>
+                        <p id="view_employment" class="text-xs font-black italic uppercase text-white tracking-widest leading-none mt-2">FULL-TIME</p>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-8 pt-4 border-t border-white/5">
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest">Employment</label>
-                        <p id="view_employment" class="text-white font-black italic uppercase text-xs tracking-tighter">
-                            -</p>
+                <div class="space-y-6 pt-4 border-t border-white/5">
+                    <div class="flex items-center justify-between">
+                        <label class="label-muted">Email Address</label>
+                        <p id="view_email" class="text-xs font-bold text-[--text-main]">staff@example.com</p>
                     </div>
-                    <div class="space-y-1">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest">Hire Date</label>
-                        <p id="view_hire_date" class="text-white font-bold text-xs uppercase italic">-</p>
+                    <div class="flex items-center justify-between">
+                        <label class="label-muted">Contact Handle</label>
+                        <p id="view_contact" class="text-xs font-bold text-[--text-main]">0917 XXX XXXX</p>
                     </div>
-                </div>
-
-                <div class="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
-                    <span class="text-[11px] font-black uppercase text-gray-500 tracking-widest">Account Status</span>
-                    <span id="view_status_badge"
-                        class="px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest italic">-</span>
+                    <div class="flex items-center justify-between">
+                        <label class="label-muted">Initiation Date</label>
+                        <p id="view_hire_date" class="text-xs font-bold text-[--text-main]">Jan 12, 2024</p>
+                    </div>
                 </div>
             </div>
-            <div class="px-8 py-6 bg-white/[0.02] border-t border-white/5 flex justify-end">
-                <button onclick="hideViewModal()"
-                    class="px-8 bg-white/5 text-gray-400 py-3 rounded-xl font-black italic uppercase tracking-widest text-[12px] hover:bg-white/10 transition-all">
-                    Done
+            <div class="p-8 pt-0">
+                <button onclick="hideViewModal()" class="w-full h-14 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase italic tracking-[0.2em] text-gray-400 hover:text-white hover:bg-white/10 transition-all shadow-lg active:scale-95">
+                    Close Manifest
                 </button>
             </div>
         </div>
@@ -856,100 +700,86 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
 
     <!-- Add Staff Modal -->
     <div id="addStaffModal" class="modal-overlay">
-        <div class="modal-content overflow-hidden">
-            <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                <h4 class="font-black italic uppercase text-xs tracking-widest flex items-center gap-2">
-                    <span class="material-symbols-outlined text-primary">person_add</span> Add New Member
+        <div class="modal-content overflow-hidden max-w-[550px] max-h-[90vh] flex flex-col">
+            <div class="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <h4 class="font-black italic uppercase text-sm tracking-[0.2em] flex items-center gap-3" style="color:var(--text-main)">
+                    <span class="material-symbols-outlined" style="color:var(--primary)">person_add</span> Register Personnel
                 </h4>
-                <button onclick="toggleAddModal()" class="text-gray-500 hover:text-white transition-colors">
-                    <span class="material-symbols-outlined">close</span>
+                <button onclick="toggleAddModal()" class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined text-xl">close</span>
                 </button>
             </div>
-            <form method="POST" class="p-8 space-y-6">
+
+            <form method="POST" class="overflow-y-auto no-scrollbar flex-1 text-left" autocomplete="off">
                 <input type="hidden" name="action" value="add_staff">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">First
-                            Name</label>
-                        <input type="text" name="first_name" required placeholder="e.g. John"
-                            class="filter-input w-full">
-                    </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Last
-                            Name</label>
-                        <input type="text" name="last_name" required placeholder="e.g. Doe" class="filter-input w-full">
-                    </div>
-                </div>
-                <div class="flex flex-col gap-1.5">
-                    <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Username</label>
-                    <input type="text" name="username" required placeholder="e.g. jdoe2024"
-                        class="filter-input w-full">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Email
-                            Address</label>
-                        <input type="email" name="email" required placeholder="e.g. john@horizon.com"
-                            class="filter-input w-full">
-                    </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Contact
-                            Number</label>
-                        <input type="text" name="contact_number" required placeholder="0917 123 4567"
-                            class="filter-input w-full">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="flex flex-col gap-1.5">
-                        <label
-                            class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Password</label>
-                        <div class="pass-container">
-                            <input type="password" id="reg_pass" name="password" required placeholder="••••••••"
-                                oninput="checkPassStrength(this.value)" class="filter-input w-full pr-12">
-                            <span class="material-symbols-outlined view-toggle"
-                                onclick="togglePass('reg_pass', this)">visibility</span>
+                <div class="p-10 space-y-8">
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-3 mb-2 opacity-40">
+                            <span class="material-symbols-outlined text-sm">badge</span>
+                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Identity Details</span>
                         </div>
-                        <div class="w-full bg-white/5 h-1 rounded-full mt-2 overflow-hidden">
-                            <div id="strength-indicator" class="strength-bar"></div>
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">First Name</label>
+                                <input type="text" name="first_name" required placeholder="GIVEN NAME" class="filter-input w-full uppercase" autocomplete="off">
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Last Name</label>
+                                <input type="text" name="last_name" required placeholder="SURNAME" class="filter-input w-full uppercase" autocomplete="off">
+                            </div>
                         </div>
                     </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Confirm
-                            Password</label>
-                        <div class="pass-container">
-                            <input type="password" id="reg_confirm" name="confirm_password" required
-                                placeholder="••••••••" class="filter-input w-full pr-12">
-                            <span class="material-symbols-outlined view-toggle"
-                                onclick="togglePass('reg_confirm', this)">visibility</span>
+
+                    <div class="space-y-6 pt-4">
+                        <div class="flex items-center gap-3 mb-2 opacity-40">
+                            <span class="material-symbols-outlined text-sm">contact_mail</span>
+                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Communication & Role</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Email Address</label>
+                                <input type="email" name="email" required placeholder="official@email.com" class="filter-input w-full lowercase" autocomplete="off">
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Contact No.</label>
+                                <input type="text" name="contact_number" required placeholder="09XX XXX XXXX" class="filter-input w-full" autocomplete="off">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Assigned Role</label>
+                                <select name="role" class="filter-input w-full italic">
+                                    <option value="Coach">COACH / TRAINER</option>
+                                    <option value="Staff">OPERATIONAL STAFF</option>
+                                    <option value="Manager">MANAGER</option>
+                                </select>
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Employment Type</label>
+                                <select name="employment" class="filter-input w-full italic">
+                                    <option value="FULL-TIME">FULL-TIME</option>
+                                    <option value="PART-TIME">PART-TIME</option>
+                                    <option value="CONTRACTUAL">CONTRACTUAL</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Assigned
-                            Role</label>
-                        <select name="role" class="filter-input w-full uppercase font-black italic">
-                            <option value="Staff">Staff Member</option>
-                            <option value="Coach">Coach / Trainer</option>
-                        </select>
-                    </div>
-                    <div class="flex flex-col gap-1.5">
-                        <label
-                            class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Employment</label>
-                        <select name="employment" class="filter-input w-full">
-                            <option value="FULL-TIME">Full-Time</option>
-                            <option value="PART-TIME">Part-Time</option>
-                            <option value="CONTRACT">Contract</option>
-                        </select>
+
+                    <div class="p-6 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-primary text-xl">verified_user</span>
+                            <p class="text-[10px] font-black text-white uppercase tracking-widest">Autonomous Credentialing</p>
+                        </div>
+                        <p class="text-[9px] font-medium text-primary/70 uppercase leading-relaxed italic">The system will balance-generate a unique core identity and secure password. Credentials will be transmitted immediately to the provided email address upon registration.</p>
                     </div>
                 </div>
-                <div class="flex items-center gap-3 pt-4">
-                    <button type="submit"
-                        class="flex-1 bg-primary text-white py-3 rounded-xl font-black italic uppercase tracking-widest text-[12px] hover:bg-opacity-90 shadow-lg shadow-primary/20 transition-all">
-                        Register Personnel
+
+                <div class="p-10 pt-0 flex gap-4">
+                    <button type="submit" class="flex-1 h-14 rounded-2xl text-white text-[11px] font-black uppercase italic tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-primary/20 group" style="background:var(--primary)">
+                        Create Account
                     </button>
-                    <button type="button" onclick="toggleAddModal()"
-                        class="px-8 bg-white/5 text-gray-400 py-3 rounded-xl font-black italic uppercase tracking-widest text-[12px] hover:bg-white/10 transition-all">
+                    <button type="button" onclick="toggleAddModal()" class="flex-1 h-14 bg-white/5 border border-white/10 text-gray-400 rounded-2xl font-black italic uppercase tracking-widest text-[11px] hover:bg-white/10 transition-all active:scale-95">
                         Cancel
                     </button>
                 </div>
@@ -1008,30 +838,6 @@ $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
             document.getElementById('viewStaffModal').classList.remove('active');
         }
 
-        function togglePass(id, el) {
-            const input = document.getElementById(id);
-            if (input.type === 'password') {
-                input.type = 'text';
-                el.textContent = 'visibility_off';
-            } else {
-                input.type = 'password';
-                el.textContent = 'visibility';
-            }
-        }
-
-        function checkPassStrength(pass) {
-            const indicator = document.getElementById('strength-indicator');
-            let strength = 0;
-            if (pass.length > 5) strength++;
-            if (pass.length > 8) strength++;
-            if (/[0-9]/.test(pass) && /[a-z]/.test(pass) && /[A-Z]/.test(pass)) strength++;
-            if (/[^A-Za-z0-9]/.test(pass)) strength++;
-
-            indicator.className = 'strength-bar';
-            if (strength <= 1 && pass.length > 0) indicator.classList.add('strength-weak');
-            else if (strength === 2) indicator.classList.add('strength-medium');
-            else if (strength >= 3) indicator.classList.add('strength-strong');
-        }
     </script>
 
     <!-- Restriction Modal (Sidebar-Aware) -->
