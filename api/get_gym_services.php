@@ -18,7 +18,6 @@ try {
         SELECT 
             catalog_service_id as id, 
             service_name as name, 
-            service_category as category,
             price, 
             description
         FROM service_catalog

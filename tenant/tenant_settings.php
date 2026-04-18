@@ -552,25 +552,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     </script>
     <style>
         :root {
-            --primary:
-                <?= $configs['theme_color'] ?? '#8c2bee' ?>
-            ;
-            --primary-rgb:
-                <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>
-            ;
-            --background:
-                <?= $configs['bg_color'] ?? '#0a090d' ?>
-            ;
-            --highlight:
-                <?= $configs['secondary_color'] ?? '#a1a1aa' ?>
-            ;
-            --text-main:
-                <?= $configs['text_color'] ?? '#d1d5db' ?>
-            ;
+            --primary: <?= $configs['theme_color'] ?? '#8c2bee' ?>;
+            --primary-rgb: <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>;
+            --highlight: <?= $configs['secondary_color'] ?? '#a1a1aa' ?>;
+            --text-main: <?= $configs['text_color'] ?? '#d1d5db' ?>;
+            --background: <?= $configs['bg_color'] ?? '#0a090d' ?>;
             --card-blur: 20px;
-            --card-bg:
-                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#14121a') ?>
-            ;
+            --card-bg: <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#14121a') ?>;
         }
 
         body {
@@ -605,22 +593,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         .modal-overlay {
             display: none;
             position: fixed;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            left: 110px;
+            top: 0; right: 0; bottom: 0; left: 110px;
             background: rgba(10, 9, 13, 0.85);
             backdrop-filter: blur(12px);
             z-index: 200;
-            align-items: center;
-            justify-content: center;
+            align-items: center; justify-content: center;
             padding: 40px;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
-        .side-nav:hover~.modal-overlay {
-            left: 300px;
-        }
+        .side-nav:hover ~ .modal-overlay { left: 300px; }
 
         .modal-overlay.flex {
             display: flex !important;
@@ -790,6 +771,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             color: #666;
         }
 
+        /* Sidebar (Elite Standard) */
         .side-nav {
             width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -797,17 +779,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             display: flex;
             flex-direction: column;
             position: fixed;
-            left: 0;
-            top: 0;
+            left: 0; top: 0;
             height: 100vh;
             z-index: 150;
             background-color: var(--background);
             border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
-
-        .side-nav:hover {
-            width: 300px;
-        }
+        .side-nav:hover { width: 300px; }
 
         .main-content {
             margin-left: 110px;
@@ -815,90 +793,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             min-width: 0;
             transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
-        .side-nav:hover~.main-content {
-            margin-left: 300px;
-        }
+        .side-nav:hover ~ .main-content { margin-left: 300px; }
 
         .nav-label {
             opacity: 0;
             transform: translateX(-15px);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s ease-in-out;
             white-space: nowrap;
             pointer-events: none;
+            color: var(--text-main);
         }
-
-        .side-nav:hover .nav-label {
-            opacity: 1;
-            transform: translateX(0);
-            pointer-events: auto;
-        }
+        .side-nav:hover .nav-label { opacity: 1; transform: translateX(0); pointer-events: auto; }
 
         .nav-section-label {
-            max-height: 0;
-            opacity: 0;
-            transform: translateX(-15px);
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            margin: 0 !important;
-            pointer-events: none;
+            max-height: 0; opacity: 0; overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+            margin: 0 !important; pointer-events: none;
         }
-
         .side-nav:hover .nav-section-label {
-            max-height: 20px;
-            opacity: 1;
-            transform: translateX(0);
-            margin-bottom: 8px !important;
-            pointer-events: auto;
+            max-height: 20px; opacity: 1;
+            margin-bottom: 8px !important; pointer-events: auto;
         }
 
+        /* Nav items (Refined Elite Look) */
         .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 16px;
+            display: flex; align-items: center; gap: 16px;
             padding: 10px 38px;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            white-space: nowrap;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-main);
-            opacity: 0.5;
+            transition: opacity 0.2s ease, color 0.2s ease;
+            text-decoration: none; white-space: nowrap;
+            font-size: 11px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            color: color-mix(in srgb, var(--text-main) 45%, transparent);
         }
-
-        .nav-item:hover {
-            opacity: 1;
-            background: transparent;
-        }
-
-        .nav-item span.material-symbols-outlined {
+        .nav-item:hover { color: var(--text-main); }
+        .nav-item .material-symbols-outlined {
             color: var(--highlight);
-            transition: color 0.3s ease;
+            transition: transform 0.2s ease;
         }
-
-        .nav-item.active {
-            opacity: 1;
-            color: var(--primary) !important;
-            position: relative;
-        }
-
-        .nav-item.active span.material-symbols-outlined {
-            color: var(--primary);
-        }
-
+        .nav-item:hover .material-symbols-outlined { transform: scale(1.12); }
+        .nav-item.active { color: var(--primary) !important; position: relative; }
+        .nav-item.active .material-symbols-outlined { color: var(--primary); }
         .nav-item.active::after {
-            content: '';
-            position: absolute;
-            right: 0px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 2px;
-            height: 18px;
-            background: var(--primary);
-            border-radius: 4px 0 0 4px;
-            box-shadow: 0 0 8px var(--primary);
+            content: ''; position: absolute;
+            right: 0; top: 50%; transform: translateY(-50%);
+            width: 4px; height: 24px;
+            background: var(--primary); border-radius: 4px 0 0 4px;
         }
 
 
@@ -1033,9 +972,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             display: flex !important;
         }
 
-        .side-nav:hover~#subModal {
-            left: 300px;
-        }
+        .side-nav:hover ~ #subModal { left: 300px; }
     </style>
     <script>
         function showSubWarning() { document.getElementById('subModal').classList.add('active'); }
@@ -1103,7 +1040,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     </script>
 </head>
 
-<body class="flex h-screen overflow-hidden">
+<body class="antialiased flex h-screen overflow-hidden">
 
     <?php require_once '../includes/tenant_sidebar.php'; ?>
 

@@ -159,13 +159,43 @@ if ($gym) {
 $page_title = "My Profile";
 $active_page = "profile";
 
-// Branding Logic
-$stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
-$global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
-$stmtUser = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
-$stmtUser->execute([$user_id]);
-$user_configs = $stmtUser->fetchAll(PDO::FETCH_KEY_PAIR);
-$configs = array_merge($global_configs, $user_configs);
+// ── 4-Color Elite Branding System ─────────────────────────────────────────────
+// Hard defaults
+$configs = [
+    'system_name'     => $gym['gym_name'] ?? 'Horizon Gym',
+    'system_logo'     => '',
+    'theme_color'     => '#8c2bee',
+    'secondary_color' => '#a1a1aa',
+    'text_color'      => '#d1d5db',
+    'bg_color'        => '#0a090d',
+    'card_color'      => '#141216',
+    'auto_card_theme' => '1',
+    'font_family'     => 'Lexend',
+    'page_slug'       => '',
+];
+
+// Merge global settings (user_id = 0)
+$stmtGlobal = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$stmtGlobal->execute();
+foreach (($stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
+}
+
+// Merge tenant-specific settings (user_id = ?)
+$stmtTenant = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtTenant->execute([$user_id]);
+foreach (($stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
+}
+
+// Map common keys for convenience
+$page = [
+    'logo_path'   => $configs['system_logo'] ?? '',
+    'theme_color' => $configs['theme_color'],
+    'bg_color'    => $configs['bg_color'],
+    'page_slug'   => $configs['page_slug'] ?? '',
+    'system_name' => $configs['system_name'] ?? ($gym['gym_name'] ?? 'Owner Portal'),
+];
 
 $joined = isset($user['created_at']) ? date("F Y", strtotime($user['created_at'])) : 'N/A';
 $status = "Active";
@@ -181,7 +211,6 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title><?= $page_title ?> | Horizon System</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -191,11 +220,10 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                 extend: {
                     colors: {
                         "primary": "var(--primary)",
-                        "background": "var(--background)",
-                        "highlight": "var(--highlight)",
+                        "background-dark": "var(--background)",
+                        "surface-dark": "var(--card-bg)",
                         "text-main": "var(--text-main)",
-                        "surface-dark": "#14121a",
-                        "border-subtle": "rgba(255,255,255,0.05)"
+                        "highlight": "var(--highlight)",
                     }
                 }
             }
@@ -226,7 +254,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             transition: all 0.3s ease;
         }
 
-        /* Unified Sidebar Navigation Styles from Admin Portal */
+        /* Sidebar Layout Synchronization */
         .side-nav {
             width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -234,15 +262,13 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             display: flex;
             flex-direction: column;
             position: fixed;
-            left: 0;
-            top: 0;
+            left: 0; top: 0;
             height: 100vh;
             z-index: 50;
+            background-color: var(--background);
+            border-right: 1px solid rgba(255,255,255,0.05);
         }
-
-        .side-nav:hover {
-            width: 300px;
-        }
+        .side-nav:hover { width: 300px; }
 
         .main-content {
             margin-left: 110px;
@@ -250,10 +276,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             min-width: 0;
             transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
-        .side-nav:hover~.main-content {
-            margin-left: 300px;
-        }
+        .side-nav:hover ~ .main-content { margin-left: 300px; }
 
         .nav-label {
             opacity: 0;
@@ -261,66 +284,45 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             transition: all 0.3s ease-in-out;
             white-space: nowrap;
             pointer-events: none;
+            color: var(--text-main);
         }
-
-        .side-nav:hover .nav-label {
-            opacity: 1;
-            transform: translateX(0);
-            pointer-events: auto;
-        }
+        .side-nav:hover .nav-label { opacity: 1; transform: translateX(0); pointer-events: auto; }
 
         .nav-section-label {
-            max-height: 0;
-            opacity: 0;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            margin: 0 !important;
-            pointer-events: none;
+            max-height: 0; opacity: 0; overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+            margin: 0 !important; pointer-events: none;
         }
-
         .side-nav:hover .nav-section-label {
-            max-height: 20px;
-            opacity: 1;
-            margin-bottom: 8px !important;
-            pointer-events: auto;
+            max-height: 20px; opacity: 1;
+            margin-bottom: 8px !important; pointer-events: auto;
         }
 
+        /* Premium Nav items (Synced with Dashboard) */
         .nav-item {
-            display: flex;
-            align-items: center;
-            gap: 16px;
+            display: flex; align-items: center; gap: 16px;
             padding: 10px 38px;
-            transition: all 0.2s ease;
-            text-decoration: none;
-            white-space: nowrap;
-            font-size: 11px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #94a3b8;
+            transition: opacity 0.2s ease, color 0.2s ease;
+            text-decoration: none; white-space: nowrap;
+            font-size: 11px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.05em;
+            color: color-mix(in srgb, var(--text-main) 45%, transparent);
         }
-
-        .nav-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
+        .nav-item:hover { color: var(--text-main); }
+        .nav-item .material-symbols-outlined {
+            color: var(--highlight);
+            transition: transform 0.2s ease;
         }
-
-        .nav-item.active {
-            color: var(--primary) !important;
-            position: relative;
-        }
-
+        .nav-item:hover .material-symbols-outlined { transform: scale(1.12); }
+        .nav-item.active { color: var(--primary) !important; position: relative; }
+        .nav-item.active .material-symbols-outlined { color: var(--primary); }
         .nav-item.active::after {
-            content: '';
-            position: absolute;
-            right: 0px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 4px;
-            height: 24px;
-            background: var(--primary);
-            border-radius: 4px 0 0 4px;
+            content: ''; position: absolute;
+            right: 0; top: 50%; transform: translateY(-50%);
+            width: 4px; height: 24px;
+            background: var(--primary); border-radius: 4px 0 0 4px;
         }
+
 
         /* Invisible Scroll System */
         *::-webkit-scrollbar {
@@ -338,9 +340,14 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
         .tab-content:not(.edit-mode) .profile-input.has-icon { padding-left: 0 !important; }
         .profile-input:not(:disabled):focus { background-color: rgba(255, 255, 255, 0.05); border-color: var(--primary); outline: none; box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 140, 43, 238), 0.1); }
         
+        .material-symbols-outlined { font-family: 'Material Symbols Outlined' !important; font-display: block; }
+        
         .input-icon-container { position: absolute; top: 50%; left: 0; padding-left: 1.25rem; transform: translateY(-50%); display: flex; align-items: center; color: rgba(255, 255, 255, 0.4); pointer-events: none; transition: all 0.3s ease; }
         .input-icon-container span { font-size: 1.1rem; margin-top: 2px; }
+        
+        /* Hide icons strictly and align text flush (nakasagad) in view mode */
         .tab-content:not(.edit-mode) .input-icon-container { display: none !important; }
+        .tab-content:not(.edit-mode) .profile-input.has-icon { padding-left: 0 !important; }
         .group:focus-within .input-icon-container { color: var(--primary); transform: scale(1.1); }
 
         .pill-save-bar { background: rgba(20, 18, 22, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); border-radius: 999px; padding: 12px 12px 12px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
@@ -372,80 +379,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
 </head>
 
 <body class="antialiased flex h-screen overflow-hidden no-scrollbar">
-    <nav class="side-nav bg-[--background] border-r border-white/5 z-50">
-        <div class="px-7 py-8 mb-4 shrink-0">
-            <div class="flex items-center gap-4">
-                <div
-                    class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($configs['system_logo']) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
-                    <?php if (!empty($configs['system_logo'])): ?>
-                        <img src="<?= htmlspecialchars($configs['system_logo']) ?>" class="size-full object-cover">
-                    <?php else: ?>
-                        <span class="material-symbols-outlined text-white text-2xl">bolt</span>
-                    <?php endif; ?>
-                </div>
-                <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Owner Portal</h1>
-            </div>
-        </div>
-
-        <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-            <div class="nav-section-label px-[38px] mb-2"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Main Menu</span></div>
-            <a href="tenant_dashboard.php" class="nav-item <?= ($active_page == 'dashboard') ? 'active' : '' ?>">
-                <span class="material-symbols-outlined text-xl shrink-0">grid_view</span>
-                <span class="nav-label">Dashboard</span>
-            </a>
-
-            <a href="my_users.php" class="nav-item <?= ($active_page == 'users') ? 'active' : '' ?>">
-                <span class="material-symbols-outlined text-xl shrink-0">group</span>
-                <span class="nav-label">Users</span>
-            </a>
-
-            <a href="transactions.php" class="nav-item <?= ($active_page == 'transactions') ? 'active' : '' ?>">
-                <span class="material-symbols-outlined text-xl shrink-0">receipt_long</span>
-                <span class="nav-label">Transactions</span>
-            </a>
-
-            <a href="attendance.php" class="nav-item <?= ($active_page == 'attendance') ? 'active' : '' ?>">
-                <span class="material-symbols-outlined text-xl shrink-0">history</span>
-                <span class="nav-label">Attendance</span>
-            </a>
-
-            <div class="nav-section-label px-[38px] mb-2 mt-6"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
-
-            <a href="staff.php" class="nav-item <?= ($active_page == 'staff') ? 'active' : '' ?>">
-                <span class="material-symbols-outlined text-xl shrink-0">badge</span>
-                <span class="nav-label">Staff</span>
-            </a>
-
-            <a href="reports.php" class="nav-item <?= ($active_page == 'reports') ? 'active' : '' ?>">
-                <span class="material-symbols-outlined text-xl shrink-0">analytics</span>
-                <span class="nav-label">Reports</span>
-            </a>
-
-            <a href="sales_report.php" class="nav-item <?= ($active_page == 'sales') ? 'active' : '' ?>">
-                <span class="material-symbols-outlined text-xl shrink-0">payments</span>
-                <span class="nav-label">Sales Reports</span>
-            </a>
-        </div>
-
-        <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
-            <div class="nav-section-label px-[38px] mb-2"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
-            <a href="tenant_settings.php" class="nav-item <?= ($active_page == 'settings') ? 'active' : '' ?>">
-                <span class="material-symbols-outlined text-xl shrink-0">settings</span>
-                <span class="nav-label">Settings</span>
-            </a>
-            <a href="profile.php" class="nav-item <?= ($active_page == 'profile') ? 'active' : '' ?>">
-                <span class="material-symbols-outlined text-xl shrink-0">account_circle</span>
-                <span class="nav-label">Profile</span>
-            </a>
-            <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors">
-                <span class="material-symbols-outlined text-xl shrink-0">logout</span>
-                <span class="nav-label">Sign Out</span>
-            </a>
-        </div>
-    </nav>
+    <?php include '../includes/tenant_sidebar.php'; ?>
 
     <div class="main-content flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
         <main id="main-wrapper" class="flex-1 p-6 md:p-8 lg:p-10 w-full mx-auto pb-32 animate-fade-in">
@@ -479,8 +413,8 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                             <div class="w-32 h-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden group">
                                 <div id="profile-container" class="w-full h-full rounded-[30px] bg-black/20 flex items-center justify-center overflow-hidden relative">
                                     <?php if (!empty($user['profile_picture'])): ?><img id="profilePreviewImg" src="<?= $user['profile_picture'] ?>" class="size-full aspect-square object-cover object-center transition-transform duration-700 group-hover:scale-110"><?php else: ?><div id="profilePlaceholder" class="size-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-transparent text-primary text-4xl font-black italic"><?= strtoupper($user['first_name'][0] . ($user['last_name'][0] ?? '')) ?></div><?php endif; ?>
-                                    <label id="profile-label" class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px] hidden"><span class="material-symbols-rounded text-2xl">add_a_photo</span><input type="file" name="profile_picture" form="profile-form" class="hidden" id="profile-input-file" accept="image/*" onchange="previewProfileImage(this)"></label>
-                                    <button type="button" id="remove-photo-btn" onclick="removeProfilePhoto()" class="absolute top-2.5 right-2.5 size-7 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center opacity-0 hover:bg-rose-500 hover:text-white z-20 hidden backdrop-blur-md"><span class="material-symbols-rounded text-base">delete</span></button>
+                                    <label id="profile-label" class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px] hidden"><span class="material-symbols-outlined text-2xl">add_a_photo</span><input type="file" name="profile_picture" form="profile-form" class="hidden" id="profile-input-file" accept="image/*" onchange="previewProfileImage(this)"></label>
+                                    <button type="button" id="remove-photo-btn" onclick="removeProfilePhoto()" class="absolute top-2.5 right-2.5 size-7 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center opacity-0 hover:bg-rose-500 hover:text-white z-20 hidden backdrop-blur-md"><span class="material-symbols-outlined text-base">delete</span></button>
                                 </div>
                             </div>
                             <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-1"><?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?></h2>
@@ -502,8 +436,8 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                             <div class="pt-6 border-t border-white/5"><p class="text-[9px] uppercase tracking-[0.2em] text-gray-600 font-black mb-1">Business Status</p><p class="text-sm font-bold text-gray-300 italic uppercase">Operational</p></div>
                         </div>
                     </div>
-                    <button id="edit-btn" onclick="toggleEdit()" class="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 text-[--text-main] text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 group transition-all"><span class="material-symbols-rounded group-hover:text-primary transition-colors">edit_square</span><span>Edit Account</span></button>
-                    <button id="discard-btn" onclick="cancelEdit()" class="hidden w-full py-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 transition-all"><span class="material-symbols-rounded">close</span><span>Discard</span></button>
+                    <button id="edit-btn" onclick="toggleEdit()" class="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 text-[--text-main] text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 group transition-all"><span class="material-symbols-outlined group-hover:text-primary transition-colors">edit_square</span><span>Edit Account</span></button>
+                    <button id="discard-btn" onclick="cancelEdit()" class="hidden w-full py-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 transition-all"><span class="material-symbols-outlined">close</span><span>Discard</span></button>
                 </div>
 
                 <div class="flex-1 glass-card rounded-[40px] p-8 no-scrollbar relative overflow-hidden group">
@@ -519,7 +453,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Username</label>
                                         <div class="relative group">
                                             <span class="input-icon-container">
-                                                <span class="material-symbols-rounded text-lg">alternate_email</span>
+                                                <span class="material-symbols-outlined text-lg">alternate_email</span>
                                             </span>
                                             <input type="text" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -528,7 +462,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Full Name</label>
                                         <div class="relative group">
                                             <span class="input-icon-container">
-                                                <span class="material-symbols-rounded text-lg">badge</span>
+                                                <span class="material-symbols-outlined text-lg">badge</span>
                                             </span>
                                             <input type="text" value="<?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -543,7 +477,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Birth Date</label>
                                         <div class="relative group">
                                             <span class="input-icon-container">
-                                                <span class="material-symbols-rounded text-lg">cake</span>
+                                                <span class="material-symbols-outlined text-lg">cake</span>
                                             </span>
                                             <input type="date" name="birth_date" value="<?= $birthDate ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -552,7 +486,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Sex</label>
                                         <div class="relative group">
                                             <span class="input-icon-container">
-                                                <span class="material-symbols-rounded text-lg">wc</span>
+                                                <span class="material-symbols-outlined text-lg">wc</span>
                                             </span>
                                             <select name="sex" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none">
                                                 <option value="Male" <?= $sex === 'Male' ? 'selected' : '' ?>>Male</option>
@@ -571,7 +505,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Contact No.</label>
                                         <div class="relative group">
                                             <span class="input-icon-container">
-                                                <span class="material-symbols-rounded text-lg">smartphone</span>
+                                                <span class="material-symbols-outlined text-lg">smartphone</span>
                                             </span>
                                             <input type="text" name="contact_number" value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" disabled required oninput="formatContactNumber(this)" class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -580,7 +514,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Email Address</label>
                                         <div class="relative group">
                                             <span class="input-icon-container">
-                                                <span class="material-symbols-rounded text-lg">mail</span>
+                                                <span class="material-symbols-outlined text-lg">mail</span>
                                             </span>
                                             <input type="email" name="email" value="<?= htmlspecialchars($user['email'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -591,7 +525,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                             <div class="edit-reveal">
                                 <div class="p-8 rounded-3xl bg-primary/[0.03] border border-primary/10">
                                     <h4 class="text-[10px] font-black italic text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                                        <span class="material-symbols-rounded text-primary text-xl">lock_reset</span>Update Password
+                                        <span class="material-symbols-outlined text-primary text-xl">lock_reset</span>Update Password
                                     </h4>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div class="space-y-2">
@@ -601,7 +535,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                             </div>
                                             <div class="relative">
                                                 <input type="password" name="new_password" id="new_pass" onkeyup="checkStrength(this.value)" placeholder="Leave blank to keep current" class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary placeholder:text-[--text-main]/30" disabled>
-                                                <button type="button" onclick="togglePassword('new_pass', 'icon_new')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white"><span class="material-symbols-rounded text-lg" id="icon_new">visibility_off</span></button>
+                                                <button type="button" onclick="togglePassword('new_pass', 'icon_new')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white"><span class="material-symbols-outlined text-lg" id="icon_new">visibility_off</span></button>
                                             </div>
                                             <div class="h-1.5 w-full bg-white/5 rounded-full mt-3 overflow-hidden"><div id="strength-bar" class="h-full w-0 transition-all duration-500 bg-rose-500"></div></div>
                                         </div>
@@ -609,7 +543,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                             <label class="text-[9px] uppercase font-bold text-[--text-main]/60 tracking-widest ml-1">Confirm New Password</label>
                                             <div class="relative">
                                                 <input type="password" name="confirm_password" id="confirm_pass" placeholder="Re-enter new password" class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary placeholder:text-[--text-main]/30" disabled>
-                                                <button type="button" onclick="togglePassword('confirm_pass', 'icon_confirm')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white"><span class="material-symbols-rounded text-lg" id="icon_confirm">visibility_off</span></button>
+                                                <button type="button" onclick="togglePassword('confirm_pass', 'icon_confirm')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white"><span class="material-symbols-outlined text-lg" id="icon_confirm">visibility_off</span></button>
                                             </div>
                                         </div>
                                     </div>
@@ -621,7 +555,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                 <div class="pill-save-bar">
                                     <div class="flex items-center gap-6">
                                         <div class="save-bar-icon-circle">
-                                            <span class="material-symbols-rounded text-2xl">shield_locked</span>
+                                            <span class="material-symbols-outlined text-2xl">shield_locked</span>
                                         </div>
                                         <div>
                                             <h4 class="text-xs font-black italic uppercase tracking-widest text-white">Confirm Changes</h4>
@@ -633,7 +567,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                         <div class="relative group/input">
                                             <input type="password" name="current_password" id="current_pass" required placeholder="Password" disabled class="pill-save-input">
                                             <button type="button" onclick="togglePassword('current_pass', 'icon_curr')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white transition-colors flex items-center justify-center">
-                                                <span class="material-symbols-rounded text-lg" id="icon_curr">visibility_off</span>
+                                                <span class="material-symbols-outlined text-lg" id="icon_curr">visibility_off</span>
                                             </button>
                                         </div>
                                         <button type="submit" class="pill-save-btn">
@@ -663,7 +597,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Official Business Name</label>
                                                 <div class="relative group">
                                                     <span class="input-icon-container">
-                                                        <span class="material-symbols-rounded text-lg">corporate_fare</span>
+                                                        <span class="material-symbols-outlined text-lg">corporate_fare</span>
                                                     </span>
                                                     <input type="text" value="<?= htmlspecialchars($gym['business_name']) ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                                 </div>
@@ -672,7 +606,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">System Code</label>
                                                 <div class="relative group">
                                                     <span class="input-icon-container">
-                                                        <span class="material-symbols-rounded text-lg">fingerprint</span>
+                                                        <span class="material-symbols-outlined text-lg">fingerprint</span>
                                                     </span>
                                                     <input type="text" value="<?= htmlspecialchars($gym['tenant_code']) ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold uppercase italic tracking-widest text-primary">
                                                 </div>
@@ -687,7 +621,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">BIR / TIN Number</label>
                                                 <div class="relative group">
                                                     <span class="input-icon-container">
-                                                        <span class="material-symbols-rounded text-lg">description</span>
+                                                        <span class="material-symbols-outlined text-lg">description</span>
                                                     </span>
                                                     <input type="text" value="<?= $app_data['bir_number'] ?? 'N/A' ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                                 </div>
@@ -696,7 +630,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Business Permit No.</label>
                                                 <div class="relative group">
                                                     <span class="input-icon-container">
-                                                        <span class="material-symbols-rounded text-lg">verified</span>
+                                                        <span class="material-symbols-outlined text-lg">verified</span>
                                                     </span>
                                                     <input type="text" value="<?= $app_data['business_permit_no'] ?? 'N/A' ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                                 </div>
@@ -705,7 +639,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Gym Address</label>
                                                 <div class="relative group">
                                                     <span class="input-icon-container">
-                                                        <span class="material-symbols-rounded text-lg">location_on</span>
+                                                        <span class="material-symbols-outlined text-lg">location_on</span>
                                                     </span>
                                                     <input type="text" value="<?= htmlspecialchars($gym['address_line'] . ', ' . $gym['barangay'] . ', ' . $gym['city'] . ', ' . $gym['province'] . ', ' . $gym['region']) ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                                 </div>
@@ -720,7 +654,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Bank / E-Wallet</label>
                                                 <div class="relative group">
                                                     <span class="input-icon-container">
-                                                        <span class="material-symbols-rounded text-lg">account_balance</span>
+                                                        <span class="material-symbols-outlined text-lg">account_balance</span>
                                                     </span>
                                                     <input type="text" value="<?= $payout_info['bank'] ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                                 </div>
@@ -729,7 +663,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Account Holder</label>
                                                 <div class="relative group">
                                                     <span class="input-icon-container">
-                                                        <span class="material-symbols-rounded text-lg">person</span>
+                                                        <span class="material-symbols-outlined text-lg">person</span>
                                                     </span>
                                                     <input type="text" value="<?= $payout_info['acc_name'] ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                                 </div>
@@ -738,7 +672,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Account Number</label>
                                                 <div class="relative group">
                                                     <span class="input-icon-container">
-                                                        <span class="material-symbols-rounded text-lg">lock</span>
+                                                        <span class="material-symbols-outlined text-lg">lock</span>
                                                     </span>
                                                     <input type="text" value="<?= $payout_info['acc_no'] ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-black italic tracking-[0.15em] text-primary">
                                                 </div>
@@ -750,7 +684,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                             </div>
                         <?php else: ?>
                             <div class="flex flex-col items-center justify-center py-20 text-center">
-                                <div class="size-20 rounded-3xl bg-white/5 flex items-center justify-center border border-white/10 mb-6"><span class="material-symbols-rounded text-4xl text-gray-600">business_center</span></div>
+                                <div class="size-20 rounded-3xl bg-white/5 flex items-center justify-center border border-white/10 mb-6"><span class="material-symbols-outlined text-4xl text-gray-600">business_center</span></div>
                                 <h3 class="text-lg font-black uppercase italic tracking-tighter text-white">No Gym Connected</h3>
                                 <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-2">Finish your application to enable business info.</p>
                             </div>
@@ -765,7 +699,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
     <div id="custom-modal" class="hidden">
         <div class="absolute inset-0 bg-[#0a090d]/80 transition-opacity" id="modal-backdrop" onclick="closeModal()"></div>
         <div class="relative z-10 bg-[--background] w-full max-w-sm rounded-[32px] border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0 px-4 py-8 text-center" id="modal-content">
-            <div class="w-20 h-20 rounded-[24px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10" id="modal-icon-bg"><span class="material-symbols-rounded text-4xl text-primary" id="modal-icon">info</span></div>
+            <div class="w-20 h-20 rounded-[24px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10" id="modal-icon-bg"><span class="material-symbols-outlined text-4xl text-primary" id="modal-icon">info</span></div>
             <h3 class="text-xl font-black italic text-white uppercase tracking-tighter mb-3" id="modal-title">Confirm Update</h3>
             <p class="text-gray-400 text-[11px] font-bold tracking-wider mb-8" id="modal-message"></p>
             <div class="flex gap-3 justify-center" id="modal-actions"></div>
@@ -844,7 +778,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                 const cB = document.createElement('button'); cB.className = "px-6 py-3.5 rounded-2xl bg-white/5 text-gray-300 text-[10px] font-black italic uppercase tracking-widest";
                 cB.innerText = "Cancel"; cB.onclick = closeModal;
                 const fB = document.createElement('button'); fB.className = "px-8 py-3.5 rounded-2xl bg-primary text-white text-[10px] font-black italic uppercase tracking-widest flex items-center gap-2";
-                fB.innerHTML = '<span class="material-symbols-rounded text-base">check</span> Confirm';
+                fB.innerHTML = '<span class="material-symbols-outlined text-base">check</span> Confirm';
                 fB.onclick = () => { if (callback) callback(); closeModal(); };
                 actionsDiv.append(cB, fB);
             } else {
