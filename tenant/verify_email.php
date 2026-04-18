@@ -125,47 +125,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } else {
         // CASE B: DATABASE VERIFICATION (Already in DB)
-        $stmt = $pdo->prepare("SELECT * FROM user_verifications WHERE user_id = ? AND verification_type = 'email' AND status = 'pending' ORDER BY created_at DESC LIMIT 1");
-        $stmt->execute([$user_id]);
-        $verification = $stmt->fetch();
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM user_verifications WHERE user_id = ? AND verification_type = 'email' AND status = 'pending' ORDER BY created_at DESC LIMIT 1");
+            $stmt->execute([$user_id]);
+            $verification = $stmt->fetch();
 
-        if ($verification) {
-            if ($current_date > $verification['expires_at']) {
-                $error = 'This verification code has expired. Please request a new one.';
-                $updateExpired = $pdo->prepare("UPDATE user_verifications SET status = 'expired' WHERE verification_id = ?");
-                $updateExpired->execute([$verification['verification_id']]);
-            } elseif ($entered_code === $verification['code'] || $entered_code === '999999') {
-                try {
-                    $pdo->beginTransaction();
-                    $verifyUpdate = $pdo->prepare("UPDATE user_verifications SET status = 'verified', verified_at = ? WHERE verification_id = ?");
-                    $verifyUpdate->execute([$current_date, $verification['verification_id']]);
+            if ($verification) {
+                if ($current_date > $verification['expires_at']) {
+                    $error = 'This verification code has expired. Please request a new one.';
+                    $updateExpired = $pdo->prepare("UPDATE user_verifications SET status = 'expired' WHERE verification_id = ?");
+                    $updateExpired->execute([$verification['verification_id']]);
+                } elseif ($entered_code === $verification['code'] || $entered_code === '999999') {
+                    try {
+                        $pdo->beginTransaction();
+                        $verifyUpdate = $pdo->prepare("UPDATE user_verifications SET status = 'verified', verified_at = ? WHERE verification_id = ?");
+                        $verifyUpdate->execute([$current_date, $verification['verification_id']]);
 
-                    $userUpdate = $pdo->prepare("UPDATE users SET is_verified = 1 WHERE user_id = ?");
-                    $userUpdate->execute([$user_id]);
+                        $userUpdate = $pdo->prepare("UPDATE users SET is_verified = 1 WHERE user_id = ?");
+                        $userUpdate->execute([$user_id]);
 
-                    $stmtCheckApp = $pdo->prepare("SELECT * FROM gym_owner_applications WHERE user_id = ? LIMIT 1");
-                    $stmtCheckApp->execute([$user_id]);
-                    $app = $stmtCheckApp->fetch(PDO::FETCH_ASSOC);
+                        $stmtCheckApp = $pdo->prepare("SELECT * FROM gym_owner_applications WHERE user_id = ? LIMIT 1");
+                        $stmtCheckApp->execute([$user_id]);
+                        $app = $stmtCheckApp->fetch(PDO::FETCH_ASSOC);
 
-                    if ($app && $app['application_status'] === 'Unverified') {
-                        $stmtDefStatus = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'default_status' LIMIT 1");
-                        $stmtDefStatus->execute();
-                        $real_status = $stmtDefStatus->fetchColumn() ?: 'Pending';
-                        
-                        $stmtUpdateApp = $pdo->prepare("UPDATE gym_owner_applications SET application_status = ? WHERE application_id = ?");
-                        $stmtUpdateApp->execute([$real_status, $app['application_id']]);
-                        $app['application_status'] = $real_status;
+                        if ($app && $app['application_status'] === 'Unverified') {
+                            $stmtDefStatus = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'default_status' LIMIT 1");
+                            $stmtDefStatus->execute();
+                            $real_status = $stmtDefStatus->fetchColumn() ?: 'Pending';
+                            
+                            $stmtUpdateApp = $pdo->prepare("UPDATE gym_owner_applications SET application_status = ? WHERE application_id = ?");
+                            $stmtUpdateApp->execute([$real_status, $app['application_id']]);
+                            $app['application_status'] = $real_status;
+                        }
+                        $success_processed = true;
+                    } catch (Exception $e) {
+                        if ($pdo->inTransaction()) $pdo->rollBack();
+                        $error = 'A database error occurred. Please try again.';
                     }
-                    $success_processed = true;
-                } catch (Exception $e) {
-                    if ($pdo->inTransaction()) $pdo->rollBack();
-                    $error = 'A database error occurred. Please try again.';
+                } else {
+                    $error = 'Invalid verification code. Please try again.';
                 }
             } else {
-                $error = 'Invalid verification code. Please try again.';
+                $error = 'No pending verification found. The code may already be used or expired.';
             }
+        } catch (PDOException $e) {
+            // user_verifications table may not exist — treat as invalid verification
+            $error = 'Verification system error: ' . $e->getMessage();
         }
     }
+
 
     // SHARED SUCCESS PROCESSING
     if (!empty($success_processed) && isset($app)) {
@@ -240,7 +248,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                         <p>Please log in to your dashboard to begin configuration.</p>
                     </div>";
-                sendSystemEmail($app['email'], 'Official Application Approval - Horizon Systems', $emailBody);
+                $errorString = '';
+                sendSystemEmail($app['email'], 'Official Application Approval - Horizon Systems', $emailBody, $errorString);
 
                 $success = 'Email verified and account automatically activated!';
                 $is_auto_approved = true;

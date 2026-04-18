@@ -55,9 +55,14 @@ try {
 
         $branding = null;
         if (!empty($user['gym_id'])) {
-            $stmtBranding = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
-            $stmtBranding->execute([$user['gym_id']]);
-            $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
+            try {
+                $stmtBranding = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
+                $stmtBranding->execute([$user['gym_id']]);
+                $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
+            } catch (PDOException $e) {
+                // Silently fallback if tenant_pages is missing/corrupted
+                $branding = null;
+            }
         }
 
         $response = [

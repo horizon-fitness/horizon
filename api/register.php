@@ -65,11 +65,11 @@ try {
         // 4. Send Email
         if (file_exists('../includes/mailer.php')) {
             require_once '../includes/mailer.php';
-            $stmtG = $pdo->prepare("SELECT gym_name, profile_picture FROM gyms WHERE gym_id = ? LIMIT 1");
+            $stmtG = $pdo->prepare("SELECT gym_name FROM gyms WHERE gym_id = ? LIMIT 1");
             $stmtG->execute([$target_gym_id]);
             $gymInfo = $stmtG->fetch();
             $gName = $gymInfo['gym_name'] ?? 'Horizon System';
-            $gLogo = $gymInfo['profile_picture'] ?? '';
+            $gLogo = ''; // Force system text logo ('HORIZON') instead of broken gym logos
 
             $subject = "$gName - Your Verification PIN";
             $emailBody = getFormalEmailTemplate("Verify Your Account", "
@@ -193,11 +193,11 @@ try {
         // Send Welcome Email
         if (file_exists('../includes/mailer.php')) {
             require_once '../includes/mailer.php';
-            $stmtG = $pdo->prepare("SELECT gym_name, profile_picture FROM gyms WHERE gym_id = ? LIMIT 1");
+            $stmtG = $pdo->prepare("SELECT gym_name FROM gyms WHERE gym_id = ? LIMIT 1");
             $stmtG->execute([$gym_id]);
             $gym = $stmtG->fetch();
             $gName = $gym['gym_name'] ?? 'Horizon System';
-            $gLogo = $gym['profile_picture'] ?? '';
+            $gLogo = ''; // Force system text logo ('HORIZON') instead of broken gym logos
 
             $subject = "Welcome to $gName - Registration Confirmed";
             $emailBody = getFormalEmailTemplate("Welcome to the Family", "
@@ -209,7 +209,8 @@ try {
                 </div>
                 <p>Stay active and see you at the gym!</p>
             ", $gName, $gLogo);
-            sendSystemEmail($email, $subject, $emailBody);
+            $errorString = ''; // Add this variable since sendSystemEmail now expects by-reference
+            sendSystemEmail($email, $subject, $emailBody, $errorString);
         }
 
         ob_end_clean();
