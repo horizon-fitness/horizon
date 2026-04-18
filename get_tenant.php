@@ -158,6 +158,8 @@ try {
         'page_slug'   => $branding['page_slug'] ?? strtolower(preg_replace('/[^a-z0-9]/i', '', $gym['gym_name'])),
         'logo_path'   => $branding['system_logo'] ?? $gym['profile_picture'] ?? null,
         'theme_color' => $branding['theme_color'] ?? '#8c2bee',
+        'icon_color'  => $branding['secondary_color'] ?? '#a1a1aa',
+        'text_color'  => $branding['text_color'] ?? '#d1d5db',
         'bg_color'    => $branding['bg_color'] ?? '#0a090d',
         'font_family' => $branding['font_family'] ?? 'Inter',
         'card_color'  => $branding['card_color'] ?? '#141216',

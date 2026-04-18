@@ -79,6 +79,8 @@ try {
         'page_slug'   => $b['page_slug'] ?? strtolower(preg_replace('/[^a-z0-9]/i', '', $gym['gym_name'])),
         'logo_path'   => $b['system_logo'] ?? null,
         'theme_color' => $b['theme_color'] ?? '#8c2bee',
+        'icon_color'  => $b['secondary_color'] ?? '#a1a1aa',
+        'text_color'  => $b['text_color'] ?? '#d1d5db',
         'bg_color'    => $b['bg_color'] ?? '#0a090d',
         'font_family' => $b['font_family'] ?? 'Inter'
     ]);
