@@ -136,7 +136,6 @@ $stmtGym = $pdo->prepare("SELECT g.*, a.address_line, a.barangay, a.city, a.prov
 $stmtGym->execute([$user_id]);
 $gym = $stmtGym->fetch(PDO::FETCH_ASSOC);
 
-$gym_details = null;
 $app_data = null;
 $payout_info = ['bank' => 'N/A', 'acc_name' => 'N/A', 'acc_no' => 'N/A'];
 
