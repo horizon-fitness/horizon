@@ -104,10 +104,6 @@ if (isset($pdo)) {
             <span class="nav-text">Audit Logs</span>
         </a>
 
-        <a href="backup.php" class="nav-link <?= ($active_page == 'backup') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">backup</span> 
-            <span class="nav-text">Backup</span>
-        </a>
     </div>
 
     <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">

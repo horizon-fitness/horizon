@@ -79,7 +79,6 @@ if (isset($_SESSION['error_msg'])) {
 // Current Active Tab Detection for Zero-Flash Rendering
 $current_tab = $_GET['tab'] ?? ($_POST['active_tab'] ?? 'look');
 
-// Hex to RGB helper for dynamic transparency
 function hexToRgb($hex)
 {
     $hex = str_replace("#", "", $hex);
@@ -95,12 +94,24 @@ function hexToRgb($hex)
     return "$r, $g, $b";
 }
 
+// Helper function for Base64 conversion
+function convertFileToBase64($fileInputName)
+{
+    if (isset($_FILES[$fileInputName]) && $_FILES[$fileInputName]['error'] == 0) {
+        $tmpPath = $_FILES[$fileInputName]['tmp_name'];
+        $fileType = $_FILES[$fileInputName]['type'];
+        $fileData = file_get_contents($tmpPath);
+        return 'data:' . $fileType . ';base64,' . base64_encode($fileData);
+    }
+    return null;
+}
+
 // Migration: Update system_settings to include user_id if it doesn't exist
 $pdo->exec("
         CREATE TABLE IF NOT EXISTS system_settings (
             user_id INT NOT NULL,
             setting_key VARCHAR(50) NOT NULL,
-            setting_value TEXT,
+            setting_value LONGTEXT,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (user_id, setting_key)
         )
@@ -112,9 +123,11 @@ if (!$res->fetch()) {
     $pdo->exec("ALTER TABLE system_settings ADD COLUMN user_id INT NOT NULL DEFAULT 1 FIRST");
     $pdo->exec("ALTER TABLE system_settings DROP PRIMARY KEY, ADD PRIMARY KEY (user_id, setting_key)");
 }
+// Ensure LONGTEXT for Base64 support
+$pdo->exec("ALTER TABLE system_settings MODIFY COLUMN setting_value LONGTEXT");
 
 // Define Settings Scopes
-$global_keys = ['max_staff', 'grace_period', 'default_status', 'system_name', 'system_logo'];
+$global_keys = ['max_staff', 'grace_period', 'default_status', 'system_name'];
 
 // Seed default settings for the CURRENT Superadmin (Personal) if missing
 $stmtSeed = $pdo->prepare("INSERT IGNORE INTO system_settings (user_id, setting_key, setting_value) VALUES (?, ?, ?)");
@@ -125,7 +138,6 @@ $personal_defaults = [
     ['secondary_color', '#a1a1aa'],
     ['text_color', '#d1d5db'],
     ['bg_color', '#0a090d'],
-    ['tab_active_text', '#ffffff'],
     ['auto_tab_sync', '1']
 ];
 foreach ($personal_defaults as $s)
@@ -136,8 +148,7 @@ $global_defaults = [
     ['max_staff', '10'],
     ['grace_period', '7'],
     ['default_status', 'Pending'],
-    ['system_name', 'Horizon System'],
-    ['system_logo', '']
+    ['system_name', 'Horizon System']
 ];
 foreach ($global_defaults as $s)
     $stmtSeed->execute([0, $s[0], $s[1]]);
@@ -225,6 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             $configs[$key] = $value;
         }
 
+
         $pdo->commit();
         $success_msg = "System configurations updated successfully!";
     } catch (Exception $e) {
@@ -296,8 +308,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_superadmin'])) {
         $pdo->beginTransaction();
 
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
-        $stmtUser = $pdo->prepare("INSERT INTO users (username, first_name, middle_name, last_name, email, contact_number, birth_date, sex, password_hash, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, NOW(), NOW())");
-        $stmtUser->execute([$username, $first_name, $middle_name, $last_name, $email, $contact_number, $birth_date, $sex, $password_hash]);
+        $profile_picture = convertFileToBase64('profile_picture');
+        
+        $stmtUser = $pdo->prepare("INSERT INTO users (username, first_name, middle_name, last_name, email, contact_number, birth_date, sex, profile_picture, password_hash, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, NOW(), NOW())");
+        $stmtUser->execute([$username, $first_name, $middle_name, $last_name, $email, $contact_number, $birth_date, $sex, $profile_picture, $password_hash]);
         $new_user_id = $pdo->lastInsertId();
 
         // Fix to match DB schema (assigned_at instead of created_at if necessary, but following current file's existing structure)
@@ -945,20 +959,6 @@ $active_page = "settings";
                                     </div>
                                     <div class="flex flex-col gap-1.5">
                                         <label
-                                            class="text-[11px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Active
-                                            Text</label>
-                                        <div
-                                            class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
-                                            <input type="color" id="tab_active_text_input" name="tab_active_text"
-                                                oninput="updateLiveBranding()"
-                                                value="<?= htmlspecialchars($configs['tab_active_text'] ?? '#ffffff') ?>"
-                                                class="size-10 rounded-lg cursor-pointer bg-transparent border-none">
-                                            <span id="tab_active_text_hex_display"
-                                                class="text-[10px] font-black uppercase text-gray-400"><?= $configs['tab_active_text'] ?? '#FFFFFF' ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="flex flex-col gap-1.5">
-                                        <label
                                             class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Background</label>
                                         <div
                                             class="flex items-center gap-4 bg-white/5 p-2 rounded-xl border border-white/5">
@@ -1402,8 +1402,29 @@ $active_page = "settings";
                     </div>
                 </div>
 
-                <form action="" method="POST" id="superadminCreationForm">
+                <form action="" method="POST" id="superadminCreationForm" enctype="multipart/form-data">
                     <input type="hidden" name="add_superadmin" value="1">
+                    
+                    <!-- Profile Picture Upload -->
+                    <div class="flex justify-center mb-8">
+                        <div class="relative group">
+                            <label for="profile_picture_input" class="cursor-pointer block relative group">
+                                <div class="size-28 rounded-[38px] bg-primary/5 border-2 border-dashed border-primary/20 flex items-center justify-center overflow-hidden hover:border-primary/50 transition-all shadow-2xl relative">
+                                    <img id="profilePreviewImg" src="" class="size-full object-cover hidden">
+                                    <div id="profilePlaceholder" class="flex flex-col items-center gap-1.5 opacity-40">
+                                        <span class="material-symbols-outlined text-4xl text-[--highlight]">account_circle</span>
+                                        <span class="text-[9px] font-black uppercase tracking-widest italic">Set Photo</span>
+                                    </div>
+                                    <!-- Hover Overlay -->
+                                    <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                                        <span class="material-symbols-outlined text-white text-2xl">add_a_photo</span>
+                                    </div>
+                                </div>
+                            </label>
+                            <input type="file" name="profile_picture" id="profile_picture_input" class="hidden" accept="image/*" onchange="previewImage(this, 'profilePreviewImg', 'profilePlaceholder')">
+                        </div>
+                    </div>
+
                     <div class="space-y-5">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="flex flex-col gap-1">
@@ -2479,6 +2500,24 @@ $active_page = "settings";
                 }
             } catch (err) {
                 console.error('Failed to save order:', err);
+            }
+        }
+        function previewImage(input, previewId, placeholderId) {
+            const preview = document.getElementById(previewId);
+            const placeholder = document.getElementById(placeholderId);
+            
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (preview) {
+                        preview.src = e.target.result;
+                        preview.classList.remove('hidden');
+                    }
+                    if (placeholder) {
+                        placeholder.classList.add('hidden');
+                    }
+                }
+                reader.readAsDataURL(input.files[0]);
             }
         }
     </script>
