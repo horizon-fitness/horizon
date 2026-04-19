@@ -14,7 +14,7 @@ if (!$user_id || !$gym_id) {
 
 try {
     // 1. Get Member ID
-    $stmtMember = $pdo->prepare("SELECT member_id FROM members WHERE user_id = ? AND gym_id = ? LIMIT 1");
+    $stmtMember = $pdo->prepare("SELECT m.member_id, u.first_name, u.last_name FROM members m JOIN users u ON m.user_id = u.user_id WHERE m.user_id = ? AND m.gym_id = ? LIMIT 1");
     $stmtMember->execute([$user_id, $gym_id]);
     $member = $stmtMember->fetch();
 
@@ -24,39 +24,29 @@ try {
     }
 
     $member_id = $member['member_id'];
+    $member_name = trim($member['first_name'] . ' ' . $member['last_name']);
     $today = date('Y-m-d');
     $now = date('H:i:s');
 
-    if ($action === 'check_in') {
-        // Check if already checked in today and not checked out
-        $stmtCheck = $pdo->prepare("SELECT attendance_id FROM attendance WHERE member_id = ? AND attendance_date = ? AND check_out_time IS NULL LIMIT 1");
-        $stmtCheck->execute([$member_id, $today]);
-        if ($stmtCheck->fetch()) {
-            echo json_encode(['success' => false, 'message' => 'You are already checked in.']);
-            exit;
-        }
-
-        // Create Attendance Record
-        $stmtIn = $pdo->prepare("INSERT INTO attendance (member_id, gym_id, attendance_date, check_in_time, attendance_status, created_at) VALUES (?, ?, ?, ?, 'Active', NOW())");
-        $stmtIn->execute([$member_id, $gym_id, $today, $now]);
-        echo json_encode(['success' => true, 'message' => 'Checked in successfully!']);
-
-    }
-    elseif ($action === 'check_out') {
+    if ($action === 'check_in' || $action === 'check_out' || $action === 'toggle' || $action === 'checkin') {
+        
         // Find active session
         $stmtActive = $pdo->prepare("SELECT attendance_id FROM attendance WHERE member_id = ? AND attendance_date = ? AND check_out_time IS NULL ORDER BY check_in_time DESC LIMIT 1");
         $stmtActive->execute([$member_id, $today]);
         $session = $stmtActive->fetch();
 
-        if (!$session) {
-            echo json_encode(['success' => false, 'message' => 'No active session found to check out from.']);
-            exit;
+        if ($session) {
+            // User is already checked in, so we CHECK OUT
+            $stmtOut = $pdo->prepare("UPDATE attendance SET check_out_time = ?, attendance_status = 'Completed' WHERE attendance_id = ?");
+            $stmtOut->execute([$now, $session['attendance_id']]);
+            echo json_encode(['success' => true, 'member_name' => $member_name, 'message' => 'Checked out successfully!']);
+        } else {
+            // User is not checked in, so we CHECK IN
+            $stmtIn = $pdo->prepare("INSERT INTO attendance (member_id, gym_id, attendance_date, check_in_time, attendance_status, created_at) VALUES (?, ?, ?, ?, 'Active', NOW())");
+            $stmtIn->execute([$member_id, $gym_id, $today, $now]);
+            echo json_encode(['success' => true, 'member_name' => $member_name, 'message' => 'Checked in successfully!']);
         }
-
-        $stmtOut = $pdo->prepare("UPDATE attendance SET check_out_time = ?, attendance_status = 'Completed' WHERE attendance_id = ?");
-        $stmtOut->execute([$now, $session['attendance_id']]);
-        echo json_encode(['success' => true, 'message' => 'Checked out successfully!']);
-
+        exit;
     }
     else {
         // Default: Get Status

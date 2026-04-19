@@ -378,14 +378,43 @@ $active_now = $stmtMetricsActive->fetchColumn();
                     resultBox.classList.remove('hidden');
                     try {
                         const data = JSON.parse(decodeURIComponent(decodedText));
-                        resultBox.innerHTML = `
-                            <div class="flex items-center gap-3">
-                                <span class="material-symbols-rounded text-emerald-500 text-2xl">check_circle</span>
-                                <div>
-                                    <p class="text-[11px] font-black uppercase text-emerald-400">QR Scanned Successfully</p>
-                                    <p class="text-[9px] text-[--text-main]/40 font-bold uppercase tracking-widest mt-0.5">Gym ID: ${data.gym_id} &bull; Date: ${data.date}</p>
-                                </div>
-                            </div>`;
+                        
+                        // Hit the Attendance API
+                        fetch('../api/attendance.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                user_id: data.user_id, 
+                                gym_id: '<?= $gym_id ?>', 
+                                action: data.action || 'check_in' 
+                            })
+                        })
+                        .then(r => r.json())
+                        .then(res => {
+                            if (res.success) {
+                                resultBox.innerHTML = `
+                                    <div class="flex items-center gap-3">
+                                        <span class="material-symbols-rounded text-emerald-500 text-2xl">check_circle</span>
+                                        <div>
+                                            <p class="text-[11px] font-black uppercase text-emerald-400">Success: ${res.member_name}</p>
+                                            <p class="text-[9px] text-[--text-main]/40 font-bold uppercase tracking-widest mt-0.5">${res.message}</p>
+                                        </div>
+                                    </div>`;
+                            } else {
+                                resultBox.innerHTML = `
+                                    <div class="flex items-center gap-3">
+                                        <span class="material-symbols-rounded text-rose-500 text-2xl">error</span>
+                                        <div>
+                                            <p class="text-[11px] font-black uppercase text-rose-400">Scan Failed</p>
+                                            <p class="text-[9px] text-[--text-main]/40 font-bold uppercase tracking-widest mt-0.5">${res.message}</p>
+                                        </div>
+                                    </div>`;
+                            }
+                        })
+                        .catch(err => {
+                            resultBox.innerHTML = `<p class="text-[10px] font-black uppercase text-rose-400">Network Error</p>`;
+                        });
+
                     } catch(e) {
                         resultBox.innerHTML = `
                             <div class="flex items-center gap-3">
