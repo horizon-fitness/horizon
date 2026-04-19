@@ -288,45 +288,32 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
     $portal_services = $stmtServices->fetchAll();
 }
 
-// Map CMS Content with Fallbacks
+// Map CMS Content with robust fallbacks
 $cms = [
-    'hero_title' => $configs['portal_hero_title'] ?? ('Elevate Your <br /> Fitness at <br class="md:hidden" /> ' . htmlspecialchars($page['page_title'] ?? $page['gym_name'])),
-    'hero_subtitle' => $configs['portal_hero_subtitle'] ?? 'Discover a premium workout experience powered by Horizon\'s elite technology and world-class coaching staff.',
-    'features_title' => $configs['portal_features_title'] ?? 'Premium Training.<br /> Elite Management.',
-    'features_desc' => $configs['portal_features_desc'] ?? 'Access our elite workout tracking and world-class management platform. For membership inquiries and registrations, please visit our front desk or register online to get started.',
-    'philosophy_title' => $configs['portal_philosophy_title'] ?? ('Modern technology meets <br /> ' . (strpos($configs['portal_philosophy_title'] ?? '', 'dedication') !== false ? '' : 'unwavering dedication.')),
-    'philosophy_desc' => $configs['portal_philosophy_desc'] ?? 'Experience fitness like never before with our cutting-edge multi-tenant facility.',
-    'hero_label' => $configs['portal_hero_label'] ?? 'Open for Membership',
-    'features_label' => $configs['portal_features_label'] ?? 'Experience the Difference',
-    'philosophy_label' => $configs['portal_philosophy_label'] ?? 'The Philosophy',
-    'plans_title' => $configs['portal_plans_title'] ?? 'Membership Plans',
-    'plans_subtitle' => $configs['portal_plans_subtitle'] ?? ('Select a plan to start your journey at ' . htmlspecialchars($page['gym_name'])),
+    'hero_label' => !empty($configs['portal_hero_label']) ? $configs['portal_hero_label'] : 'Open for Membership',
+    'hero_title' => !empty($configs['portal_hero_title']) ? nl2br(htmlspecialchars($configs['portal_hero_title'])) : ('Elevate Your <br /> Fitness at <br class="md:hidden" /> ' . htmlspecialchars($page['page_title'] ?? $page['gym_name'])),
+    'hero_subtitle' => !empty($configs['portal_hero_subtitle']) ? nl2br(htmlspecialchars($configs['portal_hero_subtitle'])) : 'Discover a premium workout experience powered by Horizon\'s elite technology and world-class coaching staff.',
+    
+    'features_label' => !empty($configs['portal_features_label']) ? $configs['portal_features_label'] : 'Experience the Difference',
+    'features_title' => !empty($configs['portal_features_title']) ? nl2br(htmlspecialchars($configs['portal_features_title'])) : 'Premium Training.<br /> Elite Management.',
+    'features_desc' => !empty($configs['portal_features_desc']) ? nl2br(htmlspecialchars($configs['portal_features_desc'])) : 'Access our elite workout tracking and world-class management platform. For membership inquiries and registrations, please visit our front desk or register online to get started.',
+    
+    'philosophy_label' => !empty($configs['portal_philosophy_label']) ? $configs['portal_philosophy_label'] : 'The Philosophy',
+    'philosophy_title' => !empty($configs['portal_philosophy_title']) ? nl2br(htmlspecialchars($configs['portal_philosophy_title'])) : 'Modern technology meets <br /> unwavering dedication.',
+    'philosophy_desc' => !empty($configs['portal_philosophy_desc']) ? nl2br(htmlspecialchars($configs['portal_philosophy_desc'])) : 'Experience fitness like never before with our cutting-edge multi-tenant facility.',
+    
+    'plans_title' => !empty($configs['portal_plans_title']) ? $configs['portal_plans_title'] : 'Membership Plans',
+    'plans_subtitle' => !empty($configs['portal_plans_subtitle']) ? $configs['portal_plans_subtitle'] : ('Select a plan to start your journey at ' . htmlspecialchars($page['gym_name'])),
+    
+    'footer_label' => !empty($configs['portal_footer_label']) ? $configs['portal_footer_label'] : 'Expand Your Horizon',
+    'footer_desc' => !empty($configs['portal_footer_desc']) ? nl2br(htmlspecialchars($configs['portal_footer_desc'])) : 'Powered by Horizon Systems. Elevating fitness center management through cutting-edge technology.',
+    
     'footer_links_title' => 'Quick Links',
     'footer_contact_title' => 'Contact Facility',
-    'footer_app_title' => 'Get the App',
-    'footer_label' => $configs['portal_footer_label'] ?? 'Expand Your Horizon',
-    'footer_desc' => $configs['portal_footer_desc'] ?? 'Powered by Horizon Systems. Elevating fitness center management through cutting-edge technology.'
+    'footer_app_title' => 'Get the App'
 ];
 
-// Refined Logic for Philosophy Title Fallback
-if (empty($configs['portal_philosophy_title'])) {
-    $cms['philosophy_title'] = 'Modern technology meets <br /> unwavering dedication.';
-} else {
-    $cms['philosophy_title'] = nl2br(htmlspecialchars($configs['portal_philosophy_title']));
-}
-
-if (empty($configs['portal_hero_title'])) {
-    $cms['hero_title'] = 'Elevate Your <br /> Fitness at <br class="md:hidden" /> ' . htmlspecialchars($page['page_title'] ?? $page['gym_name']);
-} else {
-    $cms['hero_title'] = nl2br($configs['portal_hero_title']);
-}
-
-if (empty($configs['portal_features_title'])) {
-    $cms['features_title'] = 'Premium Training.<br /> Elite Management.';
-} else {
-    $cms['features_title'] = nl2br($configs['portal_features_title']);
-}
-
+// Colors and Font fallbacks
 $primary_color = $page['theme_color'] ?? '#8c2bee';
 $secondary_color = $page['secondary_color'] ?? '#a1a1aa';
 $bg_color = $page['bg_color'] ?? '#0a090d';
@@ -826,6 +813,10 @@ $primary_rgb = hexToRgb($primary_color);
                 </div>
 
                 <div class="flex items-center gap-4">
+                    <a href="coach/coach_application.php?gym=<?= $gym_slug ?>"
+                        class="hidden md:flex text-[11px] font-display font-bold uppercase tracking-widest text-gray-500 hover:text-white transition-all mr-2">
+                        Apply as Coach
+                    </a>
                     <a href="member/member_register.php?gym=<?= $gym_slug ?>"
                         class="font-display bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-primary/20">
                         Register
@@ -1271,13 +1262,6 @@ $primary_rgb = hexToRgb($primary_color);
                                 <?= htmlspecialchars($service['description'] ?: 'Inquire at our front desk for session details, schedule, and coach availability.') ?>
                             </p>
 
-                            <div class="mt-12 pt-8 border-t border-white/5">
-                                <a href="member/member_register.php?gym=<?= $gym_slug ?>&service=<?= $service['catalog_service_id'] ?>" 
-                                   class="flex items-center justify-between group/link">
-                                    <span class="text-[10px] font-black uppercase tracking-widest text-white group-hover/link:text-primary transition-colors">Book Session</span>
-                                    <span class="material-symbols-outlined text-sm text-primary group-hover/link:translate-x-1 transition-transform">arrow_forward</span>
-                                </a>
-                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>

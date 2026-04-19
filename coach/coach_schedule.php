@@ -105,19 +105,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_availability']))
     } else {
         try {
             $pdo->beginTransaction();
-            $stmtDelete = $pdo->prepare("DELETE FROM coach_schedules WHERE coach_id = ?");
-            $stmtDelete->execute([$coach_id]);
-
+            
             foreach ($week_days as $day) {
                 $is_off = isset($_POST["off_$day"]) ? 1 : 0;
                 $start = $_POST["start_$day"] ?? '08:00';
                 $end = $_POST["end_$day"] ?? '12:00';
                 $start2 = $_POST["start2_$day"] ?? '13:00';
                 $end2 = $_POST["end2_$day"] ?? '17:00';
-
-                $stmtInsert = $pdo->prepare("INSERT INTO coach_schedules (coach_id, day_of_week, start_time, end_time, start_time_2, end_time_2, availability_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
                 $status = $is_off ? 'Off' : 'Available';
-                $stmtInsert->execute([$coach_id, $day, $start, $end, $start2, $end2, $status]);
+
+                // Check if record for this day already exists for the coach
+                $stmtCheck = $pdo->prepare("SELECT coach_schedule_id FROM coach_schedules WHERE coach_id = ? AND day_of_week = ?");
+                $stmtCheck->execute([$coach_id, $day]);
+                $existing_id = $stmtCheck->fetchColumn();
+
+                if ($existing_id) {
+                    // Update existing record
+                    $stmtUpdate = $pdo->prepare("UPDATE coach_schedules SET start_time = ?, end_time = ?, start_time_2 = ?, end_time_2 = ?, availability_status = ?, updated_at = NOW() WHERE coach_schedule_id = ?");
+                    $stmtUpdate->execute([$start, $end, $start2, $end2, $status, $existing_id]);
+                } else {
+                    // Insert new record
+                    $stmtInsert = $pdo->prepare("INSERT INTO coach_schedules (coach_id, day_of_week, start_time, end_time, start_time_2, end_time_2, availability_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+                    $stmtInsert->execute([$coach_id, $day, $start, $end, $start2, $end2, $status]);
+                }
             }
             $pdo->commit();
             $msg = "Schedule updated successfully.";

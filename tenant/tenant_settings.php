@@ -54,7 +54,8 @@ try {
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )
     ");
-} catch (Exception $e) { /* Already exists */ }
+} catch (Exception $e) { /* Already exists */
+}
 
 // Fetch Branding Logic with Fallbacks
 try {
@@ -98,7 +99,8 @@ try {
             $stmtSeed = $pdo->prepare("INSERT INTO portal_settings ($cols) VALUES ($placeholders)");
             $stmtSeed->execute(array_values($default_portal));
             $portal_data = $default_portal;
-        } catch (Exception $e) { /* Fallback to runtime defaults */ }
+        } catch (Exception $e) { /* Fallback to runtime defaults */
+        }
     }
 
     // Clean up nulls and convert to configs
@@ -110,7 +112,8 @@ try {
         }
     }
 } catch (Exception $e) {
-    if (!isset($global_configs)) $global_configs = [];
+    if (!isset($global_configs))
+        $global_configs = [];
     $tenant_configs = [];
 }
 
@@ -259,7 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $_POST['features'] ?? '',
             $max_order + 1
         ]);
-        
+
         echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -283,6 +286,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $id,
             $gym_id
         ]);
+
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// --- AJAX HANDLER: RESET PORTAL CONTENT ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'reset_portal_content') {
+    try {
+        $stmtReset = $pdo->prepare("DELETE FROM portal_settings WHERE gym_id = ?");
+        $stmtReset->execute([$gym_id]);
         
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
@@ -298,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $placeholders = implode(',', array_fill(0, count($keys_to_reset), '?'));
         $stmtReset = $pdo->prepare("DELETE FROM system_settings WHERE user_id = ? AND setting_key IN ($placeholders)");
         $stmtReset->execute(array_merge([$user_id], $keys_to_reset));
-        
+
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'error' => $e->getMessage()]);
@@ -348,7 +364,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     } else {
         // Only update branding/portal/facility if no specific horizontal sub-action is provided
         $action = $_POST['action'] ?? '';
-        
+
         if (empty($action)) {
             // 1. Branding Settings (Key-Value system_settings)
             $branding_keys = [
@@ -383,7 +399,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             // Facility Data
             $opening_time = !empty($_POST['opening_time']) ? $_POST['opening_time'] : ($gym['opening_time'] ?? '00:00:00');
             $closing_time = !empty($_POST['closing_time']) ? $_POST['closing_time'] : ($gym['closing_time'] ?? '23:59:59');
-            $max_capacity = !empty($_POST['max_capacity']) ? (int) $_POST['max_capacity'] : (int)($gym['max_capacity'] ?? 0);
+            $max_capacity = !empty($_POST['max_capacity']) ? (int) $_POST['max_capacity'] : (int) ($gym['max_capacity'] ?? 0);
             $rules_text = $_POST['rules_text'] ?? ($gym['rules_text'] ?? '');
 
             $has_lockers = isset($_POST['has_lockers']) ? 1 : ($gym['has_lockers'] ?? 0);
@@ -408,13 +424,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 $portal_cols = implode(', ', array_keys($portal_keys));
                 $portal_placeholders = implode(', ', array_fill(0, count($portal_keys), '?'));
                 $portal_updates = implode(', ', array_map(fn($k) => "$k = VALUES($k)", array_keys($portal_keys)));
-                
+
                 $stmtUpdatePortal = $pdo->prepare("INSERT INTO portal_settings (gym_id, $portal_cols) VALUES (?, $portal_placeholders) ON DUPLICATE KEY UPDATE $portal_updates");
                 $stmtUpdatePortal->execute(array_merge([$gym_id], array_values($portal_keys)));
 
                 // Update local configs immediately
                 $configs = array_merge($configs, $branding_keys);
-                foreach($portal_keys as $pk => $pv) {
+                foreach ($portal_keys as $pk => $pv) {
                     $configs['portal_' . $pk] = $pv;
                 }
 
@@ -487,13 +503,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             if (isset($_POST['action'])) {
                 if ($_POST['action'] === 'add_catalog_service') {
                     $name = $_POST['service_name'] ?? '';
-                    $price = (float)($_POST['price'] ?? 0);
+                    $price = (float) ($_POST['price'] ?? 0);
                     $desc = $_POST['description'] ?? '';
-                    
+
                     if (!empty($name)) {
                         $stmtAddService = $pdo->prepare("INSERT INTO service_catalog (gym_id, service_name, price, description, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())");
                         $stmtAddService->execute([$gym_id, $name, $price, $desc]);
-                        
+
                         // Handle AJAX response if needed
                         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
                             $pdo->commit();
@@ -502,11 +518,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         }
                     }
                 } elseif ($_POST['action'] === 'archive_catalog_service') {
-                    $sid = (int)$_POST['service_id'];
+                    $sid = (int) $_POST['service_id'];
                     $stmtArchiveService = $pdo->prepare("UPDATE service_catalog SET is_active = 0 WHERE catalog_service_id = ? AND gym_id = ?");
                     $stmtArchiveService->execute([$sid, $gym_id]);
                 } elseif ($_POST['action'] === 'restore_catalog_service') {
-                    $sid = (int)$_POST['service_id'];
+                    $sid = (int) $_POST['service_id'];
                     $stmtRestoreService = $pdo->prepare("UPDATE service_catalog SET is_active = 1 WHERE catalog_service_id = ? AND gym_id = ?");
                     $stmtRestoreService->execute([$sid, $gym_id]);
                 }
@@ -552,13 +568,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     </script>
     <style>
         :root {
-            --primary: <?= $configs['theme_color'] ?? '#8c2bee' ?>;
-            --primary-rgb: <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>;
-            --highlight: <?= $configs['secondary_color'] ?? '#a1a1aa' ?>;
-            --text-main: <?= $configs['text_color'] ?? '#d1d5db' ?>;
-            --background: <?= $configs['bg_color'] ?? '#0a090d' ?>;
+            --primary:
+                <?= $configs['theme_color'] ?? '#8c2bee' ?>
+            ;
+            --primary-rgb:
+                <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>
+            ;
+            --background:
+                <?= $configs['bg_color'] ?? '#0a090d' ?>
+            ;
+            --highlight:
+                <?= $configs['secondary_color'] ?? '#a1a1aa' ?>
+            ;
+            --text-main:
+                <?= $configs['text_color'] ?? '#d1d5db' ?>
+            ;
             --card-blur: 20px;
-            --card-bg: <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#14121a') ?>;
+            --card-bg:
+                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#14121a') ?>
+            ;
         }
 
         body {
@@ -593,15 +621,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         .modal-overlay {
             display: none;
             position: fixed;
-            top: 0; right: 0; bottom: 0; left: 110px;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
             background: rgba(10, 9, 13, 0.85);
             backdrop-filter: blur(12px);
             z-index: 200;
-            align-items: center; justify-content: center;
+            align-items: center;
+            justify-content: center;
             padding: 40px;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .side-nav:hover ~ .modal-overlay { left: 300px; }
+
+        .side-nav:hover~.modal-overlay {
+            left: 300px;
+        }
 
         .modal-overlay.flex {
             display: flex !important;
@@ -771,7 +806,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             color: #666;
         }
 
-        /* Sidebar (Elite Standard) */
         .side-nav {
             width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -779,13 +813,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             display: flex;
             flex-direction: column;
             position: fixed;
-            left: 0; top: 0;
+            left: 0;
+            top: 0;
             height: 100vh;
             z-index: 150;
             background-color: var(--background);
             border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
-        .side-nav:hover { width: 300px; }
+
+        .side-nav:hover {
+            width: 300px;
+        }
 
         .main-content {
             margin-left: 110px;
@@ -793,51 +831,90 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             min-width: 0;
             transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .side-nav:hover ~ .main-content { margin-left: 300px; }
+
+        .side-nav:hover~.main-content {
+            margin-left: 300px;
+        }
 
         .nav-label {
             opacity: 0;
             transform: translateX(-15px);
-            transition: all 0.3s ease-in-out;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             white-space: nowrap;
             pointer-events: none;
-            color: var(--text-main);
         }
-        .side-nav:hover .nav-label { opacity: 1; transform: translateX(0); pointer-events: auto; }
+
+        .side-nav:hover .nav-label {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
 
         .nav-section-label {
-            max-height: 0; opacity: 0; overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
-            margin: 0 !important; pointer-events: none;
-        }
-        .side-nav:hover .nav-section-label {
-            max-height: 20px; opacity: 1;
-            margin-bottom: 8px !important; pointer-events: auto;
+            max-height: 0;
+            opacity: 0;
+            transform: translateX(-15px);
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 0 !important;
+            pointer-events: none;
         }
 
-        /* Nav items (Refined Elite Look) */
+        .side-nav:hover .nav-section-label {
+            max-height: 20px;
+            opacity: 1;
+            transform: translateX(0);
+            margin-bottom: 8px !important;
+            pointer-events: auto;
+        }
+
         .nav-item {
-            display: flex; align-items: center; gap: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
             padding: 10px 38px;
-            transition: opacity 0.2s ease, color 0.2s ease;
-            text-decoration: none; white-space: nowrap;
-            font-size: 11px; font-weight: 800;
-            text-transform: uppercase; letter-spacing: 0.05em;
-            color: color-mix(in srgb, var(--text-main) 45%, transparent);
+            transition: all 0.3s ease;
+            text-decoration: none;
+            white-space: nowrap;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-main);
+            opacity: 0.5;
         }
-        .nav-item:hover { color: var(--text-main); }
-        .nav-item .material-symbols-outlined {
+
+        .nav-item:hover {
+            opacity: 1;
+            background: transparent;
+        }
+
+        .nav-item span.material-symbols-outlined {
             color: var(--highlight);
-            transition: transform 0.2s ease;
+            transition: color 0.3s ease;
         }
-        .nav-item:hover .material-symbols-outlined { transform: scale(1.12); }
-        .nav-item.active { color: var(--primary) !important; position: relative; }
-        .nav-item.active .material-symbols-outlined { color: var(--primary); }
+
+        .nav-item.active {
+            opacity: 1;
+            color: var(--primary) !important;
+            position: relative;
+        }
+
+        .nav-item.active span.material-symbols-outlined {
+            color: var(--primary);
+        }
+
         .nav-item.active::after {
-            content: ''; position: absolute;
-            right: 0; top: 50%; transform: translateY(-50%);
-            width: 4px; height: 24px;
-            background: var(--primary); border-radius: 4px 0 0 4px;
+            content: '';
+            position: absolute;
+            right: 0px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 2px;
+            height: 18px;
+            background: var(--primary);
+            border-radius: 4px 0 0 4px;
+            box-shadow: 0 0 8px var(--primary);
         }
 
 
@@ -972,7 +1049,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             display: flex !important;
         }
 
-        .side-nav:hover ~ #subModal { left: 300px; }
+        .side-nav:hover~#subModal {
+            left: 300px;
+        }
     </style>
     <script>
         function showSubWarning() { document.getElementById('subModal').classList.add('active'); }
@@ -1040,7 +1119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
     </script>
 </head>
 
-<body class="antialiased flex h-screen overflow-hidden">
+<body class="flex h-screen overflow-hidden">
 
     <?php require_once '../includes/tenant_sidebar.php'; ?>
 
@@ -1143,11 +1222,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                     <div
                         class="sticky top-0 z-[100] bg-background-dark/80 backdrop-blur-xl border-b border-white/5 py-3 flex items-center justify-between gap-6 px-2">
                         <div class="flex items-center gap-3">
-                            <button type="button" onclick="switchTab('branding')" class="tab-btn active" data-tab="branding">
+                            <button type="button" onclick="switchTab('branding')" class="tab-btn active"
+                                data-tab="branding">
                                 <span class="material-symbols-outlined text-base">brush</span>
                                 Branding & Appearance
                             </button>
-                            <button type="button" onclick="switchTab('operations')" class="tab-btn" data-tab="operations">
+                            <button type="button" onclick="switchTab('operations')" class="tab-btn"
+                                data-tab="operations">
                                 <span class="material-symbols-outlined text-base">schedule</span>
                                 Operational Rules
                             </button>
@@ -1155,7 +1236,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                 <span class="material-symbols-outlined text-base">edit_document</span>
                                 Portal Content
                             </button>
-                            <button type="button" onclick="switchTab('membership')" class="tab-btn" data-tab="membership">
+                            <button type="button" onclick="switchTab('membership')" class="tab-btn"
+                                data-tab="membership">
                                 <span class="material-symbols-outlined text-base">card_membership</span>
                                 Membership Plans
                             </button>
@@ -1177,23 +1259,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         <!-- System Appearance Panel (Sync with Superadmin) -->
                         <div class="glass-card p-8 max-w-5xl mx-auto">
                             <div class="flex items-center justify-between mb-8 text-primary">
-                                    <div class="flex items-center gap-4">
-                                        <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                                            <span class="material-symbols-outlined text-primary">brush</span>
-                                        </div>
-                                        <div>
-                                            <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">1.
-                                                System Appearance</h3>
-                                            <p
-                                                class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight line-clamp-1">
-                                                Brand identity & glassmorphism</p>
-                                        </div>
+                                <div class="flex items-center gap-4">
+                                    <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                        <span class="material-symbols-outlined text-primary">brush</span>
                                     </div>
-                                    <button type="button" onclick="resetBranding()"
-                                        class="h-9 px-6 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all active:scale-95">
-                                        <span class="material-symbols-outlined text-base">restart_alt</span>
-                                        Reset to Defaults
-                                    </button>
+                                    <div>
+                                        <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">1.
+                                            System Appearance</h3>
+                                        <p
+                                            class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight line-clamp-1">
+                                            Brand identity & glassmorphism</p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="resetBranding()"
+                                    class="h-9 px-6 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all active:scale-95">
+                                    <span class="material-symbols-outlined text-base">restart_alt</span>
+                                    Reset to Defaults
+                                </button>
                             </div>
 
                             <div class="space-y-8">
@@ -1378,14 +1460,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         </div>
                     </div>
 
-                    <div id="tabPortal" class="tab-panel mt-4">
-                        <!-- Section 3: Portal Content Customization -->
-                        <div class="glass-card p-8 max-w-5xl mx-auto">
-                            <h4
-                                class="text-[12px] font-black italic uppercase tracking-widest text-primary mb-6 flex items-center gap-4">
-                                <span class="material-symbols-outlined text-xl">edit_document</span> 3. Portal Content
-                                Customization
-                            </h4>
+                        <div id="tabPortal" class="tab-panel mt-4">
+                            <!-- Section 3: Portal Content Customization -->
+                            <div class="glass-card p-8 max-w-5xl mx-auto">
+                                <div class="flex items-center justify-between mb-8 text-primary">
+                                    <div class="flex items-center gap-4">
+                                        <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                            <span class="material-symbols-outlined text-primary">edit_document</span>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-sm font-black italic uppercase tracking-widest text-primary">3. Portal Content Customization</h3>
+                                            <p class="text-[10px] text-[--text-main] opacity-70 font-bold uppercase tracking-tight line-clamp-1">Personalize your public website's messaging</p>
+                                        </div>
+                                    </div>
+                                    <button type="button" onclick="resetPortalContent()"
+                                        class="h-9 px-6 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all active:scale-95">
+                                        <span class="material-symbols-outlined text-base">restart_alt</span>
+                                        Reset to Defaults
+                                    </button>
+                                </div>
 
                             <div class="grid grid-cols-1 gap-10">
                                 <!-- Hero Section -->
@@ -1602,7 +1695,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                                 </div>
                                                 <h5
                                                     class="text-sm font-black italic uppercase tracking-widest text-primary plan-title-preview">
-                                                    <?= htmlspecialchars($plan['plan_name'] ?: 'Unnamed Plan') ?></h5>
+                                                    <?= htmlspecialchars($plan['plan_name'] ?: 'Unnamed Plan') ?>
+                                                </h5>
                                             </div>
                                             <div class="flex items-center gap-2">
                                                 <button type="button"
@@ -1649,14 +1743,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                                     class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing
                                                     Cycle</label>
                                                 <div class="view-box text-gray-400 capitalize">
-                                                    <?= htmlspecialchars($plan['billing_cycle_text'] ?: 'Default') ?></div>
+                                                    <?= htmlspecialchars($plan['billing_cycle_text'] ?: 'Default') ?>
+                                                </div>
                                             </div>
 
                                             <div class="col-span-1 flex flex-col gap-1.5">
                                                 <label
                                                     class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Badge</label>
                                                 <div class="view-box italic opacity-60">
-                                                    <?= htmlspecialchars($plan['featured_badge_text'] ?: 'None') ?></div>
+                                                    <?= htmlspecialchars($plan['featured_badge_text'] ?: 'None') ?>
+                                                </div>
                                             </div>
 
                                             <div class="col-span-2 flex flex-col gap-1.5">
@@ -1728,8 +1824,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                                 <label
                                                     class="text-[9px] font-black uppercase text-primary tracking-widest ml-1">Features
                                                     (Comma-separated)</label>
-                                                <textarea
-                                                    name="membership_plans[<?= $plan['membership_plan_id'] ?>][features]"
+                                                <textarea name="membership_plans[<?= $plan['membership_plan_id'] ?>][features]"
                                                     rows="3"
                                                     class="input-dark-elite !bg-white/[0.01] resize-none leading-relaxed font-bold"
                                                     placeholder="List the features..."><?= htmlspecialchars($plan['features'] ?: $plan['description'] ?: '') ?></textarea>
@@ -1839,11 +1934,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                                         data-billing="<?= htmlspecialchars($p['billing_cycle_text'] ?? 'Default') ?>"
                                                         data-date="<?= strtotime($p['created_at']) ?>">
                                                         <td class="px-8 py-5">
-                                                                <div>
-                                                                    <p
-                                                                        class="text-xs font-black italic uppercase tracking-widest text-gray-400">
-                                                                        <?= htmlspecialchars($p['plan_name']) ?></p>
-                                                                </div>
+                                                            <div>
+                                                                <p
+                                                                    class="text-xs font-black italic uppercase tracking-widest text-gray-400">
+                                                                    <?= htmlspecialchars($p['plan_name']) ?>
+                                                                </p>
+                                                            </div>
                                                         </td>
                                                         <td class="px-8 py-5 text-center">
                                                             <span
@@ -1874,28 +1970,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
                         </div>
-                              </div>
                     </div>
                     <div id="tabServices" class="tab-panel mt-4">
                         <!-- SERVICE HEADER BAR (MATCHING REFERENCE) -->
-                        <div class="service-header-bar flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
+                        <div
+                            class="service-header-bar flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
                             <div>
-                                <h4 class="text-xl font-black italic uppercase tracking-tighter text-white mb-1">SERVICE CATALOG</h4>
-                                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em]">MANAGE YOUR AVAILABLE GYM SERVICES AND OFFERINGS</p>
+                                <h4 class="text-xl font-black italic uppercase tracking-tighter text-white mb-1">SERVICE
+                                    CATALOG</h4>
+                                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em]">MANAGE YOUR
+                                    AVAILABLE GYM SERVICES AND OFFERINGS</p>
                             </div>
 
                             <div class="flex items-center gap-6">
                                 <button type="button" onclick="openAddServiceModal()"
                                     class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:opacity-80 transition-all group">
-                                    <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">add_circle</span> ADD NEW SERVICE
+                                    <span
+                                        class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">add_circle</span>
+                                    ADD NEW SERVICE
                                 </button>
 
                                 <div class="bg-black/40 p-1 rounded-xl flex items-center border border-white/5">
                                     <button type="button" onclick="toggleServiceView('active')" id="activeServiceTabBtn"
-                                        class="tab-btn-match active px-6 h-9">ACTIVE (<?= count($active_services) ?>)</button>
-                                    <button type="button" onclick="toggleServiceView('archived')" id="archivedServiceTabBtn"
-                                        class="tab-btn-match inactive px-6 h-9">ARCHIVED (<?= count($archived_services) ?>)</button>
+                                        class="tab-btn-match active px-6 h-9">ACTIVE
+                                        (<?= count($active_services) ?>)</button>
+                                    <button type="button" onclick="toggleServiceView('archived')"
+                                        id="archivedServiceTabBtn" class="tab-btn-match inactive px-6 h-9">ARCHIVED
+                                        (<?= count($archived_services) ?>)</button>
                                 </div>
                             </div>
                         </div>
@@ -1903,54 +2006,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         <!-- ADVANCED FILTERS (ALIGNED TO REF) -->
                         <div class="glass-card px-8 py-4 flex flex-row items-center gap-4 bg-white/[0.01] mb-10">
                             <div class="relative flex-1">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
-                                <input type="text" id="servicesSearch" oninput="filterServices()" placeholder="Search archived plans..." class="input-dark !h-[44px] !pl-11 !text-[11px] font-medium w-full !bg-white/[0.03] !border-white/10 !rounded-xl">
+                                <span
+                                    class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
+                                <input type="text" id="servicesSearch" oninput="filterServices()"
+                                    placeholder="Search archived plans..."
+                                    class="input-dark !h-[44px] !pl-11 !text-[11px] font-medium w-full !bg-white/[0.03] !border-white/10 !rounded-xl">
                             </div>
-                            
+
                             <div class="flex items-center gap-3">
-                                <select id="servicesSortDate" onchange="filterServices()" class="input-dark !h-[44px] !px-6 !text-[10px] font-bold uppercase tracking-widest cursor-pointer !bg-white/[0.03] !border-white/10 !rounded-xl min-w-[160px]">
+                                <select id="servicesSortDate" onchange="filterServices()"
+                                    class="input-dark !h-[44px] !px-6 !text-[10px] font-bold uppercase tracking-widest cursor-pointer !bg-white/[0.03] !border-white/10 !rounded-xl min-w-[160px]">
                                     <option value="newest">Newest First</option>
                                     <option value="oldest">Oldest First</option>
                                 </select>
-                                
-                                <select id="servicesSortPrice" onchange="filterServices()" class="input-dark !h-[44px] !px-6 !text-[10px] font-bold uppercase tracking-widest cursor-pointer !bg-white/[0.03] !border-white/10 !rounded-xl min-w-[160px]">
+
+                                <select id="servicesSortPrice" onchange="filterServices()"
+                                    class="input-dark !h-[44px] !px-6 !text-[10px] font-bold uppercase tracking-widest cursor-pointer !bg-white/[0.03] !border-white/10 !rounded-xl min-w-[160px]">
                                     <option value="default">Any Price</option>
                                     <option value="low">Price: Low to High</option>
                                     <option value="high">Price: High to Low</option>
                                 </select>
 
-                                <button type="button" onclick="resetServiceFilters()" class="size-[44px] rounded-xl bg-white/[0.03] border border-white/10 text-gray-500 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center group" title="Reset Filters">
-                                    <span class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform duration-500">refresh</span>
+                                <button type="button" onclick="resetServiceFilters()"
+                                    class="size-[44px] rounded-xl bg-white/[0.03] border border-white/10 text-gray-500 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center group"
+                                    title="Reset Filters">
+                                    <span
+                                        class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform duration-500">refresh</span>
                                 </button>
                             </div>
                         </div>
 
                         <!-- ACTIVE SERVICES GRID (CARD VIEW) -->
-                        <div id="activeServicesContainer" class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-10">
+                        <div id="activeServicesContainer"
+                            class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-10">
                             <?php if (empty($active_services)): ?>
                                 <div class="col-span-full py-20 flex flex-col items-center justify-center opacity-40">
                                     <span class="material-symbols-outlined text-4xl mb-4">info</span>
-                                    <p class="text-[10px] font-black uppercase tracking-[0.2em]">No active services found.</p>
+                                    <p class="text-[10px] font-black uppercase tracking-[0.2em]">No active services found.
+                                    </p>
                                 </div>
                             <?php else: ?>
                                 <?php foreach ($active_services as $s): ?>
-                                    <div class="service-card elite-red-card p-10 group relative transition-all duration-300" 
-                                         data-id="<?= $s['catalog_service_id'] ?>" 
-                                         data-name="<?= strtolower(htmlspecialchars($s['service_name'])) ?>"
-                                         data-price="<?= (float)$s['price'] ?>"
-                                         data-date="<?= strtotime($s['created_at']) ?>">
-                                        
+                                    <div class="service-card elite-red-card p-10 group relative transition-all duration-300"
+                                        data-id="<?= $s['catalog_service_id'] ?>"
+                                        data-name="<?= strtolower(htmlspecialchars($s['service_name'])) ?>"
+                                        data-price="<?= (float) $s['price'] ?>" data-date="<?= strtotime($s['created_at']) ?>">
+
                                         <div class="flex items-center justify-between mb-8">
                                             <div class="flex items-center gap-4">
-                                                <div class="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                                                    <span class="material-symbols-outlined text-2xl font-bold">shopping_basket</span>
+                                                <div
+                                                    class="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                                                    <span
+                                                        class="material-symbols-outlined text-2xl font-bold">shopping_basket</span>
                                                 </div>
                                                 <div>
-                                                    <h5 class="text-sm font-black italic uppercase tracking-widest text-primary"><?= htmlspecialchars($s['service_name']) ?></h5>
+                                                    <h5
+                                                        class="text-sm font-black italic uppercase tracking-widest text-primary">
+                                                        <?= htmlspecialchars($s['service_name']) ?></h5>
                                                 </div>
                                             </div>
-                                            <button type="button" onclick="confirmArchiveService(<?= $s['catalog_service_id'] ?>)" 
-                                                class="size-10 rounded-xl bg-white/5 text-gray-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all active:scale-95 border border-white/5" title="Archive Service">
+                                            <button type="button"
+                                                onclick="confirmArchiveService(<?= $s['catalog_service_id'] ?>)"
+                                                class="size-10 rounded-xl bg-white/5 text-gray-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all active:scale-95 border border-white/5"
+                                                title="Archive Service">
                                                 <span class="material-symbols-outlined text-lg">archive</span>
                                             </button>
                                         </div>
@@ -1960,7 +2078,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                                 <label class="label-elite">Price Tag</label>
                                                 <div class="view-box font-black text-white text-base justify-between">
                                                     <span>₱<?= number_format($s['price'], 2) ?></span>
-                                                    <span class="px-2 py-0.5 rounded bg-primary/20 text-primary text-[8px] uppercase font-black tracking-widest">Premium</span>
+                                                    <span
+                                                        class="px-2 py-0.5 rounded bg-primary/20 text-primary text-[8px] uppercase font-black tracking-widest">Premium</span>
                                                 </div>
                                             </div>
                                             <div class="flex flex-col gap-1.5">
@@ -1981,10 +2100,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                 <table class="w-full text-left border-collapse">
                                     <thead>
                                         <tr class="border-b border-white/5 bg-white/[0.02]">
-                                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Service Name</th>
-                                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Price</th>
-                                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Status</th>
-                                            <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">Action</th>
+                                            <th
+                                                class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                                                Service Name</th>
+                                            <th
+                                                class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">
+                                                Price</th>
+                                            <th
+                                                class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">
+                                                Status</th>
+                                            <th
+                                                class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 text-center">
+                                                Action</th>
                                         </tr>
                                     </thead>
                                     <tbody id="archivedServicesTableBody">
@@ -1993,29 +2120,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                                 <td colspan="5" class="px-8 py-20 text-center">
                                                     <div class="flex flex-col items-center justify-center opacity-40">
                                                         <span class="material-symbols-outlined text-4xl mb-4">history</span>
-                                                        <p class="text-[10px] font-black uppercase tracking-[0.2em]">No archived services found.</p>
+                                                        <p class="text-[10px] font-black uppercase tracking-[0.2em]">No
+                                                            archived services found.</p>
                                                     </div>
                                                 </td>
                                             </tr>
                                         <?php else: ?>
                                             <?php foreach ($archived_services as $s): ?>
-                                                <tr class="service-row archived-row border-b border-white/5 hover:bg-white/[0.02] transition-colors" 
-                                                    data-id="<?= $s['catalog_service_id'] ?>" 
+                                                <tr class="service-row archived-row border-b border-white/5 hover:bg-white/[0.02] transition-colors"
+                                                    data-id="<?= $s['catalog_service_id'] ?>"
                                                     data-name="<?= strtolower(htmlspecialchars($s['service_name'])) ?>"
-                                                    data-price="<?= (float)$s['price'] ?>"
+                                                    data-price="<?= (float) $s['price'] ?>"
                                                     data-date="<?= strtotime($s['created_at']) ?>">
                                                     <td class="px-8 py-5">
-                                                        <span class="text-xs font-black italic uppercase tracking-widest text-gray-500"><?= htmlspecialchars($s['service_name']) ?></span>
+                                                        <span
+                                                            class="text-xs font-black italic uppercase tracking-widest text-gray-500"><?= htmlspecialchars($s['service_name']) ?></span>
                                                     </td>
                                                     <td class="px-8 py-5 text-center">
-                                                        <span class="text-xs font-bold text-gray-600">₱<?= number_format($s['price'], 2) ?></span>
+                                                        <span
+                                                            class="text-xs font-bold text-gray-600">₱<?= number_format($s['price'], 2) ?></span>
                                                     </td>
                                                     <td class="px-8 py-5 text-center">
-                                                        <span class="px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 text-[8px] font-black uppercase tracking-widest border border-rose-500/20">Archived</span>
+                                                        <span
+                                                            class="px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 text-[8px] font-black uppercase tracking-widest border border-rose-500/20">Archived</span>
                                                     </td>
                                                     <td class="px-8 py-5 text-center">
-                                                        <button type="button" onclick="confirmRestoreService(<?= $s['catalog_service_id'] ?>)" class="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest mx-auto active:scale-95">
-                                                            <span class="material-symbols-outlined text-base">settings_backup_restore</span> Restore
+                                                        <button type="button"
+                                                            onclick="confirmRestoreService(<?= $s['catalog_service_id'] ?>)"
+                                                            class="h-9 px-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-widest mx-auto active:scale-95">
+                                                            <span
+                                                                class="material-symbols-outlined text-base">settings_backup_restore</span>
+                                                            Restore
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -2028,7 +2163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                     </div>
                 </form>
 
-        </div>
+            </div>
         </div>
 
         <!-- ELITE MODALS (SIDEBAR-AWARE) -->
@@ -2060,10 +2195,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         </div>
 
         <!-- Add Service Modal -->
-        <div id="addServiceModal" class="modal-overlay" onclick="if(event.target === this) closeEliteModal('addServiceModal')">
+        <div id="addServiceModal" class="modal-overlay"
+            onclick="if(event.target === this) closeEliteModal('addServiceModal')">
             <div class="glass-card w-full max-w-lg p-10 animate-in zoom-in duration-300 relative overflow-hidden">
                 <div class="absolute top-0 right-0 p-4">
-                    <button type="button" onclick="closeEliteModal('addServiceModal')" class="text-gray-500 hover:text-white transition-colors">
+                    <button type="button" onclick="closeEliteModal('addServiceModal')"
+                        class="text-gray-500 hover:text-white transition-colors">
                         <span class="material-symbols-outlined text-2xl">close</span>
                     </button>
                 </div>
@@ -2074,29 +2211,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                     </div>
                     <div>
                         <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white">New Service</h3>
-                        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-1">Expansion of your gym's catalog</p>
+                        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-1">Expansion of your
+                            gym's catalog</p>
                     </div>
                 </div>
 
                 <form id="addServiceForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="md:col-span-2 space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-primary ml-1">Service Name</label>
-                        <input type="text" name="service_name" class="input-dark-elite uppercase italic" placeholder="e.g. Personal Training" required>
+                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-primary ml-1">Service
+                            Name</label>
+                        <input type="text" name="service_name" class="input-dark-elite uppercase italic"
+                            placeholder="e.g. Personal Training" required>
                     </div>
 
                     <div class="md:col-span-2 space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-primary ml-1">Price (₱)</label>
-                        <input type="number" name="price" step="0.01" class="input-dark-elite font-bold" placeholder="0.00" required>
+                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-primary ml-1">Price
+                            (₱)</label>
+                        <input type="number" name="price" step="0.01" class="input-dark-elite font-bold"
+                            placeholder="0.00" required>
                     </div>
 
                     <div class="md:col-span-2 space-y-2">
-                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1">Description / Features</label>
-                        <textarea name="description" rows="3" class="input-dark-elite !bg-white/[0.01] resize-none" placeholder="What does this service include?"></textarea>
+                        <label class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1">Description
+                            / Features</label>
+                        <textarea name="description" rows="3" class="input-dark-elite !bg-white/[0.01] resize-none"
+                            placeholder="What does this service include?"></textarea>
                     </div>
 
                     <div class="md:col-span-2 pt-6 flex gap-4">
-                        <button type="button" onclick="closeEliteModal('addServiceModal')" class="flex-1 h-14 rounded-2xl border border-white/5 text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-white transition-all">Discard</button>
-                        <button type="submit" class="flex-[1.5] h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">Create Service</button>
+                        <button type="button" onclick="closeEliteModal('addServiceModal')"
+                            class="flex-1 h-14 rounded-2xl border border-white/5 text-[11px] font-black uppercase tracking-[0.2em] text-gray-500 hover:text-white transition-all">Discard</button>
+                        <button type="submit"
+                            class="flex-[1.5] h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">Create
+                            Service</button>
                     </div>
                 </form>
             </div>
@@ -2191,6 +2338,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             setConfirmModal('reset', null, 'Reset Branding', 'restart_alt', 'Confirm Reset', 'bg-rose-500');
         }
 
+        function resetPortalContent() {
+            setConfirmModal('reset_portal', null, 'Reset Portal Content', 'restart_alt', 'Confirm Reset', 'bg-rose-500');
+        }
+
+        async function performPortalReset() {
+            const formData = new FormData();
+            formData.append('action', 'reset_portal_content');
+
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showEliteToast('Portal Content Reset to Defaults!', 'check_circle', 'bg-emerald-500');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (error) {
+                showEliteToast(error.message || 'Reset failed.', 'error', 'bg-red-500');
+            }
+        }
+
         async function performBrandingReset() {
             const formData = new FormData();
             formData.append('action', 'reset_branding');
@@ -2249,6 +2422,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             } else if (type === 'reset') {
                 descEl.textContent = 'Are you sure you want to reset your gym branding to default system values? This will erase your custom colors and logo.';
                 btn.onclick = () => performBrandingReset();
+            } else if (type === 'reset_portal') {
+                descEl.textContent = 'Are you sure you want to reset your portal website content to default messaging? This will erase all custom titles and descriptions.';
+                btn.onclick = () => performPortalReset();
             }
 
             openEliteModal('confirmActionModal');
@@ -2534,7 +2710,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             </div>
             `;
             container.insertAdjacentHTML('afterbegin', cardHtml);
-            
+
             // Scroll to the new draft card
             const newCard = document.getElementById(`card-${draftId}`);
             if (newCard) {
@@ -2947,7 +3123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                     .then(data => {
                         if (data.success) {
                             showEliteToast('Plan Updated Successfully!', 'verified', 'bg-emerald-600');
-                            
+
                             // Update Preview Viewboxes
                             const views = card.querySelectorAll('.view-box');
                             if (views[0]) views[0].textContent = card.querySelector(`[name*="[name]"]`).value;
@@ -3104,13 +3280,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             const priceSort = document.getElementById('servicesSortPrice').value;
 
             const activeVisible = !document.getElementById('activeServicesContainer').classList.contains('hidden');
-            const container = activeVisible 
-                ? document.getElementById('activeServicesContainer') 
+            const container = activeVisible
+                ? document.getElementById('activeServicesContainer')
                 : document.getElementById('archivedServicesTableBody');
 
             // Select either .service-card (grid) or .service-row (table row)
             const items = Array.from(container.querySelectorAll('.service-card, .service-row'));
-            
+
             // 1. Filtering
             let filteredItems = items.filter(item => {
                 const name = item.getAttribute('data-name');
@@ -3148,7 +3324,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             const existingNoData = container.querySelector('.no-data-search-row, .no-data-row');
             if (filteredItems.length === 0) {
                 if (!existingNoData) {
-                    const emptyHtml = activeVisible 
+                    const emptyHtml = activeVisible
                         ? `<div class="col-span-full py-20 flex flex-col items-center justify-center opacity-40 no-data-search-row animate-in fade-in duration-300">
                              <span class="material-symbols-outlined text-4xl mb-4 text-primary">search_off</span>
                              <p class="text-[10px] font-black uppercase tracking-[0.2em]">No matching services found.</p>
@@ -3161,7 +3337,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                </div>
                              </td>
                            </tr>`;
-                    
+
                     if (activeVisible) {
                         container.insertAdjacentHTML('beforeend', emptyHtml);
                     } else {
@@ -3218,14 +3394,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 
             modalTitle.innerText = "Archive Service";
             modalDesc.innerText = "Are you sure you want to archive this service? It will no longer be visible to members.";
-            
+
             icon.innerText = "archive";
             iconBox.className = "size-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto mb-6";
             icon.className = "material-symbols-outlined text-3xl text-rose-500 font-bold";
-            
+
             confirmBtn.className = "h-12 rounded-xl bg-rose-500 text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-rose-500/20 hover:scale-[1.02] active:scale-95 transition-all";
-            
-            confirmBtn.onclick = function() {
+
+            confirmBtn.onclick = function () {
                 const formData = new FormData();
                 formData.append('save_settings', '1');
                 formData.append('action', 'archive_catalog_service');
@@ -3245,8 +3421,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             const confirmBtn = document.getElementById('confirmActionBtn');
             document.getElementById('confirmTitle').innerText = "Restore Service";
             document.getElementById('confirmDesc').innerText = "Return this service to the active catalog?";
-            
-            confirmBtn.onclick = function() {
+
+            confirmBtn.onclick = function () {
                 const formData = new FormData();
                 formData.append('save_settings', '1');
                 formData.append('action', 'restore_catalog_service');
@@ -3263,7 +3439,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         }
 
         // Add Service Form Handler
-        document.getElementById('addServiceForm')?.addEventListener('submit', function(e) {
+        document.getElementById('addServiceForm')?.addEventListener('submit', function (e) {
             e.preventDefault();
             const formData = new FormData(this);
             formData.append('save_settings', '1');
@@ -3275,12 +3451,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 body: formData,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.reload();
-                }
-            });
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    }
+                });
         });
     </script>
 
