@@ -526,9 +526,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             }
 
             $pdo->commit();
-            $_SESSION['success_msg'] = "All configurations saved and synchronized successfully!";
+            $success_text = "All configurations saved and synchronized successfully!";
+            $_SESSION['success_msg'] = $success_text;
 
-            // Redirect back to the same tab to prevent resubmission
+            // Handle AJAX response
+            if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+                echo json_encode(['success' => true, 'message' => $success_text]);
+                exit;
+            }
+
+            // Redirect back to the same tab to prevent resubmission (Standard POST fallback)
             $active_tab = $_POST['active_tab'] ?? 'branding';
             header("Location: " . $_SERVER['PHP_SELF'] . "?tab=" . $active_tab);
             exit;
@@ -537,6 +544,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 $pdo->rollBack();
             }
             $error = "Update Error: " . $e->getMessage();
+            
+            if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+                echo json_encode(['success' => false, 'error' => $error]);
+                exit;
+            }
+
             $_SESSION['error_msg'] = $error;
         }
     }
@@ -1049,6 +1062,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 
         .side-nav:hover~#subModal {
             left: 300px;
+        }
+
+        /* PREMIUM LOADING OVERLAY */
+        #savingOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 110px;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
+            background: rgba(var(--background-rgb, 10, 9, 13), 0.7);
+            backdrop-filter: blur(12px) saturate(180%);
+            align-items: center;
+            justify-content: center;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .side-nav:hover ~ #savingOverlay {
+            left: 300px;
+        }
+        #savingOverlay.active {
+            display: flex;
+            animation: overlayFadeIn 0.4s ease forwards;
+        }
+        @keyframes overlayFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .loading-loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(var(--primary-rgb), 0.1);
+            border-radius: 50%;
+            display: inline-block;
+            position: relative;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        .loading-loader::after {
+            content: '';  
+            box-sizing: border-box;
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: var(--primary);
+            width: 12px;
+            height: 12px;
+            transform: translate(-50%, 50%);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--primary);
+        }
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
     <script>
@@ -2324,7 +2391,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             }
         }
 
-        function handleFormSubmit(form, event) {
+        function openEliteModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.add('flex');
+        }
+
+        function closeEliteModal(id) {
+            const modal = document.getElementById(id);
+            if (modal) modal.classList.remove('flex');
+        }
+
+        async function handleFormSubmit(form, event) {
             if (event) event.preventDefault();
 
             // 1. UNIQUE NAME CHECK
@@ -2340,22 +2417,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'branding';
             if (activeTabInput) activeTabInput.value = currentTab;
 
-            const btn = form.querySelector('button[onclick="confirmSaveSettings()"]');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = `<span class="material-symbols-outlined text-base animate-spin">sync</span> Saving...`;
-                btn.classList.add('opacity-70', 'cursor-not-allowed');
+            const saveBtn = document.querySelector('button[onclick="confirmSaveSettings()"]');
+            const overlay = document.getElementById('savingOverlay');
+            
+            try {
+                // Show Loading
+                if (overlay) overlay.classList.add('active');
+                if (saveBtn) {
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = `<span class="material-symbols-outlined text-base animate-spin">sync</span> Saving...`;
+                    saveBtn.classList.add('opacity-70', 'cursor-not-allowed');
+                }
+
+                closeEliteModal('confirmActionModal');
+
+                const formData = new FormData(form);
+                formData.append('save_settings', '1');
+
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showEliteToast(data.message || 'Changes saved successfully!', 'verified', 'bg-emerald-500');
+                    
+                    // Smoothly refresh mockup
+                    const frame = document.getElementById('portalFrame');
+                    if (frame) {
+                        frame.src = frame.src; // Reload iframe
+                    }
+                } else {
+                    showEliteToast(data.error || 'Failed to save changes.', 'error', 'bg-rose-500');
+                }
+            } catch (err) {
+                console.error('Save Error:', err);
+                showEliteToast('Network error or server failed to respond.', 'error', 'bg-rose-500');
+            } finally {
+                // Hide Loading
+                if (overlay) {
+                    overlay.style.opacity = '0';
+                    setTimeout(() => {
+                        overlay.classList.remove('active');
+                        overlay.style.opacity = '1';
+                    }, 400);
+                }
+                
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = `<span class="material-symbols-outlined text-base">save</span> Save Changes`;
+                    saveBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+                }
             }
 
-            // Add hidden input for flag
-            const flag = document.createElement('input');
-            flag.type = 'hidden';
-            flag.name = 'save_settings';
-            flag.value = '1';
-            form.appendChild(flag);
-
-            form.submit();
-            return true;
+            return false;
         }
         function resetBranding() {
             setConfirmModal('reset', null, 'Reset Branding', 'restart_alt', 'Confirm Reset', 'bg-rose-500');
@@ -3516,6 +3636,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         Select Growth Plan
                     </a>
                 <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- ELITE SAVING OVERLAY -->
+    <div id="savingOverlay">
+        <div class="flex flex-col items-center gap-6 animate-in zoom-in duration-500">
+            <div class="relative">
+                <span class="loading-loader"></span>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-primary text-xl animate-pulse">cloud_upload</span>
+                </div>
+            </div>
+            <div class="text-center">
+                <h3 class="text-xl font-black italic uppercase tracking-tighter text-white mb-1">Synchronizing</h3>
+                <p class="text-[9px] font-black uppercase tracking-[0.2em] text-primary animate-pulse italic">Updating Gym Ecosystem...</p>
             </div>
         </div>
     </div>
