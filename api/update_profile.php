@@ -14,8 +14,35 @@ try {
         exit;
     }
 
+    $username = trim($input['username'] ?? '');
+    $email = trim($input['email'] ?? '');
+
+    // Check for username uniqueness
+    if (!empty($username)) {
+        $stmtC = $pdo->prepare("SELECT user_id FROM users WHERE username = ? AND user_id != ?");
+        $stmtC->execute([$username, $user_id]);
+        if ($stmtC->fetch()) {
+            ob_end_clean();
+            echo json_encode(['success' => false, 'message' => 'Username already taken.']);
+            exit;
+        }
+    }
+
+    // Check for email uniqueness
+    if (!empty($email)) {
+        $stmtC = $pdo->prepare("SELECT user_id FROM users WHERE email = ? AND user_id != ?");
+        $stmtC->execute([$email, $user_id]);
+        if ($stmtC->fetch()) {
+            ob_end_clean();
+            echo json_encode(['success' => false, 'message' => 'Email already registered.']);
+            exit;
+        }
+    }
+
     // 1. Update USERS table
     $sqlUser = "UPDATE users SET 
+                username = COALESCE(NULLIF(?, ''), username),
+                email = COALESCE(NULLIF(?, ''), email),
                 first_name = ?, 
                 last_name = ?, 
                 middle_name = ?, 
@@ -27,6 +54,8 @@ try {
     
     $stmtUser = $pdo->prepare($sqlUser);
     $stmtUser->execute([
+        $username,
+        $email,
         $input['first_name'] ?? '',
         $input['last_name'] ?? '',
         $input['middle_name'] ?? '',

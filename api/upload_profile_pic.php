@@ -48,7 +48,7 @@ try {
     if (file_put_contents($file_path, $image_data)) {
         // Update database
         $public_path = 'uploads/profile_pics/' . $file_name;
-        $stmt = $pdo->prepare("UPDATE users SET profile_pic = ?, updated_at = NOW() WHERE user_id = ?");
+        $stmt = $pdo->prepare("UPDATE users SET profile_picture = ?, updated_at = NOW() WHERE user_id = ?");
         $stmt->execute([$public_path, $user_id]);
 
         ob_end_clean();
