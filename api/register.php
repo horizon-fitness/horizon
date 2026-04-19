@@ -7,113 +7,19 @@ try {
     $input = json_decode(file_get_contents('php://input'), true);
     $action = $input['action'] ?? 'request_otp'; // Default to request_otp for the new flow
 
-    // Utility to ensure registration_otps table exists
-    $pdo->exec("CREATE TABLE IF NOT EXISTS registration_otps (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(255) NOT NULL,
-        code VARCHAR(6) NOT NULL,
-        expires_at DATETIME NOT NULL,
-        created_at DATETIME NOT NULL,
-        INDEX (email)
-    )");
+
 
     if ($action === 'request_otp') {
-        $gym_id = $input['gym_id'] ?? $input['tenant_code'] ?? '';
-        $email = trim($input['email'] ?? '');
-        $username = trim($input['username'] ?? '');
-        
-        // 1. Validate Gym
-        $stmtGym = $pdo->prepare("SELECT gym_id FROM gyms WHERE LOWER(tenant_code) = LOWER(?) LIMIT 1");
-        $stmtGym->execute([$gym_id]);
-        $gData = $stmtGym->fetch();
-        $target_gym_id = $gData['gym_id'] ?? 1;
-
-        // 2. Separate Uniqueness Checks
-        // Check Username
-        $stmtU = $pdo->prepare("SELECT u.user_id FROM users u 
-                                JOIN user_roles ur ON u.user_id = ur.user_id 
-                                WHERE u.username = ? AND ur.gym_id = ? LIMIT 1");
-        $stmtU->execute([$username, $target_gym_id]);
-        if ($stmtU->fetch()) {
-            ob_end_clean();
-            echo json_encode(['success' => false, 'message' => "The Username '$username' is already taken in this gym."]);
-            exit;
-        }
-
-        // Check Email
-        $stmtE = $pdo->prepare("SELECT u.user_id FROM users u 
-                                JOIN user_roles ur ON u.user_id = ur.user_id 
-                                WHERE u.email = ? AND ur.gym_id = ? LIMIT 1");
-        $stmtE->execute([$email, $target_gym_id]);
-        if ($stmtE->fetch()) {
-            ob_end_clean();
-            echo json_encode(['success' => false, 'message' => "The Email '$email' is already registered in this gym."]);
-            exit;
-        }
-
-        // 3. Generate and Store OTP
-        $otp_code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
-        $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
-        $now = date('Y-m-d H:i:s');
-
-        // Delete old OTPs for this email
-        $pdo->prepare("DELETE FROM registration_otps WHERE email = ?")->execute([$email]);
-        
-        $stmtV = $pdo->prepare("INSERT INTO registration_otps (email, code, expires_at, created_at) VALUES (?, ?, ?, ?)");
-        $stmtV->execute([$email, $otp_code, $expires, $now]);
-
-        // 4. Send Email
-        if (file_exists('../includes/mailer.php')) {
-            require_once '../includes/mailer.php';
-            $stmtG = $pdo->prepare("SELECT gym_name FROM gyms WHERE gym_id = ? LIMIT 1");
-            $stmtG->execute([$target_gym_id]);
-            $gymInfo = $stmtG->fetch();
-            $gName = $gymInfo['gym_name'] ?? 'Horizon System';
-            $gLogo = ''; // Force system text logo ('HORIZON') instead of broken gym logos
-
-            $subject = "$gName - Your Verification PIN";
-            $emailBody = getFormalEmailTemplate("Verify Your Account", "
-                <p>Welcome to <strong>$gName</strong>!</p>
-                <p>Thank you for initiating your membership registration. To verify your email address, please use the following One-Time Password (OTP):</p>
-                <div style='background: #f1f5f9; padding: 20px; text-align: center; border-radius: 8px; margin: 25px 0;'>
-                    <span style='font-size: 32px; font-weight: 800; letter-spacing: 5px; color: #1a202c;'>$otp_code</span>
-                </div>
-                <p style='font-size: 14px; color: #718096;'>This code is valid for 1 hour. If you did not request this registration, please ignore this email.</p>
-            ", $gName, $gLogo);
-            $errorString = '';
-            $mailSent = sendSystemEmail($email, $subject, $emailBody, $errorString);
-            
-            if (!$mailSent) {
-                // Delete the OTP we just created since the email failed
-                $pdo->prepare("DELETE FROM registration_otps WHERE email = ?")->execute([$email]);
-                
-                ob_end_clean();
-                echo json_encode([
-                    'success' => false, 
-                    'message' => 'Failed to send Verification PIN. ' . ($errorString ?: 'SMTP Error. Ensure provided email is valid.')
-                ]);
-                exit;
-            }
-        }
-
+        // Direct Flow: Bypass OTP request and tell the app to proceed to registration
         ob_end_clean();
         echo json_encode([
             'success' => true, 
-            'message' => 'Verification PIN sent to your email.'
+            'message' => 'Direct registration enabled. Proceeding...'
         ]);
-
     } elseif ($action === 'register') {
+        // Simplified Registration: Skip PIN verification
         $pin = $input['pin'] ?? '';
         $email = trim($input['email'] ?? '');
-        
-        // 1. Verify PIN First (without creating user yet)
-        $stmtPin = $pdo->prepare("SELECT * FROM registration_otps WHERE email = ? AND code = ? AND expires_at > NOW() LIMIT 1");
-        $stmtPin->execute([$email, $pin]);
-        if (!$stmtPin->fetch()) {
-            ob_end_clean();
-            echo json_encode(['success' => false, 'message' => 'Invalid or expired PIN. Please request a new one.']);
-            exit;
-        }
 
         // 2. If PIN is valid, proceed with Full Registration
         $gym_id = $input['gym_id'] ?? $input['tenant_code'] ?? '';
@@ -197,8 +103,7 @@ try {
         $pdo->prepare("INSERT INTO member_registrations (gym_id, user_id, registration_source, registration_status, created_at) VALUES (?, ?, ?, 'Completed', ?)")
             ->execute([$gym_id, $new_user_id, $reg_source, $now]);
 
-        // Cleanup OTP
-        $pdo->prepare("DELETE FROM registration_otps WHERE email = ?")->execute([$email]);
+
 
         $pdo->commit();
 

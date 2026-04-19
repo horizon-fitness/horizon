@@ -136,7 +136,7 @@ if (isset($_GET['ajax_user_id'])) {
         $sql .= ", s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN staff s ON u.user_id = s.user_id AND s.gym_id = ur.gym_id ";
     } elseif ($role_name === 'coach') {
-        $sql .= ", ca.coach_type as employment_type, ca.specialization as staff_role, c.hire_date, c.status as staff_status ";
+        $sql .= ", ca.coach_type as employment_type, 'Coach' as staff_role, c.hire_date, c.status as staff_status ";
         $sql .= " FROM users u 
                   JOIN user_roles ur ON u.user_id = ur.user_id 
                   JOIN roles r ON ur.role_id = r.role_id 
@@ -378,7 +378,7 @@ $where_sql = "WHERE " . implode(" AND ", $where);
 $stmtUsers = $pdo->prepare("
     SELECT u.user_id, u.first_name, u.last_name, u.email, r.role_name as role, u.is_active, u.created_at,
            CASE WHEN r.role_name = 'Member' THEN m.member_status ELSE c.status END as active_status,
-           CASE WHEN r.role_name = 'Member' THEN IFNULL(mp.plan_name, 'No Plan') ELSE ca.specialization END as detail_info
+           CASE WHEN r.role_name = 'Member' THEN IFNULL(mp.plan_name, 'No Plan') ELSE ca.coach_type END as detail_info
     FROM users u
     JOIN user_roles ur ON u.user_id = ur.user_id
     JOIN roles r ON ur.role_id = r.role_id

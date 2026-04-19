@@ -13,13 +13,36 @@ $gym_id = $_SESSION['gym_id'];
 $admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
 
 // --- FETCH BRANDING & CONFIG ---
-$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
+$stmtGym = $pdo->prepare("SELECT owner_user_id, gym_name FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]);
-$gym = $stmtGym->fetch();
+$gym_data = $stmtGym->fetch();
+$owner_user_id = $gym_data['owner_user_id'] ?? 0;
+$gym_name = $gym_data['gym_name'] ?? 'Horizon Gym';
 
-$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
-$stmtPage->execute([$gym_id]);
-$tenant_config = $stmtPage->fetch();
+$configs = [
+    'system_name'     => $gym_name,
+    'system_logo'     => '',
+    'theme_color'     => '#8c2bee',
+    'secondary_color' => '#a1a1aa',
+    'text_color'      => '#d1d5db',
+    'bg_color'        => '#0a090d',
+    'card_color'      => '#141216',
+    'auto_card_theme' => '1',
+    'font_family'     => 'Lexend',
+];
+
+// Merge global & tenant settings
+$stmtSettings = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id IN (0, ?)");
+$stmtSettings->execute([$owner_user_id]);
+foreach (($stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
+}
+
+$tenant_config = [
+    'theme_color' => $configs['theme_color'],
+    'bg_color'    => $configs['bg_color'],
+    'logo_path'   => $configs['system_logo']
+];
 
 // --- FILTERING LOGIC ---
 $search = $_GET['search'] ?? '';
@@ -59,7 +82,7 @@ $sql = "
     SELECT 
         b.*, 
         u.first_name, u.last_name, u.username,
-        COALESCE(gs.custom_service_name, sc.service_name, 'Unlimited Gym Use') as resolved_service,
+        COALESCE(sc.service_name, 'Unlimited Gym Use') as resolved_service,
         CASE 
             WHEN b.coach_id IS NULL THEN 'Self-Training'
             ELSE CONCAT(tu.first_name, ' ', tu.last_name)
@@ -67,8 +90,7 @@ $sql = "
     FROM bookings b 
     JOIN members m ON b.member_id = m.member_id 
     JOIN users u ON m.user_id = u.user_id 
-    LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
-    LEFT JOIN service_catalog sc ON gs.catalog_service_id = sc.catalog_service_id
+    LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
     LEFT JOIN staff s ON b.coach_id = s.staff_id
     LEFT JOIN users tu ON s.user_id = tu.user_id
     $where_clause 
@@ -94,13 +116,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmtCtx = $pdo->prepare("
             SELECT 
                 u.email, u.first_name, b.booking_date, b.start_time, g.gym_name,
-                COALESCE(gs.custom_service_name, sc.service_name, 'Personal Training') as resolved_service
+                COALESCE(sc.service_name, 'Personal Training') as resolved_service
             FROM bookings b
             JOIN members m ON b.member_id = m.member_id
             JOIN users u ON m.user_id = u.user_id
             JOIN gyms g ON m.gym_id = g.gym_id
-            LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
-            LEFT JOIN service_catalog sc ON gs.catalog_service_id = sc.catalog_service_id
+            LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
             WHERE b.booking_id = ?
             LIMIT 1
         ");
@@ -151,13 +172,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmtCtx = $pdo->prepare("
             SELECT 
                 u.email, u.first_name, g.gym_name,
-                COALESCE(gs.custom_service_name, sc.service_name, 'Personal Training') as resolved_service
+                COALESCE(sc.service_name, 'Personal Training') as resolved_service
             FROM bookings b
             JOIN members m ON b.member_id = m.member_id
             JOIN users u ON m.user_id = u.user_id
             JOIN gyms g ON m.gym_id = g.gym_id
-            LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
-            LEFT JOIN service_catalog sc ON gs.catalog_service_id = sc.catalog_service_id
+            LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
             WHERE b.booking_id = ?
             LIMIT 1
         ");

@@ -64,8 +64,8 @@ try {
         exit;
     }
 
-    // Fetch branding from system_settings
-    $stmtB = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+    // Fetch branding from system_settings (Global + Tenant)
+    $stmtB = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id IN (0, ?) ORDER BY user_id ASC");
     $stmtB->execute([$gym['owner_user_id']]);
     $b = $stmtB->fetchAll(PDO::FETCH_KEY_PAIR);
 
