@@ -13,17 +13,16 @@ try {
     // Get active coaches by joining coaches with users and their applications for specialization
     $stmt = $pdo->prepare("
         SELECT 
-            c.coach_id, 
+            s.staff_id as coach_id, 
             u.first_name, 
             u.last_name, 
-            ca.specialization
-        FROM coaches c
-        JOIN users u ON c.user_id = u.user_id
-        JOIN coach_applications ca ON c.coach_application_id = ca.coach_application_id
-        WHERE c.gym_id = ? AND c.status = 'Active'
+            '' as specialization
+        FROM staff s
+        JOIN users u ON s.user_id = u.user_id
+        WHERE s.gym_id = ? AND s.staff_role = 'Coach' AND s.status = 'Active'
     ");
     $stmt->execute([$gym_id]);
-    $coaches = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $coaches = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
     echo json_encode([
         'success' => true,

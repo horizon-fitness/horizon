@@ -40,6 +40,23 @@ try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS user_verifications (verification_id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, verification_type VARCHAR(50) NOT NULL, code VARCHAR(10) NOT NULL, status ENUM('pending', 'verified', 'expired') DEFAULT 'pending', expires_at DATETIME NOT NULL, created_at DATETIME NOT NULL, verified_at DATETIME NULL)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS registration_otps (id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) NOT NULL, code VARCHAR(6) NOT NULL, expires_at DATETIME NOT NULL, created_at DATETIME NOT NULL, INDEX (email))");
 
+    // Coach Workout Plans
+    $pdo->exec("CREATE TABLE IF NOT EXISTS member_workouts (
+        workout_id INT AUTO_INCREMENT PRIMARY KEY,
+        member_id INT NOT NULL,
+        coach_id INT NOT NULL,
+        gym_id INT NOT NULL,
+        workout_name VARCHAR(255) NOT NULL,
+        workout_description TEXT,
+        workout_status VARCHAR(50) DEFAULT 'Assigned',
+        scheduled_date DATE,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        INDEX(member_id),
+        INDEX(coach_id),
+        INDEX(gym_id)
+    )");
+
     // Original Website Plans Migrations (Safe-mode)
     $resPlan = $pdo->query("SHOW TABLES LIKE 'website_plans'");
     if ($resPlan->fetch()) {

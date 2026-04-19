@@ -44,8 +44,11 @@ try {
             g.status as gym_status,
             cs.subscription_status,
             cs.payment_status,
-            cs.website_plan_id
+            cs.website_plan_id,
+            gd.opening_time,
+            gd.closing_time
         FROM gyms g
+        LEFT JOIN gym_details gd ON g.gym_id = gd.gym_id
         LEFT JOIN (
             SELECT cs1.gym_id, cs1.subscription_status, cs1.payment_status, cs1.website_plan_id
             FROM client_subscriptions cs1
@@ -163,7 +166,9 @@ try {
         'bg_color'    => $branding['bg_color'] ?? '#0a090d',
         'font_family' => $branding['font_family'] ?? 'Inter',
         'card_color'  => $branding['card_color'] ?? '#141216',
-        'auto_card_theme' => $branding['auto_card_theme'] ?? '1'
+        'auto_card_theme' => $branding['auto_card_theme'] ?? '1',
+        'opening_time' => $gym['opening_time'] ?? '07:00:00',
+        'closing_time' => $gym['closing_time'] ?? '21:00:00'
     ]);
     exit;
 
