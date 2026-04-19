@@ -57,6 +57,11 @@ try {
         throw new Exception("Required field 'session_rate' is missing.");
     }
 
+    // Ensure certification file was uploaded
+    if (empty($cert_base64) && !isset($_FILES['certification_file'])) {
+        throw new Exception("Please upload your professional certification.");
+    }
+
     // Age Validation
     $dob = new DateTime($data['birth_date']);
     $age = (new DateTime())->diff($dob)->y;

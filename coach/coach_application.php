@@ -289,11 +289,11 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
                                     </button>
                                 </div>
                                 <!-- Strength Indicator -->
-                                <div class="mt-4 flex gap-1 h-1 px-1">
-                                    <div id="strength-bar-1" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
-                                    <div id="strength-bar-2" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
-                                    <div id="strength-bar-3" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
-                                    <div id="strength-bar-4" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                <div class="mt-4 flex gap-1 h-1.5 px-1">
+                                    <div id="strength-bar-1" class="flex-1 rounded-full bg-white/10 transition-all duration-300"></div>
+                                    <div id="strength-bar-2" class="flex-1 rounded-full bg-white/10 transition-all duration-300"></div>
+                                    <div id="strength-bar-3" class="flex-1 rounded-full bg-white/10 transition-all duration-300"></div>
+                                    <div id="strength-bar-4" class="flex-1 rounded-full bg-white/10 transition-all duration-300"></div>
                                 </div>
 
                                 <!-- Password Checklist -->
@@ -364,8 +364,8 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
                                 <input type="text" name="license_number" class="input-field" placeholder="e.g. CERT-123456">
                             </div>
                             <div class="space-y-1.5">
-                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Upload Certification (PDF or Image) (Optional)</label>
-                                <input type="file" name="certification_file" accept=".pdf,image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Upload Certification (PDF or Image) <span class="text-primary">*</span></label>
+                                <input type="file" name="certification_file" required accept=".pdf,image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
                             </div>
                         </div>
                     </div>
@@ -482,32 +482,7 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
         setTimeout(() => container.innerHTML = '', 5000);
     }
 
-    // Masking
-    document.getElementById('account_number').addEventListener('input', (e) => {
-        let val = e.target.value.replace(/\D/g, '');
-        if (val.length > 0) {
-            if (document.getElementById('bank_name').value === 'GCash' || document.getElementById('bank_name').value === 'Maya') {
-                if (val.length > 11) val = val.slice(0,11);
-                let formatted = val.substring(0, 4);
-                if (val.length > 4) formatted += '-' + val.substring(4, 7);
-                if (val.length > 7) formatted += '-' + val.substring(7, 11);
-                e.target.value = formatted;
-            } else {
-                e.target.value = val.slice(0, 16);
-            }
-        }
-    });
-
-    document.getElementById('bank_name').addEventListener('change', (e) => {
-        const label = document.getElementById('acc-number-label');
-        if (e.target.value === 'GCash' || e.target.value === 'Maya') {
-            label.innerText = "Mobile Number *";
-            document.getElementById('account_number').placeholder = "09XX-XXX-XXXX";
-        } else {
-            label.innerText = "Account Number *";
-            document.getElementById('account_number').placeholder = "0000-0000-00";
-        }
-    });
+    // --- BANK MASKING (Removed as not applicable to this form) ---
 
     // Password strength meter
     function checkPasswordStrength(password) {
@@ -532,12 +507,13 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
         if (reqs.special) strength++;
         
         // Update bars
+        const colors = ['bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500'];
         bars.forEach((bar, i) => {
+            bar.classList.remove('bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500', 'bg-white/10');
             if (i < strength) {
-                const colors = ['bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-emerald-500'];
-                bar.className = 'flex-1 rounded-full transition-colors ' + colors[strength - 1];
+                bar.classList.add(colors[strength - 1]);
             } else {
-                bar.className = 'flex-1 rounded-full bg-white/5 transition-colors';
+                bar.classList.add('bg-white/10');
             }
         });
 
@@ -589,7 +565,7 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
     document.getElementById('password').addEventListener('input', (e) => checkPasswordStrength(e.target.value));
 
     // --- AUTOSAVE FEATURE ---
-    const STORAGE_KEY = 'coach_app_draft_' + '<?= $page_slug ?>';
+    const STORAGE_KEY = 'coach_app_draft_' + '<?= $gym_slug ?>';
     
     function saveFormData() {
         const formData = {};
@@ -634,7 +610,11 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
     });
 
     // Restore on load
-    window.addEventListener('DOMContentLoaded', restoreFormData);
+    window.addEventListener('DOMContentLoaded', () => {
+        restoreFormData();
+        const pass = document.getElementById('password');
+        if (pass.value) checkPasswordStrength(pass.value);
+    });
     
     // Clear storage on form submit
     document.getElementById('coach-form').addEventListener('submit', function() {
