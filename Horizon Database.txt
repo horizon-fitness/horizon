@@ -1,5 +1,4 @@
--- Horizon Systems Updated - Simple Basis Schema for InfinityFree
--- Updated: 2026-04-19 (Consolidated & Cleaned)
+-- Horizon Systems Updated
 
 CREATE TABLE users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -12,7 +11,6 @@ CREATE TABLE users (
     contact_number VARCHAR(20) NOT NULL,
     birth_date DATE,
     sex VARCHAR(20),
-    occupation VARCHAR(100),
     profile_picture LONGTEXT,
     is_verified TINYINT(1) NOT NULL DEFAULT 0,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -63,6 +61,8 @@ CREATE TABLE service_catalog (
 );
 
 -- System Configurations & Unified Branding
+-- [user_id 0]: Global System Rules
+-- [user_id > 0]: Personal Dashboard Branding (Superadmin) or Gym Portal Customize (Tenant)
 CREATE TABLE system_settings (
     user_id INT NOT NULL,
     setting_key VARCHAR(50) NOT NULL,
@@ -146,7 +146,23 @@ CREATE TABLE gym_details (
     has_parking TINYINT(1) NOT NULL DEFAULT 0,
     has_wifi TINYINT(1) NOT NULL DEFAULT 0,
     about_text TEXT,
-    rules_text TEXT,
+    updated_at DATETIME NOT NULL
+);
+
+CREATE TABLE gym_rules (
+    rule_id INT AUTO_INCREMENT PRIMARY KEY,
+    gym_id INT NOT NULL,
+    allow_member_booking TINYINT(1) NOT NULL DEFAULT 1,
+    allow_walk_in TINYINT(1) NOT NULL DEFAULT 1,
+    allow_coach_application TINYINT(1) NOT NULL DEFAULT 1,
+    show_coach_schedule_to_members TINYINT(1) NOT NULL DEFAULT 1,
+    membership_required_for_booking TINYINT(1) NOT NULL DEFAULT 0,
+    allow_part_time_coach TINYINT(1) NOT NULL DEFAULT 1,
+    allow_professional_coach TINYINT(1) NOT NULL DEFAULT 1,
+    max_booking_per_day INT NOT NULL,
+    cancellation_hours_limit INT NOT NULL,
+    late_minutes_limit INT NOT NULL,
+    created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 );
 
@@ -165,6 +181,20 @@ CREATE TABLE client_subscriptions (
     updated_at DATETIME NOT NULL
 );
 
+CREATE TABLE gym_services (
+    gym_service_id INT AUTO_INCREMENT PRIMARY KEY,
+    gym_id INT NOT NULL,
+    catalog_service_id INT NOT NULL,
+    custom_service_name VARCHAR(100),
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    duration_minutes INT NOT NULL,
+    max_participants INT NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL
+);
+
 CREATE TABLE membership_plans (
     membership_plan_id INT AUTO_INCREMENT PRIMARY KEY,
     gym_id INT, -- NULL means Global Plan shared by all
@@ -174,12 +204,12 @@ CREATE TABLE membership_plans (
     price DECIMAL(10,2) NOT NULL,
     featured_badge_text VARCHAR(50), -- e.g. "MOST POPULAR", "SAVE 20%"
     description TEXT,
-    features TEXT, -- Bullet points stored as string/json
     sort_order INT DEFAULT 0,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 );
+
 
 CREATE TABLE staff (
     staff_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -194,12 +224,26 @@ CREATE TABLE staff (
     updated_at DATETIME NOT NULL
 );
 
+
+CREATE TABLE member_registrations (
+    member_registration_id INT AUTO_INCREMENT PRIMARY KEY,
+    gym_id INT NOT NULL,
+    user_id INT NOT NULL,
+    registration_source VARCHAR(100) NOT NULL,
+    registered_by_user_id INT,
+    verification_id INT,
+    registration_status VARCHAR(50) NOT NULL,
+    completed_at DATETIME,
+    created_at DATETIME NOT NULL
+);
+
 CREATE TABLE members (
     member_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     gym_id INT NOT NULL,
     member_code VARCHAR(50) NOT NULL,
     address_id INT,
+    occupation VARCHAR(100),
     emergency_contact_name VARCHAR(100) NOT NULL,
     emergency_contact_number VARCHAR(20) NOT NULL,
     parent_name VARCHAR(100),
@@ -222,6 +266,21 @@ CREATE TABLE member_subscriptions (
     payment_status VARCHAR(50) NOT NULL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
+);
+
+CREATE TABLE coach_applications (
+    coach_application_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    gym_id INT NOT NULL,
+    coach_type VARCHAR(50) NOT NULL,
+    license_number VARCHAR(50),
+    certification_file LONGTEXT NOT NULL,
+    valid_until DATE,
+    application_status VARCHAR(50) NOT NULL,
+    submitted_at DATETIME NOT NULL,
+    reviewed_by INT,
+    reviewed_at DATETIME,
+    remarks TEXT
 );
 
 CREATE TABLE coaches (
@@ -250,11 +309,27 @@ CREATE TABLE coach_schedules (
     updated_at DATETIME NOT NULL
 );
 
+CREATE TABLE class_schedules (
+    class_schedule_id INT AUTO_INCREMENT PRIMARY KEY,
+    gym_id INT NOT NULL,
+    gym_service_id INT NOT NULL,
+    coach_id INT,
+    class_title VARCHAR(100) NOT NULL,
+    schedule_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    max_capacity INT NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL
+);
+
 CREATE TABLE bookings (
     booking_id INT AUTO_INCREMENT PRIMARY KEY,
     member_id INT NOT NULL,
     gym_id INT NOT NULL,
-    catalog_service_id INT NOT NULL,
+    gym_service_id INT NOT NULL,
+    class_schedule_id INT,
     coach_id INT,
     booking_reference VARCHAR(50) NOT NULL,
     booking_date DATE NOT NULL,
@@ -325,6 +400,7 @@ CREATE TABLE audit_logs (
     created_at DATETIME NOT NULL
 );
 
+-- Gym Portal Customization (3NF Compliant)
 CREATE TABLE portal_settings (
     gym_id INT NOT NULL PRIMARY KEY,
     hero_label TEXT,
@@ -346,12 +422,34 @@ CREATE TABLE portal_settings (
 );
 
 -- =========================================================================
--- INITIAL DATA INSERTIONS (CORE)
+-- INITIAL DATA INSERTIONS
 -- =========================================================================
 
-INSERT INTO roles (role_name) VALUES ('Superadmin'), ('Tenant'), ('Admin'), ('Coach'), ('Member');
+-- Roles
+INSERT INTO roles (role_name) VALUES
+('Superadmin'),
+('Tenant'),
+('Admin'),
+('Coach'),
+('Member');
 
-INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, is_active, created_at, updated_at) 
-VALUES ('superadmin', 'horizonfitnesscorp@gmail.com', '$2y$10$sake0/pUmC5SFBXIKsY5WOWnBVJmIIguWAXwOBjena3JCc/LO7v/O', 'Super', 'Admin', '09762411986', 1, 1, NOW(), NOW());
+-- Default Superadmin User
+INSERT INTO users (
+    username, email, password_hash, first_name, last_name,
+    contact_number, birth_date, sex, is_verified, is_active, created_at, updated_at
+) VALUES (
+    'superadmin',
+    'horizonfitnesscorp@gmail.com',
+    '$2y$10$sake0/pUmC5SFBXIKsY5WOWnBVJmIIguWAXwOBjena3JCc/LO7v/O',
+    'Super',
+    'Admin',
+    '09762411986',
+    '1990-01-01',
+    'Male',
+    1,
+    1,
+    NOW(),
+    NOW()
+);
 
-INSERT INTO user_roles (user_id, role_id, gym_id, tenant_code, role_status, assigned_at) VALUES (1, 1, NULL, NULL, 'Active', NOW());
+
