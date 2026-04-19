@@ -5,16 +5,17 @@ try {
     require_once '../db.php';
 
     $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : 0;
+    $gym_id = isset($_GET['gym_id']) ? (int)$_GET['gym_id'] : 0;
     $show_all = isset($_GET['show_all']) ? (int)$_GET['show_all'] : 0;
 
-    if ($user_id <= 0) {
+    if ($user_id <= 0 || $gym_id <= 0) {
         echo json_encode([]);
         exit;
     }
 
-    // 1. Resolve Member ID from User ID
-    $stmtMember = $pdo->prepare("SELECT member_id FROM members WHERE user_id = ? LIMIT 1");
-    $stmtMember->execute([$user_id]);
+    // 1. Resolve Member ID for specific Gym
+    $stmtMember = $pdo->prepare("SELECT member_id FROM members WHERE user_id = ? AND gym_id = ? LIMIT 1");
+    $stmtMember->execute([$user_id, $gym_id]);
     $member = $stmtMember->fetch();
 
     if (!$member) {
@@ -43,10 +44,10 @@ try {
         LEFT JOIN member_subscriptions ms ON p.subscription_id = ms.subscription_id
         LEFT JOIN membership_plans mp ON ms.membership_plan_id = mp.membership_plan_id
         LEFT JOIN bookings b ON p.booking_id = b.booking_id
-        WHERE m.user_id = ? " . ($show_all ? "" : " AND p.booking_id IS NULL") . "
+        WHERE m.user_id = ? AND m.gym_id = ? " . ($show_all ? "" : " AND p.booking_id IS NULL") . "
         ORDER BY p.created_at DESC
     ");
-    $stmt->execute([$user_id]);
+    $stmt->execute([$user_id, $gym_id]);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $history = [];

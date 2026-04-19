@@ -36,14 +36,14 @@ try {
         exit;
     }
 
-    // 2. Check for pending or approved bookings at the same time
+    // 2. Check for pending or approved bookings at the same time for the MEMBER
     $stmtCheck = $pdo->prepare("
         SELECT COUNT(*) 
         FROM bookings 
         WHERE member_id = ? 
         AND booking_date = ? 
         AND start_time = ? 
-        AND booking_status IN ('Pending', 'Approved')
+        AND booking_status IN ('Pending', 'Approved', 'Confirmed')
     ");
     $stmtCheck->execute([$member_id, $date, $time]);
     $existingCount = $stmtCheck->fetchColumn();
@@ -54,9 +54,34 @@ try {
             'available' => false, 
             'message' => 'You already have a session booked for this time slot.'
         ]);
-    } else {
-        echo json_encode(['success' => true, 'available' => true]);
+        exit;
     }
+
+    // 3. Check for pending or approved bookings at the same time for the COACH
+    $coach_id = isset($_GET['coach_id']) ? (int)$_GET['coach_id'] : 0;
+    if ($coach_id > 0) {
+        $stmtCoachCheck = $pdo->prepare("
+            SELECT COUNT(*) 
+            FROM bookings 
+            WHERE coach_id = ? 
+            AND booking_date = ? 
+            AND start_time = ? 
+            AND booking_status IN ('Pending', 'Approved', 'Confirmed')
+        ");
+        $stmtCoachCheck->execute([$coach_id, $date, $time]);
+        $coachConflictCount = $stmtCoachCheck->fetchColumn();
+
+        if ($coachConflictCount > 0) {
+            echo json_encode([
+                'success' => true, 
+                'available' => false, 
+                'message' => 'Coach is busy at this time.'
+            ]);
+            exit;
+        }
+    }
+
+    echo json_encode(['success' => true, 'available' => true]);
 
 } catch (PDOException $e) {
     echo json_encode(['success' => false, 'available' => false, 'message' => $e->getMessage()]);

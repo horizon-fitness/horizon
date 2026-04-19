@@ -7,24 +7,25 @@ header('Content-Type: application/json; charset=UTF-8');
 require_once '../db.php';
 
 $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : 0;
+$gym_id = isset($_GET['gym_id']) ? (int)$_GET['gym_id'] : 0;
 
-if ($user_id <= 0) {
-    echo json_encode(['success' => false, 'message' => 'User ID is required.', 'bookings' => []]);
+if ($user_id <= 0 || $gym_id <= 0) {
+    echo json_encode(['success' => false, 'message' => 'User ID and Gym ID are required.', 'bookings' => []]);
     exit;
 }
 
 try {
-    // 1. Get all member_ids for this user
-    $stmtM = $pdo->prepare("SELECT member_id FROM members WHERE user_id = ?");
-    $stmtM->execute([$user_id]);
-    $member_ids = $stmtM->fetchAll(PDO::FETCH_COLUMN);
+    // 1. Get member_id for this specific gym
+    $stmtM = $pdo->prepare("SELECT member_id FROM members WHERE user_id = ? AND gym_id = ? LIMIT 1");
+    $stmtM->execute([$user_id, $gym_id]);
+    $member_id = $stmtM->fetchColumn();
 
-    if (empty($member_ids)) {
+    if (!$member_id) {
         echo json_encode(['success' => true, 'bookings' => []]);
         exit;
     }
 
-    $placeholders = implode(',', array_fill(0, count($member_ids), '?'));
+    
 
     // 2. Fetch bookings matching TrainingLog model fields
     $stmt = $pdo->prepare("
@@ -50,10 +51,10 @@ try {
         LEFT JOIN gyms g ON b.gym_id = g.gym_id
         LEFT JOIN staff s ON b.coach_id = s.staff_id
         LEFT JOIN users u ON s.user_id = u.user_id
-        WHERE b.member_id IN ($placeholders)
+        WHERE b.member_id = ? AND b.gym_id = ?
         ORDER BY b.booking_date DESC, b.start_time DESC
     ");
-    $stmt->execute($member_ids);
+    $stmt->execute([$member_id, $gym_id]);
     $bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode([

@@ -9,15 +9,16 @@ try {
     require_once '../db.php';
 
     $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : 0;
+    $gym_id = isset($_GET['gym_id']) ? (int)$_GET['gym_id'] : 0;
 
-    if ($user_id <= 0) {
-        echo json_encode(['can_buy' => false, 'reason' => 'Invalid user ID']);
+    if ($user_id <= 0 || $gym_id <= 0) {
+        echo json_encode(['can_buy' => false, 'reason' => 'Invalid user ID or Gym ID']);
         exit;
     }
 
-    // Resolve member_id
-    $stmtM = $pdo->prepare("SELECT member_id FROM members WHERE user_id = ? LIMIT 1");
-    $stmtM->execute([$user_id]);
+    // Resolve member_id for specific gym
+    $stmtM = $pdo->prepare("SELECT member_id FROM members WHERE user_id = ? AND gym_id = ? LIMIT 1");
+    $stmtM->execute([$user_id, $gym_id]);
     $member_id = $stmtM->fetchColumn();
 
     if (!$member_id) {

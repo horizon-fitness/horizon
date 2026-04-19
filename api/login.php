@@ -34,8 +34,10 @@ try {
     $isGlobalRequest = (empty($tenant_code) || $tenant_code === '000' || strtolower($tenant_code) === 'horizon');
     
     $sqlRole = "SELECT ur.*, r.role_name, g.gym_name, g.tenant_code as g_tenant_code,
-                m.member_id, m.member_code, m.occupation, addr.address_line AS member_address, 
-                m.emergency_contact_name, m.emergency_contact_number, m.medical_history, m.member_status
+                m.member_id, m.member_code, m.occupation, 
+                addr.address_line AS member_address, addr.address_line, addr.barangay, addr.city, addr.province, addr.region, 
+                m.emergency_contact_name, m.emergency_contact_number, m.medical_history, m.member_status,
+                m.parent_name, m.parent_contact
                 FROM user_roles ur
                 JOIN roles r ON ur.role_id = r.role_id
                 LEFT JOIN gyms g ON ur.gym_id = g.gym_id
@@ -112,9 +114,19 @@ try {
             'member_id' => (int)($roleData['member_id'] ?? 0),
             'member_code' => (string)($roleData['member_code'] ?? ''),
             'address' => (string)($roleData['member_address'] ?? ($user['address'] ?? '')),
+            'address_line' => (string)($roleData['address_line'] ?? ($user['address'] ?? '')),
+            'barangay' => (string)($roleData['barangay'] ?? ''),
+            'city' => (string)($roleData['city'] ?? ''),
+            'province' => (string)($roleData['province'] ?? ''),
+            'region' => (string)($roleData['region'] ?? ''),
             'birth_date' => (string)($user['birth_date'] ?? ''),
             'sex' => (string)($user['sex'] ?? ''),
             'occupation' => (string)($roleData['occupation'] ?? ''),
+            'medical_history' => (string)($roleData['medical_history'] ?? ''),
+            'emergency_contact_name' => (string)($roleData['emergency_contact_name'] ?? ''),
+            'emergency_contact_number' => (string)($roleData['emergency_contact_number'] ?? ''),
+            'parent_name' => (string)($roleData['parent_name'] ?? ''),
+            'parent_contact_number' => (string)($roleData['parent_contact'] ?? ''),
             'member_status' => (string)($roleData['member_status'] ?? 'Active')
         ],
         'branding' => $branding ? [

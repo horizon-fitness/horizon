@@ -155,11 +155,23 @@ try {
             throw new Exception("Username or Email was taken during the verification process.");
         }
 
-        // Create User
+        // Handle User Record (Create NEW or reuse EXISTING global account)
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
-        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, birth_date, sex, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)");
-        $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $birth_date, $sex, $now, $now]);
-        $new_user_id = $pdo->lastInsertId();
+        
+        $stmtCheckExist = $pdo->prepare("SELECT user_id FROM users WHERE username = ? OR email = ? LIMIT 1");
+        $stmtCheckExist->execute([$username, $email]);
+        $existing_user = $stmtCheckExist->fetch();
+
+        if ($existing_user) {
+            $new_user_id = $existing_user['user_id'];
+            // Optionally update password since email ownership was proven via OTP
+            $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE user_id = ?")
+                ->execute([$password_hash, $now, $new_user_id]);
+        } else {
+            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, birth_date, sex, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)");
+            $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $birth_date, $sex, $now, $now]);
+            $new_user_id = $pdo->lastInsertId();
+        }
 
         // Assign Role
         $role_name = 'Member';
