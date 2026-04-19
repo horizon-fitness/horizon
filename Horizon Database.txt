@@ -54,6 +54,8 @@ CREATE TABLE service_catalog (
     gym_id INT NOT NULL,
     service_name VARCHAR(100) NOT NULL,
     price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    duration_minutes INT DEFAULT 60,
+    max_participants INT DEFAULT 1,
     description TEXT,
     is_active TINYINT(1) DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -121,6 +123,17 @@ CREATE TABLE gyms (
     profile_picture LONGTEXT,
     tenant_code VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
+    
+    -- Facility Details (Merged from gym_details)
+    opening_time TIME DEFAULT '07:00:00',
+    closing_time TIME DEFAULT '22:00:00',
+    max_capacity INT DEFAULT 0,
+    has_lockers TINYINT(1) NOT NULL DEFAULT 0,
+    has_shower TINYINT(1) NOT NULL DEFAULT 0,
+    has_parking TINYINT(1) NOT NULL DEFAULT 0,
+    has_wifi TINYINT(1) NOT NULL DEFAULT 0,
+    rules_text TEXT,
+    
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 );
@@ -135,36 +148,7 @@ CREATE TABLE user_roles (
     assigned_at DATETIME NOT NULL
 );
 
-CREATE TABLE gym_details (
-    gym_detail_id INT AUTO_INCREMENT PRIMARY KEY,
-    gym_id INT NOT NULL,
-    opening_time TIME NOT NULL,
-    closing_time TIME NOT NULL,
-    max_capacity INT NOT NULL,
-    has_lockers TINYINT(1) NOT NULL DEFAULT 0,
-    has_shower TINYINT(1) NOT NULL DEFAULT 0,
-    has_parking TINYINT(1) NOT NULL DEFAULT 0,
-    has_wifi TINYINT(1) NOT NULL DEFAULT 0,
-    about_text TEXT,
-    updated_at DATETIME NOT NULL
-);
-
-CREATE TABLE gym_rules (
-    rule_id INT AUTO_INCREMENT PRIMARY KEY,
-    gym_id INT NOT NULL,
-    allow_member_booking TINYINT(1) NOT NULL DEFAULT 1,
-    allow_walk_in TINYINT(1) NOT NULL DEFAULT 1,
-    allow_coach_application TINYINT(1) NOT NULL DEFAULT 1,
-    show_coach_schedule_to_members TINYINT(1) NOT NULL DEFAULT 1,
-    membership_required_for_booking TINYINT(1) NOT NULL DEFAULT 0,
-    allow_part_time_coach TINYINT(1) NOT NULL DEFAULT 1,
-    allow_professional_coach TINYINT(1) NOT NULL DEFAULT 1,
-    max_booking_per_day INT NOT NULL,
-    cancellation_hours_limit INT NOT NULL,
-    late_minutes_limit INT NOT NULL,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL
-);
+-- gym_details and gym_rules have been merged into gyms and service_catalog
 
 CREATE TABLE client_subscriptions (
     client_subscription_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -181,19 +165,7 @@ CREATE TABLE client_subscriptions (
     updated_at DATETIME NOT NULL
 );
 
-CREATE TABLE gym_services (
-    gym_service_id INT AUTO_INCREMENT PRIMARY KEY,
-    gym_id INT NOT NULL,
-    catalog_service_id INT NOT NULL,
-    custom_service_name VARCHAR(100),
-    description TEXT,
-    price DECIMAL(10,2) NOT NULL,
-    duration_minutes INT NOT NULL,
-    max_participants INT NOT NULL,
-    is_active TINYINT(1) NOT NULL DEFAULT 1,
-    created_at DATETIME NOT NULL,
-    updated_at DATETIME NOT NULL
-);
+-- gym_services has been merged into service_catalog
 
 CREATE TABLE membership_plans (
     membership_plan_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -225,17 +197,7 @@ CREATE TABLE staff (
 );
 
 
-CREATE TABLE member_registrations (
-    member_registration_id INT AUTO_INCREMENT PRIMARY KEY,
-    gym_id INT NOT NULL,
-    user_id INT NOT NULL,
-    registration_source VARCHAR(100) NOT NULL,
-    registered_by_user_id INT,
-    verification_id INT,
-    registration_status VARCHAR(50) NOT NULL,
-    completed_at DATETIME,
-    created_at DATETIME NOT NULL
-);
+-- member_registrations has been merged into members
 
 CREATE TABLE members (
     member_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -249,6 +211,8 @@ CREATE TABLE members (
     parent_name VARCHAR(100),
     parent_contact VARCHAR(20),
     medical_history TEXT,
+    registration_source VARCHAR(100),
+    registered_by_user_id INT,
     member_status VARCHAR(50) NOT NULL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
@@ -312,7 +276,7 @@ CREATE TABLE coach_schedules (
 CREATE TABLE class_schedules (
     class_schedule_id INT AUTO_INCREMENT PRIMARY KEY,
     gym_id INT NOT NULL,
-    gym_service_id INT NOT NULL,
+    catalog_service_id INT NOT NULL,
     coach_id INT,
     class_title VARCHAR(100) NOT NULL,
     schedule_date DATE NOT NULL,
@@ -328,7 +292,7 @@ CREATE TABLE bookings (
     booking_id INT AUTO_INCREMENT PRIMARY KEY,
     member_id INT NOT NULL,
     gym_id INT NOT NULL,
-    gym_service_id INT NOT NULL,
+    catalog_service_id INT NOT NULL,
     class_schedule_id INT,
     coach_id INT,
     booking_reference VARCHAR(50) NOT NULL,
@@ -452,4 +416,41 @@ INSERT INTO users (
     NOW()
 );
 
+-- Assign Superadmin Role
+INSERT INTO user_roles (
+    user_id, role_id, gym_id, tenant_code, role_status, assigned_at
+) VALUES (
+    1, 1, NULL, NULL, 'Active', NOW()
+);
 
+-- System Configurations & Branding
+-- user_id 0 = Global System Rules (Affects all gyms)
+-- user_id > 0 = Personal Dashboard Branding (Per Superadmin)
+INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
+(1, 'theme_color', '#8c2bee'),      -- [Main Color] Titles, primary buttons & accents
+(1, 'secondary_color', '#a1a1aa'),  -- [Icon Color] Sidebar icons & system symbols
+(1, 'text_color', '#d1d5db'),       -- [Text Color] All typography & nav labels
+(1, 'bg_color', '#0a090d'),         -- [Background] Main system canvas color
+(1, 'card_color', '#141216'),       -- [Surface Color] Manual card surface tint
+(1, 'auto_card_theme', '1'),        -- [Sync Toggle] 1=Sync with Theme, 0=Manual
+(1, 'font_family', 'Lexend');       -- [Typography] Global font selection
+
+-- Global System Policies (User ID 0)
+INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
+(0, 'max_staff', '10'),             -- Max staff allowed per gym account
+(0, 'grace_period', '7'),           -- Days to wait before account suspension
+(0, 'default_status', 'Pending'),   -- Default status for new gym signups
+(0, 'system_name', 'Horizon System'),
+(0, 'system_logo', '');
+
+-- Website Plans
+INSERT INTO website_plans (plan_name, price, billing_cycle, duration_months) VALUES
+('6-Month Kickstart', 5999.00, '6 Months', 6),
+('1-Year Momentum', 10999.00, '1 Year', 12),
+('3-Year Legacy', 27999.00, '3 Years', 36);
+
+-- Website Plan Features
+INSERT INTO website_plan_features (website_plan_id, feature_name) VALUES
+(1, 'Core Analytics'), (1, 'Gym Page Customizer'), (1, 'Revenue Reports'), (1, 'White-Label Access'), (1, 'API Integration'),
+(2, 'Core Analytics'), (2, 'Gym Page Customizer'), (2, 'Revenue Reports'), (2, 'White-Label Access'), (2, 'API Integration'),
+(3, 'Core Analytics'), (3, 'Gym Page Customizer'), (3, 'Revenue Reports'), (3, 'White-Label Access'), (3, 'API Integration');

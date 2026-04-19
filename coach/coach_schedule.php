@@ -164,11 +164,11 @@ foreach ($rows as $r) {
 $all_bookings = [];
 if ($coach_id > 0) {
     $stmtBookings = $pdo->prepare("
-        SELECT b.*, u.username, CONCAT(u.first_name, ' ', u.last_name) as fullname, gs.custom_service_name as service_name
+        SELECT b.*, u.username, CONCAT(u.first_name, ' ', u.last_name) as fullname, sc.service_name as service_name
         FROM bookings b
         JOIN members m ON b.member_id = m.member_id
         JOIN users u ON m.user_id = u.user_id
-        LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
+        LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
         WHERE b.coach_id = ? AND b.booking_status IN ('Approved', 'Pending', 'Confirmed', 'Completed')
     ");
     $stmtBookings->execute([$coach_id]);

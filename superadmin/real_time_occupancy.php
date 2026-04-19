@@ -51,7 +51,7 @@ try {
         g.gym_id,
         g.gym_name as name, 
         COALESCE(
-            NULLIF(gd.max_capacity, 0), 
+            NULLIF(g.max_capacity, 0), 
             IF(goa.remarks LIKE '%Max Cap: %', 
                CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(goa.remarks, 'Max Cap: ', -1), ' |', 1) AS UNSIGNED),
                100),
@@ -63,7 +63,6 @@ try {
            AND (a.check_out_time IS NULL OR a.check_out_time = '00:00:00' OR a.check_out_time = '')
            AND (a.attendance_date = ? OR LOWER(a.attendance_status) = 'active' OR LOWER(a.attendance_status) = 'present' OR LOWER(a.attendance_status) = 'checked in')) as count
     FROM gyms g
-    LEFT JOIN gym_details gd ON g.gym_id = gd.gym_id
     LEFT JOIN gym_owner_applications goa ON g.application_id = goa.application_id
     WHERE LOWER(g.status) = 'active'";
 

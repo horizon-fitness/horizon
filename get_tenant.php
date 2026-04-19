@@ -45,10 +45,9 @@ try {
             cs.subscription_status,
             cs.payment_status,
             cs.website_plan_id,
-            gd.opening_time,
-            gd.closing_time
+            g.opening_time,
+            g.closing_time
         FROM gyms g
-        LEFT JOIN gym_details gd ON g.gym_id = gd.gym_id
         LEFT JOIN (
             SELECT cs1.gym_id, cs1.subscription_status, cs1.payment_status, cs1.website_plan_id
             FROM client_subscriptions cs1

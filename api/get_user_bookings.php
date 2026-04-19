@@ -36,8 +36,8 @@ try {
             b.start_time as time, 
             '60 mins' as duration,
             CASE 
-                WHEN b.coach_id IS NOT NULL AND (COALESCE(gs.custom_service_name, sc.service_name, '') = '' OR COALESCE(gs.custom_service_name, sc.service_name, '') LIKE '%Gym Use%') THEN 'Personal Training'
-                ELSE COALESCE(gs.custom_service_name, sc.service_name, 'Unlimited Gym Use')
+                WHEN b.coach_id IS NOT NULL AND (COALESCE(sc.service_name, '') = '' OR COALESCE(sc.service_name, '') LIKE '%Gym Use%') THEN 'Personal Training'
+                ELSE COALESCE(sc.service_name, 'Unlimited Gym Use')
             END as service, 
             CASE 
                 WHEN b.coach_id IS NULL THEN 'Self'
@@ -46,8 +46,7 @@ try {
             b.booking_status as status,
             g.gym_name
         FROM bookings b
-        LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
-        LEFT JOIN service_catalog sc ON gs.catalog_service_id = sc.catalog_service_id
+        LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
         LEFT JOIN gyms g ON b.gym_id = g.gym_id
         LEFT JOIN staff s ON b.coach_id = s.staff_id
         LEFT JOIN users u ON s.user_id = u.user_id

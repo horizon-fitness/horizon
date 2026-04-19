@@ -191,11 +191,8 @@ try {
         $address_id = $pdo->lastInsertId();
 
         $member_code = 'MBR-' . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
-        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, parent_name, parent_contact, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $parent_name, $parent_phone, $now, $now]);
-
-        $pdo->prepare("INSERT INTO member_registrations (gym_id, user_id, registration_source, registration_status, created_at) VALUES (?, ?, ?, 'Completed', ?)")
-            ->execute([$gym_id, $new_user_id, $reg_source, $now]);
+        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, parent_name, parent_contact, registration_source, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $parent_name, $parent_phone, $reg_source, $now, $now]);
 
         // Cleanup OTP
         $pdo->prepare("DELETE FROM registration_otps WHERE email = ?")->execute([$email]);

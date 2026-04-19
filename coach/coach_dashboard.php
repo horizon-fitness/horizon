@@ -127,11 +127,11 @@ if ($coach_id > 0) {
 
     // 3. Fetch Pending Booking List
     $stmtPendingList = $pdo->prepare("
-        SELECT b.*, u.first_name, u.last_name, gs.custom_service_name as service_name 
+        SELECT b.*, u.first_name, u.last_name, sc.service_name as service_name 
         FROM bookings b 
         JOIN members m ON b.member_id = m.member_id 
         JOIN users u ON m.user_id = u.user_id 
-        JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id 
+        LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id 
         WHERE b.coach_id = ? AND b.booking_status = 'Pending' 
         ORDER BY b.booking_date ASC, b.start_time ASC
         LIMIT 5
@@ -168,11 +168,11 @@ $total_pages = ceil($total_approved / $limit);
 $schedule_result = [];
 if ($coach_id > 0) {
     $stmtSched = $pdo->prepare("
-        SELECT b.*, u.first_name, u.last_name, u.username, gs.custom_service_name as service_name 
+        SELECT b.*, u.first_name, u.last_name, u.username, sc.service_name as service_name 
         FROM bookings b
         JOIN members m ON b.member_id = m.member_id
         JOIN users u ON m.user_id = u.user_id
-        LEFT JOIN gym_services gs ON b.gym_service_id = gs.gym_service_id
+        LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
         WHERE b.coach_id = ? AND b.booking_date = ? AND b.booking_status IN ('Approved', 'Confirmed', 'Completed')
         ORDER BY b.start_time ASC
         LIMIT $limit OFFSET $offset

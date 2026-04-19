@@ -55,7 +55,7 @@ if ($gym_id > 0 && $user_id > 0 && $service_id > 0 && $db_status === "Pending") 
 
             // 2. Create Booking Record (Status is Pending for staff approval)
             $stmtBook = $pdo->prepare("INSERT INTO bookings 
-                (member_id, gym_id, gym_service_id, coach_id, booking_reference, booking_date, start_time, end_time, booking_source, booking_status, created_at, updated_at) 
+                (member_id, gym_id, catalog_service_id, coach_id, booking_reference, booking_date, start_time, end_time, booking_source, booking_status, created_at, updated_at) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Mobile App', 'Pending', ?, ?)");
             $stmtBook->execute([$member_id, $gym_id, $service_id, $coach_id, $booking_reference, $date, $time, $time, $now, $now]);
             $booking_id = $pdo->lastInsertId();

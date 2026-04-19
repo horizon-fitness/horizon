@@ -13,18 +13,17 @@ $gym_id = $_SESSION['gym_id'];
 $user_id = $_SESSION['user_id'];
 $active_page = "settings";
 
-// --- Database Refresh (Rules_text exist) ---
+// --- Database Refresh (Rules_text exist in gyms) ---
 try {
-    $pdo->exec("ALTER TABLE gym_details ADD COLUMN rules_text TEXT AFTER about_text");
+    $pdo->exec("ALTER TABLE gyms ADD COLUMN rules_text TEXT AFTER profile_picture");
 } catch (Exception $e) { /* Column already exists */
 }
 
-// Fetch Gym & Detail
+// Fetch Gym Data (Consolidated)
 $stmtGym = $pdo->prepare("
-    SELECT g.*, gd.opening_time, gd.closing_time, gd.max_capacity, gd.has_lockers, gd.has_shower, gd.has_parking, gd.has_wifi, gd.rules_text
-    FROM gyms g
-    LEFT JOIN gym_details gd ON g.gym_id = gd.gym_id
-    WHERE g.gym_id = ?
+    SELECT *
+    FROM gyms
+    WHERE gym_id = ?
 ");
 $stmtGym->execute([$gym_id]);
 $gym = $stmtGym->fetch();
@@ -440,17 +439,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                     $configs['portal_' . $pk] = $pv;
                 }
 
-                // 3. Update/Create Gym Details
-                $stmtCheckDetails = $pdo->prepare("SELECT 1 FROM gym_details WHERE gym_id = ?");
-                $stmtCheckDetails->execute([$gym_id]);
-
-                if ($stmtCheckDetails->fetch()) {
-                    $stmtUpdateDetails = $pdo->prepare("UPDATE gym_details SET opening_time = ?, closing_time = ?, max_capacity = ?, has_lockers = ?, has_shower = ?, has_parking = ?, has_wifi = ?, rules_text = ?, updated_at = ? WHERE gym_id = ?");
-                    $stmtUpdateDetails->execute([$opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now, $gym_id]);
-                } else {
-                    $stmtInsertDetails = $pdo->prepare("INSERT INTO gym_details (gym_id, opening_time, closing_time, max_capacity, has_lockers, has_shower, has_parking, has_wifi, rules_text, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmtInsertDetails->execute([$gym_id, $opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now]);
-                }
+                // 3. Update Gym Details (Directly in gyms table)
+                $stmtUpdateGymDetails = $pdo->prepare("UPDATE gyms SET opening_time = ?, closing_time = ?, max_capacity = ?, has_lockers = ?, has_shower = ?, has_parking = ?, has_wifi = ?, rules_text = ?, updated_at = ? WHERE gym_id = ?");
+                $stmtUpdateGymDetails->execute([$opening_time, $closing_time, $max_capacity, $has_lockers, $has_shower, $has_parking, $has_wifi, $rules_text, $now, $gym_id]);
 
                 if (isset($_POST['membership_plans']) && is_array($_POST['membership_plans'])) {
                     $stmtUpdateMPlan = $pdo->prepare("UPDATE membership_plans SET plan_name = ?, price = ?, duration_value = ?, billing_cycle_text = ?, featured_badge_text = ?, description = ?, features = ?, updated_at = NOW() WHERE membership_plan_id = ? AND gym_id = ?");

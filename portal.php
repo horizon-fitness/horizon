@@ -264,18 +264,8 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
         exit;
     }
 
-    // Fetch Operational Details
-    $stmtDetails = $pdo->prepare("SELECT * FROM gym_details WHERE gym_id = ?");
-    $stmtDetails->execute([$page['gym_id']]);
-    $gym_details = $stmtDetails->fetch() ?: [
-        'opening_time' => '',
-        'closing_time' => '',
-        'max_capacity' => 0,
-        'has_lockers' => 0,
-        'has_shower' => 0,
-        'has_parking' => 0,
-        'has_wifi' => 0
-    ];
+    // Operational Details (Now consolidated in gyms table)
+    $gym_details = $gym_info;
 
     // Fetch Gym Membership Plans (Specific to Gym or Gym Global)
     $stmtMembership = $pdo->prepare("SELECT * FROM membership_plans WHERE gym_id = ? AND is_active = 1 ORDER BY sort_order ASC, price ASC");

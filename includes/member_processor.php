@@ -89,12 +89,8 @@ function processMemberRegistration($pdo, $data) {
         $stmtAddr->execute([$address, $now, $now]);
         $address_id = $pdo->lastInsertId();
         
-        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $now, $now]);
-
-        // 4. Log Registration
-        $stmtReg = $pdo->prepare("INSERT INTO member_registrations (gym_id, user_id, registration_source, registered_by_user_id, registration_status, completed_at, created_at) VALUES (?, ?, ?, ?, 'Completed', ?, ?)");
-        $stmtReg->execute([$gym_id, $new_user_id, $source, $registered_by, $now, $now]);
+        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, registration_source, registered_by_user_id, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $source, $registered_by, $now, $now]);
 
         // 5. Send Email
         $stmtGym = $pdo->prepare("SELECT gym_name FROM gyms WHERE gym_id = ?");
