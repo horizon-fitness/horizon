@@ -57,8 +57,11 @@ try {
         throw new Exception("Required field 'session_rate' is missing.");
     }
 
+    // Pre-initialize variables
+    $cert_base64 = '';
+
     // Ensure certification file was uploaded
-    if (empty($cert_base64) && !isset($_FILES['certification_file'])) {
+    if (!isset($_FILES['certification_file']) || $_FILES['certification_file']['error'] !== 0) {
         throw new Exception("Please upload your professional certification.");
     }
 
@@ -69,11 +72,24 @@ try {
         throw new Exception("You must be at least 18 years old to apply.");
     }
 
-    // Check Availability
-    $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE email = ? OR username = ? LIMIT 1");
-    $stmtCheck->execute([$data['email'], $data['username']]);
-    if ($stmtCheck->fetch()) {
-        throw new Exception("Email or Username is already registered.");
+    // Check Availability (Smart Check: Allow Re-application if Rejected)
+    $stmtCheck = $pdo->prepare("
+        SELECT u.user_id, ca.application_status 
+        FROM users u 
+        LEFT JOIN coach_applications ca ON u.user_id = ca.user_id AND ca.gym_id = ?
+        WHERE u.email = ? OR u.username = ?
+        ORDER BY ca.submitted_at DESC LIMIT 1
+    ");
+    $stmtCheck->execute([$gym['gym_id'], $data['email'], $data['username']]);
+    $existing = $stmtCheck->fetch();
+
+    if ($existing) {
+        if ($existing['application_status'] === 'Pending') {
+            throw new Exception("Application In Progress: You already have a pending application for this facility.");
+        }
+        if ($existing['application_status'] === 'Approved') {
+            throw new Exception("Profile Match Found: You are already part of this facility's roster.");
+        }
     }
 
     // Handle File Upload
@@ -104,6 +120,7 @@ try {
             'coach_type' => $data['coach_type'],
             'license_number' => $data['license_number'],
             'certification_file' => $cert_base64,
+            'session_rate' => $data['session_rate'],
             'remarks' => $payout_remarks
         ]
     ];

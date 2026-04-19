@@ -51,5 +51,12 @@ try {
             $pdo->exec("ALTER TABLE website_plans ADD COLUMN sort_order INT DEFAULT 0 AFTER website_plan_id");
         }
     }
-} catch (Exception $e) { /* Silently fail to avoid blocking connection */
-}
+    // Coach Recruitment Schema Enhancements
+    $resCoachApp = $pdo->query("SHOW TABLES LIKE 'coach_applications'");
+    if ($resCoachApp->fetch()) {
+        $resRate = $pdo->query("SHOW COLUMNS FROM coach_applications LIKE 'session_rate'");
+        if (!$resRate->fetch()) {
+            $pdo->exec("ALTER TABLE coach_applications ADD COLUMN session_rate DECIMAL(10,2) AFTER license_number");
+        }
+    }
+} catch (Exception $e) { /* Silently fail to avoid blocking connection */ }

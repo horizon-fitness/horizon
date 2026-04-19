@@ -73,14 +73,23 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
     $value = trim($_GET['value']);
     $exists = false;
 
-    if ($field === 'username') {
-        $stmt = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
-        $stmt->execute([$value]);
-        $exists = (bool)$stmt->fetch();
-    } elseif ($field === 'email') {
-        $stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = ? LIMIT 1");
-        $stmt->execute([$value]);
-        $exists = (bool)$stmt->fetch();
+    if ($field === 'username' || $field === 'email') {
+        $stmt = $pdo->prepare("
+            SELECT u.user_id, ca.application_status 
+            FROM users u 
+            LEFT JOIN coach_applications ca ON u.user_id = ca.user_id AND ca.gym_id = ?
+            WHERE " . ($field === 'username' ? 'u.username' : 'u.email') . " = ?
+            ORDER BY ca.submitted_at DESC LIMIT 1
+        ");
+        $stmt->execute([$page['gym_id'], $value]);
+        $res = $stmt->fetch();
+        
+        if ($res) {
+            // Block only if they have a non-rejected application at THIS facility
+            if (in_array($res['application_status'], ['Pending', 'Approved'])) {
+                $exists = true;
+            }
+        }
     }
     
     echo json_encode(['exists' => $exists]);
@@ -218,7 +227,15 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
             </div>
         </div>
 
-        <div id="dynamic-alert-container" class="w-full sticky top-4 z-[9999] mb-4"></div>
+        <div id="dynamic-alert-container" class="w-full sticky top-4 z-[9999] mb-4">
+            <?php if (isset($_SESSION['coach_app_error'])): ?>
+                <div class="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold flex items-center gap-3 mb-4 animate-pulse">
+                    <span class="material-symbols-outlined text-lg">error</span> 
+                    <?= htmlspecialchars($_SESSION['coach_app_error']) ?>
+                    <?php unset($_SESSION['coach_app_error']); ?>
+                </div>
+            <?php endif; ?>
+        </div>
 
         <form id="coach-form" action="../action/submit_coach_application.php?gym=<?= $gym_slug ?>" method="POST" enctype="multipart/form-data" class="space-y-6 pb-10">
             

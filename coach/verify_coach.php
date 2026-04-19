@@ -72,19 +72,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // OTP Valid - Persist Data
         $pdo->beginTransaction();
 
-        // 1. Insert User
+        // 1. Upsert User (Insert or Update if exists)
         $u = $staged['user'];
-        $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, birth_date, sex, is_verified, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, NOW(), NOW())");
+        $stmtUser = $pdo->prepare("
+            INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, birth_date, sex, is_verified, is_active, created_at, updated_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, NOW(), NOW())
+            ON DUPLICATE KEY UPDATE 
+                password_hash = VALUES(password_hash),
+                first_name = VALUES(first_name),
+                middle_name = VALUES(middle_name),
+                last_name = VALUES(last_name),
+                contact_number = VALUES(contact_number),
+                updated_at = NOW()
+        ");
         $stmtUser->execute([
             $u['username'], $u['email'], $u['password_hash'], $u['first_name'], $u['middle_name'], $u['last_name'], $u['contact_number'], $u['birth_date'], $u['sex']
         ]);
-        $user_id = $pdo->lastInsertId();
+        
+        // Fetch User ID (Whether newly inserted or existing)
+        $stmtUid = $pdo->prepare("SELECT user_id FROM users WHERE email = ? OR username = ? LIMIT 1");
+        $stmtUid->execute([$u['email'], $u['username']]);
+        $user_id = $stmtUid->fetchColumn();
 
         // 2. Insert Application
         $a = $staged['application'];
-        $stmtApp = $pdo->prepare("INSERT INTO coach_applications (user_id, gym_id, coach_type, license_number, certification_file, application_status, submitted_at, remarks) VALUES (?, ?, ?, ?, ?, 'Pending', NOW(), ?)");
+        $stmtApp = $pdo->prepare("INSERT INTO coach_applications (user_id, gym_id, coach_type, license_number, session_rate, certification_file, application_status, submitted_at, remarks) VALUES (?, ?, ?, ?, ?, ?, 'Pending', NOW(), ?)");
         $stmtApp->execute([
-            $user_id, $a['gym_id'], $a['coach_type'], $a['license_number'], $a['certification_file'], $a['remarks']
+            $user_id, $a['gym_id'], $a['coach_type'], $a['license_number'], $a['session_rate'], $a['certification_file'], $a['remarks']
         ]);
 
         $pdo->commit();

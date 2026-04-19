@@ -21,7 +21,225 @@ if (!$user_id || !$gym_id) {
     exit;
 }
 
+// --- SCHEMA MIGRATION: Auto-Heal Coach Applications ---
+try {
+    $resRate = $pdo->query("SHOW COLUMNS FROM coach_applications LIKE 'session_rate'");
+    if (!$resRate->fetch()) {
+        $pdo->exec("ALTER TABLE coach_applications ADD COLUMN session_rate DECIMAL(10,2) AFTER license_number");
+    }
+} catch (Exception $e) { /* Silently proceed */ }
+
 $active_page = 'staff';
+$active_tab = $_GET['tab'] ?? 'roster';
+
+// --- AJAX APPLICATION DETAILS ---
+if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
+    $app_id = (int)$_GET['application_id'];
+    $stmt = $pdo->prepare("
+        SELECT ca.*, u.first_name, u.middle_name, u.last_name, u.email, u.contact_number, u.birth_date, u.sex, u.profile_picture
+        FROM coach_applications ca
+        JOIN users u ON ca.user_id = u.user_id
+        WHERE ca.coach_application_id = ? AND ca.gym_id = ?
+    ");
+    $stmt->execute([$app_id, $gym_id]);
+    $app = $stmt->fetch();
+
+    if (!$app) {
+        echo "<div class='p-10 text-center font-black italic uppercase text-xs tracking-widest text-gray-500'>Critical Error: Application parameters not found.</div>";
+        exit;
+    }
+
+    $isPdf = (strtolower(pathinfo($app['certification_file'], PATHINFO_EXTENSION)) === 'pdf') || str_starts_with(strtolower($app['certification_file']), 'data:application/pdf');
+    $initials = strtoupper(substr($app['first_name'], 0, 1) . substr($app['last_name'], 0, 1));
+    ?>
+    <div class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <!-- Header Profile -->
+        <div class="flex items-center gap-6 p-8 rounded-[32px] bg-white/[0.02] border border-white/5 shadow-inner">
+            <div class="size-20 rounded-3xl bg-primary/10 border border-primary/20 overflow-hidden flex items-center justify-center relative shadow-2xl shadow-primary/10">
+                <?php if (!empty($app['profile_picture'])): ?>
+                    <img src="<?= htmlspecialchars('../' . $app['profile_picture']) ?>" class="size-full object-cover">
+                <?php else: ?>
+                    <span class="text-primary font-black text-2xl italic tracking-tighter"><?= $initials ?></span>
+                <?php endif; ?>
+                <div class="absolute inset-0 bg-gradient-to-t from-primary/20 to-transparent"></div>
+            </div>
+            <div>
+                <h3 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none mb-2"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></h3>
+                <div class="flex items-center gap-3">
+                    <span class="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[9px] text-primary font-black uppercase tracking-widest italic"><?= htmlspecialchars($app['coach_type']) ?> Applicant</span>
+                    <span class="text-[9px] text-gray-500 font-bold uppercase tracking-widest italic flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[12px]">schedule</span>
+                        Submitted: <?= date('M d, Y', strtotime($app['submitted_at'])) ?>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Bio & Contact -->
+            <div class="space-y-6">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Email Address</p>
+                        <p class="text-sm font-bold text-white tracking-tight italic"><?= htmlspecialchars($app['email']) ?></p>
+                    </div>
+                    <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Contact Vector</p>
+                        <p class="text-sm font-bold text-white tracking-tight italic"><?= htmlspecialchars($app['contact_number'] ?: '---') ?></p>
+                    </div>
+                    <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Date of Birth</p>
+                        <p class="text-sm font-bold text-white tracking-tight italic"><?= $app['birth_date'] ? date('M d, Y', strtotime($app['birth_date'])) : '---' ?></p>
+                    </div>
+                    <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Identity Sex</p>
+                        <p class="text-sm font-bold text-white tracking-tight italic uppercase"><?= htmlspecialchars($app['sex'] ?: '---') ?></p>
+                    </div>
+                </div>
+
+                <div class="bg-primary/5 p-6 rounded-[24px] border border-primary/10">
+                    <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] mb-4 flex items-center gap-2 italic">
+                        <span class="material-symbols-outlined text-sm">verified_user</span>
+                        License Registry
+                    </h4>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1">Coach License ID</p>
+                            <p class="text-lg font-black text-white italic tracking-tighter"><?= htmlspecialchars($app['license_number'] ?: 'UNREGISTERED') ?></p>
+                        </div>
+                        <div class="size-12 rounded-xl bg-primary/20 border border-primary/20 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary text-2xl">license</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white/[0.01] p-6 rounded-[24px] border border-white/5 border-dashed">
+                    <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-2 italic">Reviewer Remarks</p>
+                    <p class="text-xs text-gray-400 italic leading-relaxed">
+                        <?= !empty($app['remarks']) ? nl2br(htmlspecialchars($app['remarks'])) : "No archival remarks provided for this recruitment cycle." ?>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Document Viewer -->
+            <div class="space-y-4">
+                <div class="flex items-center justify-between px-2">
+                    <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] italic">Credential Vault</h4>
+                    <a href="<?= $app['certification_file'] ?>" target="_blank" class="text-[9px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5 hover:underline">
+                        <span class="material-symbols-outlined text-xs">open_in_new</span> Full Resolution
+                    </a>
+                </div>
+                <div class="relative bg-black/40 border border-white/5 rounded-[32px] overflow-hidden aspect-[4/5] shadow-2xl group transition-all">
+                    <div class="absolute inset-0 p-4">
+                        <div class="w-full h-full rounded-2xl overflow-hidden bg-white/[0.02] relative">
+                            <?php if ($isPdf): ?>
+                                <iframe src="<?= htmlspecialchars($app['certification_file']) ?>#toolbar=0&navpanes=0&scrollbar=0" class="w-full h-full border-none opacity-80 group-hover:opacity-100 transition-opacity" scrolling="yes"></iframe>
+                                <div class="absolute inset-0 bg-transparent z-10 pointer-events-none group-hover:hidden transition-all"></div>
+                            <?php else: ?>
+                                <img src="<?= htmlspecialchars($app['certification_file']) ?>" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-all duration-700 group-hover:scale-105">
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-[8px] font-extrabold text-gray-600 uppercase tracking-[0.3em] text-center italic">Verified Professional Certification Document</p>
+            </div>
+        </div>
+
+        <!-- Inline Actions -->
+        <div class="flex gap-4 pt-6 mt-4 border-t border-white/5">
+            <button onclick='approveApplication(<?= json_encode(["coach_application_id" => $app["coach_application_id"], "first_name" => $app["first_name"], "last_name" => $app["last_name"], "session_rate" => $app["session_rate"], "coach_type" => $app["coach_type"]]) ?>)' class="flex-1 h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
+                Hire Now
+            </button>
+            <button onclick="rejectApplication(<?= $app['coach_application_id'] ?>)" class="px-8 h-14 rounded-2xl bg-white/5 border border-white/10 text-rose-500 text-[11px] font-black uppercase italic tracking-widest hover:bg-rose-500/10 hover:border-rose-500/50 transition-all">
+                Decline
+            </button>
+        </div>
+    </div>
+    <?php
+    exit;
+}
+
+// --- APPLICATION REVIEW LOGIC ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array($_POST['action'], ['approve_coach_app', 'reject_coach_app'])) {
+    header('Content-Type: application/json');
+    $app_id = $_POST['application_id'] ?? null;
+    
+    if (!$app_id) {
+        echo json_encode(['success' => false, 'message' => "Protocol Error: Application identifier missing."]);
+        exit;
+    }
+
+    try {
+        if ($_POST['action'] === 'reject_coach_app') {
+            // Standard rejection only - No deletion allowed
+            $stmtReject = $pdo->prepare("UPDATE coach_applications SET application_status = 'Rejected', reviewed_by = ?, reviewed_at = NOW(), remarks = ? WHERE coach_application_id = ? AND gym_id = ?");
+            $stmtReject->execute([$user_id, $_POST['remarks'] ?? 'Declined via Management Portal', $app_id, $gym_id]);
+            echo json_encode(['success' => true, 'message' => "Application has been successfully declined."]);
+            exit;
+        }
+
+        if ($_POST['action'] === 'approve_coach_app') {
+            $session_rate = $_POST['session_rate'] ?? 0.00;
+            $employment = $_POST['employment'] ?? 'PART-TIME';
+
+            // 1. Get Application & User Details
+            $stmtAppDetails = $pdo->prepare("SELECT ca.*, u.email, u.first_name, u.last_name FROM coach_applications ca JOIN users u ON ca.user_id = u.user_id WHERE ca.coach_application_id = ? AND ca.gym_id = ?");
+            $stmtAppDetails->execute([$app_id, $gym_id]);
+            $app = $stmtAppDetails->fetch();
+
+            if (!$app) {
+                echo json_encode(['success' => false, 'message' => "Validation Error: Application record not found."]);
+                exit;
+            }
+
+            $pdo->beginTransaction();
+
+            // 2. Update Application Status
+            $stmtUpdateApp = $pdo->prepare("UPDATE coach_applications SET application_status = 'Approved', reviewed_by = ?, reviewed_at = NOW() WHERE coach_application_id = ?");
+            $stmtUpdateApp->execute([$user_id, $app_id]);
+
+            // 3. Assign Role (Coach)
+            $stmtRoleLookup = $pdo->prepare("SELECT role_id FROM roles WHERE role_name = 'Coach' LIMIT 1");
+            $stmtRoleLookup->execute();
+            $role_id = $stmtRoleLookup->fetchColumn();
+            
+            if (!$role_id) {
+                $stmtAddRole = $pdo->prepare("INSERT INTO roles (role_name) VALUES ('Coach')");
+                $stmtAddRole->execute();
+                $role_id = $pdo->lastInsertId();
+            }
+
+            $stmtUserRole = $pdo->prepare("INSERT INTO user_roles (user_id, role_id, gym_id, role_status, assigned_at) VALUES (?, ?, ?, 'Active', NOW()) ON DUPLICATE KEY UPDATE role_status = 'Active'");
+            $stmtUserRole->execute([$app['user_id'], $role_id, $gym_id]);
+
+            // 4. Insert into Staff
+            $stmtStaffAdd = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, 'Coach', ?, CURRENT_DATE, 'Active', NOW(), NOW())");
+            $stmtStaffAdd->execute([$app['user_id'], $gym_id, $employment]);
+
+            // 5. Insert into Coaches
+            $stmtCoachAdd = $pdo->prepare("INSERT INTO coaches (user_id, gym_id, coach_application_id, hire_date, session_rate, status, created_at, updated_at) VALUES (?, ?, ?, CURRENT_DATE, ?, 'Active', NOW(), NOW())");
+            $stmtCoachAdd->execute([$app['user_id'], $gym_id, $app_id, $session_rate]);
+
+            $pdo->commit();
+
+            // 6. Notify Coach
+            $subject = "Application Approved!";
+            $content = "
+                <p>Hello <strong>" . htmlspecialchars($app['first_name']) . "</strong>,</p>
+                <p>Great news! Your coach application has been <strong>Approved</strong>. You are now officially part of our team.</p>
+                <p>Please log in to your account to view your updated dashboard and start managing your sessions.</p>
+            ";
+            try { sendSystemEmail($app['email'], $subject, getEmailTemplate("Welcome Aboard!", $content)); } catch (Exception $e) {}
+
+            echo json_encode(['success' => true, 'message' => "Coach " . $app['first_name'] . " has been officially hired and notified."]);
+            exit;
+        }
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        echo json_encode(['success' => false, 'message' => "System Exception: " . $e->getMessage()]);
+        exit;
+    }
+}
 
 // --- SUBSCRIPTION CHECK ---
 $stmtSubStatus = $pdo->prepare("SELECT subscription_status FROM client_subscriptions WHERE gym_id = ? ORDER BY created_at DESC LIMIT 1");
@@ -298,6 +516,18 @@ $staff_list = $stmtStaff->fetchAll();
 $stmtRoles = $pdo->prepare("SELECT DISTINCT staff_role FROM staff WHERE gym_id = ?");
 $stmtRoles->execute([$gym_id]);
 $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
+
+// --- PENDING APPLICATIONS ---
+$stmtPending = $pdo->prepare("
+    SELECT ca.*, u.first_name, u.last_name, u.email, u.profile_picture, u.contact_number
+    FROM coach_applications ca
+    JOIN users u ON ca.user_id = u.user_id
+    WHERE ca.gym_id = ? AND ca.application_status = 'Pending'
+    ORDER BY ca.submitted_at DESC
+");
+$stmtPending->execute([$gym_id]);
+$pending_apps = $stmtPending->fetchAll();
+$pending_apps_count = count($pending_apps);
 ?>
 
 <!DOCTYPE html>
@@ -635,87 +865,170 @@ include '../includes/tenant_sidebar.php';
             </form>
         </div>
 
+        <!-- Segmented Tab Control -->
+        <div class="flex items-center justify-center mb-10">
+            <div class="inline-flex p-1.5 rounded-[24px] bg-white/[0.03] border border-white/5 shadow-inner relative group">
+                <a href="?tab=roster" class="px-10 py-3.5 rounded-[20px] font-black italic uppercase tracking-widest text-[10px] transition-all flex items-center gap-3 relative z-10 <?= $active_tab === 'roster' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-gray-500 hover:text-white' ?>">
+                    <span class="material-symbols-outlined text-lg">groups</span>
+                    Team Roster
+                </a>
+                <a href="?tab=recruitment" class="relative px-10 py-3.5 rounded-[20px] font-black italic uppercase tracking-widest text-[10px] transition-all flex items-center gap-3 z-10 <?= $active_tab === 'recruitment' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-gray-500 hover:text-white' ?>">
+                    <span class="material-symbols-outlined text-lg">person_search</span>
+                    Recruitment
+                    <?php if ($pending_apps_count > 0): ?>
+                        <span class="absolute -top-1 -right-1 size-5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center shadow-lg border-2 border-background-dark animate-pulse">
+                            <?= $pending_apps_count ?>
+                        </span>
+                    <?php endif; ?>
+                </a>
+            </div>
+        </div>
+
         <div class="glass-card overflow-hidden shadow-2xl">
             <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                 <h4 class="font-black italic uppercase text-xs tracking-widest flex items-center gap-2" style="color:var(--text-main)">
-                    <span class="material-symbols-outlined" style="color:var(--primary)">groups</span> Team Roster
+                    <span class="material-symbols-outlined" style="color:var(--primary)"><?= $active_tab === 'recruitment' ? 'person_search' : 'groups' ?></span> 
+                    <?= $active_tab === 'recruitment' ? 'Pending Applications' : 'Full Team Roster' ?>
                 </h4>
-                <div class="label-muted italic">Showing <?= count($staff_list) ?> Personnel</div>
+                <div class="label-muted italic">
+                    <?= $active_tab === 'recruitment' ? "Awaiting Review: $pending_apps_count" : "Active Personnel: " . count($staff_list) ?>
+                </div>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="border-b border-white/5 bg-white/[0.01]">
-                            <th class="px-8 py-6 table-header-alt">Personnel Profile</th>
-                            <th class="px-8 py-6 table-header-alt">Core Role</th>
-                            <th class="px-8 py-6 table-header-alt">Employment Status</th>
-                            <th class="px-8 py-6 table-header-alt text-center">Protocol Status</th>
-                            <th class="px-8 py-6 table-header-alt text-right">Operations</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-white/5">
-                        <?php if (empty($staff_list)): ?>
-                            <tr>
-                                <td colspan="5" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">No personnel records detected.</td>
+                        <?php if ($active_tab === 'recruitment'): ?>
+                            <tr class="border-b border-white/5 bg-white/[0.01]">
+                                <th class="px-8 py-6 table-header-alt">Applicant Identity</th>
+                                <th class="px-8 py-6 table-header-alt">Coach Type</th>
+                                <th class="px-8 py-6 table-header-alt">Credentials</th>
+                                <th class="px-8 py-6 table-header-alt">Submitted At</th>
+                                <th class="px-8 py-6 table-header-alt text-right">Review Handle</th>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($staff_list as $s): ?>
-                                <tr class="hover:bg-white/[0.04] transition-all group">
-                                    <td class="px-8 py-6">
-                                        <div class="flex items-center gap-4">
-                                            <?php $initials = strtoupper(substr($s['first_name'] ?? '', 0, 1) . substr($s['last_name'] ?? '', 0, 1)); ?>
-                                            <div class="size-14 rounded-2xl bg-white/5 border border-white/5 overflow-hidden flex items-center justify-center relative group-hover:border-primary/20 transition-colors">
-                                                <?php if (!empty($s['profile_picture'])): ?>
-                                                    <img src="<?= htmlspecialchars('../' . $s['profile_picture']) ?>" class="size-full object-cover" onerror="this.outerHTML='<span class=\'text-[--text-main] opacity-40 font-black italic text-sm tracking-tighter\'><?= $initials ?></span>'">
-                                                <?php else: ?>
-                                                    <span class="text-[--text-main] opacity-40 font-black italic text-sm tracking-tighter"><?= $initials ?></span>
-                                                <?php endif; ?>
-                                                <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                            </div>
-                                            <div>
-                                                <p class="font-black italic uppercase tracking-tighter text-[13.5px] text-white"><?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?></p>
-                                                <p class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mt-1"><?= htmlspecialchars($s['email']) ?></p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-8 py-6">
-                                        <span class="px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary text-[9px] font-black uppercase tracking-widest italic"><?= htmlspecialchars($s['staff_role']) ?></span>
-                                    </td>
-                                    <td class="px-8 py-6">
-                                        <p class="text-[11px] font-black uppercase text-white tracking-tighter italic"><?= $s['employment_type'] ?></p>
-                                        <div class="flex flex-col gap-0.5 mt-1.5">
-                                            <?php if (strpos(strtolower($s['staff_role']), 'coach') !== false || strpos(strtolower($s['staff_role']), 'trainer') !== false): ?>
-                                                <p class="text-[10px] font-black uppercase tracking-widest text-primary italic">₱<?= number_format($s['session_rate'], 2) ?> Per Session</p>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                    <td class="px-8 py-6 text-center">
-                                        <?php if($s['status'] === 'Active'): ?>
-                                            <span class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-[0.1em] italic flex items-center gap-2 justify-center mx-auto w-fit shadow-lg shadow-emerald-500/5">
-                                                <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                Operational
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[9px] font-black uppercase tracking-widest italic inline-flex items-center gap-2 justify-center w-fit">
-                                                Inactive
-                                            </span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="px-8 py-6 text-right">
-                                        <div class="flex justify-end gap-2 outline-none">
-                                            <button onclick="openViewModal(<?= htmlspecialchars(json_encode($s)) ?>)" class="size-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[--text-main] opacity-40 hover:opacity-100 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-lg active:scale-95 group/btn">
-                                                <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
-                                            </button>
-                                        </div>
-                                    </td>
+                            <tr class="border-b border-white/5 bg-white/[0.01]">
+                                <th class="px-8 py-6 table-header-alt">Personnel Profile</th>
+                                <th class="px-8 py-6 table-header-alt">Core Role</th>
+                                <th class="px-8 py-6 table-header-alt">Employment Status</th>
+                                <th class="px-8 py-6 table-header-alt text-center">Protocol Status</th>
+                                <th class="px-8 py-6 table-header-alt text-right">Operations</th>
+                            </tr>
+                        <?php endif; ?>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        <?php if ($active_tab === 'recruitment'): ?>
+                            <?php if (empty($pending_apps)): ?>
+                                <tr>
+                                    <td colspan="5" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">No pending applications detected.</td>
                                 </tr>
-                            <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php foreach ($pending_apps as $app): ?>
+                                    <tr class="hover:bg-white/[0.04] transition-all group">
+                                        <td class="px-8 py-6">
+                                            <div class="flex items-center gap-4">
+                                                <div class="size-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center font-black italic text-primary opacity-40">
+                                                    <?= strtoupper(substr($app['first_name'], 0, 1) . substr($app['last_name'], 0, 1)) ?>
+                                                </div>
+                                                <div>
+                                                    <p class="font-black italic uppercase tracking-tighter text-[13.5px] text-white"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
+                                                    <p class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mt-1"><?= htmlspecialchars($app['email']) ?></p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-8 py-6">
+                                            <span class="px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary text-[9px] font-black uppercase tracking-widest italic"><?= htmlspecialchars($app['coach_type']) ?></span>
+                                        </td>
+                                        <td class="px-8 py-6">
+                                            <div class="flex flex-col gap-1.5">
+                                                <p class="text-[11px] font-black uppercase text-white tracking-tighter italic"><?= $app['license_number'] ?: 'No License ID' ?></p>
+                                                <div class="flex items-center gap-2">
+                                                    <span class="size-1 rounded-full bg-primary animate-pulse"></span>
+                                                    <span class="text-[9px] font-black uppercase tracking-widest text-gray-500 italic">Certified credentials</span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-8 py-6 text-[10px] font-bold text-white/40 uppercase italic">
+                                            <?= date('M d, Y', strtotime($app['submitted_at'])) ?>
+                                        </td>
+                                        <td class="px-8 py-6 text-right">
+                                            <div class="flex justify-end gap-2 outline-none">
+                                                <button onclick="openAppDetails(<?= $app['coach_application_id'] ?>)" class="h-10 px-6 rounded-xl bg-white/5 border border-white/10 text-white text-[10px] font-black uppercase italic tracking-widest hover:bg-primary hover:text-white hover:border-primary transition-all active:scale-95 group/btn flex items-center gap-2 shadow-lg">
+                                                    View Details
+                                                </button>
+                                                <button onclick="rejectApplication(<?= $app['coach_application_id'] ?>)" class="size-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-95 flex items-center justify-center">
+                                                    <span class="material-symbols-outlined text-sm">close</span>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <!-- Existing Roster Logic -->
+                            <?php if (empty($staff_list)): ?>
+                                <tr>
+                                    <td colspan="5" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">No personnel records detected.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($staff_list as $s): ?>
+                                    <tr class="hover:bg-white/[0.04] transition-all group">
+                                        <td class="px-8 py-6">
+                                            <div class="flex items-center gap-4">
+                                                <?php $initials = strtoupper(substr($s['first_name'] ?? '', 0, 1) . substr($s['last_name'] ?? '', 0, 1)); ?>
+                                                <div class="size-14 rounded-2xl bg-white/5 border border-white/5 overflow-hidden flex items-center justify-center relative group-hover:border-primary/20 transition-colors">
+                                                    <?php if (!empty($s['profile_picture'])): ?>
+                                                        <img src="<?= htmlspecialchars('../' . $s['profile_picture']) ?>" class="size-full object-cover" onerror="this.outerHTML='<span class=\'text-[--text-main] opacity-40 font-black italic text-sm tracking-tighter\'><?= $initials ?></span>'">
+                                                    <?php else: ?>
+                                                        <span class="text-[--text-main] opacity-40 font-black italic text-sm tracking-tighter"><?= $initials ?></span>
+                                                    <?php endif; ?>
+                                                    <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                                </div>
+                                                <div>
+                                                    <p class="font-black italic uppercase tracking-tighter text-[13.5px] text-white"><?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?></p>
+                                                    <p class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mt-1"><?= htmlspecialchars($s['email']) ?></p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-8 py-6">
+                                            <span class="px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary text-[9px] font-black uppercase tracking-widest italic"><?= htmlspecialchars($s['staff_role']) ?></span>
+                                        </td>
+                                        <td class="px-8 py-6">
+                                            <p class="text-[11px] font-black uppercase text-white tracking-tighter italic"><?= $s['employment_type'] ?></p>
+                                            <div class="flex flex-col gap-0.5 mt-1.5">
+                                                <?php if (strpos(strtolower($s['staff_role']), 'coach') !== false || strpos(strtolower($s['staff_role']), 'trainer') !== false): ?>
+                                                    <p class="text-[10px] font-black uppercase tracking-widest text-primary italic">₱<?= number_format($s['session_rate'], 2) ?> Per Session</p>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td class="px-8 py-6 text-center">
+                                            <?php if($s['status'] === 'Active'): ?>
+                                                <span class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-[0.1em] italic flex items-center gap-2 justify-center mx-auto w-fit shadow-lg shadow-emerald-500/5">
+                                                    <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                    Operational
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[9px] font-black uppercase tracking-widest italic inline-flex items-center gap-2 justify-center w-fit">
+                                                    Inactive
+                                                </span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="px-8 py-6 text-right">
+                                            <div class="flex justify-end gap-2 outline-none">
+                                                <button onclick="openViewModal(<?= htmlspecialchars(json_encode($s)) ?>)" class="size-11 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[--text-main] opacity-40 hover:opacity-100 hover:bg-primary hover:text-white hover:border-primary transition-all shadow-lg active:scale-95 group/btn">
+                                                    <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </tbody>
                 </table>
             </div>
         </div>
+
     </main>
 
     <!-- View Staff Modal -->
@@ -1120,9 +1433,204 @@ include '../includes/tenant_sidebar.php';
             document.getElementById('viewStaffModal').classList.remove('active');
         }
 
+        // --- RECRUITMENT LOGIC ---
+        let currentAppId = null;
+
+        function openAppDetails(id) {
+            const modal = document.getElementById('appDetailsModal');
+            const container = document.getElementById('appDetailsContent');
+            
+            modal.classList.add('active');
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center py-24 space-y-4">
+                    <span class="material-symbols-outlined text-4xl text-primary animate-spin">sync</span>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">Decrypting recruitment profile...</p>
+                </div>
+            `;
+
+            fetch(`staff.php?ajax=1&application_id=${id}`)
+                .then(res => res.text())
+                .then(html => {
+                    container.innerHTML = html;
+                })
+                .catch(() => {
+                    container.innerHTML = `<div class='p-10 text-center text-rose-500 font-bold'>Protocol Interrupted: Failed to load profile.</div>`;
+                });
+        }
+
+        function toggleDetailsModal() {
+            document.getElementById('appDetailsModal').classList.remove('active');
+        }
+
+        function approveApplication(app) {
+            currentAppId = app.coach_application_id;
+            
+            // Auto-Approve if rate is pre-defined
+            if (app.session_rate && app.session_rate > 0) {
+                if (!confirm(`Confirm hiring ${app.first_name} ${app.last_name} with their registered rate of ₱${app.session_rate}?`)) return;
+                
+                const formData = new FormData();
+                formData.append('action', 'approve_coach_app');
+                formData.append('application_id', app.coach_application_id);
+                formData.append('session_rate', app.session_rate);
+                formData.append('employment', (app.coach_type || 'PART-TIME').toUpperCase());
+
+                // Show loading on current button if possible
+                const btn = event?.currentTarget;
+                const original = btn ? btn.innerHTML : '';
+                if (btn) btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Processing...`;
+
+                fetch('staff.php', { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        setTimeout(() => location.href = 'staff.php?tab=roster', 1500);
+                    } else {
+                        showNotification(data.message, 'error');
+                        if (btn) btn.innerHTML = original;
+                    }
+                });
+                return;
+            }
+
+            const modal = document.getElementById('approveAppModal');
+            document.getElementById('approve_name').innerText = app.first_name + ' ' + app.last_name;
+            document.getElementById('app_id_field').value = app.coach_application_id;
+            
+            // Auto close details modal if open
+            toggleDetailsModal();
+            modal.classList.add('active');
+        }
+
+        function toggleApproveModal() {
+            document.getElementById('approveAppModal').classList.remove('active');
+        }
+
+        function rejectApplication(id) {
+            if (!confirm('Are you sure you want to decline this application? This action cannot be undone.')) return;
+
+            const formData = new FormData();
+            formData.append('action', 'reject_coach_app');
+            formData.append('application_id', id);
+            formData.append('remarks', 'Declined via management roster');
+
+            fetch('staff.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            });
+        }
+
+        document.getElementById('approveAppForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const btn = this.querySelector('button[type="submit"]');
+            const originalText = btn.innerHTML;
+            
+            btn.disabled = true;
+            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Processing...`;
+
+            const formData = new FormData(this);
+            formData.append('action', 'approve_coach_app');
+
+            fetch('staff.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    setTimeout(() => location.href = 'staff.php?tab=roster', 1500);
+                } else {
+                    showNotification(data.message, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            })
+            .catch(() => {
+                showNotification('Connection Exception: Protocol failed.', 'error');
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            });
+        });
+
     </script>
 
+    <!-- Application Details Modal -->
+    <div id="appDetailsModal" class="modal-overlay">
+        <div class="modal-content overflow-hidden max-w-[1000px] w-[95%]">
+            <div class="px-10 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02] sticky top-0 z-50 backdrop-blur-xl">
+                <h4 class="font-black italic uppercase text-sm tracking-widest flex items-center gap-3" style="color:var(--text-main)">
+                    <span class="material-symbols-outlined" style="color:var(--primary)">person_search</span> Recruitment Detail View
+                </h4>
+                <button onclick="toggleDetailsModal()" class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
+            <div id="appDetailsContent" class="p-10 max-h-[85vh] overflow-y-auto no-scrollbar">
+                <!-- AJAX Content -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Approve Application Modal -->
+    <div id="approveAppModal" class="modal-overlay">
+        <div class="modal-content overflow-hidden max-w-[480px]">
+            <div class="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <h4 class="font-black italic uppercase text-sm tracking-widest flex items-center gap-3" style="color:var(--text-main)">
+                    <span class="material-symbols-outlined" style="color:var(--primary)">verified</span> Confirm Hiring
+                </h4>
+                <button onclick="toggleApproveModal()" class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
+            <form id="approveAppForm" class="p-8 space-y-8 text-left">
+                <input type="hidden" name="application_id" id="app_id_field">
+                
+                <div class="p-6 rounded-2xl bg-primary/5 border border-primary/20">
+                    <p class="text-[9px] font-black uppercase tracking-widest text-primary/60 mb-1">Onboarding Coach</p>
+                    <h5 id="approve_name" class="text-xl font-black italic uppercase tracking-tighter text-white">Coach Name</h5>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="space-y-2.5">
+                        <label class="label-muted ml-1">Assigned Session Rate (₱)</label>
+                        <input type="number" name="session_rate" step="0.01" required placeholder="0.00" class="filter-input w-full">
+                    </div>
+                    <div class="space-y-2.5">
+                        <label class="label-muted ml-1">Employment Type</label>
+                        <select name="employment" class="filter-input w-full italic">
+                            <option value="FULL-TIME">Full-time</option>
+                            <option value="PART-TIME" selected>Part-time</option>
+                            <option value="ON-CALL">On-call / Freelance</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button type="submit" class="flex-1 h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-primary/20">
+                        Confirm Hire
+                    </button>
+                    <button type="button" onclick="toggleApproveModal()" class="flex-1 h-14 bg-white/5 border border-white/10 text-gray-400 rounded-2xl font-black italic uppercase tracking-widest text-[11px] hover:bg-white/10 transition-all">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
     <!-- Restriction Modal (Sidebar-Aware) -->
+
     <div id="subModal">
         <div class="glass-card max-w-md w-full p-10 text-center animate-in zoom-in duration-300 relative shadow-[0_0_100px_rgba(140,43,238,0.15)] border-primary/20">
             <div class="size-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-8">
