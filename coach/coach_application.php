@@ -220,7 +220,7 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
 
         <div id="dynamic-alert-container" class="w-full sticky top-4 z-[9999] mb-4"></div>
 
-        <form id="coach-form" action="../action/submit_coach_application.php?gym=<?= $gym_slug ?>" method="POST" enctype="multipart/form-data" class="space-y-6 pb-20">
+        <form id="coach-form" action="../action/submit_coach_application.php?gym=<?= $gym_slug ?>" method="POST" enctype="multipart/form-data" class="space-y-6 pb-10">
             
             <!-- STEP 1: ACCOUNT & PERSONAL INFO -->
             <div class="step-container" data-step="1">
@@ -250,11 +250,11 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                             <div class="space-y-1.5">
-                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Email Address <span class="text-primary">*</span></label>
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Email Address <span class="text-primary">*</span></label>
                                 <input type="email" name="email" id="coach-email" required class="input-field" placeholder="e.g. name@example.com">
                             </div>
                             <div class="space-y-1.5">
-                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Personal Contact Number <span class="text-primary">*</span></label>
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Contact Number <span class="text-primary">*</span></label>
                                 <input type="tel" name="contact_number" required oninput="formatPhoneNumber(this)" class="input-field" placeholder="0912-345-6789">
                             </div>
                         </div>
@@ -279,7 +279,7 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
                             <input type="text" name="username" required id="coach-username" class="input-field" placeholder="e.g. juan_coach2026" autocomplete="username">
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-3">
                             <div class="space-y-1.5">
                                 <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Password <span class="text-primary">*</span></label>
                                 <div class="relative">
@@ -287,6 +287,33 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
                                     <button type="button" onclick="togglePassword('password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-primary transition-all">
                                         <span class="material-symbols-outlined text-lg">visibility</span>
                                     </button>
+                                </div>
+                                <!-- Strength Indicator -->
+                                <div class="mt-4 flex gap-1 h-1 px-1">
+                                    <div id="strength-bar-1" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                    <div id="strength-bar-2" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                    <div id="strength-bar-3" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                    <div id="strength-bar-4" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
+                                </div>
+
+                                <!-- Password Checklist -->
+                                <div class="grid grid-cols-2 gap-y-2 mt-4 px-1">
+                                    <div id="req-length" class="flex items-center gap-2 text-gray-500 transition-colors">
+                                        <span class="material-symbols-outlined text-[10px]">radio_button_unchecked</span>
+                                        <span class="text-[8px] font-bold uppercase tracking-widest">8+ Characters</span>
+                                    </div>
+                                    <div id="req-upper" class="flex items-center gap-2 text-gray-500 transition-colors">
+                                        <span class="material-symbols-outlined text-[10px]">radio_button_unchecked</span>
+                                        <span class="text-[8px] font-bold uppercase tracking-widest">Uppercase</span>
+                                    </div>
+                                    <div id="req-number" class="flex items-center gap-2 text-gray-500 transition-colors">
+                                        <span class="material-symbols-outlined text-[10px]">radio_button_unchecked</span>
+                                        <span class="text-[8px] font-bold uppercase tracking-widest">Number</span>
+                                    </div>
+                                    <div id="req-special" class="flex items-center gap-2 text-gray-500 transition-colors">
+                                        <span class="material-symbols-outlined text-[10px]">radio_button_unchecked</span>
+                                        <span class="text-[8px] font-bold uppercase tracking-widest">Special Char</span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="space-y-1.5">
@@ -299,44 +326,8 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
                                 </div>
                             </div>
                         </div>
-                                
-                                <div class="mt-2 flex gap-1 h-1 px-1">
-                                    <div id="strength-bar-1" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
-                                    <div id="strength-bar-2" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
-                                    <div id="strength-bar-3" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
-                                    <div id="strength-bar-4" class="flex-1 rounded-full bg-white/5 transition-colors"></div>
-                                </div>
 
-                                <!-- Password Checklist -->
-                                <div class="grid grid-cols-2 gap-y-2 mt-4 px-1">
-                                    <div id="req-length" class="flex items-center gap-2 text-gray-500 transition-colors">
-                                        <span class="material-symbols-outlined text-xs">radio_button_unchecked</span>
-                                        <span class="text-[8px] font-bold uppercase tracking-widest">8+ Characters</span>
-                                    </div>
-                                    <div id="req-upper" class="flex items-center gap-2 text-gray-500 transition-colors">
-                                        <span class="material-symbols-outlined text-xs">radio_button_unchecked</span>
-                                        <span class="text-[8px] font-bold uppercase tracking-widest">Uppercase</span>
-                                    </div>
-                                    <div id="req-number" class="flex items-center gap-2 text-gray-500 transition-colors">
-                                        <span class="material-symbols-outlined text-xs">radio_button_unchecked</span>
-                                        <span class="text-[8px] font-bold uppercase tracking-widest">Number</span>
-                                    </div>
-                                    <div id="req-special" class="flex items-center gap-2 text-gray-500 transition-colors">
-                                        <span class="material-symbols-outlined text-xs">radio_button_unchecked</span>
-                                        <span class="text-[8px] font-bold uppercase tracking-widest">Special Char</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="space-y-1.5">
-                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Confirm Password <span class="text-primary">*</span></label>
-                                <div class="relative">
-                                    <input type="password" id="confirm_password" required class="input-field pr-12" placeholder="••••••••" autocomplete="new-password">
-                                    <button type="button" onclick="togglePassword('confirm_password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-primary transition-all">
-                                        <span class="material-symbols-outlined text-lg">visibility</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
             </div>
@@ -362,63 +353,28 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
                                 </select>
                             </div>
                             <div class="space-y-1.5">
-                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Specialization <span class="text-primary">*</span></label>
-                                <input type="text" name="specialization" required class="input-field" placeholder="e.g. Bodybuilding, Yoga, CrossFit">
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Expected Rate Per Session (₱) <span class="text-primary">*</span></label>
+                                <input type="number" name="session_rate" required step="0.01" min="0" class="input-field" placeholder="0.00">
                             </div>
                         </div>
 
-                        <div class="space-y-1.5 mb-5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">License / Certification Number (Optional)</label>
-                            <input type="text" name="license_number" class="input-field" placeholder="e.g. CERT-123456">
-                        </div>
-
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Upload Certification (PDF or Image) <span class="text-primary">*</span></label>
-                            <input type="file" name="certification_file" required accept=".pdf,image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- STEP 3: PAYOUT INFO -->
-            <div class="step-container step-hidden" data-step="3">
-                <div class="glass-card rounded-2xl p-8 md:p-10 relative overflow-hidden">
-                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none"></div>
-                    
-                    <div class="relative z-10">
-                        <div class="flex items-center gap-4 mb-8">
-                            <div class="size-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-sm border border-primary/30">3</div>
-                            <h3 class="text-lg font-display font-black text-white uppercase italic tracking-tight">Payout & Banking Details</h3>
-                        </div>
-
-                        <div class="space-y-1.5 mb-5">
-                            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Bank or E-Wallet <span class="text-primary">*</span></label>
-                            <select name="bank_name" id="bank_name" required class="input-field appearance-none cursor-pointer">
-                                <option value="" disabled selected>Select Provider</option>
-                                <option value="BDO">BDO Unibank</option>
-                                <option value="BPI">BPI</option>
-                                <option value="GCash">GCash</option>
-                                <option value="Maya">Maya</option>
-                                <option value="UnionBank">UnionBank</option>
-                                <option value="Metrobank">Metrobank</option>
-                            </select>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5 items-end">
                             <div class="space-y-1.5">
-                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Account Holder Name <span class="text-primary">*</span></label>
-                                <input type="text" name="account_name" required class="input-field" placeholder="Juan Dela Cruz">
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">License / Certification Number (Optional)</label>
+                                <input type="text" name="license_number" class="input-field" placeholder="e.g. CERT-123456">
                             </div>
                             <div class="space-y-1.5">
-                                <label id="acc-number-label" class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Account Number <span class="text-primary">*</span></label>
-                                <input type="text" name="account_number" id="account_number" required class="input-field" placeholder="0000-0000-00">
+                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Upload Certification (PDF or Image) (Optional)</label>
+                                <input type="file" name="certification_file" accept=".pdf,image/*" class="w-full text-sm text-gray-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/10 file:text-white hover:file:bg-white/20 file:transition-all file:cursor-pointer">
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="flex flex-col sm:flex-row gap-4 pt-10">
+
+
+            <div class="flex flex-col sm:flex-row gap-4 pt-6">
                 <button type="button" id="prev-btn" class="hidden h-14 flex-1 rounded-xl bg-white/5 border border-white/10 text-white text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center">
                     Previous
                 </button>
@@ -452,14 +408,14 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
             step.classList.toggle('step-hidden', parseInt(step.dataset.step) !== currentStep);
         });
 
-        const labels = ["Account Registration", "Professional Profile", "Payout Information"];
+        const labels = ["Account Registration", "Professional Profile"];
         document.getElementById('step-count').innerText = currentStep;
         document.getElementById('step-label').innerText = labels[currentStep - 1];
-        document.getElementById('progress-bar').style.width = `${(currentStep / 3) * 100}%`;
+        document.getElementById('progress-bar').style.width = `${(currentStep / 2) * 100}%`;
 
         prevBtn.classList.toggle('hidden', currentStep === 1);
-        nextBtn.classList.toggle('hidden', currentStep === 3);
-        submitBtn.classList.toggle('hidden', currentStep !== 3);
+        nextBtn.classList.toggle('hidden', currentStep === 2);
+        submitBtn.classList.toggle('hidden', currentStep !== 2);
         
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -483,7 +439,7 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
             }
         }
 
-        if (valid && currentStep < 3) {
+        if (valid && currentStep < 2) {
             currentStep++;
             updateUI();
         }

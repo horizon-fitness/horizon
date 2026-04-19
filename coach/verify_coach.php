@@ -54,9 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // 2. Insert Application
         $a = $staged['application'];
-        $stmtApp = $pdo->prepare("INSERT INTO coach_applications (user_id, gym_id, coach_type, specialization, license_number, certification_file, application_status, submitted_at, remarks) VALUES (?, ?, ?, ?, ?, ?, 'Pending', NOW(), ?)");
+        $stmtApp = $pdo->prepare("INSERT INTO coach_applications (user_id, gym_id, coach_type, license_number, certification_file, application_status, submitted_at, remarks) VALUES (?, ?, ?, ?, ?, 'Pending', NOW(), ?)");
         $stmtApp->execute([
-            $user_id, $a['gym_id'], $a['coach_type'], $a['specialization'], $a['license_number'], $a['certification_file'], $a['remarks']
+            $user_id, $a['gym_id'], $a['coach_type'], $a['license_number'], $a['certification_file'], $a['remarks']
         ]);
 
         $pdo->commit();

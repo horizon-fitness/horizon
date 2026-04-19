@@ -57,7 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $contact = $_POST['contact_number'] ?? '0000000000';
             $bdate = !empty($_POST['birth_date']) ? $_POST['birth_date'] : null;
             $sex = $_POST['sex'] ?? 'Prefer not to say';
-            $salary = $_POST['salary'] ?? 0.00;
             $session_rate = $_POST['session_rate'] ?? 0.00;
 
             // Age Validation (18+)
@@ -129,8 +128,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $stmtUserRole->execute([$new_user_id, $role_id, $gym_id]);
 
                     // 3. Insert into Staff
-                    $stmtStaffAdd = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, salary, session_rate, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_DATE, 'Active', NOW(), NOW())");
-                    $stmtStaffAdd->execute([$new_user_id, $gym_id, $role, $employment, $salary, $session_rate]);
+                    $stmtStaffAdd = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_DATE, 'Active', NOW(), NOW())");
+                    $stmtStaffAdd->execute([$new_user_id, $gym_id, $role, $employment]);
+
+                    // 4. Insert into Coaches if applicable (3NF Specialized Entity)
+                    if (strtolower($role) === 'coach' || strtolower($role) === 'trainer') {
+                        $stmtCoachAdd = $pdo->prepare("INSERT INTO coaches (user_id, gym_id, hire_date, session_rate, status, created_at, updated_at) VALUES (?, ?, CURRENT_DATE, ?, 'Active', NOW(), NOW())");
+                        $stmtCoachAdd->execute([$new_user_id, $gym_id, $session_rate]);
+                    }
 
                     $pdo->commit();
 
@@ -256,9 +261,10 @@ if (!empty($f_status)) {
 }
 
 $stmtStaff = $pdo->prepare("
-    SELECT s.*, u.first_name, u.last_name, u.email, u.profile_picture
+    SELECT s.*, u.first_name, u.last_name, u.email, u.profile_picture, c.session_rate
     FROM staff s
     JOIN users u ON s.user_id = u.user_id
+    LEFT JOIN coaches c ON s.user_id = c.user_id AND s.gym_id = c.gym_id
     WHERE $where
     ORDER BY s.created_at DESC
 ");
@@ -655,9 +661,8 @@ include '../includes/tenant_sidebar.php';
                                     <td class="px-8 py-6">
                                         <p class="text-[11px] font-black uppercase text-white tracking-tighter italic"><?= $s['employment_type'] ?></p>
                                         <div class="flex flex-col gap-0.5 mt-1.5">
-                                            <p class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-60 italic">₱<?= number_format($s['salary'], 2) ?> Monthly</p>
                                             <?php if (strpos(strtolower($s['staff_role']), 'coach') !== false || strpos(strtolower($s['staff_role']), 'trainer') !== false): ?>
-                                                <p class="text-[8px] font-black uppercase tracking-widest text-primary italic">₱<?= number_format($s['session_rate'], 2) ?> Per Session</p>
+                                                <p class="text-[10px] font-black uppercase tracking-widest text-primary italic">₱<?= number_format($s['session_rate'], 2) ?> Per Session</p>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -738,10 +743,6 @@ include '../includes/tenant_sidebar.php';
                     <div class="flex items-center justify-between">
                         <label class="label-muted">Birthdate</label>
                         <p id="view_birthdate" class="text-xs font-bold text-[--text-main]">Jan 01, 1990</p>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <label class="label-muted">Salary (Monthly)</label>
-                        <p id="view_salary" class="text-xs font-bold text-white tracking-widest">₱0.00</p>
                     </div>
                     <div id="view_session_rate_container" class="flex items-center justify-between">
                         <label class="label-muted">Session Rate</label>
@@ -839,11 +840,7 @@ include '../includes/tenant_sidebar.php';
                                 </div>
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-x-8 gap-y-6 pt-2">
-                                <div class="space-y-2.5">
-                                    <label class="label-muted ml-1">Monthly Salary (₱)</label>
-                                    <input type="number" step="0.01" name="salary" required placeholder="0.00" class="filter-input w-full" autocomplete="off">
-                                </div>
+                            <div class="pt-2">
                                 <div id="session_rate_field" class="space-y-2.5 transition-all duration-300">
                                     <label class="label-muted ml-1">Session Rate (₱)</label>
                                     <input type="number" step="0.01" name="session_rate" placeholder="0.00" class="filter-input w-full" autocomplete="off">
@@ -1034,10 +1031,8 @@ include '../includes/tenant_sidebar.php';
             document.getElementById('view_sex').innerText = s.sex || 'N/A';
             
             // Format Rates
-            const salary = parseFloat(s.salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             const srate = parseFloat(s.session_rate || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             
-            document.getElementById('view_salary').innerText = '₱' + salary;
             document.getElementById('view_session_rate').innerText = '₱' + srate;
             
             const rateContainer = document.getElementById('view_session_rate_container');

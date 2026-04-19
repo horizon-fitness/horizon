@@ -152,40 +152,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $profile_picture = convertFileToBase64('profile_picture');
 
         // Build Update Query
-        $updates = [
-            "username = ?", "first_name = ?", "middle_name = ?", "last_name = ?", 
-            "email = ?", "contact_number = ?", "birth_date = ?", "sex = ?", "updated_at = ?"
-        ];
-        $params = [$username, $first_name, $middle_name, $last_name, $email, $contact_number, $birth_date, $sex, $now];
-        $new_values = [
-            'username' => $username, 'first_name' => $first_name, 'middle_name' => $middle_name, 
-            'last_name' => $last_name, 'email' => $email, 'contact_number' => $contact_number, 
-            'birth_date' => $birth_date, 'sex' => $sex
-        ];
 
-        if ($remove_profile) {
-            $updates[] = "profile_picture = NULL";
-            $new_values['profile_picture'] = 'REMOVED';
+
+        $updates = [];
+        $params = [];
+        $allowed_fields = ['first_name', 'middle_name', 'last_name', 'email', 'contact_number', 'birth_date', 'sex', 'username'];
+        
+        foreach ($allowed_fields as $field) {
+            if (isset($_POST[$field])) {
+                $val = trim($_POST[$field]);
+                if ($field === 'contact_number') $val = str_replace('-', '', $val);
+                
+                // Birthday Validation (18+)
+                if ($field === 'birth_date' && !empty($val)) {
+                    $birthDateObj = new DateTime($val);
+                    $today = new DateTime();
+                    $age = $today->diff($birthDateObj)->y;
+                    if ($birthDateObj > $today) throw new Exception("Birthdate cannot be in the future.");
+                    if ($age < 18) throw new Exception("Minimum age for registration is 18 years.");
+                }
+
+                $updates[] = "$field = ?";
+                $params[] = $val;
+                $new_values[$field] = $val;
+            }
         }
 
-        if ($profile_picture) {
-            $updates[] = "profile_picture = ?";
-            $params[] = $profile_picture;
-            $new_values['profile_picture'] = '[IMAGE DATA]';
+        if (!empty($updates)) {
+            $updates[] = "updated_at = ?";
+            $params[] = $now;
+            $params[] = $user_id;
+            $stmtUpdate = $pdo->prepare("UPDATE users SET " . implode(", ", $updates) . " WHERE user_id = ?");
+            $stmtUpdate->execute($params);
         }
 
-        // Handle Password Change
-        if (!empty($new_password)) {
-            if ($new_password !== $confirm_password) throw new Exception("New passwords do not match.");
-            if (strlen($new_password) < 8) throw new Exception("New password must be at least 8 characters.");
-            $updates[] = "password_hash = ?";
-            $params[] = password_hash($new_password, PASSWORD_BCRYPT);
-            $new_values['password'] = 'CHANGED';
+        // 2. Specialized Table Updates (Coaches)
+        if (isset($_POST['session_rate'])) {
+            $rate = (float)$_POST['session_rate'];
+            $stmtCoachUpdate = $pdo->prepare("UPDATE coaches SET session_rate = ?, updated_at = NOW() WHERE user_id = ? AND gym_id = ?");
+            $stmtCoachUpdate->execute([$rate, $user_id, $gym_id]);
+            $new_values['session_rate'] = $rate;
         }
-
-        $params[] = $user_id;
-        $stmtUpdate = $pdo->prepare("UPDATE users SET " . implode(", ", $updates) . " WHERE user_id = ?");
-        $stmtUpdate->execute($params);
 
         log_audit_event($pdo, $user_id, $gym_id, 'Update', 'users', $user_id, $old_values, $new_values);
 
@@ -209,7 +216,7 @@ $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 if ($user) {
     // Fetch Coach Details if they exist
     $stmtCoach = $pdo->prepare("
-        SELECT ca.coach_type, ca.specialization, c.status as coach_status, c.hire_date
+        SELECT ca.coach_type, c.status as coach_status, c.hire_date, c.session_rate
         FROM coaches c
         LEFT JOIN coach_applications ca ON c.coach_application_id = ca.coach_application_id
         WHERE c.user_id = ? AND c.gym_id = ?
@@ -370,11 +377,16 @@ $specialization = $user['specialization'] ?? 'General Trainer';
         }
 
         .profile-input:disabled {
-            background-color: transparent !important;
-            border-color: transparent !important;
             color: #9ca3af !important;
             cursor: default !important;
+            opacity: 0.6;
+        }
+
+        body:not(.edit-mode) .profile-input:disabled {
+            background-color: transparent !important;
+            border-color: transparent !important;
             padding-left: 0 !important;
+            opacity: 1;
         }
 
         .profile-input.has-icon:not(:disabled) {
@@ -405,7 +417,8 @@ $specialization = $user['specialization'] ?? 'General Trainer';
             transition: all 0.3s ease;
         }
 
-        body:not(.edit-mode) .input-icon-container {
+        body:not(.edit-mode) .input-icon-container,
+        .relative:has(input:disabled) .input-icon-container {
             display: none !important;
         }
 
@@ -444,7 +457,7 @@ $specialization = $user['specialization'] ?? 'General Trainer';
 
         #custom-modal {
             position: fixed; top: 0; right: 0; bottom: 0; left: 110px;
-            z-index: 200; display: none; align-items: center; justify-content: center;
+            z-index: 200; align-items: center; justify-content: center;
             background: rgba(10, 9, 13, 0.8); backdrop-filter: blur(8px);
             padding: 20px; transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -568,7 +581,14 @@ $specialization = $user['specialization'] ?? 'General Trainer';
                                     <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Assigned Role</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-outlined">badge</span></div>
-                                        <input type="text" value="Official Coach" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                        <input type="text" value="<?= htmlspecialchars($user['coach_type'] ?? 'Official Coach') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold uppercase italic">
+                                    </div>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="text-[9px] uppercase font-black text-primary/80 tracking-widest ml-1">Session Rate (₱)</label>
+                                    <div class="relative group">
+                                        <div class="input-icon-container"><span class="material-symbols-outlined text-primary">payments</span></div>
+                                        <input type="number" step="0.01" name="session_rate" id="session_rate" value="<?= number_format($user['session_rate'] ?? 0, 2, '.', '') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-black italic text-primary">
                                     </div>
                                 </div>
                             </div>
@@ -602,7 +622,9 @@ $specialization = $user['specialization'] ?? 'General Trainer';
                                     <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Birth Date</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-outlined">cake</span></div>
-                                        <input type="date" name="birth_date" value="<?= $user['birth_date'] ?? '' ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none">
+                                        <input type="date" name="birth_date" id="birth_date" value="<?= $user['birth_date'] ?? '' ?>" 
+                                            max="<?= date('Y-m-d', strtotime('-18 years')) ?>"
+                                            disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold uppercase appearance-none">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
@@ -728,7 +750,7 @@ $specialization = $user['specialization'] ?? 'General Trainer';
     </div>
 
     <!-- Custom Modal -->
-    <div id="custom-modal">
+    <div id="custom-modal" class="hidden">
         <div class="absolute inset-0 bg-black/80 transition-opacity" onclick="closeModal()"></div>
         <div class="relative z-10 bg-[--background] w-full max-w-sm rounded-[32px] border border-white/10 p-8 text-center transform scale-95 opacity-0 transition-all duration-300" id="modal-content">
             <div class="size-20 rounded-[24px] bg-primary/10 text-primary flex items-center justify-center mx-auto mb-6 border border-primary/20"><span class="material-symbols-outlined text-4xl" id="modal-icon">info</span></div>
@@ -763,7 +785,9 @@ $specialization = $user['specialization'] ?? 'General Trainer';
             document.body.classList.add('edit-mode');
 
             inputs.forEach(input => {
-                if (input.name !== 'staff_role') {
+                // Only enable fields that have a name and aren't specifically protected (like Assigned Role)
+                const excludedFields = ['staff_role'];
+                if (input.name && !excludedFields.includes(input.name)) {
                     input.disabled = false;
                     initialValues[input.name] = input.value;
                 }
@@ -833,7 +857,7 @@ $specialization = $user['specialization'] ?? 'General Trainer';
 
             let strength = 0;
             Object.values(requirements).forEach(req => {
-                const icon = req.el.querySelector('.material-symbols-outlined');
+                const icon = req.el.querySelector('.material-symbols-rounded');
                 if (req.met) {
                     strength += 25;
                     req.el.classList.remove('text-[--text-main]/70');
@@ -916,6 +940,19 @@ $specialization = $user['specialization'] ?? 'General Trainer';
         function validateAndSubmit(e) {
             e.preventDefault();
             const form = e.target;
+            const bdateInput = document.getElementById('birth_date');
+            
+            if (bdateInput && bdateInput.value) {
+                const birthDate = new Date(bdateInput.value);
+                const today = new Date();
+                let age = today.getFullYear() - birthDate.getFullYear();
+                const m = today.getMonth() - birthDate.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+                
+                if (birthDate > today) { showModal('Error', 'Birthdate cannot be in the future.', 'error'); return; }
+                if (age < 18) { showModal('Error', 'Minimum age requirement is 18 years.', 'error'); return; }
+            }
+
             const fName = form.first_name.value;
             const lName = form.last_name.value;
             const phone = form.contact_number.value.replace(/-/g, '');

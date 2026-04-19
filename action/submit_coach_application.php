@@ -42,18 +42,19 @@ try {
         'sex' => $_POST['sex'] ?? '',
         'password' => $_POST['password'] ?? '',
         'coach_type' => $_POST['coach_type'] ?? '',
-        'specialization' => trim($_POST['specialization'] ?? ''),
         'license_number' => trim($_POST['license_number'] ?? ''),
-        'bank_name' => $_POST['bank_name'] ?? '',
-        'account_name' => trim($_POST['account_name'] ?? ''),
-        'account_number' => str_replace('-', '', $_POST['account_number'] ?? ''),
+        'session_rate' => $_POST['session_rate'] ?? 0.00,
     ];
 
     // Validation
-    foreach (['first_name', 'last_name', 'email', 'username', 'password', 'coach_type', 'specialization', 'bank_name', 'account_name', 'account_number'] as $field) {
+    foreach (['first_name', 'last_name', 'email', 'username', 'password', 'coach_type'] as $field) {
         if (empty($data[$field])) {
             throw new Exception("Required field '$field' is missing.");
         }
+    }
+
+    if (!isset($_POST['session_rate']) || $_POST['session_rate'] === '') {
+        throw new Exception("Required field 'session_rate' is missing.");
     }
 
     // Age Validation
@@ -76,12 +77,10 @@ try {
         $tmp = $_FILES['certification_file']['tmp_name'];
         $type = $_FILES['certification_file']['type'];
         $cert_base64 = 'data:' . $type . ';base64,' . base64_encode(file_get_contents($tmp));
-    } else {
-        throw new Exception("Certification file is required.");
     }
 
     // Prepare for Session Staging
-    $payout_remarks = "PAYOUT PREF:\nBank: {$data['bank_name']} | Acct Name: {$data['account_name']} | Acct No: {$data['account_number']}";
+    $payout_remarks = "EXPECTED RATE: ₱" . number_format($data['session_rate'], 2);
     
     $_SESSION['staged_coach_app'] = [
         'user' => [
@@ -98,7 +97,6 @@ try {
         'application' => [
             'gym_id' => $gym['gym_id'],
             'coach_type' => $data['coach_type'],
-            'specialization' => $data['specialization'],
             'license_number' => $data['license_number'],
             'certification_file' => $cert_base64,
             'remarks' => $payout_remarks
