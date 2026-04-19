@@ -49,6 +49,8 @@ try {
             philosophy_desc TEXT,
             plans_title TEXT,
             plans_subtitle TEXT,
+            services_title TEXT,
+            services_subtitle TEXT,
             footer_label TEXT,
             footer_desc TEXT,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -89,6 +91,8 @@ try {
             'philosophy_desc' => 'Experience fitness like never before with our cutting-edge multi-tenant facility management system.',
             'plans_title' => 'Membership Plans',
             'plans_subtitle' => 'Select a plan to start your journey towards a healthier, stronger you.',
+            'services_title' => 'SERVICES & SESSION RATES',
+            'services_subtitle' => 'SPECIALIZED SESSIONS AND PER-SESSION PRICING FOR ' . ($gym['gym_name'] ?? 'CORSANO FITNESS'),
             'footer_label' => 'Expand Your Horizon',
             'footer_desc' => 'Powered by Horizon Systems. Elevating fitness center management through cutting-edge technology.'
         ];
@@ -392,6 +396,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 'philosophy_label' => $_POST['portal_philosophy_label'] ?? $configs['portal_philosophy_label'] ?? '',
                 'plans_title' => $_POST['portal_plans_title'] ?? $configs['portal_plans_title'] ?? '',
                 'plans_subtitle' => $_POST['portal_plans_subtitle'] ?? $configs['portal_plans_subtitle'] ?? '',
+                'services_title' => $_POST['portal_services_title'] ?? $configs['portal_services_title'] ?? '',
+                'services_subtitle' => $_POST['portal_services_subtitle'] ?? $configs['portal_services_subtitle'] ?? '',
                 'footer_label' => $_POST['portal_footer_label'] ?? $configs['portal_footer_label'] ?? '',
                 'footer_desc' => $_POST['portal_footer_desc'] ?? $configs['portal_footer_desc'] ?? ''
             ];
@@ -806,6 +812,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             color: #666;
         }
 
+        /* Sidebar */
         .side-nav {
             width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -816,7 +823,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             left: 0;
             top: 0;
             height: 100vh;
-            z-index: 150;
+            z-index: 50;
             background-color: var(--background);
             border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
@@ -839,9 +846,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         .nav-label {
             opacity: 0;
             transform: translateX(-15px);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s ease-in-out;
             white-space: nowrap;
             pointer-events: none;
+            color: var(--text-main);
         }
 
         .side-nav:hover .nav-label {
@@ -853,7 +861,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         .nav-section-label {
             max-height: 0;
             opacity: 0;
-            transform: translateX(-15px);
             overflow: hidden;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             margin: 0 !important;
@@ -863,58 +870,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         .side-nav:hover .nav-section-label {
             max-height: 20px;
             opacity: 1;
-            transform: translateX(0);
             margin-bottom: 8px !important;
             pointer-events: auto;
         }
 
+        /* Nav items — dashboard parity */
         .nav-item {
             display: flex;
             align-items: center;
             gap: 16px;
             padding: 10px 38px;
-            transition: all 0.3s ease;
+            transition: opacity 0.2s ease, color 0.2s ease;
             text-decoration: none;
             white-space: nowrap;
             font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-main);
-            opacity: 0.5;
+            letter-spacing: 0.05em;
+            color: color-mix(in srgb, var(--text-main) 45%, transparent);
         }
 
         .nav-item:hover {
-            opacity: 1;
-            background: transparent;
+            color: var(--text-main);
         }
 
-        .nav-item span.material-symbols-outlined {
+        .nav-item .material-symbols-outlined {
             color: var(--highlight);
-            transition: color 0.3s ease;
+            transition: transform 0.2s ease;
+        }
+
+        .nav-item:hover .material-symbols-outlined {
+            transform: scale(1.12);
         }
 
         .nav-item.active {
-            opacity: 1;
             color: var(--primary) !important;
             position: relative;
         }
 
-        .nav-item.active span.material-symbols-outlined {
+        .nav-item.active .material-symbols-outlined {
             color: var(--primary);
         }
 
         .nav-item.active::after {
             content: '';
             position: absolute;
-            right: 0px;
+            right: 0;
             top: 50%;
             transform: translateY(-50%);
-            width: 2px;
-            height: 18px;
+            width: 4px;
+            height: 24px;
             background: var(--primary);
             border-radius: 4px 0 0 4px;
-            box-shadow: 0 0 8px var(--primary);
         }
 
 
@@ -1601,6 +1608,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                             <textarea name="portal_plans_subtitle" oninput="updateMockup()" rows="3"
                                                 class="input-dark"
                                                 placeholder="Select a plan to start your journey..."><?= htmlspecialchars($configs['portal_plans_subtitle'] ?? '') ?></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Services & Rates Section -->
+                                <div class="space-y-6">
+                                    <h5
+                                        class="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 italic border-b border-white/5 pb-2">
+                                        Services & Session Rates Content</h5>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div class="space-y-2">
+                                            <label
+                                                class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Services
+                                                Section Title</label>
+                                            <textarea name="portal_services_title" oninput="updateMockup()" rows="3"
+                                                class="input-dark"
+                                                placeholder="SERVICES & SESSION RATES"><?= htmlspecialchars($configs['portal_services_title'] ?? '') ?></textarea>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label
+                                                class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 ml-1 italic">Services
+                                                Section Subtitle</label>
+                                            <textarea name="portal_services_subtitle" oninput="updateMockup()" rows="3"
+                                                class="input-dark"
+                                                placeholder="SPECIALIZED SESSIONS AND PER-SESSION PRICING"><?= htmlspecialchars($configs['portal_services_subtitle'] ?? '') ?></textarea>
                                         </div>
                                     </div>
                                 </div>
@@ -2550,6 +2582,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                 portal_philosophy_label: document.querySelector('[name="portal_philosophy_label"]')?.value || '',
                 portal_plans_title: document.querySelector('[name="portal_plans_title"]')?.value || '',
                 portal_plans_subtitle: document.querySelector('[name="portal_plans_subtitle"]')?.value || '',
+                portal_services_title: document.querySelector('[name="portal_services_title"]')?.value || '',
+                portal_services_subtitle: document.querySelector('[name="portal_services_subtitle"]')?.value || '',
                 portal_footer_label: document.querySelector('[name="portal_footer_label"]')?.value || '',
                 portal_footer_desc: document.querySelector('[name="portal_footer_desc"]')?.value || '',
                 logo_url: document.getElementById('sidebarLogoImg')?.src || ''

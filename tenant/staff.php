@@ -57,6 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $contact = $_POST['contact_number'] ?? '0000000000';
             $bdate = !empty($_POST['birth_date']) ? $_POST['birth_date'] : null;
             $sex = $_POST['sex'] ?? 'Prefer not to say';
+            $salary = $_POST['salary'] ?? 0.00;
+            $session_rate = $_POST['session_rate'] ?? 0.00;
 
             // Age Validation (18+)
             if ($bdate) {
@@ -127,8 +129,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $stmtUserRole->execute([$new_user_id, $role_id, $gym_id]);
 
                     // 3. Insert into Staff
-                    $stmtStaffAdd = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_DATE, 'Active', NOW(), NOW())");
-                    $stmtStaffAdd->execute([$new_user_id, $gym_id, $role, $employment]);
+                    $stmtStaffAdd = $pdo->prepare("INSERT INTO staff (user_id, gym_id, staff_role, employment_type, salary, session_rate, hire_date, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_DATE, 'Active', NOW(), NOW())");
+                    $stmtStaffAdd->execute([$new_user_id, $gym_id, $role, $employment, $salary, $session_rate]);
 
                     $pdo->commit();
 
@@ -652,7 +654,12 @@ include '../includes/tenant_sidebar.php';
                                     </td>
                                     <td class="px-8 py-6">
                                         <p class="text-[11px] font-black uppercase text-white tracking-tighter italic"><?= $s['employment_type'] ?></p>
-                                        <p class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-30 mt-1 italic">Hired: <?= date('M d, Y', strtotime($s['hire_date'])) ?></p>
+                                        <div class="flex flex-col gap-0.5 mt-1.5">
+                                            <p class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-60 italic">₱<?= number_format($s['salary'], 2) ?> Monthly</p>
+                                            <?php if (strpos(strtolower($s['staff_role']), 'coach') !== false || strpos(strtolower($s['staff_role']), 'trainer') !== false): ?>
+                                                <p class="text-[8px] font-black uppercase tracking-widest text-primary italic">₱<?= number_format($s['session_rate'], 2) ?> Per Session</p>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td class="px-8 py-6 text-center">
                                         <?php if($s['status'] === 'Active'): ?>
@@ -733,8 +740,12 @@ include '../includes/tenant_sidebar.php';
                         <p id="view_birthdate" class="text-xs font-bold text-[--text-main]">Jan 01, 1990</p>
                     </div>
                     <div class="flex items-center justify-between">
-                        <label class="label-muted">Initiation Date</label>
-                        <p id="view_hire_date" class="text-xs font-bold text-[--text-main]">Jan 12, 2024</p>
+                        <label class="label-muted">Salary (Monthly)</label>
+                        <p id="view_salary" class="text-xs font-bold text-white tracking-widest">₱0.00</p>
+                    </div>
+                    <div id="view_session_rate_container" class="flex items-center justify-between">
+                        <label class="label-muted">Session Rate</label>
+                        <p id="view_session_rate" class="text-xs font-bold text-primary tracking-widest italic">₱0.00</p>
                     </div>
                 </div>
             </div>
@@ -827,6 +838,17 @@ include '../includes/tenant_sidebar.php';
                                     </select>
                                 </div>
                             </div>
+                            
+                            <div class="grid grid-cols-2 gap-x-8 gap-y-6 pt-2">
+                                <div class="space-y-2.5">
+                                    <label class="label-muted ml-1">Monthly Salary (₱)</label>
+                                    <input type="number" step="0.01" name="salary" required placeholder="0.00" class="filter-input w-full" autocomplete="off">
+                                </div>
+                                <div id="session_rate_field" class="space-y-2.5 transition-all duration-300">
+                                    <label class="label-muted ml-1">Session Rate (₱)</label>
+                                    <input type="number" step="0.01" name="session_rate" placeholder="0.00" class="filter-input w-full" autocomplete="off">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -863,7 +885,29 @@ include '../includes/tenant_sidebar.php';
         function toggleAddModal() {
             const modal = document.getElementById('addStaffModal');
             modal.classList.toggle('active');
+            if (modal.classList.contains('active')) {
+                handleRoleChange(); // Initial check
+            }
         }
+
+        function handleRoleChange() {
+            const roleSelect = document.querySelector('select[name="role"]');
+            const rateField = document.getElementById('session_rate_field');
+            if (!roleSelect || !rateField) return;
+
+            const isCoach = roleSelect.value.toLowerCase().includes('coach') || roleSelect.value.toLowerCase().includes('trainer');
+            if (isCoach) {
+                rateField.style.opacity = '1';
+                rateField.style.pointerEvents = 'auto';
+                rateField.style.transform = 'translateY(0)';
+            } else {
+                rateField.style.opacity = '0.3';
+                rateField.style.pointerEvents = 'none';
+                rateField.style.transform = 'translateY(5px)';
+            }
+        }
+
+        document.querySelector('select[name="role"]').addEventListener('change', handleRoleChange);
 
         // --- VALIDATION LOGIC ---
         const phoneInput = document.getElementById('contact_number');
@@ -988,6 +1032,20 @@ include '../includes/tenant_sidebar.php';
             document.getElementById('view_contact').innerText = s.contact_number || 'N/A';
             document.getElementById('view_employment').innerText = s.employment_type;
             document.getElementById('view_sex').innerText = s.sex || 'N/A';
+            
+            // Format Rates
+            const salary = parseFloat(s.salary || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const srate = parseFloat(s.session_rate || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            
+            document.getElementById('view_salary').innerText = '₱' + salary;
+            document.getElementById('view_session_rate').innerText = '₱' + srate;
+            
+            const rateContainer = document.getElementById('view_session_rate_container');
+            if (s.staff_role.toLowerCase().includes('coach') || s.staff_role.toLowerCase().includes('trainer')) {
+                rateContainer.style.display = 'flex';
+            } else {
+                rateContainer.style.display = 'none';
+            }
 
             // Format Dates
             const options = { year: 'numeric', month: 'short', day: 'numeric' };

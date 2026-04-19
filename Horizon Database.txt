@@ -217,6 +217,8 @@ CREATE TABLE staff (
     gym_id INT NOT NULL,
     staff_role VARCHAR(50) NOT NULL,
     employment_type VARCHAR(50) NOT NULL,
+    salary DECIMAL(10,2) DEFAULT 0.00,
+    session_rate DECIMAL(10,2) DEFAULT 0.00,
     hire_date DATE NOT NULL,
     end_date DATE,
     status VARCHAR(50) NOT NULL,
@@ -414,6 +416,8 @@ CREATE TABLE portal_settings (
     philosophy_desc TEXT,
     plans_title TEXT,
     plans_subtitle TEXT,
+    services_title TEXT,
+    services_subtitle TEXT,
     footer_label TEXT,
     footer_desc TEXT,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

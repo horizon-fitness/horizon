@@ -305,6 +305,9 @@ $cms = [
     'plans_title' => !empty($configs['portal_plans_title']) ? $configs['portal_plans_title'] : 'Membership Plans',
     'plans_subtitle' => !empty($configs['portal_plans_subtitle']) ? $configs['portal_plans_subtitle'] : ('Select a plan to start your journey at ' . htmlspecialchars($page['gym_name'])),
     
+    'services_title' => !empty($configs['portal_services_title']) ? $configs['portal_services_title'] : 'SERVICES & SESSION RATES',
+    'services_subtitle' => !empty($configs['portal_services_subtitle']) ? $configs['portal_services_subtitle'] : ('SPECIALIZED SESSIONS AND PER-SESSION PRICING FOR ' . htmlspecialchars($page['gym_name'])),
+    
     'footer_label' => !empty($configs['portal_footer_label']) ? $configs['portal_footer_label'] : 'Expand Your Horizon',
     'footer_desc' => !empty($configs['portal_footer_desc']) ? nl2br(htmlspecialchars($configs['portal_footer_desc'])) : 'Powered by Horizon Systems. Elevating fitness center management through cutting-edge technology.',
     
@@ -1227,11 +1230,11 @@ $primary_rgb = hexToRgb($primary_color);
                     <div class="inline-flex items-center justify-center p-3 rounded-xl bg-primary/10 border border-primary/20 mb-6">
                         <span class="material-symbols-outlined text-primary">exercise</span>
                     </div>
-                    <h2 class="text-4xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
-                        Services & Session Rates
+                    <h2 id="services-title-display" class="text-4xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
+                        <?= $cms['services_title'] ?>
                     </h2>
-                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">
-                        Specialized sessions and per-session pricing for <?= htmlspecialchars($page['gym_name']) ?>
+                    <p id="services-subtitle-display" class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">
+                        <?= htmlspecialchars($cms['services_subtitle']) ?>
                     </p>
                 </div>
 
@@ -1717,6 +1720,14 @@ $primary_rgb = hexToRgb($primary_color);
                 if (data.portal_footer_desc !== undefined) {
                     const el = document.getElementById('portal-footer-desc');
                     if (el) el.innerText = data.portal_footer_desc || 'Powered by Horizon Systems. Elevating fitness center management through cutting-edge technology.';
+                }
+                if (data.portal_services_title !== undefined) {
+                    const el = document.getElementById('services-title-display');
+                    if (el) el.innerText = data.portal_services_title || 'SERVICES & SESSION RATES';
+                }
+                if (data.portal_services_subtitle !== undefined) {
+                    const el = document.getElementById('services-subtitle-display');
+                    if (el) el.innerText = data.portal_services_subtitle || 'SPECIALIZED SESSIONS AND PER-SESSION PRICING';
                 }
 
                 if (data.logo_url) {
