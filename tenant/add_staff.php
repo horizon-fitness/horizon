@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // 4. Conditional insertion into staff or coaches table
                 if (strtolower($staff_role) === 'coach') {
                     // Create an automatic application record for direct hires to maintain 3NF
-                    $stmtApp = $pdo->prepare("INSERT INTO coach_applications (user_id, gym_id, coach_type, specialization, certification_file, application_status, submitted_at, reviewed_by, reviewed_at, remarks) VALUES (?, ?, ?, 'General Trainer', 'SYSTEM_DIRECT_HIRE', 'Approved', ?, ?, ?, 'Directly added by Tenant/Admin')");
+                    $stmtApp = $pdo->prepare("INSERT INTO coach_applications (user_id, gym_id, coach_type, certification_file, application_status, submitted_at, reviewed_by, reviewed_at, remarks) VALUES (?, ?, ?, 'SYSTEM_DIRECT_HIRE', 'Approved', ?, ?, ?, 'Directly added by Tenant/Admin')");
                     $stmtApp->execute([$new_user_id, $gym_id, $employment_type, $now, $user_id, $now]);
                     $application_id = $pdo->lastInsertId();
 

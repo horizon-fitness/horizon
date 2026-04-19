@@ -5,6 +5,7 @@
 // Count Pending Subscription Payments for the Badge
 $pending_sub_count = 0;
 $unread_alert_count = 0;
+$pending_app_count = 0;
 if (isset($pdo)) {
     try {
         $stmtBadge = $pdo->query("SELECT COUNT(*) FROM client_subscriptions WHERE payment_status = 'Pending'");
@@ -12,6 +13,9 @@ if (isset($pdo)) {
 
         $stmtAlertBadge = $pdo->query("SELECT COUNT(*) FROM system_alerts WHERE status != 'Resolved'");
         $unread_alert_count = $stmtAlertBadge->fetchColumn();
+
+        $stmtAppBadge = $pdo->query("SELECT COUNT(*) FROM gym_owner_applications WHERE application_status = 'Pending'");
+        $pending_app_count = $stmtAppBadge->fetchColumn();
     } catch (Exception $e) {
         // Silently fail if query fails
     }
@@ -46,7 +50,14 @@ if (isset($pdo)) {
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span>
         </div>
         <a href="tenant_management.php" class="nav-link <?= ($active_page == 'tenants') ? 'active-nav' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">business</span> 
+            <div class="relative flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-xl">business</span> 
+                <?php if ($pending_app_count > 0): ?>
+                    <span class="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-amber-500 text-[8px] font-black flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                        <?= $pending_app_count ?>
+                    </span>
+                <?php endif; ?>
+            </div>
             <span class="nav-text">Tenant Management</span>
         </a>
 

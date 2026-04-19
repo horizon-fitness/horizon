@@ -584,7 +584,7 @@ include '../includes/tenant_sidebar.php';
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform" style="color:var(--primary)">badge</span>
                 <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Team Density</p>
                 <h3 class="text-2xl font-black italic uppercase" style="color:var(--text-main)"><?= count($roles) ?> <span class="text-xs opacity-40">Active Roles</span></h3>
-                <p class="text-[10px] font-black uppercase mt-2 italic" style="color:var(--primary)">Specialization Index</p>
+                <p class="text-[10px] font-black uppercase mt-2 italic" style="color:var(--primary)">Personnel Diversity Index</p>
             </div>
         </div>
 

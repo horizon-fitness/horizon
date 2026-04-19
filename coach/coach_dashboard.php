@@ -89,8 +89,8 @@ $page = [
 ];
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Fetch Coach ID (from staff table)
-$stmtCoach = $pdo->prepare("SELECT staff_id as coach_id FROM staff WHERE user_id = ? AND gym_id = ? AND staff_role = 'Coach' LIMIT 1");
+// Fetch Coach ID (from coaches table)
+$stmtCoach = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND gym_id = ? LIMIT 1");
 $stmtCoach->execute([$user_id, $gym_id]);
 $coach_info = $stmtCoach->fetch();
 $coach_id = $coach_info ? $coach_info['coach_id'] : 0;

@@ -348,7 +348,7 @@ $members = [
                 <thead class="bg-black/40 border-b border-white/5">
                     <tr class="text-[10px] font-black uppercase tracking-widest text-gray-500">
                         <th class="px-8 py-5">Coach Name</th>
-                        <th class="px-8 py-5">Specialization</th>
+                        <th class="px-8 py-5">Staff Role</th>
                         <th class="px-8 py-5">System Role</th>
                         <th class="px-8 py-5 text-right">Actions</th>
                     </tr>

@@ -272,7 +272,6 @@ $gym = $stmtGym->fetch();
 $joined = isset($user['created_at']) ? date("F Y", strtotime($user['created_at'])) : 'Unknown';
 $status = $user['coach_status'] ?? 'Active';
 $coachType = $user['coach_type'] ?? 'Official Coach';
-$specialization = $user['specialization'] ?? 'General Trainer';
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">

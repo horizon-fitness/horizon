@@ -38,9 +38,31 @@
     </div>
     
     <div class="flex-1 overflow-y-auto no-scrollbar flex flex-col space-y-1">
+        <?php
+            $pending_bookings_count = 0;
+            if (isset($pdo) && isset($_SESSION['user_id'])) {
+                try {
+                    $stmtCoachBadge = $pdo->prepare("SELECT coach_id FROM coaches WHERE user_id = ? AND status = 'Active'");
+                    $stmtCoachBadge->execute([$_SESSION['user_id']]);
+                    $active_coach_id = $stmtCoachBadge->fetchColumn();
+                    if ($active_coach_id) {
+                        $stmtPendB = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_status = 'Pending'");
+                        $stmtPendB->execute([$active_coach_id]);
+                        $pending_bookings_count = $stmtPendB->fetchColumn();
+                    }
+                } catch (Exception $e) {}
+            }
+        ?>
         <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Main Menu</span></div>
         <a href="coach_dashboard.php" class="nav-item <?= ($active_page == 'dashboard') ? 'active' : '' ?>">
-            <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
+            <div class="relative flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-xl">grid_view</span> 
+                <?php if ($pending_bookings_count > 0): ?>
+                    <span class="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-amber-500 text-[8px] font-black flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                        <?= $pending_bookings_count ?>
+                    </span>
+                <?php endif; ?>
+            </div>
             <span class="nav-label">Dashboard</span>
         </a>
         

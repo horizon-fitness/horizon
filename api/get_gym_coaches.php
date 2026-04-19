@@ -15,21 +15,21 @@ try {
     // If a date is provided, filter out coaches who are 'Off' on that day of the week
     $query = "
         SELECT 
-            s.staff_id as coach_id, 
+            c.coach_id, 
             u.first_name, 
             u.last_name, 
-            '' as specialization,
+            ca.coach_type as specialization,
             COALESCE(c.session_rate, 0) as session_rates
-        FROM staff s
-        JOIN users u ON s.user_id = u.user_id
-        LEFT JOIN coaches c ON c.user_id = s.user_id AND c.gym_id = s.gym_id
+        FROM coaches c
+        JOIN users u ON c.user_id = u.user_id
+        LEFT JOIN coach_applications ca ON c.coach_application_id = ca.coach_application_id
     ";
     
     if (!empty($day_name)) {
-        $query .= " LEFT JOIN coach_schedules cs ON s.staff_id = cs.coach_id AND cs.day_of_week = :day_name ";
+        $query .= " LEFT JOIN coach_schedules cs ON c.coach_id = cs.coach_id AND cs.day_of_week = :day_name ";
     }
     
-    $query .= " WHERE s.gym_id = :gym_id AND s.staff_role = 'Coach' AND s.status = 'Active' ";
+    $query .= " WHERE c.gym_id = :gym_id AND c.status = 'Active' ";
     
     if (!empty($day_name)) {
         $query .= " AND (cs.availability_status IS NULL OR cs.availability_status != 'Off') ";
