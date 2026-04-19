@@ -30,6 +30,19 @@ $sub_status = $stmtSubStatus->fetchColumn() ?: 'None';
 $is_sub_active = (strtolower($sub_status) === 'active');
 $is_restricted = (!$is_sub_active);
 
+// Helper function for Base64 conversion
+if (!function_exists('convertFileToBase64')) {
+    function convertFileToBase64($fileInputName) {
+        if (isset($_FILES[$fileInputName]) && $_FILES[$fileInputName]['error'] == 0) {
+            $tmpPath = $_FILES[$fileInputName]['tmp_name'];
+            $fileType = $_FILES[$fileInputName]['type'];
+            $fileData = file_get_contents($tmpPath);
+            return 'data:' . $fileType . ';base64,' . base64_encode($fileData);
+        }
+        return null;
+    }
+}
+
 // --- ADD STAFF LOGIC ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_staff') {
     header('Content-Type: application/json');
@@ -58,6 +71,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $bdate = !empty($_POST['birth_date']) ? $_POST['birth_date'] : null;
             $sex = $_POST['sex'] ?? 'Prefer not to say';
             $session_rate = $_POST['session_rate'] ?? 0.00;
+            $license_number = trim($_POST['license_number'] ?? '');
+            $cert_file = convertFileToBase64('certification_file');
 
             // Age Validation (18+)
             if ($bdate) {
@@ -133,8 +148,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
                     // 4. Insert into Coaches if applicable (3NF Specialized Entity)
                     if (strtolower($role) === 'coach' || strtolower($role) === 'trainer') {
-                        $stmtCoachAdd = $pdo->prepare("INSERT INTO coaches (user_id, gym_id, hire_date, session_rate, status, created_at, updated_at) VALUES (?, ?, CURRENT_DATE, ?, 'Active', NOW(), NOW())");
-                        $stmtCoachAdd->execute([$new_user_id, $gym_id, $session_rate]);
+                        $coach_app_id = null;
+                        
+                        // Create a "Shadow Application" if credentials provided
+                        if (!empty($license_number) || $cert_file) {
+                            $stmtShadowApp = $pdo->prepare("INSERT INTO coach_applications (user_id, gym_id, coach_type, license_number, certification_file, application_status, submitted_at, remarks) VALUES (?, ?, ?, ?, ?, 'Approved', NOW(), 'Manually registered by Staff')");
+                            $stmtShadowApp->execute([$new_user_id, $gym_id, $employment, $license_number, $cert_file ?: '']);
+                            $coach_app_id = $pdo->lastInsertId();
+                        }
+
+                        $stmtCoachAdd = $pdo->prepare("INSERT INTO coaches (user_id, gym_id, coach_application_id, hire_date, session_rate, status, created_at, updated_at) VALUES (?, ?, ?, CURRENT_DATE, ?, 'Active', NOW(), NOW())");
+                        $stmtCoachAdd->execute([$new_user_id, $gym_id, $coach_app_id, $session_rate]);
                     }
 
                     $pdo->commit();
@@ -770,7 +794,7 @@ include '../includes/tenant_sidebar.php';
                 </button>
             </div>
 
-            <form method="POST" class="overflow-y-auto no-scrollbar flex-1 text-left" autocomplete="off">
+            <form method="POST" class="overflow-y-auto no-scrollbar flex-1 text-left" autocomplete="off" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="add_staff">
                 <div class="p-10 space-y-8">
                     <div class="space-y-6">
@@ -841,9 +865,33 @@ include '../includes/tenant_sidebar.php';
                             </div>
                             
                             <div class="pt-2">
-                                <div id="session_rate_field" class="space-y-2.5 transition-all duration-300">
-                                    <label class="label-muted ml-1">Session Rate (₱)</label>
-                                    <input type="number" step="0.01" name="session_rate" placeholder="0.00" class="filter-input w-full" autocomplete="off">
+                                <div id="session_rate_field" class="space-y-4 transition-all duration-300">
+                                    <div class="space-y-2.5">
+                                        <label class="label-muted ml-1">Session Rate (₱)</label>
+                                        <input type="number" step="0.01" name="session_rate" placeholder="0.00" class="filter-input w-full" autocomplete="off">
+                                    </div>
+                                    
+                                    <!-- Professional Credentials (Optional) -->
+                                    <div id="coach_credentials" class="space-y-4 pt-4 border-t border-white/5">
+                                        <div class="flex items-center gap-3 opacity-40">
+                                            <span class="material-symbols-outlined text-sm">workspace_premium</span>
+                                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Professional Credentials (Optional)</span>
+                                        </div>
+                                        <div class="space-y-2.5">
+                                            <label class="label-muted ml-1">License / Certification Number</label>
+                                            <input type="text" name="license_number" placeholder="Optional" class="filter-input w-full" autocomplete="off">
+                                        </div>
+                                        <div class="space-y-2.5">
+                                            <label class="label-muted ml-1">Certification Document (PDF or Image)</label>
+                                            <div class="relative group/file">
+                                                <input type="file" name="certification_file" accept=".pdf,image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                                                <div class="filter-input w-full flex items-center justify-between group-hover/file:border-primary/50 transition-all">
+                                                    <span class="text-[10px] text-white/40 font-bold uppercase tracking-widest file-name-label">Choose File...</span>
+                                                    <span class="material-symbols-outlined text-sm text-primary">upload_file</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -914,6 +962,12 @@ include '../includes/tenant_sidebar.php';
                 e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
             });
         }
+
+        // File name display listener
+        document.querySelector('input[name="certification_file"]').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || 'Choose File...';
+            this.parentElement.querySelector('.file-name-label').textContent = fileName;
+        });
 
         // --- ELITE NOTIFICATION SYSTEM ---
         function showNotification(msg, type = 'success') {

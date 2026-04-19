@@ -16,7 +16,8 @@ try {
             s.staff_id as coach_id, 
             u.first_name, 
             u.last_name, 
-            '' as specialization
+            COALESCE(s.specialization, '') as specialization,
+            COALESCE(s.session_rates, 0) as session_rates
         FROM staff s
         JOIN users u ON s.user_id = u.user_id
         WHERE s.gym_id = ? AND s.staff_role = 'Coach' AND s.status = 'Active'

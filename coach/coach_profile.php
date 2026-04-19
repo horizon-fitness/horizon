@@ -194,6 +194,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $new_values['session_rate'] = $rate;
         }
 
+        // 3. Professional Credentials (Linked coach_applications)
+        if (isset($_POST['license_number']) || isset($_FILES['certification_file'])) {
+            $license = trim($_POST['license_number'] ?? '');
+            $cert = convertFileToBase64('certification_file');
+            
+            // Check existing link
+            $stmtAppId = $pdo->prepare("SELECT coach_application_id FROM coaches WHERE user_id = ? AND gym_id = ?");
+            $stmtAppId->execute([$user_id, $gym_id]);
+            $app_id = $stmtAppId->fetchColumn();
+            
+            if ($app_id) {
+                // Update existing record
+                $stmtAppUpdate = $pdo->prepare("UPDATE coach_applications SET license_number = ?, certification_file = COALESCE(?, certification_file) WHERE coach_application_id = ?");
+                $stmtAppUpdate->execute([$license, $cert, $app_id]);
+                $new_values['license_number'] = $license;
+            } elseif (!empty($license) || $cert) {
+                // Create shadow app for manual registrations
+                $stmtNewApp = $pdo->prepare("INSERT INTO coach_applications (user_id, gym_id, coach_type, license_number, certification_file, application_status, submitted_at, remarks) VALUES (?, ?, 'COACH', ?, ?, 'Approved', NOW(), 'Initial credential upload from profile')");
+                $stmtNewApp->execute([$user_id, $gym_id, $license, $cert ?: '']);
+                $new_app_id = $pdo->lastInsertId();
+                
+                // Link back to coaches table
+                $stmtLink = $pdo->prepare("UPDATE coaches SET coach_application_id = ? WHERE user_id = ? AND gym_id = ?");
+                $stmtLink->execute([$new_app_id, $user_id, $gym_id]);
+                $new_values['license_number'] = $license;
+            }
+        }
+
         log_audit_event($pdo, $user_id, $gym_id, 'Update', 'users', $user_id, $old_values, $new_values);
 
         $pdo->commit();
@@ -216,7 +244,7 @@ $user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 if ($user) {
     // Fetch Coach Details if they exist
     $stmtCoach = $pdo->prepare("
-        SELECT ca.coach_type, c.status as coach_status, c.hire_date, c.session_rate
+        SELECT ca.coach_type, ca.license_number, ca.certification_file, c.status as coach_status, c.hire_date, c.session_rate
         FROM coaches c
         LEFT JOIN coach_applications ca ON c.coach_application_id = ca.coach_application_id
         WHERE c.user_id = ? AND c.gym_id = ?
@@ -417,8 +445,8 @@ $specialization = $user['specialization'] ?? 'General Trainer';
             transition: all 0.3s ease;
         }
 
-        body:not(.edit-mode) .input-icon-container,
-        .relative:has(input:disabled) .input-icon-container {
+        /* Only hide icons when not in edit mode */
+        body:not(.edit-mode) .input-icon-container {
             display: none !important;
         }
 
@@ -580,8 +608,7 @@ $specialization = $user['specialization'] ?? 'General Trainer';
                                 <div class="space-y-2">
                                     <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Assigned Role</label>
                                     <div class="relative group">
-                                        <div class="input-icon-container"><span class="material-symbols-outlined">badge</span></div>
-                                        <input type="text" value="<?= htmlspecialchars($user['coach_type'] ?? 'Official Coach') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold uppercase italic">
+                                        <input type="text" value="<?= htmlspecialchars($user['coach_type'] ?? 'Official Coach') ?>" disabled class="w-full profile-input rounded-2xl px-4 py-3.5 text-sm font-bold uppercase italic">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
@@ -589,6 +616,51 @@ $specialization = $user['specialization'] ?? 'General Trainer';
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-outlined text-primary">payments</span></div>
                                         <input type="number" step="0.01" name="session_rate" id="session_rate" value="<?= number_format($user['session_rate'] ?? 0, 2, '.', '') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-black italic text-primary">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-6">
+                            <h3 class="profile-section-title">Professional Credentials</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                <div class="space-y-2">
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">License / Cert No.</label>
+                                    <div class="relative group">
+                                        <div class="input-icon-container"><span class="material-symbols-outlined">workspace_premium</span></div>
+                                        <input type="text" name="license_number" value="<?= htmlspecialchars($user['license_number'] ?? '') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" placeholder="Not provided">
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Certification Document</label>
+                                    <div class="relative group">
+                                        <?php if (!empty($user['certification_file'])): ?>
+                                            <div class="flex items-center justify-between profile-input rounded-2xl px-4 py-3.5 border border-emerald-500/20 bg-emerald-500/5">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="material-symbols-outlined text-emerald-400 text-lg">verified</span>
+                                                    <span class="text-[10px] font-bold text-emerald-400/80 tracking-widest uppercase italic">Valid Certificate</span>
+                                                </div>
+                                                <a href="<?= $user['certification_file'] ?>" target="_blank" class="text-primary hover:text-white transition-all flex items-center gap-1">
+                                                    <span class="material-symbols-outlined text-lg">open_in_new</span>
+                                                </a>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="flex items-center justify-between profile-input rounded-2xl px-4 py-3.5 border border-dashed border-primary/20 bg-primary/5">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="material-symbols-outlined text-primary/40 text-lg">warning</span>
+                                                    <span class="text-[9px] font-bold text-primary/40 tracking-widest uppercase italic">No document on file</span>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+                                        <!-- Upload only appears in edit mode -->
+                                        <div class="edit-reveal mt-2">
+                                            <label class="flex items-center gap-3 profile-input rounded-2xl px-4 py-3 border-dashed cursor-pointer hover:border-primary/40 transition-all">
+                                                <span class="material-symbols-outlined text-primary text-lg">upload_file</span>
+                                                <span class="text-[10px] font-bold text-white/40 tracking-widest uppercase" id="cert-file-label">Replace / Upload Document</span>
+                                                <input type="file" name="certification_file" accept=".pdf,image/*" class="sr-only" onchange="document.getElementById('cert-file-label').textContent = this.files[0]?.name || 'Replace / Upload Document'">
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
