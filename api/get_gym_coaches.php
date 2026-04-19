@@ -10,16 +10,17 @@ if ($gym_id <= 0) {
 }
 
 try {
-    // Get active coaches by joining coaches with users and their applications for specialization
+    // Restore original working query + add session_rate from coaches table
     $stmt = $pdo->prepare("
         SELECT 
             s.staff_id as coach_id, 
             u.first_name, 
             u.last_name, 
-            COALESCE(s.specialization, '') as specialization,
-            COALESCE(s.session_rates, 0) as session_rates
+            '' as specialization,
+            COALESCE(c.session_rate, 0) as session_rates
         FROM staff s
         JOIN users u ON s.user_id = u.user_id
+        LEFT JOIN coaches c ON c.user_id = s.user_id AND c.gym_id = s.gym_id
         WHERE s.gym_id = ? AND s.staff_role = 'Coach' AND s.status = 'Active'
     ");
     $stmt->execute([$gym_id]);
