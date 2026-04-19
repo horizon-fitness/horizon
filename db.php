@@ -36,6 +36,12 @@ try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS addresses (address_id INT AUTO_INCREMENT PRIMARY KEY, address_line TEXT, barangay VARCHAR(100), city VARCHAR(100), province VARCHAR(100), region VARCHAR(100), created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS members (member_id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, gym_id INT NOT NULL, member_code VARCHAR(50), address_id INT, occupation VARCHAR(100), member_status VARCHAR(20) DEFAULT 'Active', created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, INDEX(user_id), INDEX(gym_id))");
 
+    // Ensure users table has profile_pic
+    $resUser = $pdo->query("SHOW COLUMNS FROM users LIKE 'profile_pic'");
+    if (!$resUser->fetch()) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN profile_pic TEXT DEFAULT NULL AFTER email");
+    }
+
     // Verification Tables
     $pdo->exec("CREATE TABLE IF NOT EXISTS user_verifications (verification_id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, verification_type VARCHAR(50) NOT NULL, code VARCHAR(10) NOT NULL, status ENUM('pending', 'verified', 'expired') DEFAULT 'pending', expires_at DATETIME NOT NULL, created_at DATETIME NOT NULL, verified_at DATETIME NULL)");
 
