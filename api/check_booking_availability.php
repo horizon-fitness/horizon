@@ -60,39 +60,6 @@ try {
     // 3. Check for pending or approved bookings at the same time for the COACH
     $coach_id = isset($_GET['coach_id']) ? (int)$_GET['coach_id'] : 0;
     if ($coach_id > 0) {
-        // --- Added: Verify Coach Shift Availability ---
-        $day_name = date('l', strtotime($date));
-        $stmtShift = $pdo->prepare("SELECT * FROM coach_schedules WHERE coach_id = ? AND day_of_week = ? LIMIT 1");
-        $stmtShift->execute([$coach_id, $day_name]);
-        $shift = $stmtShift->fetch();
-
-        if ($shift) {
-            if ($shift['availability_status'] === 'Off') {
-                echo json_encode(['success' => true, 'available' => false, 'message' => 'Coach is off on this day.']);
-                exit;
-            }
-            
-            $req_time = date('H:i:s', strtotime($time));
-            $m_start = !empty($shift['morning_start']) ? date('H:i:s', strtotime($shift['morning_start'])) : null;
-            $m_end = !empty($shift['morning_end']) ? date('H:i:s', strtotime($shift['morning_end'])) : null;
-            $a_start = !empty($shift['afternoon_start']) ? date('H:i:s', strtotime($shift['afternoon_start'])) : null;
-            $a_end = !empty($shift['afternoon_end']) ? date('H:i:s', strtotime($shift['afternoon_end'])) : null;
-
-            $is_available = false;
-            if ($m_start && $m_end && $req_time >= $m_start && $req_time < $m_end) {
-                $is_available = true;
-            }
-            if ($a_start && $a_end && $req_time >= $a_start && $req_time < $a_end) {
-                $is_available = true;
-            }
-
-            if (!$is_available) {
-                echo json_encode(['success' => true, 'available' => false, 'message' => 'Requested time is outside the coach\'s working hours.']);
-                exit;
-            }
-        }
-        // --- End of Shift Check ---
-
         $stmtCoachCheck = $pdo->prepare("
             SELECT COUNT(*) 
             FROM bookings 

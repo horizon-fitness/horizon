@@ -108,10 +108,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_availability']))
             
             foreach ($week_days as $day) {
                 $is_off = isset($_POST["off_$day"]) ? 1 : 0;
-                $m_start = $_POST["morning_start_$day"] ?? '08:00';
-                $m_end = $_POST["morning_end_$day"] ?? '12:00';
-                $a_start = $_POST["afternoon_start_$day"] ?? '13:00';
-                $a_end = $_POST["afternoon_end_$day"] ?? '17:00';
+                $start = $_POST["start_$day"] ?? '08:00';
+                $end = $_POST["end_$day"] ?? '12:00';
+                $start2 = $_POST["start2_$day"] ?? '13:00';
+                $end2 = $_POST["end2_$day"] ?? '17:00';
                 $status = $is_off ? 'Off' : 'Available';
 
                 // Check if record for this day already exists for the coach
@@ -121,12 +121,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_availability']))
 
                 if ($existing_id) {
                     // Update existing record
-                    $stmtUpdate = $pdo->prepare("UPDATE coach_schedules SET morning_start = ?, morning_end = ?, afternoon_start = ?, afternoon_end = ?, availability_status = ?, updated_at = NOW() WHERE coach_schedule_id = ?");
-                    $stmtUpdate->execute([$m_start, $m_end, $a_start, $a_end, $status, $existing_id]);
+                    $stmtUpdate = $pdo->prepare("UPDATE coach_schedules SET start_time = ?, end_time = ?, start_time_2 = ?, end_time_2 = ?, availability_status = ?, updated_at = NOW() WHERE coach_schedule_id = ?");
+                    $stmtUpdate->execute([$start, $end, $start2, $end2, $status, $existing_id]);
                 } else {
                     // Insert new record
-                    $stmtInsert = $pdo->prepare("INSERT INTO coach_schedules (coach_id, day_of_week, morning_start, morning_end, afternoon_start, afternoon_end, availability_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
-                    $stmtInsert->execute([$coach_id, $day, $m_start, $m_end, $a_start, $a_end, $status]);
+                    $stmtInsert = $pdo->prepare("INSERT INTO coach_schedules (coach_id, day_of_week, start_time, end_time, start_time_2, end_time_2, availability_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+                    $stmtInsert->execute([$coach_id, $day, $start, $end, $start2, $end2, $status]);
                 }
             }
             $pdo->commit();
@@ -141,7 +141,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_availability']))
 // Fetch current availability
 $avail_map = [];
 foreach ($week_days as $day) {
-    $avail_map[$day] = ['morning_start' => '08:00', 'morning_end' => '12:00', 'afternoon_start' => '13:00', 'afternoon_end' => '17:00', 'is_off_day' => 0];
+    $avail_map[$day] = ['start_time' => '08:00', 'end_time' => '12:00', 'start_time_2' => '13:00', 'end_time_2' => '17:00', 'is_off_day' => 0];
 }
 
 $stmtAvail = $pdo->prepare("SELECT * FROM coach_schedules WHERE coach_id = ?");
@@ -151,10 +151,10 @@ foreach ($rows as $r) {
     $d = $r['day_of_week'];
     if (isset($avail_map[$d])) {
         $avail_map[$d] = [
-            'morning_start' => !empty($r['morning_start']) ? date('H:i', strtotime($r['morning_start'])) : '08:00',
-            'morning_end' => !empty($r['morning_end']) ? date('H:i', strtotime($r['morning_end'])) : '12:00',
-            'afternoon_start' => !empty($r['afternoon_start']) ? date('H:i', strtotime($r['afternoon_start'])) : '13:00',
-            'afternoon_end' => !empty($r['afternoon_end']) ? date('H:i', strtotime($r['afternoon_end'])) : '17:00',
+            'start_time' => !empty($r['start_time']) ? date('H:i', strtotime($r['start_time'])) : '08:00',
+            'end_time' => !empty($r['end_time']) ? date('H:i', strtotime($r['end_time'])) : '12:00',
+            'start_time_2' => !empty($r['start_time_2']) ? date('H:i', strtotime($r['start_time_2'])) : '13:00',
+            'end_time_2' => !empty($r['end_time_2']) ? date('H:i', strtotime($r['end_time_2'])) : '17:00',
             'is_off_day' => (trim($r['availability_status']) === 'Off') ? 1 : 0
         ];
     }
@@ -444,25 +444,25 @@ if ($coach_id > 0) {
                                     <div class="shift-inputs space-y-4">
                                         <div class="grid grid-cols-2 gap-3">
                                             <div>
-                                                <p class="label-muted mb-2" style="font-size: 8px;">Morning Start</p>
-                                                <input type="time" name="morning_start_<?= $day ?>" value="<?= $avail_map[$day]['morning_start'] ?>"
+                                                <p class="label-muted mb-2" style="font-size: 8px;">Shift 1 Start</p>
+                                                <input type="time" name="start_<?= $day ?>" value="<?= $avail_map[$day]['start_time'] ?>"
                                                     class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-xs text-white outline-none focus:border-primary transition-all">
                                             </div>
                                             <div>
-                                                <p class="label-muted mb-2" style="font-size: 8px;">Morning End</p>
-                                                <input type="time" name="morning_end_<?= $day ?>" value="<?= $avail_map[$day]['morning_end'] ?>"
+                                                <p class="label-muted mb-2" style="font-size: 8px;">Shift 1 End</p>
+                                                <input type="time" name="end_<?= $day ?>" value="<?= $avail_map[$day]['end_time'] ?>"
                                                     class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-xs text-white outline-none focus:border-primary transition-all">
                                             </div>
                                         </div>
                                         <div class="grid grid-cols-2 gap-3">
                                             <div>
-                                                <p class="label-muted mb-2" style="font-size: 8px;">Afternoon Start</p>
-                                                <input type="time" name="afternoon_start_<?= $day ?>" value="<?= $avail_map[$day]['afternoon_start'] ?>"
+                                                <p class="label-muted mb-2" style="font-size: 8px;">Shift 2 Start</p>
+                                                <input type="time" name="start2_<?= $day ?>" value="<?= $avail_map[$day]['start_time_2'] ?>"
                                                     class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-xs text-white outline-none focus:border-primary transition-all">
                                             </div>
                                             <div>
-                                                <p class="label-muted mb-2" style="font-size: 8px;">Afternoon End</p>
-                                                <input type="time" name="afternoon_end_<?= $day ?>" value="<?= $avail_map[$day]['afternoon_end'] ?>"
+                                                <p class="label-muted mb-2" style="font-size: 8px;">Shift 2 End</p>
+                                                <input type="time" name="end2_<?= $day ?>" value="<?= $avail_map[$day]['end_time_2'] ?>"
                                                     class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-xs text-white outline-none focus:border-primary transition-all">
                                             </div>
                                         </div>
@@ -507,10 +507,10 @@ if ($coach_id > 0) {
                                 $loop_date = date('Y-m-d', strtotime("monday this week +$index days"));
                                 $day_data = $avail_map[$day_name];
                                 $is_off = (int)($day_data['is_off_day'] ?? 0) === 1;
-                                $s1_ts = strtotime($loop_date . ' ' . ($day_data['morning_start'] ?? '08:00'));
-                                $e1_ts = strtotime($loop_date . ' ' . ($day_data['morning_end'] ?? '12:00'));
-                                $s2_ts = strtotime($loop_date . ' ' . ($day_data['afternoon_start'] ?? '13:00'));
-                                $e2_ts = strtotime($loop_date . ' ' . ($day_data['afternoon_end'] ?? '17:00'));
+                                $s1_ts = strtotime($loop_date . ' ' . ($day_data['start_time'] ?? '08:00'));
+                                $e1_ts = strtotime($loop_date . ' ' . ($day_data['end_time'] ?? '12:00'));
+                                $s2_ts = strtotime($loop_date . ' ' . ($day_data['start_time_2'] ?? '13:00'));
+                                $e2_ts = strtotime($loop_date . ' ' . ($day_data['end_time_2'] ?? '17:00'));
                                 ?>
                                 <div id="<?= $day_name ?>" class="tab-content transition-all">
                                     <div class="flex justify-between items-center mb-8 pb-4">

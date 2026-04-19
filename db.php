@@ -30,6 +30,7 @@ try {
 
     // Gyms & Branding
     $pdo->exec("CREATE TABLE IF NOT EXISTS gyms (gym_id INT AUTO_INCREMENT PRIMARY KEY, tenant_code VARCHAR(50) NOT NULL UNIQUE, gym_name VARCHAR(255) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS tenant_pages (page_id INT AUTO_INCREMENT PRIMARY KEY, gym_id INT NOT NULL, page_slug VARCHAR(100), page_title VARCHAR(255), logo_path VARCHAR(255), theme_color VARCHAR(20) DEFAULT '#7f13ec', bg_color VARCHAR(20) DEFAULT '#050505')");
 
     // Member Profile & Addresses
     $pdo->exec("CREATE TABLE IF NOT EXISTS addresses (address_id INT AUTO_INCREMENT PRIMARY KEY, address_line TEXT, barangay VARCHAR(100), city VARCHAR(100), province VARCHAR(100), region VARCHAR(100), created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
@@ -37,6 +38,24 @@ try {
 
     // Verification Tables
     $pdo->exec("CREATE TABLE IF NOT EXISTS user_verifications (verification_id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, verification_type VARCHAR(50) NOT NULL, code VARCHAR(10) NOT NULL, status ENUM('pending', 'verified', 'expired') DEFAULT 'pending', expires_at DATETIME NOT NULL, created_at DATETIME NOT NULL, verified_at DATETIME NULL)");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS registration_otps (id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255) NOT NULL, code VARCHAR(6) NOT NULL, expires_at DATETIME NOT NULL, created_at DATETIME NOT NULL, INDEX (email))");
+
+    // Coach Workout Plans
+    $pdo->exec("CREATE TABLE IF NOT EXISTS member_workouts (
+        workout_id INT AUTO_INCREMENT PRIMARY KEY,
+        member_id INT NOT NULL,
+        coach_id INT NOT NULL,
+        gym_id INT NOT NULL,
+        workout_name VARCHAR(255) NOT NULL,
+        workout_description TEXT,
+        workout_status VARCHAR(50) DEFAULT 'Assigned',
+        scheduled_date DATE,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        INDEX(member_id),
+        INDEX(coach_id),
+        INDEX(gym_id)
+    )");
 
     // Original Website Plans Migrations (Safe-mode)
     $resPlan = $pdo->query("SHOW TABLES LIKE 'website_plans'");

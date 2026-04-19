@@ -88,27 +88,11 @@ try {
     }
 
     // 4. Build Detailed Response
-    $branding = [
-        'theme_color' => '#7f13ec',
-        'bg_color'    => '#050505',
-        'page_title'  => (string)($roleData['gym_name'] ?? 'Horizon')
-    ];
-
+    $branding = null;
     if (!empty($roleData['gym_id'])) {
-        // Fetch Gym Owner for Settings Reference
-        $stmtOwner = $pdo->prepare("SELECT owner_user_id FROM gyms WHERE gym_id = ? LIMIT 1");
-        $stmtOwner->execute([$roleData['gym_id']]);
-        $owner_uid = $stmtOwner->fetchColumn();
-
-        if ($owner_uid) {
-            $stmtSet = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id IN (0, ?)");
-            $stmtSet->execute([$owner_uid]);
-            $sets = $stmtSet->fetchAll(PDO::FETCH_KEY_PAIR);
-            
-            if (isset($sets['theme_color'])) $branding['theme_color'] = $sets['theme_color'];
-            if (isset($sets['bg_color']))    $branding['bg_color']    = $sets['bg_color'];
-            if (isset($sets['system_name'])) $branding['page_title']  = $sets['system_name'];
-        }
+        $stmtBranding = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
+        $stmtBranding->execute([$roleData['gym_id']]);
+        $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
     }
 
     $response = [
@@ -145,13 +129,19 @@ try {
             'parent_contact_number' => (string)($roleData['parent_contact'] ?? ''),
             'member_status' => (string)($roleData['member_status'] ?? 'Active')
         ],
-        'branding' => [
-            'gym_id' => (int)($roleData['gym_id'] ?? 0),
+        'branding' => $branding ? [
+            'gym_id' => (int)$branding['gym_id'],
             'tenant_code' => (string)($roleData['tenant_code'] ?? ($roleData['g_tenant_code'] ?? '000')),
             'page_title' => (string)$branding['page_title'],
-            'logo_path' => null, // Placeholder or fetch from system_settings if needed
+            'logo_path' => $branding['logo_path'] ? (string)$branding['logo_path'] : null,
             'theme_color' => (string)$branding['theme_color'],
-            'bg_color' => (string)$branding['bg_color']
+            'bg_color' => (string)($branding['bg_color'] ?? '#050505')
+        ] : [
+            'gym_id' => (int)($roleData['gym_id'] ?? 0),
+            'tenant_code' => (string)($roleData['tenant_code'] ?? ($roleData['g_tenant_code'] ?? '000')),
+            'page_title' => (string)($roleData['gym_name'] ?? 'Horizon'),
+            'theme_color' => '#7f13ec',
+            'bg_color' => '#050505'
         ]
     ];
 
