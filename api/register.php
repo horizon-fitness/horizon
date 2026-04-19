@@ -7,15 +7,7 @@ try {
     $input = json_decode(file_get_contents('php://input'), true);
     $action = $input['action'] ?? 'request_otp'; // Default to request_otp for the new flow
 
-    // Utility to ensure registration_otps table exists
-    $pdo->exec("CREATE TABLE IF NOT EXISTS registration_otps (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(255) NOT NULL,
-        code VARCHAR(6) NOT NULL,
-        expires_at DATETIME NOT NULL,
-        created_at DATETIME NOT NULL,
-        INDEX (email)
-    )");
+
 
     if ($action === 'request_otp') {
         $gym_id = $input['gym_id'] ?? $input['tenant_code'] ?? '';
@@ -51,16 +43,31 @@ try {
             exit;
         }
 
-        // 3. Generate and Store OTP
+        // 3. Handle Pending User Account
+        $now = date('Y-m-d H:i:s');
+        $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE email = ? LIMIT 1");
+        $stmtCheck->execute([$email]);
+        $existing = $stmtCheck->fetch();
+
+        if ($existing) {
+            $target_user_id = $existing['user_id'];
+        } else {
+            // Create a placeholder user for verification
+            // We use the email/username provided to reserve them
+            $stmtPlaceholder = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, last_name, contact_number, is_verified, created_at, updated_at) VALUES (?, ?, 'PENDING_REGISTRATION', 'Guest', 'User', '000', 0, ?, ?)");
+            $stmtPlaceholder->execute([$username, $email, $now, $now]);
+            $target_user_id = $pdo->lastInsertId();
+        }
+
+        // 4. Generate and Store OTP in user_verifications
         $otp_code = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
         $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
-        $now = date('Y-m-d H:i:s');
 
-        // Delete old OTPs for this email
-        $pdo->prepare("DELETE FROM registration_otps WHERE email = ?")->execute([$email]);
+        // Delete old pending verifications for this user
+        $pdo->prepare("DELETE FROM user_verifications WHERE user_id = ? AND verification_type = 'registration'")->execute([$target_user_id]);
         
-        $stmtV = $pdo->prepare("INSERT INTO registration_otps (email, code, expires_at, created_at) VALUES (?, ?, ?, ?)");
-        $stmtV->execute([$email, $otp_code, $expires, $now]);
+        $stmtV = $pdo->prepare("INSERT INTO user_verifications (user_id, verification_type, code, status, expires_at, created_at) VALUES (?, 'registration', ?, 'pending', ?, ?)");
+        $stmtV->execute([$target_user_id, $otp_code, $expires, $now]);
 
         // 4. Send Email
         if (file_exists('../includes/mailer.php')) {
@@ -84,8 +91,8 @@ try {
             $mailSent = sendSystemEmail($email, $subject, $emailBody, $errorString);
             
             if (!$mailSent) {
-                // Delete the OTP we just created since the email failed
-                $pdo->prepare("DELETE FROM registration_otps WHERE email = ?")->execute([$email]);
+                // Delete the verification we just created since the email failed
+                $pdo->prepare("DELETE FROM user_verifications WHERE user_id = ? AND code = ?")->execute([$target_user_id, $otp_code]);
                 
                 ob_end_clean();
                 echo json_encode([
@@ -106,14 +113,25 @@ try {
         $pin = $input['pin'] ?? '';
         $email = trim($input['email'] ?? '');
         
-        // 1. Verify PIN First (without creating user yet)
-        $stmtPin = $pdo->prepare("SELECT * FROM registration_otps WHERE email = ? AND code = ? AND expires_at > NOW() LIMIT 1");
+        // 1. Verify PIN First
+        $stmtPin = $pdo->prepare("
+            SELECT uv.*, u.user_id 
+            FROM user_verifications uv 
+            JOIN users u ON uv.user_id = u.user_id 
+            WHERE u.email = ? AND uv.code = ? AND uv.verification_type = 'registration' 
+            AND uv.status = 'pending' AND uv.expires_at > NOW() 
+            LIMIT 1
+        ");
         $stmtPin->execute([$email, $pin]);
-        if (!$stmtPin->fetch()) {
+        $verData = $stmtPin->fetch();
+
+        if (!$verData) {
             ob_end_clean();
             echo json_encode(['success' => false, 'message' => 'Invalid or expired PIN. Please request a new one.']);
             exit;
         }
+
+        $target_user_id = $verData['user_id'];
 
         // 2. If PIN is valid, proceed with Full Registration
         $gym_id = $input['gym_id'] ?? $input['tenant_code'] ?? '';
@@ -155,23 +173,12 @@ try {
             throw new Exception("Username or Email was taken during the verification process.");
         }
 
-        // Handle User Record (Create NEW or reuse EXISTING global account)
+        // Handle User Record (Update the PENDING placeholder)
         $password_hash = password_hash($password, PASSWORD_BCRYPT);
         
-        $stmtCheckExist = $pdo->prepare("SELECT user_id FROM users WHERE username = ? OR email = ? LIMIT 1");
-        $stmtCheckExist->execute([$username, $email]);
-        $existing_user = $stmtCheckExist->fetch();
-
-        if ($existing_user) {
-            $new_user_id = $existing_user['user_id'];
-            // Optionally update password since email ownership was proven via OTP
-            $pdo->prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE user_id = ?")
-                ->execute([$password_hash, $now, $new_user_id]);
-        } else {
-            $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, first_name, middle_name, last_name, contact_number, birth_date, sex, is_verified, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)");
-            $stmtUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $birth_date, $sex, $now, $now]);
-            $new_user_id = $pdo->lastInsertId();
-        }
+        $stmtUpdateUser = $pdo->prepare("UPDATE users SET username = ?, email = ?, password_hash = ?, first_name = ?, middle_name = ?, last_name = ?, contact_number = ?, birth_date = ?, sex = ?, is_verified = 1, updated_at = ? WHERE user_id = ?");
+        $stmtUpdateUser->execute([$username, $email, $password_hash, $first_name, $middle_name, $last_name, $phone, $birth_date, $sex, $now, $target_user_id]);
+        $new_user_id = $target_user_id;
 
         // Assign Role
         $role_name = 'Member';
@@ -194,8 +201,9 @@ try {
         $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, parent_name, parent_contact, registration_source, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
         $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $parent_name, $parent_phone, $reg_source, $now, $now]);
 
-        // Cleanup OTP
-        $pdo->prepare("DELETE FROM registration_otps WHERE email = ?")->execute([$email]);
+        // Cleanup Verification
+        $pdo->prepare("UPDATE user_verifications SET status = 'verified', verified_at = ? WHERE verification_id = ?")
+            ->execute([$now, $verData['verification_id']]);
 
         $pdo->commit();
 

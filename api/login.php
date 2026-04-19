@@ -90,9 +90,25 @@ try {
     // 4. Build Detailed Response
     $branding = null;
     if (!empty($roleData['gym_id'])) {
-        $stmtBranding = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
-        $stmtBranding->execute([$roleData['gym_id']]);
-        $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
+        // Get Gym Data
+        $stmtG = $pdo->prepare("SELECT gym_name, profile_picture as logo_path, owner_user_id FROM gyms WHERE gym_id = ? LIMIT 1");
+        $stmtG->execute([$roleData['gym_id']]);
+        $gym = $stmtG->fetch(PDO::FETCH_ASSOC);
+
+        if ($gym) {
+            // Get Branding Settings
+            $stmtS = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ? OR user_id = 0 ORDER BY user_id ASC");
+            $stmtS->execute([$gym['owner_user_id']]);
+            $settings = $stmtS->fetchAll(PDO::FETCH_KEY_PAIR);
+
+            $branding = [
+                'gym_id' => $roleData['gym_id'],
+                'gym_name' => $gym['gym_name'],
+                'logo_path' => $gym['logo_path'],
+                'theme_color' => $settings['theme_color'] ?? '#7f13ec',
+                'bg_color' => $settings['bg_color'] ?? '#050505'
+            ];
+        }
     }
 
     $response = [
@@ -132,7 +148,7 @@ try {
         'branding' => $branding ? [
             'gym_id' => (int)$branding['gym_id'],
             'tenant_code' => (string)($roleData['tenant_code'] ?? ($roleData['g_tenant_code'] ?? '000')),
-            'page_title' => (string)$branding['page_title'],
+            'page_title' => (string)$branding['gym_name'],
             'logo_path' => $branding['logo_path'] ? (string)$branding['logo_path'] : null,
             'theme_color' => (string)$branding['theme_color'],
             'bg_color' => (string)($branding['bg_color'] ?? '#050505')

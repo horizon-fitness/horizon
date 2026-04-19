@@ -12,12 +12,77 @@ if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
 $gym_id = $_SESSION['gym_id'];
 $admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
 
-// --- FETCH BRANDING & CONFIG ---
-// Gym Details are now part of the gyms table
-$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
-$stmtGym->execute([$gym_id]);
-$gym = $stmtGym->fetch();
-$tenant_config = $gym; // Use gym data directly for branding
+// ── 4-Color Elite Branding System Implementation ─────────────────────────────
+if (!function_exists('hexToRgb')) {
+    function hexToRgb($hex) {
+        if (!$hex) return "0, 0, 0";
+        $hex = str_replace("#", "", $hex);
+        if (strlen($hex) == 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+        } else {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        }
+        return "$r, $g, $b";
+    }
+}
+
+// Fetch Gym & Owner Details for Branding
+$stmtGymBranding = $pdo->prepare("SELECT owner_user_id, gym_name FROM gyms WHERE gym_id = ?");
+$stmtGymBranding->execute([$gym_id]);
+$gym_data = $stmtGymBranding->fetch();
+$owner_user_id = $gym_data['owner_user_id'] ?? 0;
+$gym_name = $gym_data['gym_name'] ?? 'Horizon Gym';
+
+$configs = [
+    'system_name'     => $gym_name,
+    'system_logo'     => '',
+    'theme_color'     => '#8c2bee',
+    'secondary_color' => '#a1a1aa',
+    'text_color'      => '#d1d5db',
+    'bg_color'        => '#0a090d',
+    'card_color'      => '#141216',
+    'auto_card_theme' => '1',
+    'font_family'     => 'Lexend',
+];
+
+// 1. Merge global settings (user_id = 0)
+$stmtGlobal = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$stmtGlobal->execute();
+foreach (($stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
+}
+
+// 2. Merge tenant-specific settings (user_id = owner_user_id)
+$stmtTenant = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtTenant->execute([$owner_user_id]);
+foreach (($stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
+}
+
+// 3. Resolved branding tokens
+$theme_color     = $configs['theme_color'];
+$highlight_color = $configs['secondary_color'];
+$text_color      = $configs['text_color'];
+$bg_color        = $configs['bg_color'];
+$font_family     = $configs['font_family'] ?? 'Lexend';
+$auto_card_theme = $configs['auto_card_theme'] ?? '1';
+$card_color      = $configs['card_color'];
+
+$primary_rgb   = hexToRgb($theme_color);
+$highlight_rgb = hexToRgb($highlight_color);
+$card_bg_css   = ($auto_card_theme === '1') ? "rgba({$primary_rgb}, 0.05)" : $card_color;
+
+$tenant_config = [
+    'logo_path'   => $configs['system_logo'] ?? '',
+    'theme_color' => $theme_color,
+    'bg_color'    => $bg_color,
+    'system_name' => $configs['system_name'] ?? $gym_name,
+];
+// ─────────────────────────────────────────────────────────────────────────────
 
 // --- FILTERING LOGIC ---
 $search = $_GET['search'] ?? '';
@@ -200,8 +265,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Appointment Masterlist | Horizon Partners</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=<?= urlencode($font_family) ?>:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -209,20 +274,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             theme: {
                 extend: {
                     colors: {
-                        "primary": "<?= $tenant_config['theme_color'] ?? '#8c2bee' ?>",
-                        "background-dark": "<?= $tenant_config['bg_color'] ?? '#0a090d' ?>",
-                        "surface-dark": "#14121a",
-                        "border-subtle": "rgba(255,255,255,0.05)"
+                        "primary": "var(--primary)",
+                        "background": "var(--background)",
+                        "card-bg": "var(--card-bg)",
+                        "text-main": "var(--text-main)",
+                        "highlight": "var(--highlight)"
                     }
                 }
             }
         } 
     </script>
     <style>
+        :root {
+            --primary:       <?= $theme_color ?>;
+            --primary-rgb:   <?= $primary_rgb ?>;
+            --highlight:     <?= $highlight_color ?>;
+            --highlight-rgb: <?= $highlight_rgb ?>;
+            --text-main:     <?= $text_color ?>;
+            --background:    <?= $bg_color ?>;
+            --card-bg:       <?= $card_bg_css ?>;
+            --card-blur:     20px;
+        }
+
         body {
-            font-family: 'Lexend', sans-serif;
-            background-color: <?= $tenant_config['bg_color'] ?? '#0a090d' ?>;
-            color: white;
+            font-family: '<?= $font_family ?>', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
             display: flex;
             flex-direction: row;
             min-height: 100vh;
@@ -230,8 +307,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .glass-card {
-            background: #14121a;
+            background: var(--card-bg);
             border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(var(--card-blur));
             border-radius: 24px;
         }
 
@@ -312,7 +390,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .nav-item.active {
-            color: <?= $tenant_config['theme_color'] ?? '#8c2bee' ?> !important;
+            color: var(--primary) !important;
             position: relative;
         }
 
@@ -324,7 +402,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transform: translateY(-50%);
             width: 4px;
             height: 24px;
-            background: <?= $tenant_config['theme_color'] ?? '#8c2bee' ?>;
+            background: var(--primary);
             border-radius: 4px 0 0 4px;
         }
 
@@ -332,10 +410,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         .input-box {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
-            color: white;
+            color: var(--text-main);
             padding: 12px 16px;
             font-size: 13px;
             font-weight: 500;
@@ -344,7 +422,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .input-box:focus {
-            border-color: <?= $tenant_config['theme_color'] ?? '#8c2bee' ?>;
+            border-color: var(--primary);
             background: rgba(255, 255, 255, 0.08);
         }
 

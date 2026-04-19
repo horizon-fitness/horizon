@@ -8,9 +8,26 @@ $branding = null;
 
 if (isset($_GET['gym'])) {
     $slug = $_GET['gym'];
-    $stmtBranding = $pdo->prepare("SELECT tp.*, g.gym_name FROM tenant_pages tp JOIN gyms g ON tp.gym_id = g.gym_id WHERE tp.page_slug = ? LIMIT 1");
-    $stmtBranding->execute([$slug]);
-    $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
+    // Lookup gym by tenant_code
+    $stmtG = $pdo->prepare("SELECT gym_id, gym_name, profile_picture as logo_path, owner_user_id FROM gyms WHERE LOWER(tenant_code) = LOWER(?) LIMIT 1");
+    $stmtG->execute([$slug]);
+    $gym = $stmtG->fetch(PDO::FETCH_ASSOC);
+
+    if ($gym) {
+        // Fetch branding from system_settings
+        $stmtS = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ? OR user_id = 0 ORDER BY user_id ASC");
+        $stmtS->execute([$gym['owner_user_id']]);
+        $settings = $stmtS->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        $branding = [
+            'gym_id' => $gym['gym_id'],
+            'gym_name' => $gym['gym_name'],
+            'logo_path' => $gym['logo_path'],
+            'theme_color' => $settings['theme_color'] ?? '#7f13ec',
+            'bg_color' => $settings['bg_color'] ?? '#050505',
+            'font_family' => $settings['font_family'] ?? 'Lexend'
+        ];
+    }
 }
 
 if (isset($_SESSION['reset_success'])) {

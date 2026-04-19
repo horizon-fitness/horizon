@@ -41,9 +41,22 @@ $branding = null;
 
 if (isset($_GET['gym'])) {
     $slug = $_GET['gym'];
-    $stmtBranding = $pdo->prepare("SELECT tp.*, g.gym_name, g.tenant_code FROM tenant_pages tp JOIN gyms g ON tp.gym_id = g.gym_id WHERE tp.page_slug = ? LIMIT 1");
-    $stmtBranding->execute([$slug]);
-    $branding = $stmtBranding->fetch(PDO::FETCH_ASSOC);
+    // Lookup gym by tenant_code (slug)
+    $stmtG = $pdo->prepare("SELECT gym_id, gym_name, tenant_code, profile_picture as logo_path, owner_user_id FROM gyms WHERE LOWER(tenant_code) = LOWER(?) LIMIT 1");
+    $stmtG->execute([$slug]);
+    $gymData = $stmtG->fetch(PDO::FETCH_ASSOC);
+
+    if ($gymData) {
+        $branding = $gymData;
+        // Fetch branding from system_settings
+        $stmtS = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ? OR user_id = 0 ORDER BY user_id ASC");
+        $stmtS->execute([$gymData['owner_user_id']]);
+        $settings = $stmtS->fetchAll(PDO::FETCH_KEY_PAIR);
+        
+        $branding['theme_color'] = $settings['theme_color'] ?? '#7f13ec';
+        $branding['bg_color'] = $settings['bg_color'] ?? '#050505';
+        $branding['font_family'] = $settings['font_family'] ?? 'Lexend';
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -30,7 +30,7 @@ try {
 
     // Gyms & Branding
     $pdo->exec("CREATE TABLE IF NOT EXISTS gyms (gym_id INT AUTO_INCREMENT PRIMARY KEY, tenant_code VARCHAR(50) NOT NULL UNIQUE, gym_name VARCHAR(255) NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
-    $pdo->exec("CREATE TABLE IF NOT EXISTS tenant_pages (page_id INT AUTO_INCREMENT PRIMARY KEY, gym_id INT NOT NULL, page_slug VARCHAR(100), page_title VARCHAR(255), logo_path VARCHAR(255), theme_color VARCHAR(20) DEFAULT '#7f13ec', bg_color VARCHAR(20) DEFAULT '#050505')");
+
 
     // Member Profile & Addresses
     $pdo->exec("CREATE TABLE IF NOT EXISTS addresses (address_id INT AUTO_INCREMENT PRIMARY KEY, address_line TEXT, barangay VARCHAR(100), city VARCHAR(100), province VARCHAR(100), region VARCHAR(100), created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");

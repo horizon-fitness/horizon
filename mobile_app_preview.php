@@ -5,9 +5,30 @@ $gym_slug = $_GET['gym'] ?? '';
 $page = null;
 
 if (!empty($gym_slug)) {
-    $stmt = $pdo->prepare("SELECT tp.*, g.gym_name FROM tenant_pages tp JOIN gyms g ON tp.gym_id = g.gym_id WHERE tp.page_slug = ? LIMIT 1");
-    $stmt->execute([$gym_slug]);
-    $page = $stmt->fetch();
+    // Lookup gym by tenant_code (slug)
+    $stmtG = $pdo->prepare("SELECT g.gym_id, g.gym_name, g.profile_picture as logo_path, g.owner_user_id, ps.hero_title, ps.hero_subtitle 
+                           FROM gyms g 
+                           LEFT JOIN portal_settings ps ON g.gym_id = ps.gym_id 
+                           WHERE LOWER(g.tenant_code) = LOWER(?) LIMIT 1");
+    $stmtG->execute([$gym_slug]);
+    $gymData = $stmtG->fetch();
+
+    if ($gymData) {
+        // Fetch branding from system_settings
+        $stmtS = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ? OR user_id = 0 ORDER BY user_id ASC");
+        $stmtS->execute([$gymData['owner_user_id']]);
+        $settings = $stmtS->fetchAll(PDO::FETCH_KEY_PAIR);
+
+        $page = [
+            'page_title' => $gymData['hero_title'] ?? 'WELCOME BACK',
+            'gym_name' => $gymData['gym_name'],
+            'theme_color' => $settings['theme_color'] ?? '#7f13ec',
+            'bg_color' => $settings['bg_color'] ?? '#050505',
+            'font_family' => $settings['font_family'] ?? 'Lexend',
+            'logo_path' => $gymData['logo_path'],
+            'about_text' => $gymData['hero_subtitle'] ?? 'AUTHORIZED PERSONNEL ONLY'
+        ];
+    }
 }
 
 // Fallback if not found or no slug

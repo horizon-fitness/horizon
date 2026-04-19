@@ -17,9 +17,15 @@ $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]);
 $gym = $stmtGym->fetch();
 
-$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
-$stmtPage->execute([$gym_id]);
-$tenant_config = $stmtPage->fetch();
+$owner_user_id = $gym['owner_user_id'] ?? 0;
+$stmtSettings = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ? OR user_id = 0 ORDER BY user_id ASC");
+$stmtSettings->execute([$owner_user_id]);
+$configs = $stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR);
+
+$theme_color = $configs['theme_color'] ?? '#8c2bee';
+$bg_color = $configs['bg_color'] ?? '#0a090d';
+$font_family = $configs['font_family'] ?? 'Lexend';
+$system_logo = $configs['system_logo'] ?? $gym['profile_picture'] ?? '';
 
 // --- FILTERING LOGIC ---
 $search = $_GET['search'] ?? '';
@@ -207,8 +213,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             theme: {
                 extend: {
                     colors: {
-                        "primary": "<?= $tenant_config['theme_color'] ?? '#8c2bee' ?>",
-                        "background-dark": "<?= $tenant_config['bg_color'] ?? '#0a090d' ?>",
+                        "primary": "<?= $theme_color ?>",
+                        "background-dark": "<?= $bg_color ?>",
                         "surface-dark": "#14121a",
                         "border-subtle": "rgba(255,255,255,0.05)"
                     }
@@ -218,8 +224,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </script>
     <style>
         body {
-            font-family: 'Lexend', sans-serif;
-            background-color: <?= $tenant_config['bg_color'] ?? '#0a090d' ?>;
+            font-family: '<?= $font_family ?>', sans-serif;
+            background-color: <?= $bg_color ?>;
             color: white;
             display: flex;
             flex-direction: row;
@@ -310,7 +316,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .nav-item.active {
-            color: <?= $tenant_config['theme_color'] ?? '#8c2bee' ?> !important;
+            color: <?= $theme_color ?> !important;
             position: relative;
         }
 
@@ -322,7 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             transform: translateY(-50%);
             width: 4px;
             height: 24px;
-            background: <?= $tenant_config['theme_color'] ?? '#8c2bee' ?>;
+            background: <?= $theme_color ?>;
             border-radius: 4px 0 0 4px;
         }
 
@@ -342,7 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .input-box:focus {
-            border-color: <?= $tenant_config['theme_color'] ?? '#8c2bee' ?>;
+            border-color: <?= $theme_color ?>;
             background: rgba(255, 255, 255, 0.08);
         }
 
@@ -441,8 +447,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="px-7 py-8 mb-4 shrink-0">
         <div class="flex items-center gap-4">
             <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($tenant_config['logo_path'])):
-                    $logo_src = (strpos($tenant_config['logo_path'], 'data:image') === 0) ? $tenant_config['logo_path'] : '../' . $tenant_config['logo_path'];
+                <?php if (!empty($system_logo)):
+                    $logo_src = (strpos($system_logo, 'data:image') === 0) ? $system_logo : '../' . $system_logo;
                 ?>
                     <img src="<?= $logo_src ?>" class="size-full object-contain">
                 <?php else: ?>

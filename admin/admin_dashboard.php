@@ -18,10 +18,7 @@ $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]);
 $gym = $stmtGym->fetch();
 
-// Fetch Active CMS Page settings for dynamic colors and logo
-$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1");
-$stmtPage->execute([$gym_id]);
-$page = $stmtPage->fetch();
+
 
 $admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
 $active_page = "dashboard";

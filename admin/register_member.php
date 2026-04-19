@@ -39,10 +39,15 @@ $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
 $stmtGym->execute([$gym_id]); 
 $gym = $stmtGym->fetch(); 
 
-// Fetch branding for sidebar 
-$stmtPage = $pdo->prepare("SELECT * FROM tenant_pages WHERE gym_id = ? LIMIT 1"); 
-$stmtPage->execute([$gym_id]); 
-$page = $stmtPage->fetch(); 
+$owner_user_id = $gym['owner_user_id'] ?? 0;
+$stmtSettings = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ? OR user_id = 0 ORDER BY user_id ASC");
+$stmtSettings->execute([$owner_user_id]);
+$configs = $stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR);
+
+$theme_color = $configs['theme_color'] ?? '#8c2bee';
+$bg_color = $configs['bg_color'] ?? '#0a090d';
+$font_family = $configs['font_family'] ?? 'Lexend';
+$system_logo = $configs['system_logo'] ?? $gym['profile_picture'] ?? ''; 
 
 $stmtSub = $pdo->prepare("SELECT ws.plan_name FROM client_subscriptions cs JOIN website_plans ws ON cs.website_plan_id = ws.website_plan_id WHERE cs.gym_id = ? AND cs.subscription_status = 'Active' LIMIT 1"); 
 $stmtSub->execute([$gym_id]); 
@@ -61,14 +66,14 @@ $active_page = "register_member";
     <script> 
         tailwind.config = { 
             darkMode: "class", 
-            theme: { extend: { colors: { "primary": "<?= $page['theme_color'] ?? '#8c2bee' ?>", "background-dark": "<?= $page['bg_color'] ?? '#0a090d' ?>", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}} 
+            theme: { extend: { colors: { "primary": "<?= $theme_color ?>", "background-dark": "<?= $bg_color ?>", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}} 
         } 
     </script> 
     <style> 
-        body { font-family: 'Lexend', sans-serif; background-color: <?= $page['bg_color'] ?? '#0a090d' ?>; color: white; overflow: hidden; } 
+        body { font-family: '<?= $font_family ?>', sans-serif; background-color: <?= $bg_color ?>; color: white; overflow: hidden; } 
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; } 
         .input-field { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; padding: 14px 18px; width: 100%; outline: none; transition: all 0.2s; font-size: 13px; font-weight: 500; color-scheme: dark; } 
-        .input-field:focus { border-color: <?= $page['theme_color'] ?? '#8c2bee' ?>; background: rgba(255,255,255,0.08); } 
+        .input-field:focus { border-color: <?= $theme_color ?>; background: rgba(255,255,255,0.08); } 
         .input-field option { background-color: #1a1821; color: white; }
         ::-webkit-calendar-picker-indicator { filter: invert(1) brightness(0.8); opacity: 0.6; cursor: pointer; }
         .strength-bar { height: 4px; border-radius: 2px; transition: all 0.3s ease; width: 0; }
@@ -88,8 +93,8 @@ $active_page = "register_member";
         
         .nav-item { display: flex; align-items: center; gap: 16px; padding: 10px 38px; transition: all 0.2s ease; text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
         .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { color: <?= $page['theme_color'] ?? '#8c2bee' ?> !important; position: relative; }
-        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: <?= $page['theme_color'] ?? '#8c2bee' ?>; border-radius: 4px 0 0 4px; }
+        .nav-item.active { color: <?= $theme_color ?> !important; position: relative; } 
+        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: <?= $theme_color ?>; border-radius: 4px 0 0 4px; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; } 
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; } 
@@ -165,8 +170,8 @@ $active_page = "register_member";
     <div class="px-7 py-8 mb-4 shrink-0">
         <div class="flex items-center gap-4">
             <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($page['logo_path'])): 
-                    $logo_src = (strpos($page['logo_path'], 'data:image') === 0) ? $page['logo_path'] : '../' . $page['logo_path'];
+                <?php if (!empty($system_logo)): 
+                    $logo_src = (strpos($system_logo, 'data:image') === 0) ? $system_logo : '../' . $system_logo;
                 ?>
                     <img src="<?= $logo_src ?>" class="size-full object-contain">
                 <?php else: ?>
