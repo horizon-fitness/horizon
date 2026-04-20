@@ -121,11 +121,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_availability']))
 
                 if ($existing_id) {
                     // Update existing record
-                    $stmtUpdate = $pdo->prepare("UPDATE coach_schedules SET start_time = ?, end_time = ?, start_time_2 = ?, end_time_2 = ?, availability_status = ?, updated_at = NOW() WHERE coach_schedule_id = ?");
+                    $stmtUpdate = $pdo->prepare("UPDATE coach_schedules SET morning_start = ?, morning_end = ?, afternoon_start = ?, afternoon_end = ?, availability_status = ?, updated_at = NOW() WHERE coach_schedule_id = ?");
                     $stmtUpdate->execute([$start, $end, $start2, $end2, $status, $existing_id]);
                 } else {
                     // Insert new record
-                    $stmtInsert = $pdo->prepare("INSERT INTO coach_schedules (coach_id, day_of_week, start_time, end_time, start_time_2, end_time_2, availability_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
+                    $stmtInsert = $pdo->prepare("INSERT INTO coach_schedules (coach_id, day_of_week, morning_start, morning_end, afternoon_start, afternoon_end, availability_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
                     $stmtInsert->execute([$coach_id, $day, $start, $end, $start2, $end2, $status]);
                 }
             }
@@ -151,10 +151,10 @@ foreach ($rows as $r) {
     $d = $r['day_of_week'];
     if (isset($avail_map[$d])) {
         $avail_map[$d] = [
-            'start_time' => !empty($r['start_time']) ? date('H:i', strtotime($r['start_time'])) : '08:00',
-            'end_time' => !empty($r['end_time']) ? date('H:i', strtotime($r['end_time'])) : '12:00',
-            'start_time_2' => !empty($r['start_time_2']) ? date('H:i', strtotime($r['start_time_2'])) : '13:00',
-            'end_time_2' => !empty($r['end_time_2']) ? date('H:i', strtotime($r['end_time_2'])) : '17:00',
+            'start_time' => !empty($r['morning_start']) ? date('H:i', strtotime($r['morning_start'])) : '08:00',
+            'end_time' => !empty($r['morning_end']) ? date('H:i', strtotime($r['morning_end'])) : '12:00',
+            'start_time_2' => !empty($r['afternoon_start']) ? date('H:i', strtotime($r['afternoon_start'])) : '13:00',
+            'end_time_2' => !empty($r['afternoon_end']) ? date('H:i', strtotime($r['afternoon_end'])) : '17:00',
             'is_off_day' => (trim($r['availability_status']) === 'Off') ? 1 : 0
         ];
     }

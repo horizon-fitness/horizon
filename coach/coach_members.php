@@ -101,7 +101,7 @@ $lifetime_sessions = 0;
 
 if ($coach_id > 0) {
     // Total Assigned Members
-    $stmtTotal = $pdo->prepare("SELECT COUNT(DISTINCT member_id) FROM bookings WHERE coach_id = ? AND booking_status IN ('Approved', 'Confirmed')");
+    $stmtTotal = $pdo->prepare("SELECT COUNT(DISTINCT member_id) FROM bookings WHERE coach_id = ? AND booking_status != 'Rejected'");
     $stmtTotal->execute([$coach_id]);
     $total_clients = $stmtTotal->fetchColumn();
 
@@ -110,7 +110,7 @@ if ($coach_id > 0) {
         SELECT COUNT(DISTINCT m.member_id) 
         FROM members m
         JOIN bookings b ON m.member_id = b.member_id
-        WHERE b.coach_id = ? AND m.member_status = 'Active' AND b.booking_status IN ('Approved', 'Confirmed')
+        WHERE b.coach_id = ? AND m.member_status = 'Active' AND b.booking_status != 'Rejected'
     ");
     $stmtActive->execute([$coach_id]);
     $active_clients_count = $stmtActive->fetchColumn();
@@ -121,7 +121,7 @@ if ($coach_id > 0) {
     $pending_sessions_count = $stmtPend->fetchColumn();
 
     // Completed Sessions
-    $stmtLife = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_status IN ('Approved', 'Confirmed', 'Completed')");
+    $stmtLife = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_status != 'Rejected'");
     $stmtLife->execute([$coach_id]);
     $lifetime_sessions = $stmtLife->fetchColumn();
 }
@@ -248,7 +248,7 @@ $sql = "
     FROM members m
     JOIN users u ON m.user_id = u.user_id
     JOIN bookings b ON m.member_id = b.member_id
-    WHERE b.booking_status IN ('Approved', 'Confirmed') AND " . implode(" AND ", $where_clauses) . "
+    WHERE b.booking_status != 'Rejected' AND " . implode(" AND ", $where_clauses) . "
     $order_sql
 ";
 
