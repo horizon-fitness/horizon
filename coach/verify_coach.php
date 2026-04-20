@@ -1,6 +1,5 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ob_start();
 session_start();
 require_once '../db.php';
 require_once '../includes/mailer.php';
@@ -77,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception("Code expired. Please restart the application.");
         }
 
-        if ($entered_otp !== $current_otp['code'] && $entered_otp !== '999999') {
+        if ($entered_otp !== $current_otp['code']) {
             throw new Exception("Invalid verification code.");
         }
 

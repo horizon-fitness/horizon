@@ -14,8 +14,15 @@ $options = [
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
 } catch (PDOException $e) {
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'message' => 'DB Connection Failed']);
+    $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+    $isApiJson = isset($_SERVER['HTTP_ACCEPT']) && strpos($_SERVER['HTTP_ACCEPT'], 'application/json') !== false;
+    if ($isAjax || $isApiJson) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'message' => 'Database connection failed. Please try again later.']);
+    } else {
+        http_response_code(503);
+        echo "<!DOCTYPE html><html><head><title>Service Unavailable</title></head><body style='font-family:sans-serif;text-align:center;padding:80px;background:#050505;color:#fff;'><h2>&#x26A0; Service Temporarily Unavailable</h2><p style='color:#aaa;'>We are unable to connect to the database. Please try again in a few moments.</p></body></html>";
+    }
     exit;
 }
 

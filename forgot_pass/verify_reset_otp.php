@@ -1,10 +1,11 @@
 <?php
+ob_start();
 session_start();
 require_once '../db.php';
 
 $error = '';
 $success = '';
-$branding = null;
+$branding = []; // Initialize as array to prevent null-access warnings
 
 // Ensure we have a user to reset for
 if (!isset($_SESSION['reset_user_id'])) {

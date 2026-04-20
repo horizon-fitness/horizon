@@ -1,4 +1,5 @@
 <?php
+ob_start();
 session_start();
 require_once '../db.php';
 
@@ -62,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($staged_otp && isset($staged_otp['code'], $staged_otp['expires_at'])) {
             if (time() > $staged_otp['expires_at']) {
                 $error = 'This verification code has expired. Please request a new one.';
-            } elseif ($entered_code === $staged_otp['code'] || $entered_code === '999999') {
+            } elseif ($entered_code === $staged_otp['code']) {
                 try {
                     $pdo->beginTransaction();
                     $s = $_SESSION['staged_registration'];
@@ -120,7 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $success_processed = true;
                 } catch (Exception $e) {
                     if ($pdo->inTransaction()) $pdo->rollBack();
-                    $error = 'A database error occurred during persistence: ' . $e->getMessage();
+                    $error = 'A database error occurred. Please try again or contact support.';
+                    error_log('verify_email DB error: ' . $e->getMessage());
                 }
             } else {
                 $error = 'Invalid verification code. Please try again.';
@@ -138,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = 'This verification code has expired. Please request a new one.';
                     $updateExpired = $pdo->prepare("UPDATE user_verifications SET status = 'expired' WHERE verification_id = ?");
                     $updateExpired->execute([$verification['verification_id']]);
-                } elseif ($entered_code === $verification['code'] || $entered_code === '999999') {
+                } elseif ($entered_code === $verification['code']) {
                     try {
                         $pdo->beginTransaction();
                         $verifyUpdate = $pdo->prepare("UPDATE user_verifications SET status = 'verified', verified_at = ? WHERE verification_id = ?");
