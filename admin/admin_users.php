@@ -12,27 +12,79 @@ if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
 $gym_id = $_SESSION['gym_id'];
 $admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
 
-// --- FETCH BRANDING & CONFIG ---
-$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
-$stmtGym->execute([$gym_id]);
-$gym = $stmtGym->fetch();
+// ── 4-Color Elite Branding System Implementation ─────────────────────────────
+if (!function_exists('hexToRgb')) {
+    function hexToRgb($hex) {
+        if (!$hex) return "0, 0, 0";
+        $hex = str_replace("#", "", $hex);
+        if (strlen($hex) == 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+        } else {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        }
+        return "$r, $g, $b";
+    }
+}
 
-$owner_user_id = $gym['owner_user_id'] ?? 0;
-$stmtSettings = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ? OR user_id = 0 ORDER BY user_id ASC");
-$stmtSettings->execute([$owner_user_id]);
-$configs = $stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR);
+// Fetch Gym & Owner Details for Branding
+$stmtGymBranding = $pdo->prepare("SELECT owner_user_id, gym_name FROM gyms WHERE gym_id = ?");
+$stmtGymBranding->execute([$gym_id]);
+$gym_data = $stmtGymBranding->fetch();
+$owner_user_id = $gym_data['owner_user_id'] ?? 0;
+$gym_name = $gym_data['gym_name'] ?? 'Horizon Gym';
 
-$theme_color = $configs['theme_color'] ?? '#8c2bee';
-$bg_color = $configs['bg_color'] ?? '#0a090d';
-$font_family = $configs['font_family'] ?? 'Lexend';
-$system_logo = $configs['system_logo'] ?? $gym['profile_picture'] ?? '';
+$configs = [
+    'system_name'     => $gym_name,
+    'system_logo'     => '',
+    'theme_color'     => '#8c2bee',
+    'secondary_color' => '#a1a1aa',
+    'text_color'      => '#d1d5db',
+    'bg_color'        => '#0a090d',
+    'card_color'      => '#141216',
+    'auto_card_theme' => '1',
+    'font_family'     => 'Lexend',
+];
+
+// 1. Merge global settings (user_id = 0)
+$stmtGlobal = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$stmtGlobal->execute();
+foreach (($stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
+}
+
+// 2. Merge tenant-specific settings (user_id = owner_user_id)
+$stmtTenant = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtTenant->execute([$owner_user_id]);
+foreach (($stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
+}
+
+// 3. Resolved branding tokens
+$theme_color     = $configs['theme_color'];
+$highlight_color = $configs['secondary_color'];
+$text_color      = $configs['text_color'];
+$bg_color        = $configs['bg_color'];
+$font_family     = $configs['font_family'] ?? 'Lexend';
+$auto_card_theme = $configs['auto_card_theme'] ?? '1';
+$card_color      = $configs['card_color'];
+
+$primary_rgb   = hexToRgb($theme_color);
+$highlight_rgb = hexToRgb($highlight_color);
+$card_bg_css   = ($auto_card_theme === '1') ? "rgba({$primary_rgb}, 0.05)" : $card_color;
+
+$system_logo = $configs['system_logo'] ?: ($gym_data['profile_picture'] ?? '');
+// ─────────────────────────────────────────────────────────────────────────────
 
 // --- PAGINATION & FILTERING LOGIC ---
 $limit = 10;
-$page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int) $_GET['page'] : 1;
-if ($page < 1)
-    $page = 1;
-$offset = ($page - 1) * $limit;
+$current_page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int) $_GET['page'] : 1;
+if ($current_page < 1)
+    $current_page = 1;
+$offset = ($current_page - 1) * $limit;
 
 $search = $_GET['search'] ?? '';
 $filter_role = $_GET['role'] ?? '';
@@ -40,7 +92,7 @@ $filter_status = $_GET['status'] ?? '';
 $sort_by = $_GET['sort'] ?? 'newest';
 
 // 1. Base Query Structure
-$where_parts = ["ur.gym_id = :gym_id", "r.role_name != 'Superadmin'"];
+$where_parts = ["ur.gym_id = :gym_id", "r.role_name IN ('Member', 'Coach')"];
 $sql_params = [':gym_id' => $gym_id];
 
 if (!empty($search)) {
@@ -160,184 +212,110 @@ if (isset($_GET['ajax_user_id'])) {
     $u = $stmtUser->fetch();
 
     if ($u): ?>
-        <div class="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-500 pb-10">
-            <!-- Header Identity Wrapper -->
-            <header class="flex justify-between items-start border-b border-white/5 pb-10">
-                <div class="flex items-center gap-8">
-                    <div class="size-24 rounded-[32px] bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-primary font-black italic text-4xl uppercase">
+        <div class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-6">
+            <!-- Professional Header -->
+            <header class="flex justify-between items-center border-b border-white/5 pb-8">
+                <div class="flex items-center gap-6">
+                    <div class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-2xl uppercase">
                         <?= substr($u['first_name'], 0, 1) ?>
                     </div>
                     <div>
-                        <div class="flex items-center gap-4 mb-2">
-                             <h2 class="text-4xl font-black italic uppercase tracking-tighter text-white leading-none">
-                                <?= htmlspecialchars($u['first_name'] . ' ' . $u['last_name']) ?>
-                             </h2>
-                             <?php if(strtolower($u['role']) === 'tenant'): ?>
-                                <span class="px-3 py-1 rounded-[10px] bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-500 font-extrabold uppercase italic tracking-widest flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-[14px]">stars</span> SYSTEM OWNER
-                                </span>
-                             <?php endif; ?>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <span class="px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-[10px] text-primary font-black uppercase italic tracking-[0.1em]"><?= $u['role'] ?></span>
+                        <h2 class="text-2xl font-bold uppercase tracking-tight text-[--text-main]">
+                            <?= htmlspecialchars($u['first_name'] . ' ' . $u['last_name']) ?>
+                        </h2>
+                        <div class="flex items-center gap-3 mt-1">
+                            <span class="text-[10px] text-primary font-black uppercase tracking-widest px-2 py-0.5 rounded bg-primary/5 border border-primary/10">
+                                <?= $u['role'] ?>
+                            </span>
                         </div>
                     </div>
                 </div>
-                <button onclick="closeUserModal()" class="size-12 rounded-2xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 group transition-all">
-                    <span class="material-symbols-outlined text-2xl group-hover:rotate-90 transition-transform">close</span>
+                <button onclick="closeUserModal()" class="size-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-[--text-main]/40 transition-all">
+                    <span class="material-symbols-rounded text-xl">close</span>
                 </button>
             </header>
 
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-10">
-                <div class="xl:col-span-2 space-y-10">
-                    <?php if ($role_name === 'tenant'): ?>
-                        <!-- Tenant / Business Data Section -->
-                        <section class="space-y-6">
-                            <h4 class="text-[10px] font-black uppercase text-amber-500 tracking-[0.3em] border-l-4 border-amber-500 pl-4">Business Application Registry</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-amber-500">store</span> Gym Branding</p>
-                                    <p class="text-base font-black text-white italic truncate"><?= htmlspecialchars($u['gym_name'] ?: 'HORIZON SYSTEMS BUSINESS') ?></p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-amber-500">qr_code</span> Tenant Code</p>
-                                    <p class="text-base font-bold text-white tracking-widest"><?= htmlspecialchars($u['tenant_code'] ?: 'PENDING_ONBOARD') ?></p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-amber-500">apartment</span> Registered Business Name</p>
-                                    <p class="text-sm font-bold text-gray-300"><?= htmlspecialchars($u['business_name'] ?: 'PRIVATE BUSINESS ENTITY') ?></p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-amber-500">verified</span> Business Approval Status</p>
-                                    <p class="text-sm font-bold text-emerald-500 uppercase tracking-widest"><?= htmlspecialchars($u['gym_status'] ?: 'ACTIVE') ?></p>
-                                </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Data Nodes -->
+                <div class="space-y-8">
+                    <section class="space-y-4">
+                        <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Identity & Access</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                                <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Username</p>
+                                <p class="text-xs font-bold text-[--text-main]">@<?= htmlspecialchars($u['username']) ?></p>
                             </div>
-                        </section>
-                    <?php endif; ?>
+                            <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                                <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Status</p>
+                                <p class="text-xs font-bold uppercase <?= $u['is_active'] ? 'text-emerald-500' : 'text-rose-500' ?>">
+                                    <?= $u['is_active'] ? 'Authorized' : 'Restricted' ?>
+                                </p>
+                            </div>
+                        </div>
+                    </section>
 
-                    <?php if ($role_name === 'staff' || $role_name === 'coach'): ?>
-                        <!-- Staff / Coach Registry Section -->
-                        <section class="space-y-6">
-                            <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.3em] border-l-4 border-primary pl-4">Staff Registry Handlers</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Internal Role</p>
-                                    <p class="text-sm font-black text-white italic uppercase"><?= $u['staff_role'] ?: $u['role'] ?></p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Shift Class</p>
-                                    <p class="text-sm font-black text-white italic uppercase"><?= $u['employment_type'] ?: 'ON-SITE' ?></p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Hire Registry</p>
-                                    <p class="text-sm font-black text-white italic"><?= $u['hire_date'] ? date('M d, Y', strtotime($u['hire_date'])) : 'N/A' ?></p>
-                                </div>
+                    <section class="space-y-4">
+                        <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Contact Information</h4>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                                <span class="text-[9px] font-black uppercase text-[--text-main]/30 tracking-widest">Direct Mail</span>
+                                <span class="text-xs font-medium text-[--text-main]/70 truncate max-w-[180px]"><?= htmlspecialchars($u['email']) ?></span>
                             </div>
-                        </section>
-                    <?php endif; ?>
-
-                    <?php if ($role_name === 'member'): ?>
-                        <!-- Member Registry Section (Historical) -->
-                        <section class="space-y-6">
-                            <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.3em] border-l-4 border-primary pl-4">Biological ID & Identity</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-2">Biological Sex</p>
-                                    <p class="text-sm font-black text-white italic uppercase"><?= $u['sex'] ?: 'N/A' ?></p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Birth Date</p>
-                                    <p class="text-sm font-black text-white italic"><?= $u['birth_date'] ? date('M d, Y', strtotime($u['birth_date'])) : 'N/A' ?></p>
-                                </div>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Occupation</p>
-                                    <p class="text-sm font-black text-white italic uppercase truncate"><?= $u['occupation'] ?: 'N/A' ?></p>
-                                </div>
+                            <div class="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                                <span class="text-[9px] font-black uppercase text-[--text-main]/30 tracking-widest">Mobile Signal</span>
+                                <span class="text-xs font-bold text-[--text-main] tracking-widest"><?= htmlspecialchars($u['contact_number'] ?: 'N/A') ?></span>
                             </div>
-                        </section>
-
-                        <!-- Health & Medical Profile -->
-                        <section class="space-y-6">
-                            <h4 class="text-[10px] font-black uppercase text-rose-500 tracking-[0.3em] border-l-4 border-rose-500 pl-4">Synthetic Health Profile</h4>
-                            <div class="bg-rose-500/[0.03] p-8 rounded-[32px] border border-rose-500/10">
-                                <p class="text-[9px] font-black uppercase text-rose-500/60 tracking-widest mb-2">Medical History & Anomalies</p>
-                                <div class="text-sm font-medium text-gray-400 italic leading-relaxed bg-black/20 p-6 rounded-2xl border border-white/5">
-                                    <?= nl2br(htmlspecialchars($u['medical_history'] ?: 'No physical medical history recorded in system.')) ?>
-                                </div>
-                            </div>
-                        </section>
-                    <?php endif; ?>
-
-                    <!-- Common Contact Network -->
-                    <section class="space-y-6">
-                        <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.3em] border-l-4 border-primary pl-4">Primary Contact Protocols</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-primary">mail</span> Mail Frequency</p>
-                                <p class="text-base font-bold text-white"><?= htmlspecialchars($u['email']) ?></p>
-                            </div>
-                            <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-primary">call</span> Mobile Signal</p>
-                                <p class="text-base font-bold text-white tracking-widest"><?= htmlspecialchars($u['contact_number'] ?: 'UNKNOWN') ?></p>
-                            </div>
-                            <?php if ($role_name === 'member' && !empty($u['address_line'])): ?>
-                                <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5 md:col-span-2">
-                                    <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-[14px] text-primary">location_on</span> Registered Address</p>
-                                    <p class="text-sm font-bold text-gray-300"><?= htmlspecialchars($u['address_line']) ?></p>
-                                </div>
-                            <?php endif; ?>
                         </div>
                     </section>
                 </div>
 
-                <!-- Sidebar Content -->
-                <div class="space-y-10">
-                    <?php if ($role_name === 'member' || !empty($u['emergency_contact_name'])): ?>
-                        <!-- Emergency Protocol -->
-                        <section class="space-y-6">
-                            <h4 class="text-[10px] font-black uppercase text-amber-500 tracking-[0.3em] border-l-4 border-amber-500 pl-4">Emergency Protocol</h4>
-                            <div class="bg-amber-500/[0.03] p-8 rounded-[32px] border border-amber-500/10">
-                                <div class="space-y-6">
-                                    <div>
-                                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Primary Contact</p>
-                                        <p class="text-base font-black text-white italic uppercase"><?= htmlspecialchars($u['emergency_contact_name'] ?: 'NOT LISTED') ?></p>
-                                    </div>
-                                    <div>
-                                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Emergency Signal</p>
-                                        <p class="text-base font-bold text-amber-500 tracking-widest"><?= htmlspecialchars($u['emergency_contact_number'] ?: 'OFFLINE') ?></p>
-                                    </div>
+                <div class="space-y-8">
+                    <?php if ($role_name === 'member'): ?>
+                        <section class="space-y-4">
+                            <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Registry Profile</h4>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                                    <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Gender</p>
+                                    <p class="text-xs font-bold text-[--text-main] uppercase"><?= $u['sex'] ?: 'N/A' ?></p>
+                                </div>
+                                <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                                    <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Birth Registry</p>
+                                    <p class="text-xs font-bold text-[--text-main]"><?= $u['birth_date'] ? date('M d, Y', strtotime($u['birth_date'])) : 'N/A' ?></p>
                                 </div>
                             </div>
                         </section>
                     <?php endif; ?>
 
-                    <!-- Access & Auth -->
-                    <section class="space-y-6">
-                        <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.3em] border-l-4 border-primary pl-4">Access Credentials</h4>
-                        <div class="space-y-4">
-                            <div class="bg-white/[0.03] p-6 rounded-3xl border border-white/5">
-                                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">Username Alias</p>
-                                <p class="text-lg font-black text-white italic">@<?= htmlspecialchars($u['username']) ?></p>
+                    <?php if (!empty($u['emergency_contact_name'])): ?>
+                        <section class="space-y-4">
+                            <h4 class="text-[9px] font-black uppercase text-amber-500/60 tracking-widest">Emergency Protocol</h4>
+                            <div class="p-5 rounded-2xl bg-amber-500/[0.03] border border-amber-500/10">
+                                <p class="text-[10px] font-black text-[--text-main] uppercase mb-1"><?= htmlspecialchars($u['emergency_contact_name']) ?></p>
+                                <p class="text-xs font-bold text-amber-500 tracking-widest"><?= htmlspecialchars($u['emergency_contact_number']) ?></p>
                             </div>
-                            <div class="p-8 rounded-[32px] bg-gradient-to-br from-white/5 to-transparent border border-white/10">
-                                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-3">Node Status</p>
-                                <div class="flex items-center gap-4">
-                                     <span class="size-3 rounded-full <?= $u['is_active'] ? 'bg-emerald-500 animate-pulse' : 'bg-red-500' ?>"></span>
-                                     <p class="text-sm font-black uppercase italic tracking-widest <?= $u['is_active'] ? 'text-emerald-500' : 'text-red-500' ?>">
-                                        <?= $u['is_active'] ? 'Authorized' : 'Deactivated' ?>
-                                     </p>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
+                        </section>
+                    <?php endif; ?>
                 </div>
             </div>
+            
+            <?php if ($role_name === 'member' && !empty($u['medical_history'])): ?>
+                <section class="space-y-4 pt-4 border-t border-white/5">
+                    <h4 class="text-[9px] font-black uppercase text-rose-500/60 tracking-widest">Medical Registry</h4>
+                    <p class="text-[11px] leading-relaxed text-[--text-main]/50 bg-black/20 p-5 rounded-2xl border border-white/5 italic">
+                        <?= nl2br(htmlspecialchars($u['medical_history'])) ?>
+                    </p>
+                </section>
+            <?php endif; ?>
         </div>
     <?php endif;
     exit;
 }
 
-$active_page = "admin_users";
+$active_page = "users";
+$page = [
+    'logo_path' => $system_logo,
+    'system_name' => $configs['system_name'] ?? 'Horizon Staff'
+];
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -346,11 +324,8 @@ $active_page = "admin_users";
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>User Database | Horizon Partners</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap"
-        rel="stylesheet" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=<?= urlencode($font_family) ?>:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -358,31 +333,42 @@ $active_page = "admin_users";
             theme: {
                 extend: {
                     colors: {
-                        "primary": "<?= $theme_color ?>",
-                        "background-dark": "<?= $bg_color ?>",
-                        "surface-dark": "#14121a",
-                        "border-subtle": "rgba(255,255,255,0.05)"
+                        "primary": "var(--primary)",
+                        "background": "var(--background)",
+                        "card-bg": "var(--card-bg)",
+                        "text-main": "var(--text-main)",
+                        "highlight": "var(--highlight)"
                     }
                 }
             }
         } 
     </script>
     <style>
+        :root {
+            --primary:       <?= $theme_color ?>;
+            --primary-rgb:   <?= $primary_rgb ?>;
+            --highlight:     <?= $highlight_color ?>;
+            --highlight-rgb: <?= $highlight_rgb ?>;
+            --text-main:     <?= $text_color ?>;
+            --background:    <?= $bg_color ?>;
+            --card-bg:       <?= $card_bg_css ?>;
+            --card-blur:     20px;
+        }
+
         body {
             font-family: '<?= $font_family ?>', sans-serif;
-            background-color:
-                <?= $bg_color ?>
-            ;
-            color: white;
+            background-color: var(--background);
+            color: var(--text-main);
             display: flex;
             flex-direction: row;
-            min-h-screen: 100vh;
+            min-height: 100vh;
             overflow: hidden;
         }
 
         .glass-card {
-            background: #14121a;
+            background: var(--card-bg);
             border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(var(--card-blur));
             border-radius: 24px;
         }
 
@@ -408,6 +394,8 @@ $active_page = "admin_users";
             flex: 1;
             min-width: 0;
             transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .nav-label {
@@ -491,10 +479,10 @@ $active_page = "admin_users";
         }
 
         .input-box {
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
-            color: white;
+            color: var(--text-main);
             padding: 12px 16px;
             font-size: 13px;
             font-weight: 500;
@@ -503,17 +491,17 @@ $active_page = "admin_users";
         }
 
         .input-box:focus {
-            border-color:
-                <?= $theme_color ?>
-            ;
+            border-color: var(--primary);
             background: rgba(255, 255, 255, 0.08);
         }
 
+        .input-box::placeholder { color: rgba(var(--text-main-rgb, 209, 213, 219), 0.3); }
+        
         .input-box option {
             background-color: #1a1821;
             color: white;
         }
-
+        
         select.input-box {
             cursor: pointer;
             color-scheme: dark;
@@ -600,8 +588,26 @@ $active_page = "admin_users";
         setInterval(updateHeaderClock, 1000);
         window.addEventListener('DOMContentLoaded', updateHeaderClock);
 
-        async function toggleAccountStatus(userId) {
-            if (!confirm('Proceed with account status protocol? User access will be updated immediately.')) return;
+        let confirmTargetUserId = null;
+
+        function toggleAccountStatus(userId) {
+            confirmTargetUserId = userId;
+            const modal = document.getElementById('confirmModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeConfirmModal() {
+            const modal = document.getElementById('confirmModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            confirmTargetUserId = null;
+        }
+
+        async function executeAccountToggle() {
+            if (!confirmTargetUserId) return;
+            const userId = confirmTargetUserId;
+            closeConfirmModal();
 
             try {
                 const formData = new FormData();
@@ -612,11 +618,9 @@ $active_page = "admin_users";
                     body: formData
                 });
                 
-                // This will fail if the response isn't JSON, e.g. error redirect
                 const result = await response.json();
 
                 if (result.success) {
-                    // Update table reactively
                     reactiveFilter();
                 } else {
                     alert(result.message || 'Access protocol update failed.');
@@ -631,76 +635,22 @@ $active_page = "admin_users";
 
 <body class="antialiased flex h-screen overflow-hidden">
 
-    <nav class="side-nav flex flex-col fixed left-0 top-0 h-screen bg-background-dark border-r border-white/5">
-        <div class="px-7 py-8 mb-4 shrink-0">
-            <div class="flex items-center gap-4">
-                <div
-                    class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                    <?php if (!empty($system_logo)):
-                        $logo_src = (strpos($system_logo, 'data:image') === 0) ? $system_logo : '../' . $system_logo;
-                        ?>
-                        <img src="<?= $logo_src ?>" class="size-full object-contain">
-                    <?php else: ?>
-                        <span class="material-symbols-outlined text-white text-2xl">bolt</span>
-                    <?php endif; ?>
-                </div>
-                <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Staff Portal</h1>
-            </div>
-        </div>
-        <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-            <div class="nav-section-label px-[38px] mb-2"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span></div>
-            <a href="admin_dashboard.php" class="nav-item"><span
-                    class="material-symbols-outlined text-xl shrink-0">grid_view</span><span
-                    class="nav-label">Dashboard</span></a>
-            <a href="register_member.php" class="nav-item"><span
-                    class="material-symbols-outlined text-xl shrink-0">person_add</span><span class="nav-label">Walk-in
-                    Member</span></a>
-            <div class="nav-section-label px-[38px] mb-2 mt-6"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
-            <a href="admin_users.php" class="nav-item active"><span
-                    class="material-symbols-outlined text-xl shrink-0">group</span><span class="nav-label">My
-                    Users</span></a>
-            <a href="admin_transaction.php" class="nav-item text-gray-400 hover:text-white"><span
-                    class="material-symbols-outlined text-xl shrink-0">receipt_long</span><span
-                    class="nav-label">Transactions</span></a>
-            <a href="admin_appointment.php" class="nav-item text-gray-400 hover:text-white"><span
-                    class="material-symbols-outlined text-xl shrink-0">event_note</span><span
-                    class="nav-label">Bookings</span></a>
-            <a href="admin_attendance.php" class="nav-item text-gray-400 hover:text-white"><span
-                    class="material-symbols-outlined text-xl shrink-0">history</span><span
-                    class="nav-label">Attendance</span></a>
-            <a href="admin_report.php" class="nav-item text-gray-400 hover:text-white"><span
-                    class="material-symbols-outlined text-xl shrink-0">description</span><span
-                    class="nav-label">Reports</span></a>
-        </div>
-        <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
-            <div class="nav-section-label px-[38px] mb-2"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
-            <a href="admin_profile.php" class="nav-item text-gray-400 hover:text-white"><span
-                    class="material-symbols-outlined text-xl shrink-0">account_circle</span><span
-                    class="nav-label">Profile</span></a>
-            <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors group">
-                <span
-                    class="material-symbols-outlined text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
-                <span class="nav-label whitespace-nowrap">Sign Out</span>
-            </a>
-        </div>
-    </nav>
+    <!-- Dynamic Admin Sidebar -->
+    <?php include '../includes/admin_sidebar.php'; ?>
 
     <div class="main-content flex-1 overflow-y-auto no-scrollbar">
         <main class="p-10 max-w-[1400px] mx-auto pb-20">
             <header class="mb-12 flex flex-row justify-between items-end gap-6">
                 <div>
                     <h2
-                        class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none tracking-tight">
+                        class="text-3xl font-black italic uppercase text-[--text-main] leading-none tracking-tight">
                         User <span class="text-primary">Masterlist</span></h2>
-                    <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Verified
+                    <p class="text-[--text-main]/40 text-xs font-bold uppercase tracking-widest mt-2 px-1">Verified
                         Access Accounts • <?= number_format($total_records) ?> Total</p>
                 </div>
                 <div class="flex items-end gap-8 text-right shrink-0">
                     <div class="flex flex-col items-end">
-                        <p id="headerClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">
+                        <p id="headerClock" class="text-[--text-main] font-black italic text-2xl leading-none tracking-tighter">
                             00:00:00 AM</p>
                         <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
                             <?= date('l, M d, Y') ?></p>
@@ -718,7 +668,7 @@ $active_page = "admin_users";
                                 Search</p>
                             <div class="relative">
                                 <span
-                                    class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+                                    class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main]/40 text-lg">search</span>
                                 <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
                                     placeholder="Filter user registry..." oninput="reactiveFilter()"
                                     class="input-box pl-12 w-full">
@@ -726,18 +676,17 @@ $active_page = "admin_users";
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Authority
+                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Authority
                                 Filter</p>
                             <select name="role" onchange="reactiveFilter()" class="input-box w-full pr-10">
-                                <option value="">All Roles</option>
+                                <option value="">All Protocol Roles</option>
                                 <option value="Member" <?= ($filter_role === 'Member') ? 'selected' : '' ?>>Member</option>
-                                <option value="Staff" <?= ($filter_role === 'Staff') ? 'selected' : '' ?>>Staff</option>
                                 <option value="Coach" <?= ($filter_role === 'Coach') ? 'selected' : '' ?>>Coach</option>
                             </select>
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Connection
+                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Connection
                                 Protocol</p>
                             <select name="status" onchange="reactiveFilter()" class="input-box w-full pr-10">
                                 <option value="">All Status</option>
@@ -747,7 +696,7 @@ $active_page = "admin_users";
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Registry Sort
+                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Registry Sort
                             </p>
                             <div class="flex items-center gap-3">
                                 <select name="sort" onchange="reactiveFilter()" class="input-box w-full pr-10">
@@ -757,10 +706,10 @@ $active_page = "admin_users";
                                     </option>
                                 </select>
                                 <button type="button" onclick="clearFilters()"
-                                    class="size-[46px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-400 hover:bg-rose-500/10 hover:text-rose-500 transition-all active:scale-95 group"
+                                    class="size-[46px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-[--text-main]/40 hover:bg-rose-500/10 hover:text-rose-500 transition-all active:scale-95 group"
                                     title="Clear All Filters">
                                     <span
-                                        class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform">restart_alt</span>
+                                        class="material-symbols-rounded text-xl group-hover:rotate-180 transition-transform">restart_alt</span>
                                 </button>
                             </div>
                         </div>
@@ -769,11 +718,11 @@ $active_page = "admin_users";
             </div>
 
             <div class="flex justify-between items-center mb-6">
-                <p class="text-[10px] font-black uppercase tracking-widest text-gray-500">Live Connection Database —
-                    <span class="text-white">Active Feed</span></p>
+                <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40">Live Connection Database —
+                    <span class="text-[--text-main]">Active Feed</span></p>
                 <a href="register_member.php"
                     class="bg-primary hover:bg-primary/90 text-white px-8 h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95">
-                    <span class="material-symbols-outlined text-lg">person_add</span> Enlist Walk-in Member
+                    <span class="material-symbols-rounded text-lg">person_add</span> Enlist Walk-in Member
                 </a>
             </div>
 
@@ -782,10 +731,10 @@ $active_page = "admin_users";
                     <table class="w-full text-left">
                         <thead>
                             <tr
-                                class="text-[10px] font-black uppercase tracking-widest text-gray-600 border-b border-white/5 bg-white/[0.01]">
+                                class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 border-b border-white/5 bg-white/[0.01]">
                                 <th class="px-8 py-5">Full Identity</th>
-                                <th class="px-8 py-5">Auth Credentials</th>
-                                <th class="px-8 py-5">Contact Node</th>
+                                <th class="px-8 py-5">Email Protocol</th>
+                                <th class="px-8 py-5">Mobile Signal</th>
                                 <th class="px-8 py-5 text-center">Protocol Role</th>
                                 <th class="px-8 py-5 text-right">System Control</th>
                             </tr>
@@ -794,7 +743,7 @@ $active_page = "admin_users";
                             <?php if (empty($users_list)): ?>
                                 <tr>
                                     <td colspan="5"
-                                        class="px-8 py-20 text-center text-gray-700 italic font-black uppercase tracking-widest text-[10px]">
+                                        class="px-8 py-20 text-center text-[--text-main]/30 italic font-black uppercase tracking-widest text-[10px]">
                                         No authorized users found matching criteria</td>
                                 </tr>
                             <?php else:
@@ -804,22 +753,16 @@ $active_page = "admin_users";
                                     <tr class="hover:bg-white/[0.02] group transition-colors">
                                         <td class="px-8 py-6">
                                             <p
-                                                class="text-[13px] font-black italic uppercase text-white group-hover:text-primary transition-colors">
+                                                class="text-[13px] font-black italic uppercase text-[--text-main] group-hover:text-primary transition-colors">
                                                 <?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
-                                            <p class="text-[10px] font-black uppercase text-gray-500 tracking-tighter mt-0.5">
-                                                <?= date('M d, Y', strtotime($row['created_at'])) ?></p>
                                         </td>
                                         <td class="px-8 py-6">
-                                            <p class="text-[12px] font-bold text-gray-300">
-                                                @<?= htmlspecialchars($row['username']) ?></p>
-                                            <p class="text-[9px] font-black uppercase text-gray-600 tracking-widest mt-0.5">ID:
-                                                <?= str_pad($row['id'], 5, '0', STR_PAD_LEFT) ?></p>
-                                        </td>
-                                        <td class="px-8 py-6">
-                                            <p class="text-[12px] font-medium text-gray-400">
+                                            <p class="text-[12px] font-medium text-[--text-main]/60">
                                                 <?= htmlspecialchars($row['email']) ?></p>
-                                            <p class="text-[10px] font-black text-gray-600 mt-1 uppercase">
-                                                <?= htmlspecialchars($row['contact_number'] ?? 'N/A') ?></p>
+                                        </td>
+                                        <td class="px-8 py-6">
+                                            <p class="text-[10px] font-black text-[--text-main]/30 tracking-widest uppercase">
+                                                <?= htmlspecialchars($row['contact_number'] ?? 'OFFLINE') ?></p>
                                         </td>
                                         <td class="px-8 py-6 text-center">
                                             <span
@@ -829,29 +772,29 @@ $active_page = "admin_users";
                                         </td>
                                         <td class="px-8 py-6 text-right">
                                             <div
-                                                class="flex justify-end gap-3 translate-x-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                                                class="flex justify-end gap-3 transition-all duration-300">
                                                 <button onclick="viewUserProfile(<?= $row['id'] ?>)"
-                                                    class="size-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-primary hover:text-white text-gray-400 transition-all active:scale-90"
+                                                    class="size-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-primary hover:text-white text-[--text-main]/40 transition-all active:scale-90"
                                                     title="View Detailed Profile">
-                                                    <span class="material-symbols-outlined text-lg">visibility</span>
+                                                    <span class="material-symbols-rounded text-lg">visibility</span>
                                                 </button>
                                                 
                                                 <?php if(strtolower($row['role']) === 'tenant'): ?>
-                                                    <button class="size-9 rounded-xl bg-white/5 flex items-center justify-center text-gray-600 opacity-20 cursor-not-allowed" title="System Security: Owner accounts cannot be restricted">
-                                                        <span class="material-symbols-outlined text-lg">verified_user</span>
+                                                    <button class="size-9 rounded-xl bg-white/5 flex items-center justify-center text-[--text-main]/20 opacity-20 cursor-not-allowed" title="System Security: Owner accounts cannot be restricted">
+                                                        <span class="material-symbols-rounded text-lg">verified_user</span>
                                                     </button>
                                                 <?php else: ?>
                                                     <?php if($row['is_active']): ?>
                                                         <button onclick="toggleAccountStatus(<?= $row['id'] ?>)" 
-                                                            class="size-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/10 hover:text-rose-500 text-gray-500 transition-all active:scale-90" 
+                                                            class="size-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/10 hover:text-rose-500 text-[--text-main]/30 transition-all active:scale-90" 
                                                             title="Lock / Restrict Account Access">
-                                                            <span class="material-symbols-outlined text-lg">lock</span>
+                                                            <span class="material-symbols-rounded text-lg">lock</span>
                                                         </button>
                                                     <?php else: ?>
                                                         <button onclick="toggleAccountStatus(<?= $row['id'] ?>)" 
                                                             class="size-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center hover:bg-emerald-500/10 hover:text-emerald-500 text-rose-500 transition-all active:scale-90" 
                                                             title="Unlock / Restore Account Access">
-                                                            <span class="material-symbols-outlined text-lg">lock_open</span>
+                                                            <span class="material-symbols-rounded text-lg">lock_open</span>
                                                         </button>
                                                     <?php endif; ?>
                                                 <?php endif; ?>
@@ -867,23 +810,23 @@ $active_page = "admin_users";
                 <?php if ($total_pages > 1): ?>
                     <div
                         class="px-8 py-6 border-t border-white/5 bg-white/[0.01] flex flex-row items-center justify-between">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-500">
-                            Page <span class="text-white"><?= $page ?></span> of <span
-                                class="text-white"><?= $total_pages ?></span>
-                            <span class="mx-3 text-gray-700">•</span> Total <span
-                                class="text-white"><?= $total_records ?></span> Records
+                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40">
+                            Page <span class="text-[--text-main]"><?= $current_page ?></span> of <span
+                                class="text-[--text-main]"><?= $total_pages ?></span>
+                            <span class="mx-3 text-[--text-main]/20">•</span> Total <span
+                                class="text-[--text-main]"><?= $total_records ?></span> Records
                         </p>
                         <div class="flex items-center gap-2">
                             <!-- Previous Button -->
-                            <button onclick="changePage(<?= max(1, $page - 1) ?>)"
-                                class="size-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-500 hover:bg-primary hover:text-white transition-all <?= ($page <= 1) ? 'opacity-20 pointer-events-none' : '' ?>">
-                                <span class="material-symbols-outlined text-xl">chevron_left</span>
+                            <button onclick="changePage(<?= max(1, $current_page - 1) ?>)"
+                                class="size-10 rounded-xl bg-white/5 flex items-center justify-center text-[--text-main]/40 hover:bg-primary hover:text-white transition-all <?= ($current_page <= 1) ? 'opacity-20 pointer-events-none' : '' ?>">
+                                <span class="material-symbols-rounded text-xl">chevron_left</span>
                             </button>
 
                             <!-- Page Numbers -->
                             <div class="flex items-center gap-1">
                                 <?php
-                                $start_p = max(1, $page - 2);
+                                $start_p = max(1, $current_page - 2);
                                 $end_p = min($total_pages, $start_p + 4);
                                 if ($end_p - $start_p < 4)
                                     $start_p = max(1, $end_p - 4);
@@ -891,16 +834,16 @@ $active_page = "admin_users";
                                 for ($i = $start_p; $i <= $end_p; $i++):
                                     ?>
                                     <button onclick="changePage(<?= $i ?>)"
-                                        class="size-10 rounded-xl flex items-center justify-center text-[11px] font-black transition-all <?= ($i === $page) ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-white' ?>">
+                                        class="size-10 rounded-xl flex items-center justify-center text-[11px] font-black transition-all <?= ($i === $current_page) ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/5 text-[--text-main]/40 hover:bg-white/10 hover:text-[--text-main]' ?>">
                                         <?= $i ?>
                                     </button>
                                 <?php endfor; ?>
                             </div>
 
                             <!-- Next Button -->
-                            <button onclick="changePage(<?= min($total_pages, $page + 1) ?>)"
-                                class="size-10 rounded-xl bg-white/5 flex items-center justify-center text-gray-500 hover:bg-primary hover:text-white transition-all <?= ($page >= $total_pages) ? 'opacity-20 pointer-events-none' : '' ?>">
-                                <span class="material-symbols-outlined text-xl">chevron_right</span>
+                            <button onclick="changePage(<?= min($total_pages, $current_page + 1) ?>)"
+                                class="size-10 rounded-xl bg-white/5 flex items-center justify-center text-[--text-main]/40 hover:bg-primary hover:text-white transition-all <?= ($current_page >= $total_pages) ? 'opacity-20 pointer-events-none' : '' ?>">
+                                <span class="material-symbols-rounded text-xl">chevron_right</span>
                             </button>
                         </div>
                     </div>
@@ -918,9 +861,39 @@ $active_page = "admin_users";
 
         <!-- Modal Container -->
         <div
-            class="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto no-scrollbar glass-card border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.5)] backdrop-blur-3xl p-10 md:p-14 animate-in fade-in zoom-in duration-300">
+            class="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar glass-card border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.5)] backdrop-blur-3xl p-8 animate-in fade-in zoom-in duration-300">
             <div id="modalContent">
                 <!-- Loaded via AJAX -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirmation Modal -->
+    <div id="confirmModal"
+        class="hidden fixed inset-0 z-[110] items-center justify-center p-6 overflow-hidden transition-all duration-400">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="closeConfirmModal()"></div>
+
+        <!-- Confirm Box -->
+        <div class="relative w-full max-w-md glass-card border-white/10 shadow-2xl p-8 animate-in fade-in zoom-in duration-300 text-center">
+            <div class="size-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 mx-auto mb-6">
+                <span class="material-symbols-rounded text-3xl">gpp_maybe</span>
+            </div>
+            
+            <h3 class="text-xl font-black italic uppercase tracking-tight text-[--text-main] mb-3">Security Protocol</h3>
+            <p class="text-sm text-[--text-main]/50 leading-relaxed mb-8">
+                Proceed with account status update? This will immediately modify the user's registry access permissions.
+            </p>
+
+            <div class="flex gap-3">
+                <button onclick="closeConfirmModal()" 
+                    class="flex-1 h-12 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 hover:bg-white/10 hover:text-[--text-main] transition-all">
+                    Abort Access
+                </button>
+                <button onclick="executeAccountToggle()" 
+                    class="flex-1 h-12 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95">
+                    Confirm Registry Update
+                </button>
             </div>
         </div>
     </div>
