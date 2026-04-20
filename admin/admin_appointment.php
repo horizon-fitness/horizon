@@ -276,11 +276,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 extend: {
                     colors: {
                         "primary": "var(--primary)",
-                        "background": "var(--background)",
-                        "card-bg": "var(--card-bg)",
+                        "highlight": "var(--highlight)",
                         "text-main": "var(--text-main)",
-                        "highlight": "var(--highlight)"
-                    }
+                        "background": "var(--background)",
+                        "card-bg": "var(--card-bg)"
+                    },
+                    fontFamily: {
+                        lexend: ["Lexend", "sans-serif"],
+                    },
                 }
             }
         } 
@@ -298,7 +301,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         body {
-            font-family: '<?= $font_family ?>', sans-serif;
+            font-family: 'Lexend', sans-serif;
             background-color: var(--background);
             color: var(--text-main);
             display: flex;
@@ -366,15 +369,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             align-items: center;
             gap: 16px;
             padding: 10px 38px;
-            transition: all 0.2s ease;
+            transition: opacity 0.2s ease, color 0.2s ease;
             text-decoration: none;
             white-space: nowrap;
             font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: #94a3b8;
+            color: color-mix(in srgb, var(--text-main) 45%, transparent);
+            position: relative;
         }
+
+        .nav-item:hover { color: var(--text-main); }
+        .nav-item .material-symbols-rounded { 
+            color: var(--highlight); 
+            transition: transform 0.2s ease; 
+        }
+        .nav-item:hover .material-symbols-rounded { transform: scale(1.12); }
 
         .nav-item.active {
             color: var(--primary) !important;
@@ -422,11 +433,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: rgba(255, 255, 255, 0.08);
         }
 
-        .input-box::placeholder { color: #4b5563; }
+        .input-box::placeholder { color: color-mix(in srgb, var(--text-main) 20%, transparent); }
         
         .input-box option {
-            background-color: #1a1821;
-            color: white;
+            background-color: var(--background);
+            color: var(--text-main);
         }
         
         select.input-box {
@@ -483,7 +494,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .modal-container {
             width: 90%;
             max-width: 450px;
-            background: #14121a;
+            background: var(--background);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 32px;
             transform: scale(0.95);
@@ -491,6 +502,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             opacity: 0;
             visibility: hidden;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
         }
 
         #detailModal .modal-container {
@@ -614,7 +627,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             const statusEl = document.getElementById('dt_status');
             statusEl.textContent = data.status;
-            statusEl.className = 'px-3 py-1 rounded-full border text-[8px] font-black uppercase italic tracking-widest text-' + data.statusColor + '-500 bg-' + data.statusColor + '-500/10 border-' + data.statusColor + '-500/20';
+            statusEl.className = 'status-badge ' + data.statusClass;
 
             const modal = document.getElementById('detailModal');
             modal.classList.add('active', 'flex-important');
@@ -644,14 +657,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div id="confirmationModal">
     <div id="modalBackdrop" class="modal-backdrop" onclick="closeModal()"></div>
     <div class="modal-container p-10 flex flex-col items-center text-center">
-        <div class="size-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+        <div class="size-20 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
             <span class="material-symbols-rounded text-primary text-4xl">verified_user</span>
         </div>
-        <h3 id="modalTitle" class="text-2xl font-black italic uppercase tracking-tighter text-white mb-3">Confirm Action?</h3>
-        <p id="modalMessage" class="text-gray-500 text-sm font-medium mb-10 leading-relaxed px-4">Are you sure you want to proceed with this operation?</p>
+        <h3 id="modalTitle" class="text-2xl font-black italic uppercase tracking-tighter text-white mb-2">Confirm Action</h3>
+        <p id="modalMessage" class="text-[--text-main]/60 text-sm font-medium leading-relaxed mb-10 px-4"></p>
         <div class="flex w-full gap-4">
-            <button onclick="closeModal()" class="flex-1 bg-white/5 hover:bg-white/10 text-gray-400 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Discard</button>
-            <button id="confirmActionBtn" onclick="submitAction()" class="flex-1 bg-primary hover:bg-primary/90 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Proceed</button>
+            <button onclick="closeModal()" class="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest transition-all text-[--text-main]/40 hover:text-white">Discard</button>
+            <button id="confirmActionBtn" onclick="submitAction()" class="flex-1 py-4 rounded-2xl bg-primary hover:bg-primary/90 text-white text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">Proceed</button>
         </div>
     </div>
 </div>
@@ -663,10 +676,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="w-full flex justify-between items-start mb-8">
             <div>
                 <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white leading-none">Booking <span class="text-primary">Details</span></h3>
-                <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-2" id="dt_ref">REF-000000</p>
+                <p class="text-[10px] font-bold text-[--text-main]/40 uppercase tracking-widest mt-2" id="dt_ref">REF-000000</p>
             </div>
-            <button onclick="closeDetailModal()" class="size-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-500 transition-all">
-                <span class="material-symbols-rounded text-xl">close</span>
+            <button onclick="closeDetailModal()" class="size-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-500 transition-all group">
+                <span class="material-symbols-rounded text-xl group-hover:rotate-90 transition-transform">close</span>
             </button>
         </div>
 
@@ -683,29 +696,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="w-full grid grid-cols-2 gap-4">
                 <div class="glass-card p-5 border-white/5 bg-white/[0.02]">
-                    <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Service Item</p>
+                    <p class="text-[9px] font-black uppercase text-[--text-main]/40 mb-1 tracking-widest">Service Item</p>
                     <p class="text-xs font-black italic text-white uppercase" id="dt_service">PT Session</p>
                 </div>
                 <div class="glass-card p-5 border-white/5 bg-white/[0.02]">
-                    <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Fee/Amount</p>
+                    <p class="text-[9px] font-black uppercase text-[--text-main]/40 mb-1 tracking-widest">Fee/Amount</p>
                     <p class="text-xs font-black italic text-white uppercase" id="dt_amount">₱0.00</p>
                 </div>
             </div>
 
             <div class="w-full glass-card p-5 border-white/5 bg-white/[0.02] flex justify-between items-center">
                 <div>
-                    <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Assigned Trainer</p>
+                    <p class="text-[9px] font-black uppercase text-[--text-main]/40 mb-1 tracking-widest">Assigned Trainer</p>
                     <p class="text-xs font-bold text-white italic" id="dt_trainer">Coach Name</p>
                 </div>
                 <div class="text-right">
-                    <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Schedule</p>
+                    <p class="text-[9px] font-black uppercase text-[--text-main]/40 mb-1 tracking-widest">Schedule</p>
                     <p class="text-xs font-bold text-primary italic" id="dt_schedule">Jan 01, 10:00 AM</p>
                 </div>
             </div>
 
             <div class="w-full glass-card p-5 border-white/5 bg-white/[0.02] flex justify-between items-center">
-                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest">Current Status</p>
-                <span class="px-3 py-1 rounded-full border text-[8px] font-black uppercase italic tracking-widest" id="dt_status">PENDING</span>
+                <p class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Current Status Indices</p>
+                <span class="status-badge italic" id="dt_status">PENDING</span>
             </div>
         </div>
 
@@ -735,43 +748,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <main class="p-10 max-w-[1400px] mx-auto pb-20">
         <header class="mb-12 flex flex-row justify-between items-end gap-6">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">Appointment <span class="text-primary">Masterlist</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Operations Scheduler • Session Registry</p>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none text-white transition-all"><span class="opacity-40">Appointment</span> <span class="text-primary">Masterlist</span></h2>
+                <p class="text-[--text-main]/60 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Operations Scheduler • Session Registry</p>
             </div>
             <div class="flex items-end gap-8 text-right shrink-0">
                 <div class="flex flex-col items-end">
-                    <p id="headerClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
+                    <p id="headerClock" class="text-[--text-main] font-black italic text-2xl leading-none tracking-tighter uppercase">00:00:00 AM</p>
                     <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
                 </div>
             </div>
         </header>
 
-        <!-- Functional Filter Matrix -->
+        <!-- Dynamic Filter Matrix -->
         <div class="mb-10">
-            <form method="GET" class="glass-card p-8 border border-white/5 relative overflow-hidden">
+            <form method="GET" class="glass-card p-8 relative overflow-hidden">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 items-end">
                     <div class="space-y-2 lg:col-span-1">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Identity Filter</p>
+                        <p class="text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest ml-1">Identity Filter</p>
                         <div class="relative">
-                            <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+                            <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main]/40 text-lg">search</span>
                             <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search member..." class="input-box pl-12 w-full">
                         </div>
                     </div>
 
                     <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Date Registry (Start)</p>
+                        <p class="text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest ml-1">Date Registry (Start)</p>
                         <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" class="input-box w-full">
                     </div>
 
                     <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Date Registry (End)</p>
+                        <p class="text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest ml-1">Date Registry (End)</p>
                         <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" class="input-box w-full">
                     </div>
 
                     <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">Status</p>
+                        <p class="text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest ml-1">Status Offset</p>
                         <select name="status" class="input-box w-full">
-                            <option value="">All Status</option>
+                            <option value="">All Matrix Status</option>
                             <option value="Confirmed" <?= ($status === 'Confirmed') ? 'selected' : '' ?>>Confirmed</option>
                             <option value="Pending" <?= ($status === 'Pending') ? 'selected' : '' ?>>Pending</option>
                             <option value="Rejected" <?= ($status === 'Rejected') ? 'selected' : '' ?>>Rejected</option>
@@ -780,7 +793,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="flex gap-3">
                         <button type="submit" class="flex-1 bg-primary hover:bg-primary/90 text-white h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 active:scale-95">Execute Apply</button>
-                        <button type="button" onclick="clearAppointmentFilters()" class="size-[46px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-400 hover:bg-rose-500/10 hover:text-rose-500 transition-all group active:scale-95">
+                        <button type="button" onclick="clearAppointmentFilters()" class="size-[46px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-[--text-main]/40 hover:bg-rose-500/10 hover:text-rose-500 transition-all group active:scale-95">
                             <span class="material-symbols-rounded text-xl group-hover:rotate-180 transition-transform">restart_alt</span>
                         </button>
                     </div>
@@ -799,20 +812,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="overflow-x-auto">
                 <table class="w-full text-left">
                     <thead>
-                        <tr class="text-[10px] font-black uppercase tracking-[0.15em] text-gray-600 border-b border-white/5 bg-white/[0.01]">
+                        <tr class="text-[10px] font-black uppercase tracking-[0.15em] text-[--text-main]/40 border-b border-white/5 bg-white/[0.01]">
                             <th class="px-8 py-5">Member</th>
-                            <th class="px-8 py-5">Service / Coach</th>
-                            <th class="px-8 py-5">Schedule</th>
-                            <th class="px-8 py-5 text-center">Status</th>
-                            <th class="px-8 py-5 text-right">Actions</th>
+                            <th class="px-8 py-5 text-center">Service / Coach</th>
+                            <th class="px-8 py-5 text-center">Schedule</th>
+                            <th class="px-8 py-5 text-center">Status Index</th>
+                            <th class="px-8 py-5 text-right">Actions Matrix</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         <?php if (empty($bookings_list)): ?>
                         <tr>
                             <td colspan="5" class="px-8 py-24 text-center">
-                                <span class="material-symbols-outlined text-4xl text-gray-700 mb-4 block">event_busy</span>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">No scheduled appointments detected in current matrix.</p>
+                                <span class="material-symbols-rounded text-4xl text-[--text-main]/20 mb-4 block">event_busy</span>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 italic">No scheduled appointments detected in current matrix.</p>
                             </td>
                         </tr>
                         <?php else: foreach ($bookings_list as $appt): ?>
@@ -845,18 +858,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <p class="text-xs font-black italic text-white uppercase"><?= htmlspecialchars($srv_label) ?></p>
                                 <p class="text-[10px] font-black text-primary tracking-widest uppercase mt-0.5"><?= htmlspecialchars($appt['resolved_trainer'] ?? 'Personal Trainer') ?></p>
                             </td>
-                            <td class="px-8 py-6">
-                                <div class="space-y-0.5 text-left">
+                            <td class="px-8 py-6 text-center">
+                                <div class="space-y-0.5 inline-block text-center">
                                     <p class="text-[11px] font-black italic text-white uppercase"><?= htmlspecialchars($appt['start_time'] ?? '00:00') ?></p>
-                                    <p class="text-[9px] font-bold text-gray-600 uppercase tracking-widest italic"><?= date('M d, Y', strtotime($appt['booking_date'] ?? 'today')) ?></p>
+                                    <p class="text-[9px] font-bold text-[--text-main]/20 uppercase tracking-widest italic"><?= date('M d, Y', strtotime($appt['booking_date'] ?? 'today')) ?></p>
                                 </div>
                             </td>
                             <td class="px-8 py-6 text-center">
                                 <?php 
                                     $st = $appt['booking_status'] ?? 'Pending';
-                                    $col = $st === 'Confirmed' ? 'emerald' : ($st === 'Rejected' ? 'red' : ($st === 'Cancelled' ? 'red' : 'amber'));
+                                    $status_class = "text-[--text-main]/40 bg-white/5 border-white/5";
+                                    if ($st === 'Confirmed') {
+                                        $status_class = "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
+                                    } elseif ($st === 'Rejected' || $st === 'Cancelled') {
+                                        $status_class = "text-rose-500 bg-rose-500/10 border-rose-500/20";
+                                    } elseif ($st === 'Pending') {
+                                        $status_class = "text-amber-500 bg-amber-500/10 border-amber-500/20";
+                                    }
                                 ?>
-                                <span class="status-badge bg-<?= $col ?>-500/10 border border-<?= $col ?>-500/20 text-<?= $col ?>-500"><?= $st ?></span>
+                                <span class="status-badge <?= $status_class ?> border"><?= $st ?></span>
                             </td>
                             <td class="px-8 py-6 text-right">
                                 <div class="flex justify-end gap-2">
@@ -871,10 +891,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             amount: "<?= $appt["service_price"] ?? 0 ?>",
                                             avatar: "<?= !empty($appt['profile_picture']) ? ((strpos($appt['profile_picture'], 'data:image') === 0) ? $appt['profile_picture'] : '../' . $appt['profile_picture']) : '' ?>",
                                             status: "<?= $st ?>",
-                                            statusColor: "<?= $col ?>"
+                                            statusClass: "<?= $status_class ?>"
                                         })'
-                                        class="size-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 flex items-center justify-center hover:bg-primary hover:text-white transition-all" title="View Details">
-                                        <span class="material-symbols-rounded text-[18px]">search</span>
+                                        class="size-8 rounded-lg bg-white/5 border border-white/10 text-[--text-main]/40 flex items-center justify-center hover:bg-primary hover:text-white transition-all shadow-lg active:scale-90" title="View Details">
+                                        <span class="material-symbols-rounded text-base">search</span>
                                     </button>
                                     <?php if ($st === 'Pending'): ?>
                                         <button onclick="confirmAction(<?= $appt['booking_id'] ?>, 'approve')" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all active:scale-95" title="Approve">
