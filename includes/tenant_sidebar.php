@@ -10,6 +10,11 @@
         background: transparent !important;
         color: white !important;
     }
+    .nav-item.logout-item:hover,
+    .nav-item.logout-item:hover .material-symbols-outlined,
+    .nav-item.logout-item:hover .nav-label {
+        color: #ef4444 !important;
+    }
 </style>
 
 <nav class="side-nav bg-background-dark border-r border-white/5 z-50">
@@ -90,7 +95,7 @@
             <span class="material-symbols-outlined text-xl shrink-0">account_circle</span> 
             <span class="nav-label">Profile</span>
         </a>
-        <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors">
+        <a href="../logout.php" class="nav-item logout-item text-gray-400 transition-colors">
             <span class="material-symbols-outlined text-xl shrink-0">logout</span> 
             <span class="nav-label">Sign Out</span>
         </a>

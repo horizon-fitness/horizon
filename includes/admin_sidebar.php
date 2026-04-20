@@ -20,6 +20,11 @@
     .nav-item.active .material-symbols-rounded {
         color: var(--primary);
     }
+    .nav-item.logout-item:hover,
+    .nav-item.logout-item:hover .material-symbols-rounded,
+    .nav-item.logout-item:hover .nav-label {
+        color: #ef4444 !important;
+    }
 </style>
 
 <nav class="side-nav bg-background border-r border-white/5 z-50">
@@ -53,7 +58,7 @@
                     $stmtPendT = $pdo->prepare("SELECT COUNT(*) FROM payments WHERE gym_id = ? AND payment_status = 'Pending'");
                     $stmtPendT->execute([$_SESSION['gym_id']]);
                     $pending_transactions_count = $stmtPendT->fetchColumn();
-
+ 
                     $stmtPendB = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE gym_id = ? AND booking_status = 'Pending'");
                     $stmtPendB->execute([$_SESSION['gym_id']]);
                     $pending_bookings_count = $stmtPendB->fetchColumn();
@@ -70,14 +75,14 @@
             <span class="material-symbols-rounded text-xl shrink-0">person_add</span> 
             <span class="nav-label">Walk-in Member</span>
         </a>
-
+ 
         <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Management</span></div>
-
+ 
         <a href="admin_users.php" class="nav-item <?= ($active_page == 'users') ? 'active' : '' ?>">
             <span class="material-symbols-rounded text-xl shrink-0">group</span> 
             <span class="nav-label">My Users</span>
         </a>
-
+ 
         <a href="admin_transaction.php" class="nav-item <?= ($active_page == 'transactions') ? 'active' : '' ?>">
             <div class="relative flex items-center justify-center shrink-0">
                 <span class="material-symbols-rounded text-xl">receipt_long</span> 
@@ -89,7 +94,7 @@
             </div>
             <span class="nav-label">Transactions</span>
         </a>
-
+ 
         <a href="admin_appointment.php" class="nav-item <?= ($active_page == 'bookings') ? 'active' : '' ?>">
             <div class="relative flex items-center justify-center shrink-0">
                 <span class="material-symbols-rounded text-xl">event_note</span> 
@@ -101,26 +106,26 @@
             </div>
             <span class="nav-label">Bookings</span>
         </a>
-
+ 
         <a href="admin_attendance.php" class="nav-item <?= ($active_page == 'attendance') ? 'active' : '' ?>">
             <span class="material-symbols-rounded text-xl shrink-0">history</span> 
             <span class="nav-label">Attendance</span>
         </a>
-
+ 
         <a href="admin_report.php" class="nav-item <?= ($active_page == 'reports') ? 'active' : '' ?>">
             <span class="material-symbols-rounded text-xl shrink-0">description</span> 
             <span class="nav-label">Reports</span>
         </a>
     </div>
-
+ 
     <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
         <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Account</span></div>
         <a href="admin_profile.php" class="nav-item <?= ($active_page == 'profile') ? 'active' : '' ?>">
             <span class="material-symbols-rounded text-xl shrink-0">account_circle</span> 
             <span class="nav-label">Profile</span>
         </a>
-        <a href="../logout.php" class="nav-item group text-[--text-main]/45 hover:text-rose-500 transition-colors">
-            <span class="material-symbols-rounded text-xl shrink-0 group-hover:text-rose-500">logout</span> 
+        <a href="../logout.php" class="nav-item logout-item group text-[--text-main]/45 transition-colors">
+            <span class="material-symbols-rounded text-xl shrink-0">logout</span> 
             <span class="nav-label">Sign Out</span>
         </a>
     </div>
