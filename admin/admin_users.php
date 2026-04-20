@@ -131,7 +131,7 @@ $total_pages = ceil($total_records / $limit);
 
 // 3. Fetch Paginated List
 $users_sql = "
-    SELECT u.user_id as id, u.first_name, u.last_name, u.username, u.email, u.contact_number, r.role_name as role, u.created_at, u.is_active 
+    SELECT u.user_id as id, u.first_name, u.last_name, u.username, u.email, u.contact_number, u.profile_picture, r.role_name as role, u.created_at, u.is_active 
     FROM users u 
     JOIN user_roles ur ON u.user_id = ur.user_id 
     JOIN roles r ON ur.role_id = r.role_id 
@@ -216,8 +216,16 @@ if (isset($_GET['ajax_user_id'])) {
             <!-- Professional Header -->
             <header class="flex justify-between items-center border-b border-white/5 pb-8">
                 <div class="flex items-center gap-6">
-                    <div class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-bold text-2xl uppercase">
-                        <?= substr($u['first_name'], 0, 1) ?>
+                    <div class="size-16 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden">
+                        <?php if (!empty($u['profile_picture'])): 
+                            $pfp_src = (strpos($u['profile_picture'], 'data:image') === 0) ? $u['profile_picture'] : '../' . $u['profile_picture'];
+                        ?>
+                            <img src="<?= htmlspecialchars($pfp_src) ?>" class="size-full object-cover" alt="">
+                        <?php else: ?>
+                            <div class="text-primary font-bold text-2xl uppercase">
+                                <?= substr($u['first_name'], 0, 1) ?>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     <div>
                         <h2 class="text-2xl font-bold uppercase tracking-tight text-[--text-main]">
@@ -742,23 +750,41 @@ $page = [
                                 foreach ($users_list as $row):
                                     $roleClean = strtolower($row['role'] ?? 'member');
                                     ?>
-                                    <tr class="hover:bg-white/[0.02] group transition-colors">
-                                        <td class="px-8 py-6">
-                                            <p
-                                                class="text-[13px] font-black italic uppercase text-[--text-main] group-hover:text-primary transition-colors">
-                                                <?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?></p>
+                                    <tr class="hover:bg-white/5 group transition-all duration-300">
+                                        <td class="px-8 py-5">
+                                            <div class="flex items-center gap-4">
+                                                <div class="size-10 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden">
+                                                    <?php if (!empty($row['profile_picture'])): 
+                                                        $pfp_src = (strpos($row['profile_picture'], 'data:image') === 0) ? $row['profile_picture'] : '../' . $row['profile_picture'];
+                                                    ?>
+                                                        <img src="<?= htmlspecialchars($pfp_src) ?>" class="size-full object-cover" alt="">
+                                                    <?php else: ?>
+                                                        <div class="text-primary font-black italic text-base">
+                                                            <?= substr($row['first_name'], 0, 1) ?>
+                                                        </div>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div>
+                                                    <p class="text-[12.5px] font-black italic uppercase text-white group-hover:text-primary transition-colors tracking-tight">
+                                                        <?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?>
+                                                    </p>
+                                                    <p class="text-[8.5px] font-bold text-[--text-main]/20 uppercase tracking-[0.1em] mt-0.5 opacity-60">
+                                                        @<?= htmlspecialchars($row['username']) ?>
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td class="px-8 py-6">
-                                            <p class="text-[12px] font-medium text-[--text-main]/60">
+                                        <td class="px-8 py-5">
+                                            <p class="text-[11.5px] font-medium text-[--text-main]/50">
                                                 <?= htmlspecialchars($row['email']) ?></p>
                                         </td>
-                                        <td class="px-8 py-6">
-                                            <p class="text-[10px] font-black text-[--text-main]/30 tracking-widest uppercase">
+                                        <td class="px-8 py-5">
+                                            <p class="text-[9px] font-black text-[--text-main]/20 tracking-widest uppercase">
                                                 <?= htmlspecialchars($row['contact_number'] ?? 'N/A') ?></p>
                                         </td>
-                                        <td class="px-8 py-6 text-center">
+                                        <td class="px-8 py-5 text-center">
                                             <span
-                                                class="inline-block px-4 py-1.5 rounded-full text-[9px] font-black uppercase italic tracking-widest border border-white/5 bg-white/5 <?= ($roleClean === 'coach' ? 'text-amber-500 border-amber-500/20' : ($roleClean === 'staff' ? 'text-primary border-primary/20' : 'text-emerald-500 border-emerald-500/20')) ?>">
+                                                class="inline-block px-3 py-1.5 rounded-full text-[8.5px] font-black uppercase italic tracking-widest border border-white/5 bg-white/5 <?= ($roleClean === 'coach' ? 'text-amber-500 border-amber-500/20' : ($roleClean === 'staff' ? 'text-primary border-primary/20' : 'text-emerald-500 border-emerald-500/20')) ?>">
                                                 <?= $row['role'] ?>
                                             </span>
                                         </td>

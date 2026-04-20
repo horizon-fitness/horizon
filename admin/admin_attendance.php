@@ -94,7 +94,7 @@ $search_query = $_GET['search'] ?? '';
 
 // Base Query
 $query = "
-    SELECT a.*, u.username, CONCAT(u.first_name, ' ', u.last_name) as fullname
+    SELECT a.*, u.username, u.profile_picture, CONCAT(u.first_name, ' ', u.last_name) as fullname
     FROM attendance a 
     JOIN members m ON a.member_id = m.member_id 
     JOIN users u ON m.user_id = u.user_id 
@@ -137,6 +137,11 @@ $total_today = $stmtMetricsToday->fetchColumn();
 $stmtMetricsActive = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id = ? AND check_out_time IS NULL");
 $stmtMetricsActive->execute([$gym_id]);
 $active_now = $stmtMetricsActive->fetchColumn();
+
+// Average Stay Today (Minutes)
+$stmtAvg = $pdo->prepare("SELECT AVG(TIMESTAMPDIFF(MINUTE, check_in_time, check_out_time)) FROM attendance WHERE gym_id = ? AND attendance_date = ? AND check_out_time IS NOT NULL");
+$stmtAvg->execute([$gym_id, $today]);
+$avg_stay = round($stmtAvg->fetchColumn() ?: 0);
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -154,14 +159,21 @@ $active_now = $stmtMetricsActive->fetchColumn();
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { 
-                "primary": "var(--primary)", 
-                "background": "var(--background)", 
-                "card-bg": "var(--card-bg)", 
-                "text-main": "var(--text-main)",
-                "highlight": "var(--highlight)"
-            }}}
-        }
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "var(--primary)",
+                        "highlight": "var(--highlight)",
+                        "text-main": "var(--text-main)",
+                        "background": "var(--background)",
+                        "card-bg": "var(--card-bg)"
+                    },
+                    fontFamily: {
+                        lexend: ["Lexend", "sans-serif"],
+                    },
+                }
+            }
+        } 
     </script>
     
     <style>
@@ -177,12 +189,12 @@ $active_now = $stmtMetricsActive->fetchColumn();
         }
 
         body { 
-            font-family: '<?= $font_family ?>', sans-serif; 
+            font-family: 'Lexend', sans-serif; 
             background-color: var(--background); 
             color: var(--text-main); 
             display: flex; 
             flex-direction: row; 
-            min-h-screen: 100vh; 
+            min-height: 100vh; 
             overflow: hidden; 
         }
 
@@ -198,18 +210,23 @@ $active_now = $stmtMetricsActive->fetchColumn();
         }
 
         .status-card-green {
-            border: 1px solid #10b981;
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, var(--card-bg) 100%);
         }
 
         .status-card-yellow {
-            border: 1px solid #f59e0b;
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, var(--card-bg) 100%);
         }
 
         .status-card-red {
-            border: 1px solid #ef4444;
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, var(--card-bg) 100%);
+        }
+
+        .status-card-blue {
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, var(--card-bg) 100%);
         }
 
         .search-container {
@@ -235,7 +252,7 @@ $active_now = $stmtMetricsActive->fetchColumn();
 
         .nav-label { opacity: 0; transform: translateX(-15px); transition: all 0.3s ease-in-out; white-space: nowrap; pointer-events: none; color: var(--text-main); }
         .side-nav:hover .nav-label { opacity: 1; transform: translateX(0); pointer-events: auto; }
-        .nav-section-label { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); margin: 0 !important; pointer-events: none; }
+        .nav-section-label { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); margin: 0 !important; pointer-events: none; color: color-mix(in srgb, var(--text-main) 40%, transparent); }
         .side-nav:hover .nav-section-label { max-height: 20px; opacity: 1; margin-bottom: 8px !important; pointer-events: auto; }
         
         .nav-item { 
@@ -253,8 +270,10 @@ $active_now = $stmtMetricsActive->fetchColumn();
         .nav-item.active .material-symbols-rounded { color: var(--primary); }
         .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: var(--primary); border-radius: 4px 0 0 4px; }
         
-        .alert-pulse { animation: alert-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
-        @keyframes alert-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+        /* Invisible Scroll System */
+        *::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -433,10 +452,92 @@ $active_now = $stmtMetricsActive->fetchColumn();
             }
         }
 
+        // Elite Pagination Engine
+        let tablePagination = {
+            currentPage: 1,
+            rowsPerPage: 10,
+            tableId: 'attendanceTable'
+        };
+
+        function initTablePagination() {
+            const table = document.getElementById(tablePagination.tableId);
+            if (!table) return;
+            
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.no-records)'));
+            const totalRows = rows.length;
+            
+            if (totalRows <= tablePagination.rowsPerPage) {
+                document.getElementById('paginationWrap').classList.add('hidden');
+                rows.forEach(r => r.style.display = '');
+                return;
+            }
+
+            document.getElementById('paginationWrap').classList.remove('hidden');
+            renderPagination(1);
+        }
+
+        function renderPagination(page) {
+            tablePagination.currentPage = page;
+            const table = document.getElementById(tablePagination.tableId);
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.no-records)'));
+            const totalRows = rows.length;
+            const totalPages = Math.ceil(totalRows / tablePagination.rowsPerPage);
+            
+            const start = (page - 1) * tablePagination.rowsPerPage;
+            const end = start + tablePagination.rowsPerPage;
+
+            rows.forEach((row, index) => {
+                row.style.display = (index >= start && index < end) ? '' : 'none';
+            });
+
+            // Update Status Label
+            const actualEnd = Math.min(end, totalRows);
+            document.getElementById('paginationStatus').textContent = `Showing ${start + 1} to ${actualEnd} of ${totalRows} entries`;
+
+            // Render Buttons
+            const controls = document.getElementById('paginationControls');
+            controls.innerHTML = '';
+
+            // Prev Button
+            const prevBtn = document.createElement('button');
+            prevBtn.className = `size-8 rounded-lg flex items-center justify-center transition-all ${page === 1 ? 'opacity-20 cursor-not-allowed text-[--text-main]/20' : 'bg-white/5 border border-white/10 text-[--text-main]/40 hover:bg-primary hover:text-white active:scale-90'}`;
+            prevBtn.innerHTML = '<span class="material-symbols-rounded text-sm">chevron_left</span>';
+            if (page > 1) prevBtn.onclick = () => renderPagination(page - 1);
+            controls.appendChild(prevBtn);
+
+            // Index Buttons (Simplified)
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
+                    const btn = document.createElement('button');
+                    btn.className = `size-8 rounded-lg text-[10px] font-black transition-all ${i === page ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'bg-white/5 border border-white/10 text-[--text-main]/40 hover:bg-white/10 hover:text-white'}`;
+                    btn.textContent = i;
+                    btn.onclick = () => renderPagination(i);
+                    controls.appendChild(btn);
+                } else if (i === page - 2 || i === page + 2) {
+                    const dot = document.createElement('span');
+                    dot.className = 'text-[--text-main]/20 px-1';
+                    dot.textContent = '...';
+                    controls.appendChild(dot);
+                }
+            }
+
+            // Next Button
+            const nextBtn = document.createElement('button');
+            nextBtn.className = `size-8 rounded-lg flex items-center justify-center transition-all ${page === totalPages ? 'opacity-20 cursor-not-allowed text-[--text-main]/20' : 'bg-white/5 border border-white/10 text-[--text-main]/40 hover:bg-primary hover:text-white active:scale-90'}`;
+            nextBtn.innerHTML = '<span class="material-symbols-rounded text-sm">chevron_right</span>';
+            if (page < totalPages) nextBtn.onclick = () => renderPagination(page + 1);
+            controls.appendChild(nextBtn);
+        }
+
         window.addEventListener('DOMContentLoaded', () => {
             updateHeaderClock();
             if ('<?= $view ?>' === 'scan') generateQR();
             switchTab('<?= $view ?>');
+            
+            // Wait slightly for DOM to settle
+            setTimeout(initTablePagination, 100);
         });
     </script>
 </head>
@@ -452,7 +553,7 @@ $active_now = $stmtMetricsActive->fetchColumn();
         <!-- Welcome Header -->
         <header class="mb-12 flex flex-row justify-between items-end gap-6">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none tracking-tight text-white"><span class="opacity-40">Attendance</span> <span class="text-primary">Registry</span></h2>
+                <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none text-white transition-all"><span class="opacity-40">Attendance</span> <span class="text-primary">Registry</span></h2>
                 <p class="text-[--text-main]/60 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Gym Attendance Logs • Check-In &amp; Check-Out Records</p>
             </div>
             <div class="flex items-end gap-8 text-right shrink-0">
@@ -464,22 +565,36 @@ $active_now = $stmtMetricsActive->fetchColumn();
         </header>
 
         <!-- Dynamic Stat Overview Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             <!-- Total Daily Logs Card -->
-            <div class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02] block transition-all shadow-lg hover:shadow-primary/10">
-                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-emerald-500">history</span>
-                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total Daily Logs</p>
-                <h3 class="text-2xl font-black italic uppercase text-emerald-400"><?= number_format($total_today) ?></h3>
-                <p class="text-emerald-500 text-[10px] font-black uppercase mt-2 tracking-tight">Entries Today</p>
+            <div class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02] block transition-all shadow-lg hover:shadow-emerald-500/10">
+                <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">history</span>
+                <p class="text-[--text-main]/60 text-[10px] font-black uppercase mb-3 tracking-widest px-1">Daily Traffic</p>
+                <div class="flex items-center gap-4 px-1">
+                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= number_format($total_today) ?> <span class="text-emerald-500 text-xs align-middle ml-1 italic">ENTRIES</span></h3>
+                </div>
+                <p class="text-[--text-main]/40 text-[9px] font-bold uppercase mt-4 tracking-widest border-t border-white/5 pt-4 px-1 italic">Attendance recorded today</p>
             </div>
 
             <!-- Active Sessions Card -->
             <a href="?view=live" class="glass-card p-8 status-card-yellow relative overflow-hidden group hover:scale-[1.02] block transition-all shadow-lg hover:shadow-amber-500/10">
-                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-amber-500">sensors</span>
-                <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Active Now</p>
-                <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $active_now ?></h3>
-                <p class="text-amber-500 text-[10px] font-black uppercase mt-2 tracking-tight">Currently Training</p>
+                <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">sensors</span>
+                <p class="text-[--text-main]/60 text-[10px] font-black uppercase mb-3 tracking-widest px-1">Active Now</p>
+                <div class="flex items-center gap-4 px-1">
+                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $active_now ?> <span class="text-amber-500 text-xs align-middle ml-1 italic animate-pulse">TRAINING</span></h3>
+                </div>
+                <p class="text-[--text-main]/40 text-[9px] font-bold uppercase mt-4 tracking-widest border-t border-white/5 pt-4 px-1 italic">Members currently in gym</p>
             </a>
+
+            <!-- Average Visit Duration Card -->
+            <div class="glass-card p-8 status-card-blue relative overflow-hidden group hover:scale-[1.02] block transition-all shadow-lg hover:shadow-blue-500/10">
+                <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-10 group-hover:scale-110 transition-transform text-blue-500">update</span>
+                <p class="text-[--text-main]/60 text-[10px] font-black uppercase mb-3 tracking-widest px-1">Average Stay</p>
+                <div class="flex items-center gap-4 px-1">
+                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $avg_stay ?> <span class="text-blue-500 text-xs align-middle ml-1 italic">MINUTES</span></h3>
+                </div>
+                <p class="text-[--text-main]/40 text-[9px] font-bold uppercase mt-4 tracking-widest border-t border-white/5 pt-4 px-1 italic">Typical session duration</p>
+            </div>
         </div>
 
         <!-- Tab Switcher -->
@@ -494,29 +609,31 @@ $active_now = $stmtMetricsActive->fetchColumn();
         <div id="panel-scan" class="tab-panel">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
                 <!-- QR Code Card -->
-                <div class="glass-card p-10 flex flex-col items-center justify-center gap-6 text-center">
-                    <div class="mb-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 mb-1">Daily Check-In Code</p>
-                        <h3 class="text-xl font-black italic uppercase text-white">Scan to Mark Attendance</h3>
-                        <p class="text-[10px] text-[--text-main]/40 mt-1 font-bold uppercase tracking-widest"><?= date('l, M d, Y') ?></p>
+                <div class="glass-card p-10 flex flex-col items-center justify-center gap-8 text-center relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
+                    <div class="relative z-10">
+                        <p class="text-[--text-main]/40 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Daily Authentication Matrix</p>
+                        <h3 class="text-2xl font-black italic uppercase text-white tracking-tighter">Scan to Check In</h3>
+                        <p class="text-primary text-[10px] mt-2 font-black uppercase tracking-[0.15em] italic"><?= date('l, M d, Y') ?></p>
                     </div>
                     <!-- QR Code Display -->
-                    <div class="flex items-center justify-center w-[258px] h-[258px]">
+                    <div class="relative z-10 flex items-center justify-center w-[280px] h-[280px] p-6 glass-card border-white/10 bg-white shadow-2xl">
                         <!-- Skeleton -->
-                        <div id="qrSkeleton" class="w-full h-full rounded-2xl bg-white/5 border border-white/10 animate-pulse flex items-center justify-center">
-                            <span class="material-symbols-rounded text-5xl text-[--text-main]/20">qr_code_2</span>
+                        <div id="qrSkeleton" class="absolute inset-6 rounded-xl bg-black/5 animate-pulse flex items-center justify-center">
+                            <span class="material-symbols-rounded text-6xl text-black/10">qr_code_2</span>
                         </div>
                         <!-- QR Image -->
-                        <div id="qrWrapper" class="hidden w-full h-full bg-white rounded-2xl shadow-xl p-2">
-                            <img id="qrCodeImg" src="" alt="Check-In QR" class="w-full h-full object-contain block rounded-xl" />
+                        <div id="qrWrapper" class="hidden w-full h-full p-2">
+                            <img id="qrCodeImg" src="" alt="Check-In QR" class="w-full h-full object-contain block" />
                         </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                        <button onclick="generateQR()" class="flex items-center gap-2 px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 hover:bg-white/10 hover:text-primary transition-all active:scale-95">
-                            <span class="material-symbols-rounded text-sm">refresh</span> Refresh
+                    <div class="relative z-10 flex items-center gap-3">
+                        <button onclick="generateQR()" class="flex items-center gap-3 px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 hover:bg-white/10 hover:text-primary transition-all active:scale-95 group">
+                            <span class="material-symbols-rounded text-base group-hover:rotate-180 transition-transform">refresh</span> 
+                            Refresh Vector
                         </button>
                     </div>
-                    <p class="text-[9px] text-[--text-main]/30 font-bold uppercase tracking-widest">Members scan this using the Horizon app to check in</p>
+                    <p class="relative z-10 text-[9px] text-[--text-main]/20 font-bold uppercase tracking-[0.15em] italic mt-4 px-10">Members scan this using the Horizon app to synchronize their attendance registry</p>
                 </div>
 
                 <!-- Admin Camera Scanner Card -->
@@ -562,33 +679,33 @@ $active_now = $stmtMetricsActive->fetchColumn();
         </div>
         <?php else: ?>
 
-        <!-- Functional Filter Form (shown for history + live tabs) -->
+        <!-- Dynamic Filter Matrix -->
         <div class="mb-10">
-            <form method="GET" class="glass-card p-8 border border-white/5 relative overflow-hidden bg-white/[0.01]">
+            <form method="GET" class="glass-card p-8 relative overflow-hidden">
                 <input type="hidden" name="view" value="<?= $view ?>">
                 <div class="grid grid-cols-1 md:grid-cols-2 <?= ($view === 'history') ? 'lg:grid-cols-5' : 'lg:grid-cols-3' ?> gap-6 items-end">
                     <div class="space-y-2 lg:col-span-1">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Member Search</p>
+                        <p class="text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest ml-1">Member Identity</p>
                         <div class="relative group">
                             <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main]/40 text-lg group-focus-within:text-primary transition-colors">search</span>
-                            <input type="text" name="search" value="<?= htmlspecialchars($search_query) ?>" placeholder="Search ID or name..." class="input-box pl-12 w-full">
+                            <input type="text" name="search" value="<?= htmlspecialchars($search_query) ?>" placeholder="Search member name..." class="input-box pl-12 w-full">
                         </div>
                     </div>
 
                     <?php if ($view === 'history'): ?>
                     <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Period (From)</p>
+                        <p class="text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest ml-1">Period Registry (From)</p>
                         <input type="date" name="start_date" value="<?= htmlspecialchars($start_date) ?>" class="input-box w-full [color-scheme:dark]">
                     </div>
 
                     <div class="space-y-2">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Period (To)</p>
+                        <p class="text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest ml-1">Period Registry (To)</p>
                         <input type="date" name="end_date" value="<?= htmlspecialchars($end_date) ?>" class="input-box w-full [color-scheme:dark]">
                     </div>
                     <?php endif; ?>
 
                     <div class="flex gap-3">
-                        <button type="submit" class="flex-1 bg-primary hover:bg-primary/90 text-white h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 active:scale-95">Apply Log</button>
+                        <button type="submit" class="flex-1 bg-primary hover:bg-primary/90 text-white h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 active:scale-95">Apply Filter</button>
                         <button type="button" onclick="clearAttendanceFilters()" class="size-[46px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-[--text-main]/40 hover:bg-rose-500/10 hover:text-rose-500 transition-all group active:scale-95">
                             <span class="material-symbols-rounded text-xl group-hover:rotate-180 transition-transform">restart_alt</span>
                         </button>
@@ -596,8 +713,8 @@ $active_now = $stmtMetricsActive->fetchColumn();
 
                     <div class="lg:col-span-1">
                         <button type="button" onclick="alert('CSV Export Protocol Initialized')" class="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-primary h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 group active:scale-95">
-                            <span class="material-symbols-rounded text-lg group-hover:-translate-y-0.5 transition-transform">download</span>
-                            Export CSV
+                            <span class="material-symbols-rounded text-lg group-hover:-translate-z-1 group-hover:translate-y-0.5 transition-transform">download</span>
+                            Export Data Log
                         </button>
                     </div>
                 </div>
@@ -612,24 +729,24 @@ $active_now = $stmtMetricsActive->fetchColumn();
         </div>
 
         <!-- Data Log Table -->
-        <div class="glass-card flex flex-col overflow-hidden">
+        <div class="glass-card flex flex-col overflow-hidden border-white/5">
             <div class="overflow-x-auto no-scrollbar">
-                <table class="w-full text-left order-collapse">
+                <table id="attendanceTable" class="w-full text-left order-collapse border-separate border-spacing-0">
                     <thead>
-                        <tr class="bg-white/[0.01] text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 border-b border-white/5">
-                            <th class="px-8 py-5">Name</th>
-                            <th class="px-8 py-5">Date</th>
-                            <th class="px-8 py-5 text-center">Time In</th>
-                            <th class="px-8 py-5 text-center">Time Out</th>
-                            <th class="px-8 py-5 text-right">Status</th>
+                        <tr class="bg-white/[0.02] text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main]/40 border-b border-white/5">
+                            <th class="px-8 py-6">Member Identity</th>
+                            <th class="px-8 py-6">Registry Date</th>
+                            <th class="px-8 py-6 text-center">Entry Index</th>
+                            <th class="px-8 py-6 text-center">Exit Index</th>
+                            <th class="px-8 py-6 text-right">Status Offset</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         <?php if (empty($attendance_list)): ?>
                         <tr>
-                            <td colspan="5" class="px-8 py-24 text-center">
-                                <span class="material-symbols-rounded text-4xl text-[--text-main]/20 mb-4 block">event_busy</span>
-                                <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/20">No attendance records found.</p>
+                            <td colspan="5" class="px-8 py-32 text-center">
+                                <span class="material-symbols-rounded text-5xl text-[--text-main]/10 mb-6 block">event_busy</span>
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/20 italic">No attendance records detected in matrix.</p>
                             </td>
                         </tr>
                         <?php else: foreach ($attendance_list as $row): 
@@ -637,41 +754,66 @@ $active_now = $stmtMetricsActive->fetchColumn();
                             $check_in_ts = strtotime($row['attendance_date'] . ' ' . $row['check_in_time']);
                             $check_out_ts = $row['check_out_time'] ? strtotime($row['attendance_date'] . ' ' . $row['check_out_time']) : null;
                         ?>
-                        <tr class="hover:bg-white/[0.01] group transition-colors">
-                            <td class="px-8 py-6 border-l-2 border-transparent hover:border-primary transition-all">
+                        <tr class="hover:bg-white/5 group transition-all duration-300">
+                            <td class="px-8 py-5">
                                 <div class="flex items-center gap-4">
-                                    <div class="size-10 rounded-2xl bg-primary/10 border border-white/5 flex items-center justify-center text-primary font-black italic text-base">
-                                        <?= substr($row['fullname'] ?: $row['username'], 0, 1) ?>
+                                    <div class="size-10 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden">
+                                        <?php if (!empty($row['profile_picture'])): 
+                                            $pfp_src = (strpos($row['profile_picture'], 'data:image') === 0) ? $row['profile_picture'] : '../' . $row['profile_picture'];
+                                        ?>
+                                            <img src="<?= htmlspecialchars($pfp_src) ?>" class="size-full object-cover" alt="">
+                                        <?php else: ?>
+                                            <div class="text-primary font-black italic text-base">
+                                                <?= substr($row['fullname'] ?: $row['username'], 0, 1) ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                     <div>
-                                        <p class="text-[13px] font-black italic uppercase text-[--text-main] group-hover:text-primary transition-colors"><?= htmlspecialchars($row['fullname'] ?: $row['username']) ?></p>
+                                        <p class="text-[12.5px] font-black italic uppercase text-white group-hover:text-primary transition-colors tracking-tight"><?= htmlspecialchars($row['fullname'] ?: $row['username']) ?></p>
+                                        <p class="text-[8.5px] font-bold text-[--text-main]/20 uppercase tracking-[0.1em] mt-0.5 opacity-60"><?= htmlspecialchars($row['username']) ?></p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-8 py-6">
-                                <p class="text-[10px] font-black text-[--text-main]/40 uppercase tracking-widest italic"><?= date('M d, Y', $check_in_ts) ?></p>
+                            <td class="px-8 py-5">
+                                <p class="text-[10px] font-black text-white italic uppercase tracking-tight"><?= date('M d, Y', $check_in_ts) ?></p>
+                                <p class="text-[8.5px] font-bold text-[--text-main]/20 uppercase tracking-widest mt-1"><?= date('l', $check_in_ts) ?></p>
                             </td>
-                            <td class="px-8 py-6 text-center">
-                                <p class="text-[11px] font-black italic text-[--text-main] uppercase"><?= date('h:i A', $check_in_ts) ?></p>
+                            <td class="px-8 py-5 text-center">
+                                <div class="inline-block px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+                                    <p class="text-[11px] font-black italic text-emerald-500 uppercase"><?= date('h:i A', $check_in_ts) ?></p>
+                                </div>
                             </td>
-                            <td class="px-8 py-6 text-center">
+                            <td class="px-8 py-5 text-center">
                                 <?php if ($isTraining): ?>
-                                    <span class="text-emerald-500 text-[10px] font-extrabold animate-pulse">ACTIVE</span>
+                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                                        <span class="size-1 rounded-full bg-amber-500 animate-ping"></span>
+                                        <span class="text-amber-500 text-[9px] font-black italic uppercase tracking-widest">ACTIVE</span>
+                                    </div>
                                 <?php else: ?>
-                                    <p class="text-[11px] font-black italic text-[--text-main]/40 uppercase"><?= date('h:i A', $check_out_ts) ?></p>
+                                    <div class="inline-block px-3 py-1.5 rounded-xl bg-white/5 border border-white/5">
+                                        <p class="text-[11px] font-black italic text-[--text-main]/40 uppercase"><?= date('h:i A', $check_out_ts) ?></p>
+                                    </div>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-8 py-6 text-right">
+                            <td class="px-8 py-5 text-right">
                                 <?php if ($isTraining): ?>
-                                    <span class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-extrabold uppercase italic tracking-widest">Present</span>
+                                    <span class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[8px] text-emerald-500 font-black uppercase italic tracking-[0.1em]">PRESENT</span>
                                 <?php else: ?>
-                                    <span class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-[9px] text-[--text-main]/30 font-extrabold uppercase italic tracking-widest">Completed</span>
+                                    <span class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-[8px] text-[--text-main]/20 font-black uppercase italic tracking-[0.1em]">COMPLETED</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; endif; ?>
                     </tbody>
                 </table>
+            </div>
+            
+            <!-- Elite Pagination Container -->
+            <div id="paginationWrap" class="px-8 py-6 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 bg-white/[0.01] hidden">
+                <p id="paginationStatus" class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/20 italic">Showing 10 of 45 entries</p>
+                <div id="paginationControls" class="flex items-center gap-2">
+                    <!-- Dynamic Buttons -->
+                </div>
             </div>
         </div>
         <?php endif; ?>

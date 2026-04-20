@@ -118,7 +118,7 @@ if (!empty($date_to)) {
 $where_clause = "WHERE " . implode(' AND ', $sql_parts);
 
 $sql = "
-        SELECT p.*, u.first_name, u.last_name, u.username 
+        SELECT p.*, u.first_name, u.last_name, u.username, u.profile_picture 
         FROM payments p 
         JOIN members m ON p.member_id = m.member_id 
         JOIN users u ON m.user_id = u.user_id 
@@ -701,41 +701,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <?php else:
                                 foreach ($payments_list as $pay): ?>
                                     <tr class="hover:bg-white/[0.02] group transition-colors">
-                                        <td class="px-8 py-6">
+                                        <td class="px-8 py-5">
                                             <div class="flex items-center gap-4">
-                                                <div
-                                                    class="size-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black italic text-base">
-                                                    <?= substr($pay['first_name'] ?? 'U', 0, 1) ?>
+                                                <div class="size-10 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden">
+                                                    <?php if (!empty($pay['profile_picture'])): 
+                                                        $pfp_src = (strpos($pay['profile_picture'], 'data:image') === 0) ? $pay['profile_picture'] : '../' . $pay['profile_picture'];
+                                                    ?>
+                                                        <img src="<?= htmlspecialchars($pfp_src) ?>" class="size-full object-cover" alt="">
+                                                    <?php else: ?>
+                                                        <div class="text-primary font-black italic text-base">
+                                                            <?= substr($pay['first_name'] ?? 'U', 0, 1) ?>
+                                                        </div>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <div>
-                                                    <p
-                                                        class="text-[13px] font-black italic uppercase text-white group-hover:text-primary transition-colors">
+                                                    <p class="text-[12.5px] font-black italic uppercase text-white group-hover:text-primary transition-colors tracking-tight">
                                                         <?= htmlspecialchars(($pay['first_name'] ?? '') . ' ' . ($pay['last_name'] ?? '')) ?>
                                                     </p>
-                                                    <p
-                                                        class="text-[10px] font-bold text-[--text-main]/40 tracking-tight lowercase">
+                                                    <p class="text-[8.5px] font-bold text-[--text-main]/20 uppercase tracking-[0.1em] mt-0.5 opacity-60">
                                                         @<?= htmlspecialchars($pay['username'] ?? 'unknown') ?></p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="px-8 py-6 text-center">
-                                            <p class="text-sm font-black italic text-white tracking-tight">
+                                        <td class="px-8 py-5 text-center">
+                                            <p class="text-[13px] font-black italic text-white tracking-tight">
                                                 ₱<?= number_format($pay['amount'], 2) ?></p>
                                         </td>
-                                        <td class="px-8 py-6 text-center">
+                                        <td class="px-8 py-5 text-center">
                                             <span
-                                                class="px-4 py-1.5 rounded-xl badge-surface text-[9px] font-black uppercase tracking-[0.1em] text-[--text-main]/60 italic"><?= htmlspecialchars($pay['payment_type'] ?? 'OFFLINE') ?></span>
+                                                class="px-3 py-1 rounded-xl badge-surface text-[8.5px] font-black uppercase tracking-[0.1em] text-[--text-main]/40 italic"><?= htmlspecialchars($pay['payment_type'] ?? 'OFFLINE') ?></span>
                                         </td>
-                                        <td class="px-8 py-6">
+                                        <td class="px-8 py-5">
                                             <div class="space-y-0.5 text-left">
-                                                <p class="text-[11px] font-black italic text-white uppercase">
+                                                <p class="text-[10px] font-black italic text-white uppercase">
                                                     <?= date('h:i A', strtotime($pay['created_at'])) ?></p>
                                                 <p
-                                                    class="text-[9px] font-bold text-[--text-main]/20 uppercase tracking-widest italic">
+                                                    class="text-[8.5px] font-bold text-[--text-main]/20 uppercase tracking-widest italic">
                                                     <?= date('M d, Y', strtotime($pay['created_at'])) ?></p>
                                             </div>
                                         </td>
-                                        <td class="px-8 py-6 text-center">
+                                        <td class="px-8 py-5 text-center">
                                             <?php
                                             $status = strtoupper($pay['payment_status'] ?? 'PENDING');
                                             $status_class = "text-[--text-main]/40 bg-white/5 border-white/5";
@@ -749,7 +754,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             }
                                             ?>
                                             <span
-                                                class="px-4 py-1.5 rounded-full border text-[9px] font-extrabold uppercase italic tracking-widest <?= $status_class ?>"><?= $status ?></span>
+                                                class="px-4 py-1.5 rounded-full border text-[8px] font-black uppercase italic tracking-widest <?= $status_class ?>"><?= $status ?></span>
                                         </td>
                                         <td class="px-8 py-6 text-right">
                                             <div class="flex justify-end gap-2">
@@ -838,8 +843,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="glass-card p-6 border-white/5 bg-white/[0.02]">
                     <p class="text-[10px] font-black uppercase text-primary mb-4 tracking-widest">Member Information</p>
                     <div class="flex items-center gap-4">
-                        <div class="size-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black italic text-xl"
-                            id="dt_avatar">J</div>
+                        <div class="size-12 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden" id="dt_avatar">
+                            <span class="text-primary font-black italic text-xl">J</span>
+                        </div>
                         <div>
                             <p class="text-base font-black italic uppercase text-white" id="dt_name">John Doe</p>
                             <p class="text-[11px] font-bold text-[--text-main]/40" id="dt_username">@johndoe</p>
