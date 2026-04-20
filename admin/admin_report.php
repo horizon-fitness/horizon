@@ -12,25 +12,93 @@ if (!isset($_SESSION['user_id']) || ($role !== 'staff' && $role !== 'coach')) {
 $gym_id = $_SESSION['gym_id'];
 $admin_name = $_SESSION['first_name'] . ' ' . $_SESSION['last_name'];
 
-// --- FETCH BRANDING & CONFIG ---
-$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
-$stmtGym->execute([$gym_id]);
-$gym = $stmtGym->fetch();
+// ── 4-Color Elite Branding System Implementation ─────────────────────────────
+if (!function_exists('hexToRgb')) {
+    function hexToRgb($hex) {
+        if (!$hex) return "0, 0, 0";
+        $hex = str_replace("#", "", $hex);
+        if (strlen($hex) == 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+        } else {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        }
+        return "$r, $g, $b";
+    }
+}
 
-$owner_user_id = $gym['owner_user_id'] ?? 0;
-$stmtSettings = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ? OR user_id = 0 ORDER BY user_id ASC");
-$stmtSettings->execute([$owner_user_id]);
-$configs = $stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR);
+// Fetch Gym & Owner Details for Branding
+$gym = [];
+$gym_address = [];
+$owner_user_id = 0;
+$gym_name = 'Horizon Gym';
 
-$theme_color = $configs['theme_color'] ?? '#8c2bee';
-$bg_color = $configs['bg_color'] ?? '#0a090d';
-$font_family = $configs['font_family'] ?? 'Lexend';
-$system_logo = $configs['system_logo'] ?? $gym['profile_picture'] ?? '';
+try {
+    $stmtGymBranding = $pdo->prepare("SELECT owner_user_id, gym_name, address_id FROM gyms WHERE gym_id = ?");
+    $stmtGymBranding->execute([$gym_id]);
+    $gym = $stmtGymBranding->fetch();
+    if ($gym) {
+        $owner_user_id = $gym['owner_user_id'] ?? 0;
+        $gym_name = $gym['gym_name'] ?? 'Horizon Gym';
+    }
 
-// Also fetch address for report headers
-$stmtAddress = $pdo->prepare("SELECT * FROM addresses WHERE address_id = ?");
-$stmtAddress->execute([$gym['address_id'] ?? 0]);
-$gym_address = $stmtAddress->fetch();
+    if (!empty($gym['address_id'])) {
+        $stmtAddress = $pdo->prepare("SELECT * FROM addresses WHERE address_id = ?");
+        $stmtAddress->execute([$gym['address_id']]);
+        $gym_address = $stmtAddress->fetch() ?: [];
+    }
+} catch (Exception $e) {
+    // Silent fail for branding
+}
+
+$configs = [
+    'system_name'     => $gym_name,
+    'system_logo'     => '',
+    'theme_color'     => '#8c2bee',
+    'secondary_color' => '#a1a1aa',
+    'text_color'      => '#d1d5db',
+    'bg_color'        => '#0a090d',
+    'card_color'      => '#141216',
+    'auto_card_theme' => '1',
+    'font_family'     => 'Lexend',
+];
+
+try {
+    // 1. Merge global settings (user_id = 0)
+    $stmtGlobal = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+    $stmtGlobal->execute();
+    foreach (($stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+        if ($v !== null && $v !== '') $configs[$k] = $v;
+    }
+
+    // 2. Merge tenant-specific settings (user_id = owner_user_id)
+    if ($owner_user_id > 0) {
+        $stmtTenant = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+        $stmtTenant->execute([$owner_user_id]);
+        foreach (($stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+            if ($v !== null && $v !== '') $configs[$k] = $v;
+        }
+    }
+} catch (Exception $e) {}
+
+// 3. Resolved branding tokens
+$theme_color     = $configs['theme_color'];
+$highlight_color = $configs['secondary_color'];
+$text_color      = $configs['text_color'];
+$bg_color        = $configs['bg_color'];
+$font_family     = $configs['font_family'] ?? 'Lexend';
+$auto_card_theme = $configs['auto_card_theme'] ?? '1';
+$card_color      = $configs['card_color'];
+
+$primary_rgb   = hexToRgb($theme_color);
+$highlight_rgb = hexToRgb($highlight_color);
+$card_bg_css   = ($auto_card_theme === '1') ? "rgba({$primary_rgb}, 0.05)" : $card_color;
+
+$system_logo = $configs['system_logo'] ?? '';
+// ─────────────────────────────────────────────────────────────────────────────
 
 // --- REPORT FILTER LOGIC ---
 $tab = $_GET['tab'] ?? 'financials';
@@ -155,7 +223,11 @@ try {
     $error_msg = $e->getMessage();
 }
 
-$active_page = "admin_report";
+$active_page = "reports";
+$page = [
+    'logo_path' => $system_logo,
+    'system_name' => $configs['system_name'] ?? 'Horizon Staff'
+];
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -163,13 +235,9 @@ $active_page = "admin_report";
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-    <title>System Reports | Horizon</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap"
-        rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet" />
-    <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-        rel="stylesheet" />
+    <title>System Reports | <?= htmlspecialchars($configs['system_name']) ?></title>
+    <link href="https://fonts.googleapis.com/css2?family=<?= urlencode($font_family) ?>:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
@@ -178,22 +246,32 @@ $active_page = "admin_report";
             theme: {
                 extend: {
                     colors: {
-                        "primary": "<?= $theme_color ?>",
-                        "background-dark": "<?= $bg_color ?>",
-                        "surface-dark": "#14121a",
-                        "border-subtle": "rgba(255,255,255,0.05)"
+                        "primary": "var(--primary)",
+                        "background": "var(--background)",
+                        "card-bg": "var(--card-bg)",
+                        "text-main": "var(--text-main)",
+                        "highlight": "var(--highlight)"
                     }
                 }
             }
         } 
     </script>
     <style>
+        :root {
+            --primary:       <?= $theme_color ?>;
+            --primary-rgb:   <?= $primary_rgb ?>;
+            --highlight:     <?= $highlight_color ?>;
+            --highlight-rgb: <?= $highlight_rgb ?>;
+            --text-main:     <?= $text_color ?>;
+            --background:    <?= $bg_color ?>;
+            --card-bg:       <?= $card_bg_css ?>;
+            --card-blur:     20px;
+        }
+
         body {
             font-family: '<?= $font_family ?>', sans-serif;
-            background-color:
-                <?= $bg_color ?>
-            ;
-            color: white;
+            background-color: var(--background);
+            color: var(--text-main);
             display: flex;
             flex-direction: row;
             min-height: 100vh;
@@ -201,19 +279,14 @@ $active_page = "admin_report";
         }
 
         .glass-card {
-            background: #14121a;
+            background: var(--card-bg);
             border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(var(--card-blur));
             border-radius: 24px;
         }
-
-        /* Sidebar Hover Logic */
-        :root {
-            --nav-width: 110px;
-        }
-
-        body:has(.side-nav:hover) {
-            --nav-width: 300px;
-        }
+        /* Sidebar Width Logic */
+        :root { --nav-width: 110px; }
+        body:has(.side-nav:hover) { --nav-width: 300px; }
 
         .side-nav {
             width: var(--nav-width);
@@ -237,6 +310,49 @@ $active_page = "admin_report";
             overflow-x: hidden;
         }
 
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .input-box {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: var(--text-main);
+            padding: 12px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .input-box:focus {
+            border-color: var(--primary);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .input-box::placeholder { color: rgba(255, 255, 255, 0.2); }
+
+        .tab-btn {
+            padding: 12px 24px;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: rgba(255, 255, 255, 0.3);
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .tab-btn:hover:not(.active) {
+            color: var(--text-main);
+        }
+
+        /* Sidebar Item & Label Logic */
         .nav-label {
             opacity: 0;
             transform: translateX(-15px);
@@ -272,25 +388,26 @@ $active_page = "admin_report";
             align-items: center;
             gap: 16px;
             padding: 10px 38px;
-            transition: all 0.2s ease;
+            transition: opacity 0.2s ease, color 0.2s ease;
             text-decoration: none;
             white-space: nowrap;
             font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: #94a3b8;
+            color: color-mix(in srgb, var(--text-main) 45%, transparent);
+            position: relative;
         }
 
-        .nav-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
+        .nav-item:hover { color: var(--text-main); }
+        .nav-item .material-symbols-rounded { 
+            color: var(--highlight); 
+            transition: transform 0.2s ease; 
         }
+        .nav-item:hover .material-symbols-rounded { transform: scale(1.12); }
 
         .nav-item.active {
-            color:
-                <?= $theme_color ?>
-                !important;
+            color: var(--primary) !important;
             position: relative;
         }
 
@@ -302,89 +419,23 @@ $active_page = "admin_report";
             transform: translateY(-50%);
             width: 4px;
             height: 24px;
-            background:
-                <?= $theme_color ?>
-            ;
+            background: var(--primary);
             border-radius: 4px 0 0 4px;
         }
 
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        .input-box {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            color: white;
-            padding: 12px 16px;
-            font-size: 13px;
-            font-weight: 500;
-            outline: none;
-            transition: all 0.2s;
-        }
-
-        .input-box:focus {
-            border-color:
-                <?= $theme_color ?>
-            ;
-            background: rgba(255, 255, 255, 0.08);
-        }
-
-        .input-box::placeholder {
-            color: #4b5563;
-        }
-
-        .tab-btn {
-            padding: 12px 24px;
-            font-size: 10px;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            color: #4b5563;
-            border-bottom: 2px solid transparent;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
         .tab-btn.active {
-            color:
-                <?= $theme_color ?>
-            ;
-            border-color:
-                <?= $theme_color ?>
-            ;
+            color: var(--primary);
+            border-color: var(--primary);
         }
 
         .tab-btn:hover:not(.active) {
-            color: white;
+            color: var(--text-main);
         }
 
         @media print {
-
-            .side-nav,
-            .no-print,
-            header .no-print,
-            .tab-btn,
-            form {
-                display: none !important;
-            }
-
-            .main-content {
-                margin-left: 0 !important;
-                padding: 0 !important;
-                overflow: visible !important;
-            }
-
-            body {
-                background: white !important;
-                color: black !important;
-                overflow: visible !important;
-            }
+            .side-nav, .no-print, .tab-btn, form { display: none !important; }
+            .main-content { margin-left: 0 !important; padding: 0 !important; overflow: visible !important; }
+            body { background: white !important; color: black !important; overflow: visible !important; }
         }
     </style>
     <script>
@@ -407,9 +458,8 @@ $active_page = "admin_report";
         function exportReportToPDF(preview = false) {
             const tableElement = document.getElementById('reportTableContainer');
             const reportTypeLabel = "<?= $report_title ?>";
-            const gymName = "<?= htmlspecialchars($gym['gym_name']) ?>";
+            const gymName = "<?= htmlspecialchars($gym_name) ?>";
             const gymAddress = "<?= htmlspecialchars(($gym_address['address_line'] ?? '') . ', ' . ($gym_address['city'] ?? '')) ?>";
-            const gymContact = "<?= htmlspecialchars(($gym['contact_number'] ?? '') . ' | ' . ($gym['gym_email'] ?? '')) ?>";
             const generatedAt = "<?= date('M d, Y') ?>";
 
             // Create formal wrapper
@@ -431,7 +481,6 @@ $active_page = "admin_report";
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; font-size: 9px; line-height: 1.5;">
                     <div style="text-align: left; color: #333;">
                         <p style="margin: 0;">${gymAddress}</p>
-                        <p style="margin: 0;">${gymContact}</p>
                     </div>
                     <div style="text-align: right; color: #333;">
                         <p style="margin: 0;">Date: ${generatedAt}</p>
@@ -442,7 +491,7 @@ $active_page = "admin_report";
             `;
 
             const contentClone = tableElement.cloneNode(true);
-            contentClone.querySelectorAll('button, .no-print, span.material-symbols-outlined').forEach(el => el.remove());
+            contentClone.querySelectorAll('button, .no-print, span.material-symbols-outlined, span.material-symbols-rounded').forEach(el => el.remove());
 
             [contentClone, ...contentClone.querySelectorAll('*')].forEach(el => {
                 el.removeAttribute('class');
@@ -516,104 +565,45 @@ $active_page = "admin_report";
 
 <body class="antialiased flex h-screen overflow-hidden">
 
-    <nav class="side-nav flex flex-col fixed left-0 top-0 h-screen bg-background-dark border-r border-white/5 no-print">
-        <div class="px-7 py-8 mb-4 shrink-0">
-            <div class="flex items-center gap-4">
-                <div
-                    class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                    <?php if (!empty($system_logo)):
-                        $logo_src = (strpos($system_logo, 'data:image') === 0) ? $system_logo : '../' . $system_logo;
-                        ?>
-                        <img src="<?= $logo_src ?>" class="size-full object-contain">
-                    <?php else: ?>
-                        <span class="material-symbols-outlined text-white text-2xl">bolt</span>
-                    <?php endif; ?>
-                </div>
-                <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Staff Portal</h1>
-            </div>
-        </div>
-        <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-            <div class="nav-section-label px-[38px] mb-2"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span></div>
-            <a href="admin_dashboard.php" class="nav-item"><span
-                    class="material-symbols-outlined text-xl shrink-0">grid_view</span><span
-                    class="nav-label">Dashboard</span></a>
-            <a href="register_member.php" class="nav-item"><span
-                    class="material-symbols-outlined text-xl shrink-0">person_add</span><span class="nav-label">Walk-in
-                    Member</span></a>
-            <div class="nav-section-label px-[38px] mb-2 mt-6"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
-            <a href="admin_users.php" class="nav-item"><span
-                    class="material-symbols-outlined text-xl shrink-0">group</span><span class="nav-label">My
-                    Users</span></a>
-            <a href="admin_transaction.php" class="nav-item"><span
-                    class="material-symbols-outlined text-xl shrink-0">receipt_long</span><span
-                    class="nav-label">Transactions</span></a>
-            <a href="admin_appointment.php" class="nav-item"><span
-                    class="material-symbols-outlined text-xl shrink-0">event_note</span><span
-                    class="nav-label">Bookings</span></a>
-            <a href="admin_attendance.php" class="nav-item"><span
-                    class="material-symbols-outlined text-xl shrink-0">history</span><span
-                    class="nav-label">Attendance</span></a>
-            <a href="admin_report.php" class="nav-item active"><span
-                    class="material-symbols-outlined text-xl shrink-0">description</span><span
-                    class="nav-label">System Reports</span></a>
-        </div>
-        <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
-            <div class="nav-section-label px-[38px] mb-2"><span
-                    class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
-            <a href="admin_profile.php" class="nav-item text-gray-400 hover:text-white"><span
-                    class="material-symbols-outlined text-xl shrink-0">account_circle</span><span
-                    class="nav-label">Profile</span></a>
-            <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors group">
-                <span
-                    class="material-symbols-outlined text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
-                <span class="nav-label whitespace-nowrap">Sign Out</span>
-            </a>
-        </div>
-    </nav>
+    <?php include '../includes/admin_sidebar.php'; ?>
 
     <div class="main-content flex-1 overflow-y-auto no-scrollbar">
         <main class="p-10 max-w-[1500px] mx-auto pb-20">
             <header class="mb-12 flex flex-row justify-between items-end gap-6">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">System <span class="text-primary">Reports</span>
-                    </h2>
-                    <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Analytics
-                        & Insights</p>
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-[--text-main] leading-none">System <span class="text-primary">Reports</span></h2>
+                    <p class="text-[--text-main]/40 text-xs font-bold uppercase tracking-widest mt-2 px-1">Analytics & Insights</p>
                 </div>
                 <div class="flex items-end gap-8 text-right shrink-0 no-print">
                     <div class="flex flex-col items-end">
-                        <p id="headerClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">
-                            00:00:00 AM</p>
-                        <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
-                            <?= date('l, M d, Y') ?></p>
+                        <p id="headerClock" class="text-[--text-main] font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
+                        <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
                     </div>
                 </div>
             </header>
 
             <!-- Revenue Summary Strip -->
-            <div class="mb-10 p-8 rounded-[32px] bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 grid grid-cols-1 md:grid-cols-3 gap-8 relative overflow-hidden group">
+            <div class="mb-10 p-8 glass-card grid grid-cols-1 md:grid-cols-3 gap-8 relative overflow-hidden group">
                 <div class="relative z-10 text-center md:text-left border-r border-white/5 pr-8">
-                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 mb-2">Total Combined Revenue</p>
-                    <h3 class="text-3xl font-black italic text-white flex items-center gap-3 py-1">
+                    <p class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40 mb-2">Total Combined Revenue</p>
+                    <h3 class="text-3xl font-black italic text-[--text-main] flex items-center gap-3 py-1">
                         <span class="text-primary opacity-50 text-xl">₱</span>
                         <?= number_format($lifetime_total, 2) ?>
                     </h3>
-                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-2 px-1">Total Lifetime Settled</p>
+                    <p class="text-[9px] font-bold text-[--text-main]/20 uppercase tracking-widest mt-2 px-1">Total Lifetime Settled</p>
                 </div>
                 <div class="relative z-10 text-center md:text-left border-r border-white/5 px-8">
                     <p class="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500/60 mb-2">Membership Income</p>
-                    <h3 class="text-3xl font-black italic text-white flex items-center gap-3 py-1">
+                    <h3 class="text-3xl font-black italic text-[--text-main] flex items-center gap-3 py-1">
                         <span class="text-emerald-500 opacity-50 text-xl">₱</span>
                         <?= number_format($membership_lifetime, 2) ?>
                     </h3>
-                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-2 px-1">Active Subscriptions</p>
+                    <p class="text-[9px] font-bold text-[--text-main]/20 uppercase tracking-widest mt-2 px-1">Active Subscriptions</p>
                 </div>
                 <div class="relative z-10 text-center md:text-right pl-8 flex flex-col items-center md:items-end justify-center">
                     <div class="mb-2">
                         <p class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/60 mb-1">Booking Revenue</p>
-                        <h3 class="text-2xl font-black italic text-white flex items-center gap-3 justify-end leading-none">
+                        <h3 class="text-2xl font-black italic text-[--text-main] flex items-center gap-3 justify-end leading-none">
                             <span class="text-amber-500 opacity-50 text-base">₱</span>
                             <?= number_format($booking_lifetime, 2) ?>
                         </h3>
@@ -642,35 +632,34 @@ $active_page = "admin_report";
                         <div class="space-y-2 lg:col-span-2">
                             <p class="text-[10px] font-black uppercase tracking-widest text-primary ml-1">SEARCH</p>
                             <div class="relative">
-                                <span
-                                    class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">search</span>
+                                <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main]/40 text-lg">search</span>
                                 <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
                                     placeholder="Search name or ID..." class="input-box pl-12 w-full">
                             </div>
                         </div>
                         <div class="space-y-2 lg:col-span-1">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">From</p>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">From</p>
                             <input type="date" name="start_date" value="<?= htmlspecialchars($start_date) ?>"
                                 class="input-box w-full">
                         </div>
                         <div class="space-y-2 lg:col-span-1">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">To</p>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">To</p>
                             <input type="date" name="end_date" value="<?= htmlspecialchars($end_date) ?>"
                                 class="input-box w-full">
                         </div>
                         <!-- Print & Preview Buttons -->
                         <div class="lg:col-span-2 flex gap-3 h-[46px]">
                             <button type="submit"
-                                class="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Filter</button>
+                                class="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 text-[--text-main] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Filter</button>
                             <button type="button" onclick="clearFilters()"
                                 class="flex-1 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-rose-500/20">Clear</button>
                             <button type="button" onclick="exportReportToPDF(true)"
                                 class="flex-1 bg-white/10 border border-primary/20 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-primary/20 flex items-center justify-center gap-2">
-                                <span class="material-symbols-outlined text-[18px]">visibility</span> Preview
+                                <span class="material-symbols-rounded text-[18px]">visibility</span> Preview
                             </button>
                             <button type="button" onclick="exportReportToPDF(false)"
                                 class="flex-1 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-primary/90 shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
-                                <span class="material-symbols-outlined text-[18px]">picture_as_pdf</span> Export
+                                <span class="material-symbols-rounded text-[18px]">picture_as_pdf</span> Export
                             </button>
                         </div>
                     </div>
@@ -680,10 +669,10 @@ $active_page = "admin_report";
             <!-- Document Matrix -->
             <div id="reportTableContainer">
                 <div class="flex justify-between items-center mb-6">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">Report Data</p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 italic">Report Data Registry</p>
                     <div class="flex items-center gap-4 no-print">
                         <span
-                            class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest text-gray-400">Total
+                            class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest text-[--text-main]/40">Total
                             Records: <?= count($query_data) ?></span>
                     </div>
                 </div>
@@ -693,27 +682,27 @@ $active_page = "admin_report";
                         <table class="w-full text-left">
                             <thead>
                                 <tr
-                                    class="text-[10px] font-black uppercase tracking-[0.15em] text-gray-600 border-b border-white/5 bg-white/[0.01]">
+                                    class="text-[10px] font-black uppercase tracking-[0.15em] text-[--text-main]/40 border-b border-white/5 bg-white/[0.01]">
                                     <?php if ($tab === 'financials'): ?>
-                                        <th class="px-6 py-5">Reference #</th>
-                                        <th class="px-6 py-5">Member Name</th>
+                                        <th class="px-6 py-5 italic">Reference #</th>
+                                        <th class="px-6 py-5">Member Identity</th>
                                         <th class="px-6 py-5">Method</th>
-                                        <th class="px-6 py-5">Note</th>
+                                        <th class="px-6 py-5">Type</th>
                                         <th class="px-6 py-5 text-right">Amount</th>
-                                        <th class="px-6 py-5 text-right">Status</th>
+                                        <th class="px-6 py-5 text-right">Settlement</th>
                                     <?php elseif ($tab === 'membership'): ?>
-                                        <th class="px-6 py-5">Member Name</th>
+                                        <th class="px-6 py-5">Member Identity</th>
                                         <th class="px-6 py-5">Plan</th>
-                                        <th class="px-6 py-5">Duration</th>
-                                        <th class="px-6 py-5">Usage</th>
+                                        <th class="px-6 py-5">Validity Period</th>
+                                        <th class="px-6 py-5">Utilization</th>
                                         <th class="px-6 py-5 text-right">Payment</th>
                                         <th class="px-6 py-5 text-right">Status</th>
                                     <?php elseif ($tab === 'attendance'): ?>
                                         <th class="px-6 py-5">Date</th>
-                                        <th class="px-6 py-5">Member Name</th>
+                                        <th class="px-6 py-5">Member Identity</th>
                                         <th class="px-6 py-5">Booking Ref</th>
-                                        <th class="px-6 py-5">Times</th>
-                                        <th class="px-6 py-5 text-right">Status</th>
+                                        <th class="px-6 py-5">Log Times</th>
+                                        <th class="px-6 py-5 text-right">Verification</th>
                                     <?php endif; ?>
                                 </tr>
                             </thead>
@@ -722,7 +711,7 @@ $active_page = "admin_report";
                                     <tr>
                                         <td colspan="7" class="px-8 py-24 text-center">
                                             <p
-                                                class="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">
+                                                class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 italic">
                                                 No records found.</p>
                                         </td>
                                     </tr>
@@ -731,23 +720,23 @@ $active_page = "admin_report";
                                         <tr class="hover:bg-white/[0.02] group transition-colors">
                                             <?php if ($tab === 'financials'): ?>
                                                 <td class="px-6 py-5">
-                                                    <p class="text-[11px] font-black text-white uppercase italic tracking-tighter">
+                                                    <p class="text-[11px] font-black text-[--text-main] uppercase italic tracking-tighter">
                                                         <?= htmlspecialchars($row['reference_number']) ?></p>
-                                                    <p class="text-[9px] font-bold text-gray-600 uppercase mt-1">
+                                                    <p class="text-[9px] font-bold text-[--text-main]/20 uppercase mt-1">
                                                         <?= date('M d, Y', strtotime($row['created_at'])) ?></p>
                                                 </td>
                                                 <td class="px-6 py-5">
                                                     <p
-                                                        class="text-[11px] font-black text-white uppercase group-hover:text-primary transition-colors">
+                                                        class="text-[11px] font-black text-[--text-main] uppercase group-hover:text-primary transition-colors">
                                                         <?= htmlspecialchars($row['fullname'] ?: $row['username']) ?></p>
                                                 </td>
                                                 <td class="px-6 py-5">
                                                     <span
-                                                        class="text-[10px] font-bold text-gray-500 uppercase tracking-widest"><?= htmlspecialchars($row['payment_method']) ?></span>
+                                                        class="text-[10px] font-bold text-[--text-main]/40 uppercase tracking-widest"><?= htmlspecialchars($row['payment_method']) ?></span>
                                                 </td>
                                                 <td class="px-6 py-5">
                                                     <span
-                                                        class="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-[9px] font-black uppercase text-gray-400 italic"><?= $row['transaction_type'] ?></span>
+                                                        class="px-3 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-black uppercase text-[--text-main]/30 italic"><?= $row['transaction_type'] ?></span>
                                                 </td>
                                                 <td class="px-6 py-5 text-right">
                                                     <span
@@ -765,14 +754,13 @@ $active_page = "admin_report";
                                                         $ps_color = "amber";
                                                     }
                                                     ?>
-                                                    <span
-                                                        class="px-3 py-1 rounded-full bg-<?= $ps_color ?>-500/10 border border-<?= $ps_color ?>-500/20 text-[9px] text-<?= $ps_color ?>-500 font-extrabold uppercase italic"><?= $ps_text ?></span>
+                                                    <span class="px-3 py-1 rounded-full bg-<?= $ps_color ?>-500/10 border border-<?= $ps_color ?>-500/20 text-[9px] text-<?= $ps_color ?>-500 font-extrabold uppercase italic"><?= $ps_text ?></span>
                                                 </td>
                                             <?php elseif ($tab === 'membership'): ?>
                                                 <td class="px-6 py-5">
-                                                    <p class="text-[11px] font-black text-white uppercase">
+                                                    <p class="text-[11px] font-black text-[--text-main] uppercase">
                                                         <?= htmlspecialchars($row['fullname']) ?></p>
-                                                    <p class="text-[9px] font-bold text-gray-500 lowercase opacity-60 italic">
+                                                    <p class="text-[9px] font-bold text-[--text-main]/20 lowercase italic">
                                                         <?= htmlspecialchars($row['email']) ?></p>
                                                 </td>
                                                 <td class="px-6 py-5">
@@ -780,7 +768,7 @@ $active_page = "admin_report";
                                                         class="text-primary font-black italic uppercase text-[11px] tracking-tight"><?= htmlspecialchars($row['plan_name']) ?></span>
                                                 </td>
                                                 <td class="px-6 py-5">
-                                                    <div class="text-[10px] font-bold text-gray-500 uppercase">
+                                                    <div class="text-[10px] font-bold text-[--text-main]/40 uppercase">
                                                         <?= date('M d', strtotime($row['start_date'])) ?> -
                                                         <?= date('M d, Y', strtotime($row['end_date'])) ?>
                                                     </div>
@@ -788,17 +776,17 @@ $active_page = "admin_report";
                                                 <td class="px-6 py-5">
                                                     <div class="flex items-center gap-2">
                                                         <span
-                                                            class="text-[9px] font-black text-gray-500"><?= $row['sessions_used'] ?>/<?= $row['sessions_total'] ?>
+                                                            class="text-[9px] font-black text-[--text-main]/30"><?= $row['sessions_used'] ?>/<?= $row['sessions_total'] ?>
                                                             Sessions</span>
                                                     </div>
                                                 </td>
                                                 <td class="px-6 py-5 text-right">
                                                     <span
-                                                        class="text-[10px] font-black italic uppercase <?= ($row['payment_status'] == 'Approved' || $row['payment_status'] == 'Paid') ? 'text-emerald-500' : 'text-amber-500' ?>"><?= $row['payment_status'] ?></span>
+                                                        class="text-[10px] font-black italic uppercase <?= (strtoupper($row['payment_status'] ?? '') == 'APPROVED' || strtoupper($row['payment_status'] ?? '') == 'PAID') ? 'text-emerald-500' : 'text-amber-500' ?>"><?= $row['payment_status'] ?? 'Pending' ?></span>
                                                 </td>
                                                 <td class="px-6 py-5 text-right">
                                                     <?php
-                                                    $s = $row['subscription_status'];
+                                                    $s = $row['subscription_status'] ?? 'Draft';
                                                     $sc = ($s == 'Active') ? 'emerald' : (($s == 'Expiring') ? 'amber' : 'rose');
                                                     ?>
                                                     <span
@@ -806,13 +794,13 @@ $active_page = "admin_report";
                                                 </td>
                                             <?php elseif ($tab === 'attendance'): ?>
                                                 <td class="px-6 py-5">
-                                                    <p class="text-[11px] font-black text-white uppercase italic">
+                                                    <p class="text-[11px] font-black text-[--text-main] uppercase italic">
                                                         <?= date('M d, Y', strtotime($row['attendance_date'])) ?></p>
                                                 </td>
                                                 <td class="px-6 py-5">
-                                                    <p class="text-[11px] font-black text-white uppercase tracking-tight">
+                                                    <p class="text-[11px] font-black text-[--text-main] uppercase tracking-tight">
                                                         <?= htmlspecialchars($row['fullname']) ?></p>
-                                                    <p class="text-[10px] font-bold text-gray-600 tracking-tight lowercase">
+                                                    <p class="text-[10px] font-bold text-[--text-main]/20 tracking-tight lowercase">
                                                         @<?= htmlspecialchars($row['username']) ?></p>
                                                 </td>
                                                 <td class="px-6 py-5">
@@ -822,11 +810,11 @@ $active_page = "admin_report";
                                                 <td class="px-6 py-5">
                                                     <div class="space-y-1">
                                                         <p
-                                                            class="text-[10px] font-black text-white uppercase italic tracking-tighter">
+                                                            class="text-[10px] font-black text-[--text-main] uppercase italic tracking-tighter">
                                                             In:
                                                             <?= date('h:i A', strtotime($row['attendance_date'] . ' ' . $row['check_in_time'])) ?>
                                                         </p>
-                                                        <p class="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Out:
+                                                        <p class="text-[9px] font-bold text-[--text-main]/20 uppercase tracking-widest">Out:
                                                             <?= !empty($row['check_out_time']) ? date('h:i A', strtotime($row['attendance_date'] . ' ' . $row['check_out_time'])) : '---' ?>
                                                         </p>
                                                     </div>
@@ -837,7 +825,7 @@ $active_page = "admin_report";
                                                             class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-extrabold uppercase italic">In-Gym</span>
                                                     <?php else: ?>
                                                         <span
-                                                            class="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] text-gray-500 font-extrabold uppercase italic">Completed</span>
+                                                            class="px-3 py-1 rounded-full bg-white/5 border border-white/5 text-[9px] text-[--text-main]/30 font-extrabold uppercase italic">Completed</span>
                                                     <?php endif; ?>
                                                 </td>
                                             <?php endif; ?>
@@ -845,18 +833,18 @@ $active_page = "admin_report";
                                     <?php endforeach; endif; ?>
                             </tbody>
                             <?php if ($tab === 'financials'): ?>
-                                <tfoot class="border-t-2 border-primary/30 bg-primary/5 shadow-inner">
-                                    <tr class="font-black italic uppercase italic tracking-tighter">
-                                        <td colspan="5" class="px-8 py-6 text-primary text-xs tracking-[0.2em]">Filtered Period Total:</td>
+                                <tfoot class="border-t-2 border-primary/20 bg-primary/5">
+                                    <tr class="font-black italic uppercase tracking-tighter">
+                                        <td colspan="5" class="px-8 py-6 text-primary text-xs tracking-[0.15em]">Filtered Period Total:</td>
                                         <td class="px-8 py-6 text-right text-primary text-xl">
                                             ₱<?= number_format($filtered_total, 2) ?></td>
                                     </tr>
                                 </tfoot>
                             <?php elseif ($tab === 'membership'): ?>
-                                <tfoot class="border-t-2 border-emerald-500/30 bg-emerald-500/5 shadow-inner">
-                                    <tr class="font-black italic uppercase italic tracking-tighter">
-                                        <td colspan="5" class="px-8 py-6 text-emerald-500 text-xs tracking-[0.2em]">Membership Revenue Total:</td>
-                                        <td class="px-8 py-6 text-right text-emerald-500 text-xl">
+                                <tfoot class="border-t-2 border-primary/20 bg-primary/5 shadow-inner">
+                                    <tr class="font-black italic uppercase tracking-tighter">
+                                        <td colspan="5" class="px-8 py-6 text-primary text-xs tracking-[0.15em]">Membership Revenue Total:</td>
+                                        <td class="px-8 py-6 text-right text-primary text-xl">
                                             ₱<?= number_format($membership_filtered, 2) ?></td>
                                     </tr>
                                 </tfoot>

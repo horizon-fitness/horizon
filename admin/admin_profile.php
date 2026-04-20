@@ -267,16 +267,10 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
             background-color: var(--background);
             color: var(--text-main);
             overflow: hidden;
+            display: flex;
+            min-height: 100vh;
         }
 
-        .glass-card {
-            background: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(var(--card-blur));
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Sidebar Pattern Sync */
         .side-nav {
             width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -297,8 +291,17 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
             flex: 1;
             min-width: 0;
             transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
         }
         .side-nav:hover ~ .main-content { margin-left: 300px; }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(var(--card-blur));
+            border-radius: 32px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
         .nav-label {
             opacity: 0;
@@ -348,15 +351,22 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
 
         .profile-input {
             background-color: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             color: var(--text-main);
             transition: all 0.3s ease;
+            font-family: inherit;
         }
         .profile-input.has-icon { padding-left: 3.5rem !important; }
+        .profile-input:focus {
+            background-color: rgba(255, 255, 255, 0.06);
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1);
+        }
         .profile-input:disabled {
             background-color: transparent !important;
             border-color: transparent !important;
-            color: #9ca3af !important;
+            color: color-mix(in srgb, var(--text-main) 40%, transparent) !important;
             cursor: default !important;
             padding-left: 0 !important;
         }
@@ -364,7 +374,7 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
         .input-icon-container {
             position: absolute; top: 50%; left: 0; padding-left: 1.25rem;
             transform: translateY(-50%); display: flex; align-items: center;
-            color: rgba(255, 255, 255, 0.4); pointer-events: none;
+            color: color-mix(in srgb, var(--text-main) 30%, transparent); pointer-events: none;
             transition: all 0.3s ease;
         }
         body:not(.edit-mode) .input-icon-container { display: none !important; }
@@ -393,12 +403,11 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
         #custom-modal {
-            position: fixed; top: 0; right: 0; bottom: 0; left: 110px;
+            position: fixed; top: 0; right: 0; bottom: 0; left: var(--nav-width, 110px);
             z-index: 200; display: none; align-items: center; justify-content: center;
-            background: rgba(10, 9, 13, 0.8); backdrop-filter: blur(8px);
+            background: rgba(var(--background), 0.85); backdrop-filter: blur(12px);
             padding: 20px; transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .side-nav:hover ~ #custom-modal { left: 300px; }
         #custom-modal.flex { display: flex !important; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -407,64 +416,8 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
 
-    <!-- Sync Optimized Admin Sidebar -->
-    <nav class="side-nav">
-        <div class="px-7 py-8 mb-4 shrink-0">
-            <div class="flex items-center gap-4">
-                <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                    <?php if (!empty($page['logo_path'])): ?>
-                        <img src="../<?= $page['logo_path'] ?>" class="size-full object-contain">
-                    <?php else: ?>
-                        <span class="material-symbols-rounded text-white text-2xl">bolt</span>
-                    <?php endif; ?>
-                </div>
-                <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($page['system_name']) ?></h1>
-            </div>
-        </div>
-        <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-            <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Main Menu</span></div>
-            <a href="admin_dashboard.php" class="nav-item <?= ($active_page == 'dashboard') ? 'active' : '' ?>">
-                <span class="material-symbols-rounded text-xl shrink-0">grid_view</span>
-                <span class="nav-label">Dashboard</span>
-            </a>
-            <a href="register_member.php" class="nav-item <?= ($active_page == 'register') ? 'active' : '' ?>">
-                <span class="material-symbols-rounded text-xl shrink-0">person_add</span>
-                <span class="nav-label">Walk-in Member</span>
-            </a>
-            <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
-            <a href="admin_users.php" class="nav-item <?= ($active_page == 'users') ? 'active' : '' ?>">
-                <span class="material-symbols-rounded text-xl shrink-0">group</span>
-                <span class="nav-label">My Users</span>
-            </a>
-            <a href="admin_transaction.php" class="nav-item <?= ($active_page == 'transactions') ? 'active' : '' ?>">
-                <span class="material-symbols-rounded text-xl shrink-0">receipt_long</span>
-                <span class="nav-label">Transactions</span>
-            </a>
-            <a href="admin_appointment.php" class="nav-item <?= ($active_page == 'bookings') ? 'active' : '' ?>">
-                <span class="material-symbols-rounded text-xl shrink-0">event_note</span>
-                <span class="nav-label">Bookings</span>
-            </a>
-            <a href="admin_attendance.php" class="nav-item <?= ($active_page == 'attendance') ? 'active' : '' ?>">
-                <span class="material-symbols-rounded text-xl shrink-0">history</span>
-                <span class="nav-label">Attendance</span>
-            </a>
-            <a href="admin_report.php" class="nav-item <?= ($active_page == 'reports') ? 'active' : '' ?>">
-                <span class="material-symbols-rounded text-xl shrink-0">description</span>
-                <span class="nav-label">Reports</span>
-            </a>
-        </div>
-        <div class="mt-auto pt-4 border-t border-white/05 shrink-0 pb-6">
-            <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
-            <a href="admin_profile.php" class="nav-item active">
-                <span class="material-symbols-rounded text-xl shrink-0">account_circle</span>
-                <span class="nav-label">Profile</span>
-            </a>
-            <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors group">
-                <span class="material-symbols-rounded text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
-                <span class="nav-label">Sign Out</span>
-            </a>
-        </div>
-    </nav>
+    <!-- Centralized Admin Sidebar Integration -->
+    <?php include '../includes/admin_sidebar.php'; ?>
 
     <div class="main-content flex-1 overflow-y-auto no-scrollbar">
         <main id="main-wrapper" class="flex-1 p-10 w-full mx-auto pb-32 animate-fade-in">
@@ -474,33 +427,33 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                         <span class="text-[--text-main]">Admin</span>
                         <span class="text-primary">Profile</span>
                     </h2>
-                    <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-2 px-1">Personal Identity & Security Access</p>
+                    <p class="text-[--text-main]/40 text-[10px] font-bold uppercase tracking-widest mt-2 px-1">Personal Identity & Security Access</p>
                 </div>
-                <div class="flex flex-col items-end justify-center">
-                    <p id="headerClock" class="text-white font-black italic text-2xl leading-none hover:text-primary tracking-tighter uppercase">00:00:00 AM</p>
+                <div class="flex flex-col items-end justify-center no-scrollbar">
+                    <p id="headerClock" class="text-[--text-main] font-black italic text-2xl leading-none hover:text-primary tracking-tighter uppercase transition-colors">00:00:00 AM</p>
                     <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] mt-2 leading-none"><?= date('l, M d, Y') ?></p>
                 </div>
             </header>
 
             <?php if ($success_msg): ?>
-                <div id="statusAlert" class="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-500 text-[11px] font-black uppercase mb-8 flex items-center gap-3 animate-fade-in">
+                <div id="statusAlert" class="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-500 text-[11px] font-black uppercase mb-8 flex items-center gap-3 animate-fade-in shadow-lg shadow-emerald-500/5">
                     <span class="material-symbols-rounded text-base">check_circle</span>
                     <span><?= $success_msg ?></span>
                 </div>
             <?php elseif ($error_msg): ?>
-                <div id="statusAlert" class="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-rose-500 text-[11px] font-black uppercase mb-8 flex items-center gap-3 animate-fade-in">
+                <div id="statusAlert" class="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-rose-500 text-[11px] font-black uppercase mb-8 flex items-center gap-3 animate-fade-in shadow-lg shadow-rose-500/5">
                     <span class="material-symbols-rounded text-base">warning</span>
                     <span><?= $error_msg ?></span>
                 </div>
             <?php endif; ?>
 
             <div class="flex flex-col xl:flex-row gap-8 items-start justify-center">
-                <!-- Left Panel -->
+                <!-- Left Panel (Identity Card) -->
                 <div class="w-full xl:w-72 shrink-0 flex flex-col gap-6">
-                    <div class="relative overflow-hidden rounded-3xl bg-[--card-bg] backdrop-blur-[--card-blur] border border-white/5 shadow-2xl p-8 text-center group">
-                        <div class="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none group-hover:scale-110 transition-transform"></div>
+                    <div class="glass-card relative overflow-hidden p-8 text-center group shadow-2xl">
+                        <div class="absolute top-0 right-0 size-40 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none group-hover:scale-110 transition-transform"></div>
                         <div class="relative z-10">
-                            <div class="size-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden group">
+                            <div class="size-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-transparent border border-white/10 mb-6 shadow-2xl overflow-hidden group">
                                 <div id="profile-container" class="size-full rounded-[30px] bg-black/20 flex items-center justify-center overflow-hidden relative">
                                     <?php if (!empty($user['profile_picture'])): ?>
                                         <img id="profilePreviewImg" src="<?= $user['profile_picture'] ?>" class="size-full aspect-square object-cover transition-transform duration-700 group-hover:scale-110">
@@ -528,8 +481,8 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                                 <span class="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"><?= $status ?></span>
                             </div>
                             <div class="pt-6 border-t border-white/5">
-                                <p class="text-[9px] uppercase tracking-[0.2em] text-gray-600 font-black mb-1 italic">Identity Verified Since</p>
-                                <p class="text-sm font-bold text-gray-400 italic"><?= $joined ?></p>
+                                <p class="text-[9px] uppercase tracking-[0.2em] text-[--text-main]/30 font-black mb-1 italic">Identity Verified Since</p>
+                                <p class="text-sm font-bold text-[--text-main]/60 italic"><?= $joined ?></p>
                             </div>
                         </div>
                     </div>
@@ -544,31 +497,31 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                     </button>
                 </div>
 
-                <!-- Right Panel -->
-                <div class="flex-1 glass-card rounded-[40px] p-8 no-scrollbar relative overflow-hidden group">
+                <!-- Right Panel (Form Management) -->
+                <div class="flex-1 glass-card p-10 no-scrollbar relative overflow-hidden group">
                     <div class="flex items-center justify-between mb-10">
                         <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Identity Management</h1>
                         <div id="edit-indicator" class="hidden px-4 py-1.5 rounded-lg bg-primary/20 text-primary text-[9px] font-black italic uppercase tracking-[0.2em] animate-pulse">Editing Mode</div>
                     </div>
 
-                    <form id="profile-form" action="" method="POST" enctype="multipart/form-data" class="flex flex-col gap-10" onsubmit="validateAndSubmit(event)">
+                    <form id="profile-form" action="" method="POST" enctype="multipart/form-data" class="flex flex-col gap-12" onsubmit="validateAndSubmit(event)">
                         <input type="hidden" name="action" value="update_profile">
                         
                         <div class="space-y-6">
                             <h3 class="profile-section-title">Account Details</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
                                 <div class="space-y-2">
-                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest">Username</label>
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Username</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">alternate_email</span></div>
-                                        <input type="text" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                        <input type="text" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest">Assigned Role</label>
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Assigned Role</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">badge</span></div>
-                                        <input type="text" value="<?= $staffRole ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                        <input type="text" value="<?= $staffRole ?>" disabled class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner">
                                     </div>
                                 </div>
                             </div>
@@ -576,40 +529,40 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
 
                         <div class="space-y-6">
                             <h3 class="profile-section-title">Personal Information</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
                                 <div class="space-y-2">
-                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest">First Name</label>
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">First Name</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">person</span></div>
-                                        <input type="text" name="first_name" value="<?= htmlspecialchars($user['first_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                        <input type="text" name="first_name" value="<?= htmlspecialchars($user['first_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest">Middle Name</label>
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Middle Name</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">person</span></div>
-                                        <input type="text" name="middle_name" value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" placeholder="Optional">
+                                        <input type="text" name="middle_name" value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner" placeholder="Optional">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest">Last Name</label>
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Last Name</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">person</span></div>
-                                        <input type="text" name="last_name" value="<?= htmlspecialchars($user['last_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                        <input type="text" name="last_name" value="<?= htmlspecialchars($user['last_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest">Birth Date</label>
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Birth Date</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">cake</span></div>
-                                        <input type="date" name="birth_date" value="<?= $user['birth_date'] ?? '' ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none">
+                                        <input type="date" name="birth_date" value="<?= $user['birth_date'] ?? '' ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner appearance-none">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest">Sex</label>
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Sex</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">wc</span></div>
-                                        <select name="sex" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none">
+                                        <select name="sex" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner appearance-none">
                                             <option value="Male" <?= ($user['sex'] ?? '') === 'Male' ? 'selected' : '' ?>>Male</option>
                                             <option value="Female" <?= ($user['sex'] ?? '') === 'Female' ? 'selected' : '' ?>>Female</option>
                                             <option value="Other" <?= ($user['sex'] ?? '') === 'Other' ? 'selected' : '' ?>>Other</option>
@@ -621,60 +574,61 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
 
                         <div class="space-y-6">
                             <h3 class="profile-section-title">Contact Information</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
                                 <div class="space-y-2">
-                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest">Email Address</label>
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Email Address</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">mail</span></div>
-                                        <input type="email" name="email" value="<?= htmlspecialchars($user['email'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                        <input type="email" name="email" value="<?= htmlspecialchars($user['email'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
-                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest">Phone number</label>
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Phone number</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">smartphone</span></div>
-                                        <input type="text" name="contact_number" value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" disabled required oninput="formatPhone(this)" class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" placeholder="09XX-XXX-XXXX">
+                                        <input type="text" name="contact_number" value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" disabled required oninput="formatPhone(this)" class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner" placeholder="09XX-XXX-XXXX">
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Update Password Section -->
-                        <div class="edit-reveal w-full mt-4">
-                            <div class="p-8 rounded-3xl bg-primary/[0.03] border border-primary/10">
-                                <h4 class="text-[10px] font-black italic text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                                    <span class="material-symbols-rounded text-primary text-xl">lock_reset</span>
+                        <!-- Security Reveal Section -->
+                        <div class="edit-reveal w-full">
+                            <div class="p-10 rounded-[32px] bg-primary/[0.03] border border-primary/10 shadow-2xl relative overflow-hidden group/sec">
+                                <div class="absolute top-0 right-0 size-24 bg-primary/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none group-hover/sec:scale-125 transition-transform duration-700"></div>
+                                <h4 class="text-[10px] font-black italic text-white uppercase tracking-[0.2em] mb-8 flex items-center gap-3">
+                                    <span class="material-symbols-rounded text-primary text-2xl">lock_reset</span>
                                     Update Security Key
                                 </h4>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
                                     <div class="space-y-2">
                                         <div class="flex items-center justify-between ml-1">
                                             <label class="text-[9px] uppercase font-bold text-[--text-main]/60 tracking-widest">New Password</label>
                                             <p id="strength-text" class="text-[9px] font-black uppercase tracking-widest min-h-[15px]"></p>
                                         </div>
                                         <div class="relative">
-                                            <input type="password" name="new_password" id="new_pass" onkeyup="checkStrength(this.value)" placeholder="Leave blank to keep current" class="w-full bg-black/20 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/20" disabled>
-                                            <button type="button" onclick="togglePass('new_pass', 'icon_new')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white">
+                                            <input type="password" name="new_password" id="new_pass" onkeyup="checkStrength(this.value)" placeholder="Leave blank to keep current" class="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/20" disabled>
+                                            <button type="button" onclick="togglePass('new_pass', 'icon_new')" class="absolute right-6 top-1/2 -translate-y-1/2 text-[--text-main]/20 hover:text-white transition-colors">
                                                 <span class="material-symbols-rounded text-lg" id="icon_new">visibility_off</span>
                                             </button>
                                         </div>
-                                        <div class="h-1.5 w-full bg-white/5 rounded-full mt-3 overflow-hidden">
+                                        <div class="h-1.5 w-full bg-white/5 rounded-full mt-4 overflow-hidden">
                                             <div id="strength-bar" class="strength-bar w-0 bg-rose-500 h-full"></div>
                                         </div>
-                                        <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
-                                            <div id="req-length" class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
+                                        <div class="mt-6 grid grid-cols-2 gap-x-4 gap-y-3">
+                                            <div id="req-length" class="flex items-center gap-2 text-[--text-main]/40 transition-all duration-300">
                                                 <span class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
                                                 <span class="text-[9px] font-black uppercase tracking-widest">8+ Characters</span>
                                             </div>
-                                            <div id="req-upper" class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
+                                            <div id="req-upper" class="flex items-center gap-2 text-[--text-main]/40 transition-all duration-300">
                                                 <span class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
                                                 <span class="text-[9px] font-black uppercase tracking-widest">Uppercase</span>
                                             </div>
-                                            <div id="req-number" class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
+                                            <div id="req-number" class="flex items-center gap-2 text-[--text-main]/40 transition-all duration-300">
                                                 <span class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
                                                 <span class="text-[9px] font-black uppercase tracking-widest">Number</span>
                                             </div>
-                                            <div id="req-special" class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
+                                            <div id="req-special" class="flex items-center gap-2 text-[--text-main]/40 transition-all duration-300">
                                                 <span class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
                                                 <span class="text-[9px] font-black uppercase tracking-widest">Special Char</span>
                                             </div>
@@ -686,8 +640,8 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                                             <p class="text-[9px] min-h-[15px]"></p>
                                         </div>
                                         <div class="relative">
-                                            <input type="password" name="confirm_password" id="confirm_pass" placeholder="Re-enter new password" class="w-full bg-black/20 border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/20" disabled>
-                                            <button type="button" onclick="togglePass('confirm_pass', 'icon_confirm')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white">
+                                            <input type="password" name="confirm_password" id="confirm_pass" placeholder="Re-enter new password" class="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/20" disabled>
+                                            <button type="button" onclick="togglePass('confirm_pass', 'icon_confirm')" class="absolute right-6 top-1/2 -translate-y-1/2 text-[--text-main]/20 hover:text-white transition-colors">
                                                 <span class="material-symbols-rounded text-lg" id="icon_confirm">visibility_off</span>
                                             </button>
                                         </div>
@@ -696,27 +650,27 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                             </div>
                         </div>
 
-                        <!-- Bottom Save Section -->
-                        <div id="save-section" class="hidden border-t border-white/5 pt-6 mt-6 animate-fade-in">
-                            <div class="bg-[--card-bg] border border-primary/20 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save">
+                        <!-- Master Submit Section -->
+                        <div id="save-section" class="hidden border-t border-white/5 pt-10 mt-6 animate-fade-in">
+                            <div class="glass-card border border-primary/20 p-8 flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl relative overflow-hidden group/save">
                                 <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover/save:opacity-100 transition-opacity"></div>
-                                <div class="flex items-center gap-5 shrink-0 relative z-10">
-                                    <div class="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/30 shadow-inner group-hover/save:scale-110 transition-transform duration-500">
-                                        <span class="material-symbols-rounded text-2xl">shield_locked</span>
+                                <div class="flex items-center gap-6 shrink-0 relative z-10">
+                                    <div class="size-16 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/30 shadow-inner group-hover/save:scale-110 transition-transform duration-500">
+                                        <span class="material-symbols-rounded text-3xl">shield_locked</span>
                                     </div>
                                     <div>
-                                        <h4 class="text-sm font-black italic uppercase tracking-tighter text-white">Confirm Changes</h4>
-                                        <p class="text-[9px] font-bold text-[--text-main]/50 uppercase tracking-widest mt-1 opacity-80">Enter current password to save changes.</p>
+                                        <h4 class="text-base font-black italic uppercase tracking-tighter text-white">Confirm Changes</h4>
+                                        <p class="text-[9px] font-bold text-[--text-main]/40 uppercase tracking-widest mt-1">Enter current password to save changes.</p>
                                     </div>
                                 </div>
-                                <div class="flex flex-col sm:flex-row items-center gap-5 w-full md:w-auto relative z-10 shrink-0">
-                                    <div class="relative w-full sm:w-44 group/input">
-                                        <input type="password" name="current_password" id="current_pass" required placeholder="Password" disabled class="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-xs font-black italic text-[--text-main] focus:border-primary/50 focus:outline-none transition-all pr-12 placeholder:text-[--text-main]/30 tracking-widest font-sans">
-                                        <button type="button" onclick="togglePass('current_pass', 'icon_cur')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white transition-colors flex items-center justify-center">
+                                <div class="flex flex-col sm:flex-row items-center gap-6 w-full md:w-auto relative z-10 shrink-0">
+                                    <div class="relative w-full sm:w-56 group/input">
+                                        <input type="password" name="current_password" id="current_pass" required placeholder="Verify Password" disabled class="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-[11px] font-black italic text-[--text-main] focus:border-primary focus:outline-none transition-all pr-14 placeholder:text-[--text-main]/20 tracking-[0.2em] font-sans">
+                                        <button type="button" onclick="togglePass('current_pass', 'icon_cur')" class="absolute right-5 top-1/2 -translate-y-1/2 text-[--text-main]/20 hover:text-white transition-colors">
                                             <span class="material-symbols-rounded text-lg" id="icon_cur">visibility_off</span>
                                         </button>
                                     </div>
-                                    <button type="submit" class="shrink-0 text-primary hover:text-white text-[11px] font-black italic uppercase tracking-[0.2em] transition-all hover:scale-110 active:scale-95 py-2">SAVE CHANGES</button>
+                                    <button type="submit" class="shrink-0 text-white bg-primary hover:bg-primary/90 px-10 py-4 rounded-2xl text-[11px] font-black italic uppercase tracking-[0.2em] transition-all hover:scale-105 active:scale-95 shadow-xl shadow-primary/20">SAVE CHANGES</button>
                                 </div>
                             </div>
                         </div>
@@ -728,14 +682,14 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
         </main>
     </div>
 
-    <!-- Custom Modal -->
+    <!-- Elite Interaction System (Custom Modal) -->
     <div id="custom-modal">
-        <div class="absolute inset-0 bg-black/80 transition-opacity" onclick="closeModal()"></div>
-        <div class="relative z-10 bg-[--background] w-full max-w-sm rounded-[32px] border border-white/10 p-8 text-center transform scale-95 opacity-0 transition-all duration-300" id="modal-content">
-            <div class="size-20 rounded-[24px] bg-primary/10 text-primary flex items-center justify-center mx-auto mb-6 border border-primary/20"><span class="material-symbols-rounded text-4xl" id="modal-icon">info</span></div>
-            <h3 class="text-xl font-black italic text-white uppercase tracking-tighter mb-3" id="modal-title">Notification</h3>
-            <p class="text-gray-400 text-[11px] font-bold tracking-wider mb-8 px-2 leading-relaxed" id="modal-message"></p>
-            <div class="flex gap-3 justify-center" id="modal-actions"></div>
+        <div class="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity" onclick="closeModal()"></div>
+        <div class="relative z-10 glass-card bg-[--background]/95 w-full max-w-sm rounded-[40px] p-10 text-center transform scale-95 opacity-0 transition-all duration-300 shadow-2xl" id="modal-content">
+            <div class="size-24 rounded-[30px] bg-primary/10 text-primary flex items-center justify-center mx-auto mb-8 border border-primary/20 shadow-inner"><span class="material-symbols-rounded text-5xl" id="modal-icon">info</span></div>
+            <h3 class="text-2xl font-black italic text-white uppercase tracking-tighter mb-4" id="modal-title">Notification</h3>
+            <p class="text-[--text-main]/60 text-[11px] font-bold tracking-wider mb-10 px-4 leading-relaxed" id="modal-message"></p>
+            <div class="flex gap-4 justify-center" id="modal-actions"></div>
         </div>
     </div>
 
@@ -835,11 +789,11 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                 const icon = req.el.querySelector('.material-symbols-rounded');
                 if (req.met) {
                     strength += 25;
-                    req.el.classList.remove('text-[--text-main]/70');
+                    req.el.classList.remove('text-[--text-main]/40');
                     req.el.classList.add('text-emerald-400');
                     icon.innerText = 'check_circle';
                 } else {
-                    req.el.classList.add('text-[--text-main]/70');
+                    req.el.classList.add('text-[--text-main]/40');
                     req.el.classList.remove('text-emerald-400');
                     icon.innerText = 'radio_button_unchecked';
                 }
@@ -869,18 +823,18 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
 
             if (type === 'confirm') {
                 const cn = document.createElement('button');
-                cn.className = "px-6 py-3 rounded-2xl bg-white/5 text-gray-400 text-[10px] font-black uppercase";
+                cn.className = "px-10 py-4 rounded-2xl bg-white/5 text-[--text-main]/40 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors";
                 cn.innerText = "Cancel"; cn.onclick = closeModal;
                 actionsDiv.appendChild(cn);
 
                 const cf = document.createElement('button');
-                cf.className = "px-8 py-3 rounded-2xl bg-primary text-white text-[10px] font-black uppercase";
+                cf.className = "px-10 py-4 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20";
                 cf.innerText = "Confirm"; cf.onclick = () => { if (callback) callback(); closeModal(); };
                 actionsDiv.appendChild(cf);
             } else {
                 const ok = document.createElement('button');
-                ok.className = "w-full py-4 rounded-2xl bg-white/10 text-white text-[10px] font-black uppercase";
-                ok.innerText = "OK"; ok.onclick = closeModal;
+                ok.className = "w-full py-5 rounded-2xl bg-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/20 transition-all";
+                ok.innerText = "Understood"; ok.onclick = closeModal;
                 actionsDiv.appendChild(ok);
             }
 
