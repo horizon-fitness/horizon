@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 session_start();
 require_once '../db.php';
 require_once '../includes/mailer.php';
@@ -12,6 +14,16 @@ $staged = $_SESSION['staged_coach_app'];
 $gym_slug = $_GET['gym'] ?? '';
 $error = '';
 $success = '';
+$success_msg = '';
+
+if (isset($_SESSION['verify_success'])) {
+    $success_msg = $_SESSION['verify_success'];
+    unset($_SESSION['verify_success']);
+}
+if (isset($_SESSION['verify_error'])) {
+    $error = $_SESSION['verify_error'];
+    unset($_SESSION['verify_error']);
+}
 
 // Fetch branding for the verification page
 $stmtSlug = $pdo->prepare("SELECT user_id FROM system_settings WHERE setting_key = 'page_slug' AND setting_value = ?");
@@ -107,8 +119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $success = "Application submitted successfully! Our team will review your credentials shortly.";
 
     } catch (Exception $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        $error = $e->getMessage();
+        try {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+        } catch (Exception $e2) {
+            // Suppress rollback error if connection dropped
+        }
+        $error = "Error saving application. If you uploaded a large file, please try again with a file under 1MB.";
     }
 }
 ?>
@@ -266,6 +282,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 <?php endif; ?>
 
+                <?php if ($success_msg): ?>
+                    <div class="mb-8 p-4 rounded-xl bg-primary/10 border border-primary/20 text-primary text-[10px] flex items-center justify-center gap-3 font-bold uppercase tracking-wider">
+                        <span class="material-symbols-outlined text-base">mark_email_read</span>
+                        <?= $success_msg ?>
+                    </div>
+                <?php endif; ?>
+
                 <form method="POST" class="space-y-8">
                     <div class="space-y-4 text-left">
                         <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Verification Code</label>
@@ -288,7 +311,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="text-center mt-12 pt-8 border-t border-white/5">
                     <p class="text-[9px] text-gray-600 font-bold uppercase tracking-[0.2em]">
                         Didn't get the code? 
-                        <a href="javascript:void(0)" id="resend-btn" class="text-primary hover:text-white underline underline-offset-8 decoration-primary/30 transition-all ml-1 pointer-events-none opacity-40">
+                        <a href="../action/resend_coach_otp.php?gym=<?= $gym_slug ?>" id="resend-btn" class="text-primary hover:text-white underline underline-offset-8 decoration-primary/30 transition-all ml-1 pointer-events-none opacity-40">
                             Resend Email <span id="resend-timer"></span>
                         </a>
                     </p>

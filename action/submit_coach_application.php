@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 session_start();
 require_once '../db.php';
 require_once '../includes/mailer.php';
@@ -47,7 +49,7 @@ try {
     ];
 
     // Validation
-    foreach (['first_name', 'last_name', 'email', 'username', 'password', 'coach_type'] as $field) {
+    foreach (['first_name', 'last_name', 'email', 'username', 'password', 'coach_type', 'sex'] as $field) {
         if (empty($data[$field])) {
             throw new Exception("Required field '$field' is missing.");
         }
@@ -97,6 +99,13 @@ try {
     if (isset($_FILES['certification_file']) && $_FILES['certification_file']['error'] === 0) {
         $tmp = $_FILES['certification_file']['tmp_name'];
         $type = $_FILES['certification_file']['type'];
+        $size = $_FILES['certification_file']['size'];
+
+        // Maximum 1.5MB file size limit to prevent MySQL "Server has gone away" connection crashes
+        if ($size > 1572864) {
+            throw new Exception("Your certification file is too large. Please upload a file smaller than 1.5MB.");
+        }
+
         $cert_base64 = 'data:' . $type . ';base64,' . base64_encode(file_get_contents($tmp));
     }
 
