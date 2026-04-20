@@ -6,6 +6,7 @@
  */
 header('Content-Type: application/json; charset=UTF-8');
 require_once '../db.php';
+require_once '../includes/mailer.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Invalid request method.']);
@@ -39,11 +40,19 @@ try {
         exit;
     }
 
-    // 2. Retrieve the booking details
+    // 2. Retrieve the booking details with extended info for email notification
     $stmt = $pdo->prepare("
-        SELECT booking_date, start_time, booking_status 
-        FROM bookings 
-        WHERE booking_id = ? AND member_id = ? AND gym_id = ?
+        SELECT 
+            b.booking_date, b.start_time, b.booking_status, b.booking_reference,
+            u.first_name, u.last_name, u.email as member_email,
+            g.gym_name, g.email as gym_email,
+            sc.service_name
+        FROM bookings b
+        JOIN members m ON b.member_id = m.member_id
+        JOIN users u ON m.user_id = u.user_id
+        JOIN gyms g ON b.gym_id = g.gym_id
+        JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
+        WHERE b.booking_id = ? AND b.member_id = ? AND b.gym_id = ?
         LIMIT 1
     ");
     $stmt->execute([$booking_id, $member_id, $gym_id]);
@@ -57,7 +66,7 @@ try {
     $current_status = strtoupper($booking['booking_status']);
     
     // Check if it's already cancelled or completed
-    if (in_array($current_status, ['CANCELLED', 'FORFEITED', 'COMPLETED', 'REJECTED'])) {
+    if (in_array($current_status, ['CANCELLED', 'COMPLETED', 'REJECTED'])) {
         echo json_encode(['success' => false, 'message' => "Cannot cancel a booking that is currently $current_status."]);
         exit;
     }
@@ -79,9 +88,9 @@ try {
         // Session already started or passed
         echo json_encode(['success' => false, 'message' => 'Cannot cancel a session that has already passed.']);
         exit;
-    } elseif ($hours_diff < 24) {
-        // Less than 24 hours until session -> Forfeited
-        $new_status = 'FORFEITED';
+    } elseif ($hours_diff < 1) {
+        // Less than 1 hour until session -> Rejected
+        $new_status = 'REJECTED';
         $penalty_applied = true;
     }
 
@@ -96,8 +105,36 @@ try {
     $updateStmt->execute([$new_status, $cancellation_reason, $booking_id]);
 
     $message = $penalty_applied ? 
-        "Your session was cancelled less than 24 hours in advance and has been marked as FORFEITED according to Gym terms." : 
-        "Your session has been successfully CANCELLED.";
+        "Your session was cancelled less than 1 hour in advance and has been marked as REJECTED according to Gym terms." : 
+        "Your session cancellation request has been received and an automated notification has been sent to the gym admin. Please wait for the follow-up email confirming approval.";
+
+    // --- AUTOMATED EMAIL NOTIFICATION ---
+    if ($new_status === 'CANCELLED' || $new_status === 'REJECTED') {
+        $memberName = ($booking['first_name'] ?? 'Member') . ' ' . ($booking['last_name'] ?? '');
+        $gymEmail = $booking['gym_email'] ?? 'horizonfitnesscorp@gmail.com';
+        $gymName = $booking['gym_name'] ?? 'Horizon System';
+        $serviceName = $booking['service_name'] ?? 'Gym Session';
+        $bookingDate = date('M d, Y', strtotime($booking['booking_date']));
+        $bookingTime = date('h:i A', strtotime($booking['start_time']));
+        $refNo = $booking['booking_reference'] ?? 'N/A';
+
+        $subject = "Cancellation Request: $serviceName - $memberName";
+        $emailContent = "
+            <p>A session cancellation has been initiated through the mobile application.</p>
+            <div style='background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;'>
+                <p style='margin: 5px 0;'><strong>Member:</strong> $memberName</p>
+                <p style='margin: 5px 0;'><strong>Service:</strong> $serviceName</p>
+                <p style='margin: 5px 0;'><strong>Schedule:</strong> $bookingDate at $bookingTime</p>
+                <p style='margin: 5px 0;'><strong>Reference No:</strong> $refNo</p>
+                <p style='margin: 5px 0;'><strong>Reason:</strong> " . htmlspecialchars($cancellation_reason) . "</p>
+                <p style='margin: 5px 0;'><strong>Status Assigned:</strong> <span style='color: " . ($penalty_applied ? '#ef4444' : '#f59e0b') . ";'>$new_status</span></p>
+            </div>
+            <p>Please review this request and send the final approval/confirmation email to the member at <strong>{$booking['member_email']}</strong> as per the Updated Terms & Conditions.</p>
+        ";
+
+        $fullBody = getFormalEmailTemplate($subject, $emailContent, $gymName);
+        sendSystemEmail($gymEmail, $subject, $fullBody);
+    }
 
     echo json_encode([
         'success' => true,
