@@ -239,7 +239,7 @@ if (isset($_GET['ajax_user_id'])) {
                 <!-- Data Nodes -->
                 <div class="space-y-8">
                     <section class="space-y-4">
-                        <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Identity & Access</h4>
+                        <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Account Details</h4>
                         <div class="grid grid-cols-2 gap-4">
                             <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
                                 <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Username</p>
@@ -248,7 +248,7 @@ if (isset($_GET['ajax_user_id'])) {
                             <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
                                 <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Status</p>
                                 <p class="text-xs font-bold uppercase <?= $u['is_active'] ? 'text-emerald-500' : 'text-rose-500' ?>">
-                                    <?= $u['is_active'] ? 'Authorized' : 'Restricted' ?>
+                                    <?= $u['is_active'] ? 'Active' : 'Deactivated' ?>
                                 </p>
                             </div>
                         </div>
@@ -258,11 +258,11 @@ if (isset($_GET['ajax_user_id'])) {
                         <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Contact Information</h4>
                         <div class="space-y-3">
                             <div class="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                <span class="text-[9px] font-black uppercase text-[--text-main]/30 tracking-widest">Direct Mail</span>
+                                <span class="text-[9px] font-black uppercase text-[--text-main]/30 tracking-widest">Email Address</span>
                                 <span class="text-xs font-medium text-[--text-main]/70 truncate max-w-[180px]"><?= htmlspecialchars($u['email']) ?></span>
                             </div>
                             <div class="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                <span class="text-[9px] font-black uppercase text-[--text-main]/30 tracking-widest">Mobile Signal</span>
+                                <span class="text-[9px] font-black uppercase text-[--text-main]/30 tracking-widest">Phone Number</span>
                                 <span class="text-xs font-bold text-[--text-main] tracking-widest"><?= htmlspecialchars($u['contact_number'] ?: 'N/A') ?></span>
                             </div>
                         </div>
@@ -272,14 +272,14 @@ if (isset($_GET['ajax_user_id'])) {
                 <div class="space-y-8">
                     <?php if ($role_name === 'member'): ?>
                         <section class="space-y-4">
-                            <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Registry Profile</h4>
+                            <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Member Profile</h4>
                             <div class="grid grid-cols-2 gap-3">
                                 <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
                                     <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Gender</p>
                                     <p class="text-xs font-bold text-[--text-main] uppercase"><?= $u['sex'] ?: 'N/A' ?></p>
                                 </div>
                                 <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                    <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Birth Registry</p>
+                                    <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Birth Date</p>
                                     <p class="text-xs font-bold text-[--text-main]"><?= $u['birth_date'] ? date('M d, Y', strtotime($u['birth_date'])) : 'N/A' ?></p>
                                 </div>
                             </div>
@@ -288,7 +288,7 @@ if (isset($_GET['ajax_user_id'])) {
 
                     <?php if (!empty($u['emergency_contact_name'])): ?>
                         <section class="space-y-4">
-                            <h4 class="text-[9px] font-black uppercase text-amber-500/60 tracking-widest">Emergency Protocol</h4>
+                            <h4 class="text-[9px] font-black uppercase text-amber-500/60 tracking-widest">Emergency Contact</h4>
                             <div class="p-5 rounded-2xl bg-amber-500/[0.03] border border-amber-500/10">
                                 <p class="text-[10px] font-black text-[--text-main] uppercase mb-1"><?= htmlspecialchars($u['emergency_contact_name']) ?></p>
                                 <p class="text-xs font-bold text-amber-500 tracking-widest"><?= htmlspecialchars($u['emergency_contact_number']) ?></p>
@@ -300,7 +300,7 @@ if (isset($_GET['ajax_user_id'])) {
             
             <?php if ($role_name === 'member' && !empty($u['medical_history'])): ?>
                 <section class="space-y-4 pt-4 border-t border-white/5">
-                    <h4 class="text-[9px] font-black uppercase text-rose-500/60 tracking-widest">Medical Registry</h4>
+                    <h4 class="text-[9px] font-black uppercase text-rose-500/60 tracking-widest">Medical History</h4>
                     <p class="text-[11px] leading-relaxed text-[--text-main]/50 bg-black/20 p-5 rounded-2xl border border-white/5 italic">
                         <?= nl2br(htmlspecialchars($u['medical_history'])) ?>
                     </p>
@@ -623,11 +623,11 @@ $page = [
                 if (result.success) {
                     reactiveFilter();
                 } else {
-                    alert(result.message || 'Access protocol update failed.');
+                    alert(result.message || 'Failed to update account status.');
                 }
             } catch (error) {
                 console.error('Status Update Error:', error);
-                alert('A synchronisation error occurred in the gateway.');
+                alert('A connection error occurred. Please try again.');
             }
         }
     </script>
@@ -645,8 +645,7 @@ $page = [
                     <h2
                         class="text-3xl font-black italic uppercase text-[--text-main] leading-none tracking-tight">
                         User <span class="text-primary">Masterlist</span></h2>
-                    <p class="text-[--text-main]/40 text-xs font-bold uppercase tracking-widest mt-2 px-1">Verified
-                        Access Accounts • <?= number_format($total_records) ?> Total</p>
+                    <p class="text-[--text-main]/40 text-xs font-bold uppercase tracking-widest mt-2 px-1">Registered Accounts • <?= number_format($total_records) ?> Total</p>
                 </div>
                 <div class="flex items-end gap-8 text-right shrink-0">
                     <div class="flex flex-col items-end">
@@ -663,41 +662,37 @@ $page = [
                 <form id="filterForm" method="GET" class="glass-card p-8 border border-white/5 relative overflow-hidden"
                     onsubmit="event.preventDefault(); reactiveFilter();">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                        <div class="space-y-2 lg:col-span-2">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Database
-                                Search</p>
+                        <div class="space-y-2">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Search Registry</p>
                             <div class="relative">
                                 <span
                                     class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main]/40 text-lg">search</span>
                                 <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                                    placeholder="Filter user registry..." oninput="reactiveFilter()"
+                                    placeholder="Find users..." oninput="reactiveFilter()"
                                     class="input-box pl-12 w-full">
                             </div>
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Authority
-                                Filter</p>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Role Filter</p>
                             <select name="role" onchange="reactiveFilter()" class="input-box w-full pr-10">
-                                <option value="">All Protocol Roles</option>
+                                <option value="">All User Roles</option>
                                 <option value="Member" <?= ($filter_role === 'Member') ? 'selected' : '' ?>>Member</option>
                                 <option value="Coach" <?= ($filter_role === 'Coach') ? 'selected' : '' ?>>Coach</option>
                             </select>
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Connection
-                                Protocol</p>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Account Status</p>
                             <select name="status" onchange="reactiveFilter()" class="input-box w-full pr-10">
                                 <option value="">All Status</option>
                                 <option value="1" <?= ($filter_status === '1') ? 'selected' : '' ?>>Active</option>
-                                <option value="0" <?= ($filter_status === '0') ? 'selected' : '' ?>>Restricted</option>
+                                <option value="0" <?= ($filter_status === '0') ? 'selected' : '' ?>>Inactive</option>
                             </select>
                         </div>
 
                         <div class="space-y-2">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Registry Sort
-                            </p>
+                            <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 ml-1">Sort By</p>
                             <div class="flex items-center gap-3">
                                 <select name="sort" onchange="reactiveFilter()" class="input-box w-full pr-10">
                                     <option value="newest" <?= ($sort_by === 'newest') ? 'selected' : '' ?>>Newest</option>
@@ -718,12 +713,9 @@ $page = [
             </div>
 
             <div class="flex justify-between items-center mb-6">
-                <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40">Live Connection Database —
-                    <span class="text-[--text-main]">Active Feed</span></p>
-                <a href="register_member.php"
-                    class="bg-primary hover:bg-primary/90 text-white px-8 h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 flex items-center gap-3 active:scale-95">
-                    <span class="material-symbols-rounded text-lg">person_add</span> Enlist Walk-in Member
-                </a>
+                <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40">User Database —
+                    <span class="text-[--text-main]">Live List</span></p>
+
             </div>
 
             <div id="usersTableContainer" class="glass-card shadow-2xl overflow-hidden border border-white/5">
@@ -732,11 +724,11 @@ $page = [
                         <thead>
                             <tr
                                 class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 border-b border-white/5 bg-white/[0.01]">
-                                <th class="px-8 py-5">Full Identity</th>
-                                <th class="px-8 py-5">Email Protocol</th>
-                                <th class="px-8 py-5">Mobile Signal</th>
-                                <th class="px-8 py-5 text-center">Protocol Role</th>
-                                <th class="px-8 py-5 text-right">System Control</th>
+                                <th class="px-8 py-5">Full Name</th>
+                                <th class="px-8 py-5">Email Address</th>
+                                <th class="px-8 py-5">Contact Number</th>
+                                <th class="px-8 py-5 text-center">User Role</th>
+                                <th class="px-8 py-5 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
@@ -762,7 +754,7 @@ $page = [
                                         </td>
                                         <td class="px-8 py-6">
                                             <p class="text-[10px] font-black text-[--text-main]/30 tracking-widest uppercase">
-                                                <?= htmlspecialchars($row['contact_number'] ?? 'OFFLINE') ?></p>
+                                                <?= htmlspecialchars($row['contact_number'] ?? 'N/A') ?></p>
                                         </td>
                                         <td class="px-8 py-6 text-center">
                                             <span
@@ -787,13 +779,13 @@ $page = [
                                                     <?php if($row['is_active']): ?>
                                                         <button onclick="toggleAccountStatus(<?= $row['id'] ?>)" 
                                                             class="size-9 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/10 hover:text-rose-500 text-[--text-main]/30 transition-all active:scale-90" 
-                                                            title="Lock / Restrict Account Access">
+                                                            title="Deactivate Account">
                                                             <span class="material-symbols-rounded text-lg">lock</span>
                                                         </button>
                                                     <?php else: ?>
                                                         <button onclick="toggleAccountStatus(<?= $row['id'] ?>)" 
                                                             class="size-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center hover:bg-emerald-500/10 hover:text-emerald-500 text-rose-500 transition-all active:scale-90" 
-                                                            title="Unlock / Restore Account Access">
+                                                            title="Activate Account">
                                                             <span class="material-symbols-rounded text-lg">lock_open</span>
                                                         </button>
                                                     <?php endif; ?>
@@ -880,19 +872,19 @@ $page = [
                 <span class="material-symbols-rounded text-3xl">gpp_maybe</span>
             </div>
             
-            <h3 class="text-xl font-black italic uppercase tracking-tight text-[--text-main] mb-3">Security Protocol</h3>
+            <h3 class="text-xl font-black italic uppercase tracking-tight text-[--text-main] mb-3">Security Check</h3>
             <p class="text-sm text-[--text-main]/50 leading-relaxed mb-8">
-                Proceed with account status update? This will immediately modify the user's registry access permissions.
+                Are you sure you want to update this user's account status? This will change their access level.
             </p>
 
             <div class="flex gap-3">
                 <button onclick="closeConfirmModal()" 
                     class="flex-1 h-12 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 hover:bg-white/10 hover:text-[--text-main] transition-all">
-                    Abort Access
+                    Cancel
                 </button>
                 <button onclick="executeAccountToggle()" 
                     class="flex-1 h-12 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:opacity-90 transition-all active:scale-95">
-                    Confirm Registry Update
+                    Update Status
                 </button>
             </div>
         </div>
