@@ -311,20 +311,6 @@ $active_now = $stmtMetricsActive->fetchColumn();
             window.location.href = 'admin_attendance.php?view=<?= $view ?>';
         }
 
-        function printQR() {
-            const img = document.getElementById('qrCodeImg');
-            if (!img || !img.src) return;
-            const w = window.open('', '_blank');
-            w.document.write(`<html><body style="margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff">
-                <div style="text-align:center;font-family:sans-serif">
-                    <p style="font-size:11px;font-weight:900;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;color:#555">Daily Check-In QR Code &bull; <?= date('M d, Y') ?></p>
-                    <img src="${img.src}" style="width:280px;height:280px;display:block;margin:0 auto" />
-                    <p style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-top:12px;color:#999">Scan using the Horizon App</p>
-                </div>
-            </body></html>`);
-            w.document.close();
-            w.onload = () => { w.print(); };
-        }
 
         function switchTab(tab) {
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
@@ -529,9 +515,6 @@ $active_now = $stmtMetricsActive->fetchColumn();
                         <button onclick="generateQR()" class="flex items-center gap-2 px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 hover:bg-white/10 hover:text-primary transition-all active:scale-95">
                             <span class="material-symbols-rounded text-sm">refresh</span> Refresh
                         </button>
-                        <button onclick="printQR()" class="flex items-center gap-2 px-5 py-2.5 bg-primary/10 border border-primary/30 rounded-xl text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/20 transition-all active:scale-95">
-                            <span class="material-symbols-rounded text-sm">print</span> Print
-                        </button>
                     </div>
                     <p class="text-[9px] text-[--text-main]/30 font-bold uppercase tracking-widest">Members scan this using the Horizon app to check in</p>
                 </div>
@@ -571,7 +554,7 @@ $active_now = $stmtMetricsActive->fetchColumn();
                     <div class="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
                         <div class="flex items-center gap-3">
                             <span class="material-symbols-rounded text-amber-500 text-base">info</span>
-                            <p class="text-[9px] text-amber-500/80 font-black uppercase tracking-widest">Allow camera access when prompted. This works on HTTPS or localhost.</p>
+                            <p class="text-[9px] text-amber-500/80 font-black uppercase tracking-widest">Allow camera access when scanning the members qr</p>
                         </div>
                     </div>
                 </div>
@@ -634,16 +617,17 @@ $active_now = $stmtMetricsActive->fetchColumn();
                 <table class="w-full text-left order-collapse">
                     <thead>
                         <tr class="bg-white/[0.01] text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 border-b border-white/5">
-                            <th class="px-8 py-5">Member</th>
-                            <th class="px-8 py-5 text-center">Record No.</th>
-                            <th class="px-8 py-5">Time In / Time Out</th>
+                            <th class="px-8 py-5">Name</th>
+                            <th class="px-8 py-5">Date</th>
+                            <th class="px-8 py-5 text-center">Time In</th>
+                            <th class="px-8 py-5 text-center">Time Out</th>
                             <th class="px-8 py-5 text-right">Status</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         <?php if (empty($attendance_list)): ?>
                         <tr>
-                            <td colspan="4" class="px-8 py-24 text-center">
+                            <td colspan="5" class="px-8 py-24 text-center">
                                 <span class="material-symbols-rounded text-4xl text-[--text-main]/20 mb-4 block">event_busy</span>
                                 <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/20">No attendance records found.</p>
                             </td>
@@ -661,26 +645,21 @@ $active_now = $stmtMetricsActive->fetchColumn();
                                     </div>
                                     <div>
                                         <p class="text-[13px] font-black italic uppercase text-[--text-main] group-hover:text-primary transition-colors"><?= htmlspecialchars($row['fullname'] ?: $row['username']) ?></p>
-                                        <p class="text-[10px] font-bold text-[--text-main]/30 tracking-tight lowercase">@<?= htmlspecialchars($row['username']) ?></p>
                                     </div>
                                 </div>
-                            </td>
-                            <td class="px-8 py-6 text-center">
-                                <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[9px] font-black text-[--text-main]/40 uppercase tracking-widest">#<?= str_pad($row['attendance_id'], 5, '0', STR_PAD_LEFT) ?></span>
                             </td>
                             <td class="px-8 py-6">
-                                <div class="space-y-0.5 text-left font-mono">
-                                    <div class="text-[11px] font-black italic text-[--text-main] uppercase flex items-center gap-2">
-                                        <?= date('h:i A', $check_in_ts) ?>
-                                        <span class="text-[--text-main]/20">→</span>
-                                        <?php if ($isTraining): ?>
-                                            <span class="text-emerald-500 text-[10px] font-extrabold animate-pulse">ACTIVE NOW</span>
-                                        <?php else: ?>
-                                            <span class="text-[--text-main]/40"><?= date('h:i A', $check_out_ts) ?></span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <p class="text-[9px] font-bold text-[--text-main]/40 uppercase tracking-widest italic"><?= date('M d, Y', $check_in_ts) ?></p>
-                                </div>
+                                <p class="text-[10px] font-black text-[--text-main]/40 uppercase tracking-widest italic"><?= date('M d, Y', $check_in_ts) ?></p>
+                            </td>
+                            <td class="px-8 py-6 text-center">
+                                <p class="text-[11px] font-black italic text-[--text-main] uppercase"><?= date('h:i A', $check_in_ts) ?></p>
+                            </td>
+                            <td class="px-8 py-6 text-center">
+                                <?php if ($isTraining): ?>
+                                    <span class="text-emerald-500 text-[10px] font-extrabold animate-pulse">ACTIVE</span>
+                                <?php else: ?>
+                                    <p class="text-[11px] font-black italic text-[--text-main]/40 uppercase"><?= date('h:i A', $check_out_ts) ?></p>
+                                <?php endif; ?>
                             </td>
                             <td class="px-8 py-6 text-right">
                                 <?php if ($isTraining): ?>

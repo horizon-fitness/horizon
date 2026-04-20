@@ -76,7 +76,7 @@ $primary_rgb   = hexToRgb($theme_color);
 $highlight_rgb = hexToRgb($highlight_color);
 $card_bg_css   = ($auto_card_theme === '1') ? "rgba({$primary_rgb}, 0.05)" : $card_color;
 
-$tenant_config = [
+$page = [
     'logo_path'   => $configs['system_logo'] ?? '',
     'theme_color' => $theme_color,
     'bg_color'    => $bg_color,
@@ -121,8 +121,9 @@ $where_clause = "WHERE " . implode(' AND ', $sql_parts);
 $sql = "
     SELECT 
         b.*, 
-        u.first_name, u.last_name, u.username,
+        u.first_name, u.last_name, u.username, u.profile_picture,
         COALESCE(sc.service_name, 'Unlimited Gym Use') as resolved_service,
+        sc.price as service_price,
         CASE 
             WHEN b.coach_id IS NULL THEN 'Self-Training'
             ELSE CONCAT(tu.first_name, ' ', tu.last_name)
@@ -131,8 +132,8 @@ $sql = "
     JOIN members m ON b.member_id = m.member_id 
     JOIN users u ON m.user_id = u.user_id 
     LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
-    LEFT JOIN staff s ON b.coach_id = s.staff_id
-    LEFT JOIN users tu ON s.user_id = tu.user_id
+    LEFT JOIN coaches c ON b.coach_id = c.coach_id
+    LEFT JOIN users tu ON c.user_id = tu.user_id
     $where_clause 
     ORDER BY b.booking_date DESC, b.start_time DESC
 ";
@@ -141,7 +142,7 @@ $stmtBookings = $pdo->prepare($sql);
 $stmtBookings->execute($sql_params);
 $bookings_list = $stmtBookings->fetchAll();
 
-$active_page = "admin_appointment";
+$active_page = "bookings";
 
 // --- ACTION HANDLER: APPROVE / REJECT ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -313,7 +314,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 24px;
         }
 
-        /* Sidebar Hover Logic */
+        /* Sidebar-Aware Layout Logic */
         :root { --nav-width: 110px; }
         body:has(.side-nav:hover) { --nav-width: 300px; }
 
@@ -328,15 +329,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             top: 0;
             height: 100vh;
             z-index: 110;
-        }
-
-        .main-content {
-            margin-left: var(--nav-width);
-            flex: 1;
-            min-width: 0;
-            transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow-y: auto;
-            overflow-x: hidden;
         }
 
         .nav-label {
@@ -384,11 +376,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: #94a3b8;
         }
 
-        .nav-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-            color: white;
-        }
-
         .nav-item.active {
             color: var(--primary) !important;
             position: relative;
@@ -404,6 +391,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             height: 24px;
             background: var(--primary);
             border-radius: 4px 0 0 4px;
+        }
+
+        .main-content {
+            margin-left: var(--nav-width);
+            flex: 1;
+            min-width: 0;
+            transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -460,16 +456,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             top: 0;
             right: 0;
             bottom: 0;
-            left: 110px;
+            left: var(--nav-width);
             z-index: 200;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             display: none;
             align-items: center;
             justify-content: center;
-        }
-
-        .side-nav:hover ~ #confirmationModal, .side-nav:hover ~ #detailModal {
-            left: 300px;
         }
 
         .modal-backdrop {
@@ -603,11 +595,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         function openDetailModal(data) {
             document.getElementById('dt_ref').textContent = data.ref || ('BK-' + data.id);
             document.getElementById('dt_name').textContent = data.name;
-            document.getElementById('dt_username').textContent = '@' + data.username;
-            document.getElementById('dt_avatar').textContent = data.name.charAt(0);
+            
+            const avatarEl = document.getElementById('dt_avatar');
+            if (data.avatar && data.avatar !== '') {
+                avatarEl.innerHTML = `<img src="${data.avatar}" class="size-full object-cover rounded-2xl" alt="">`;
+                avatarEl.classList.remove('bg-primary/10', 'text-primary');
+                avatarEl.classList.add('bg-white/[0.02]');
+            } else {
+                avatarEl.textContent = data.name.charAt(0);
+                avatarEl.classList.add('bg-primary/10', 'text-primary');
+                avatarEl.classList.remove('bg-white/[0.02]');
+            }
+
             document.getElementById('dt_service').textContent = data.service;
             document.getElementById('dt_trainer').textContent = data.trainer;
             document.getElementById('dt_schedule').textContent = data.schedule;
+            document.getElementById('dt_amount').textContent = '₱' + parseFloat(data.amount).toLocaleString(undefined, {minimumFractionDigits: 2});
             
             const statusEl = document.getElementById('dt_status');
             statusEl.textContent = data.status;
@@ -634,50 +637,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
 
-<nav class="side-nav flex flex-col fixed left-0 top-0 h-screen bg-background-dark border-r border-white/5">
-    <div class="px-7 py-8 mb-4 shrink-0">
-        <div class="flex items-center gap-4">
-            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($tenant_config['logo_path'])):
-                    $logo_src = (strpos($tenant_config['logo_path'], 'data:image') === 0) ? $tenant_config['logo_path'] : '../' . $tenant_config['logo_path'];
-                ?>
-                    <img src="<?= $logo_src ?>" class="size-full object-contain">
-                <?php else: ?>
-                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
-                <?php endif; ?>
-            </div>
-            <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white">Staff Portal</h1>
-        </div>
-    </div>
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span></div>
-        <a href="admin_dashboard.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">grid_view</span><span class="nav-label">Dashboard</span></a>
-        <a href="register_member.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">person_add</span><span class="nav-label">Walk-in Member</span></a>
-        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
-        <a href="admin_users.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">group</span><span class="nav-label">My Users</span></a>
-        <a href="admin_transaction.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">receipt_long</span><span class="nav-label">Transactions</span></a>
-        <a href="admin_appointment.php" class="nav-item active"><span class="material-symbols-outlined text-xl shrink-0">event_note</span><span class="nav-label">Bookings</span></a>
-        <a href="admin_attendance.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">history</span><span class="nav-label">Attendance</span></a>
-        <a href="admin_report.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">description</span><span class="nav-label">Reports</span></a>
-    </div>
-    <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
-        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
-        <a href="admin_profile.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">account_circle</span><span class="nav-label">Profile</span></a>
-        <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors group">
-            <span class="material-symbols-outlined text-xl shrink-0 group-hover:translate-x-1 transition-transform">logout</span>
-            <span class="nav-label whitespace-nowrap">Sign Out</span>
-        </a>
-    </div>
-</nav>
+<!-- Dynamic Admin Sidebar -->
+<?php include '../includes/admin_sidebar.php'; ?>
 
 <!-- Modal System -->
 <div id="confirmationModal">
     <div id="modalBackdrop" class="modal-backdrop" onclick="closeModal()"></div>
     <div class="modal-container p-10 flex flex-col items-center text-center">
         <div class="size-20 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-            <span class="material-symbols-outlined text-primary text-4xl">verified_user</span>
+            <span class="material-symbols-rounded text-primary text-4xl">verified_user</span>
         </div>
-        <h3 id="modalTitle" class="text-2xl font-black italic uppercase tracking-tight text-white mb-3">Confirm Action?</h3>
+        <h3 id="modalTitle" class="text-2xl font-black italic uppercase tracking-tighter text-white mb-3">Confirm Action?</h3>
         <p id="modalMessage" class="text-gray-500 text-sm font-medium mb-10 leading-relaxed px-4">Are you sure you want to proceed with this operation?</p>
         <div class="flex w-full gap-4">
             <button onclick="closeModal()" class="flex-1 bg-white/5 hover:bg-white/10 text-gray-400 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all">Discard</button>
@@ -686,11 +656,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </div>
 
+<!-- Booking Detail Modal -->
+<div id="detailModal">
+    <div id="detailBackdrop" class="modal-backdrop" onclick="closeDetailModal()"></div>
+    <div class="modal-container p-10 flex flex-col items-center">
+        <div class="w-full flex justify-between items-start mb-8">
+            <div>
+                <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white leading-none">Booking <span class="text-primary">Details</span></h3>
+                <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-2" id="dt_ref">REF-000000</p>
+            </div>
+            <button onclick="closeDetailModal()" class="size-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-500 transition-all">
+                <span class="material-symbols-rounded text-xl">close</span>
+            </button>
+        </div>
+
+        <div class="w-full space-y-6">
+            <div class="glass-card p-6 border-white/5 bg-white/[0.02]">
+                <p class="text-[10px] font-black uppercase text-primary mb-4 tracking-widest">Member Information</p>
+                <div class="flex items-center gap-4">
+                    <div class="size-12 rounded-2xl bg-white/[0.02] flex items-center justify-center text-primary font-black italic text-xl overflow-hidden" id="dt_avatar">J</div>
+                    <div>
+                        <p class="text-base font-black italic uppercase text-white" id="dt_name">John Doe</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full grid grid-cols-2 gap-4">
+                <div class="glass-card p-5 border-white/5 bg-white/[0.02]">
+                    <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Service Item</p>
+                    <p class="text-xs font-black italic text-white uppercase" id="dt_service">PT Session</p>
+                </div>
+                <div class="glass-card p-5 border-white/5 bg-white/[0.02]">
+                    <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Fee/Amount</p>
+                    <p class="text-xs font-black italic text-white uppercase" id="dt_amount">₱0.00</p>
+                </div>
+            </div>
+
+            <div class="w-full glass-card p-5 border-white/5 bg-white/[0.02] flex justify-between items-center">
+                <div>
+                    <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Assigned Trainer</p>
+                    <p class="text-xs font-bold text-white italic" id="dt_trainer">Coach Name</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Schedule</p>
+                    <p class="text-xs font-bold text-primary italic" id="dt_schedule">Jan 01, 10:00 AM</p>
+                </div>
+            </div>
+
+            <div class="w-full glass-card p-5 border-white/5 bg-white/[0.02] flex justify-between items-center">
+                <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest">Current Status</p>
+                <span class="px-3 py-1 rounded-full border text-[8px] font-black uppercase italic tracking-widest" id="dt_status">PENDING</span>
+            </div>
+        </div>
+
+        <button onclick="closeDetailModal()" class="w-full mt-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white active:scale-[0.98]">
+            Dismiss Record
+        </button>
+    </div>
+</div>
+
 <div class="main-content flex-1 overflow-y-auto no-scrollbar">
     <!-- Alert System -->
     <?php if (isset($_SESSION['success_msg'])): ?>
         <div class="alert-banner px-6 py-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 backdrop-blur-xl flex items-center gap-4 shadow-2xl shadow-emerald-500/10">
-            <span class="material-symbols-outlined text-emerald-500">check_circle</span>
+            <span class="material-symbols-rounded text-emerald-500">check_circle</span>
             <p class="text-xs font-bold text-emerald-500"><?= $_SESSION['success_msg']; unset($_SESSION['success_msg']); ?></p>
         </div>
     <?php endif; ?>
@@ -724,7 +753,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-2 lg:col-span-1">
                         <p class="text-[10px] font-black uppercase tracking-widest text-primary ml-1">Identity Filter</p>
                         <div class="relative">
-                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
+                            <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">search</span>
                             <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search member..." class="input-box pl-12 w-full">
                         </div>
                     </div>
@@ -752,7 +781,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="flex gap-3">
                         <button type="submit" class="flex-1 bg-primary hover:bg-primary/90 text-white h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 active:scale-95">Execute Apply</button>
                         <button type="button" onclick="clearAppointmentFilters()" class="size-[46px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-400 hover:bg-rose-500/10 hover:text-rose-500 transition-all group active:scale-95">
-                            <span class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform">restart_alt</span>
+                            <span class="material-symbols-rounded text-xl group-hover:rotate-180 transition-transform">restart_alt</span>
                         </button>
                     </div>
                 </div>
@@ -790,12 +819,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <tr class="hover:bg-white/[0.02] group transition-colors">
                             <td class="px-8 py-6">
                                 <div class="flex items-center gap-4">
-                                    <div class="size-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black italic text-base">
-                                        <?= substr($appt['first_name'] ?? 'U', 0, 1) ?>
+                                    <div class="size-10 rounded-2xl bg-white/[0.03] flex items-center justify-center overflow-hidden">
+                                        <?php if (!empty($appt['profile_picture'])): 
+                                            $pfp_src = (strpos($appt['profile_picture'], 'data:image') === 0) ? $appt['profile_picture'] : '../' . $appt['profile_picture'];
+                                        ?>
+                                            <img src="<?= htmlspecialchars($pfp_src) ?>" class="size-full object-cover" alt="">
+                                        <?php else: ?>
+                                            <div class="size-full bg-primary/10 flex items-center justify-center text-primary font-black italic text-base">
+                                                <?= substr($appt['first_name'] ?? 'U', 0, 1) ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                     <div>
                                         <p class="text-[13px] font-black italic uppercase text-white group-hover:text-primary transition-colors"><?= htmlspecialchars(($appt['first_name'] ?? '') . ' ' . ($appt['last_name'] ?? '')) ?></p>
-                                        <p class="text-[10px] font-bold text-gray-500 tracking-tight lowercase">@<?= htmlspecialchars($appt['username'] ?? 'unknown') ?></p>
                                     </div>
                                 </div>
                             </td>
@@ -828,23 +864,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         onclick='openDetailModal({
                                             id: "<?= $appt["booking_id"] ?>",
                                             ref: "<?= $appt["booking_reference"] ?>",
-                                            name: "<?= htmlspecialchars($appt["first_name"] . " " . $appt["last_name"]) ?>",
-                                            username: "<?= htmlspecialchars($appt["username"] ?? "unknown") ?>",
-                                            service: "<?= htmlspecialchars($appt["resolved_service"] ?? "Gym Session") ?>",
-                                            trainer: "<?= htmlspecialchars($appt["resolved_trainer"] ?? "Personal Trainer") ?>",
+                                            name: "<?= htmlspecialchars(($appt["first_name"] ?? "") . " " . ($appt["last_name"] ?? ""), ENT_QUOTES) ?>",
+                                            service: "<?= htmlspecialchars($appt["resolved_service"] ?? "Gym Session", ENT_QUOTES) ?>",
+                                            trainer: "<?= htmlspecialchars($appt["resolved_trainer"] ?? "Personal Trainer", ENT_QUOTES) ?>",
                                             schedule: "<?= date("M d, Y h:i A", strtotime(($appt["booking_date"] ?? "today") . " " . ($appt["start_time"] ?? "00:00"))) ?>",
+                                            amount: "<?= $appt["service_price"] ?? 0 ?>",
+                                            avatar: "<?= !empty($appt['profile_picture']) ? ((strpos($appt['profile_picture'], 'data:image') === 0) ? $appt['profile_picture'] : '../' . $appt['profile_picture']) : '' ?>",
                                             status: "<?= $st ?>",
                                             statusColor: "<?= $col ?>"
                                         })'
                                         class="size-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 flex items-center justify-center hover:bg-primary hover:text-white transition-all" title="View Details">
-                                        <span class="material-symbols-outlined text-[18px]">search</span>
+                                        <span class="material-symbols-rounded text-[18px]">search</span>
                                     </button>
                                     <?php if ($st === 'Pending'): ?>
                                         <button onclick="confirmAction(<?= $appt['booking_id'] ?>, 'approve')" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all active:scale-95" title="Approve">
-                                            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                                            <span class="material-symbols-rounded text-[18px]">check_circle</span>
                                         </button>
                                         <button onclick="confirmAction(<?= $appt['booking_id'] ?>, 'reject')" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-95" title="Reject">
-                                            <span class="material-symbols-outlined text-[18px]">cancel</span>
+                                            <span class="material-symbols-rounded text-[18px]">cancel</span>
                                         </button>
                                     <?php endif; ?>
                                 </div>
@@ -857,57 +894,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </main>
 </div>
-
-    <!-- Appointment Detail Modal -->
-    <div id="detailModal">
-        <div id="detailBackdrop" class="modal-backdrop" onclick="closeDetailModal()"></div>
-        <div class="modal-container p-10 flex flex-col items-center overflow-hidden">
-            <div class="w-full flex justify-between items-start mb-8">
-                <div>
-                    <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white leading-none">Booking <span class="text-primary">Details</span></h3>
-                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-2" id="dt_ref">BK-000000</p>
-                </div>
-                <button onclick="closeDetailModal()" class="size-10 rounded-xl bg-white/5 flex items-center justify-center hover:bg-rose-500/20 hover:text-rose-500 transition-all">
-                    <span class="material-symbols-outlined text-xl">close</span>
-                </button>
-            </div>
-
-            <div class="w-full space-y-6">
-                <div class="glass-card p-6 border-white/5 bg-white/[0.02]">
-                    <p class="text-[10px] font-black uppercase text-primary mb-4 tracking-widest">Member Information</p>
-                    <div class="flex items-center gap-4">
-                        <div class="size-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-black italic text-xl" id="dt_avatar">J</div>
-                        <div>
-                            <p class="text-base font-black italic uppercase text-white" id="dt_name">John Doe</p>
-                            <p class="text-[11px] font-bold text-gray-500" id="dt_username">@johndoe</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="w-full grid grid-cols-2 gap-4">
-                    <div class="glass-card p-5 border-white/5 bg-white/[0.02] col-span-2">
-                        <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Service Requested</p>
-                        <p class="text-lg font-black italic text-white" id="dt_service">Gym Session</p>
-                        <p class="text-[10px] font-black text-primary tracking-widest uppercase mt-1" id="dt_trainer">Personal Trainer</p>
-                    </div>
-                </div>
-
-                <div class="w-full glass-card p-5 border-white/5 bg-white/[0.02] flex justify-between items-center">
-                    <div>
-                        <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Schedule</p>
-                        <p class="text-xs font-bold text-white italic" id="dt_schedule">Jan 01, 2024</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-[9px] font-black uppercase text-gray-500 mb-1 tracking-widest">Status</p>
-                        <span class="px-3 py-1 rounded-full border text-[8px] font-black uppercase italic tracking-widest" id="dt_status">PENDING</span>
-                    </div>
-                </div>
-            </div>
-
-            <button onclick="closeDetailModal()" class="w-full mt-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white active:scale-[0.98]">
-                Dismiss Record
-            </button>
-        </div>
-    </div>
 </body>
 </html>

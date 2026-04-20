@@ -34,46 +34,137 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } 
 } 
 
-// Fetch Gym Details 
-$stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?"); 
-$stmtGym->execute([$gym_id]); 
-$gym = $stmtGym->fetch(); 
+// ── 4-Color Elite Branding System Implementation ─────────────────────────────
+if (!function_exists('hexToRgb')) {
+    function hexToRgb($hex) {
+        if (!$hex) return "0, 0, 0";
+        $hex = str_replace("#", "", $hex);
+        if (strlen($hex) == 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+        } else {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        }
+        return "$r, $g, $b";
+    }
+}
 
-$owner_user_id = $gym['owner_user_id'] ?? 0;
-$stmtSettings = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ? OR user_id = 0 ORDER BY user_id ASC");
-$stmtSettings->execute([$owner_user_id]);
-$configs = $stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR);
+// Fetch Gym & Owner Details for Branding
+$stmtGymBranding = $pdo->prepare("SELECT owner_user_id, gym_name, profile_picture FROM gyms WHERE gym_id = ?");
+$stmtGymBranding->execute([$gym_id]);
+$gym_data = $stmtGymBranding->fetch();
+$owner_user_id = $gym_data['owner_user_id'] ?? 0;
+$gym_name = $gym_data['gym_name'] ?? 'Horizon Gym';
 
-$theme_color = $configs['theme_color'] ?? '#8c2bee';
-$bg_color = $configs['bg_color'] ?? '#0a090d';
-$font_family = $configs['font_family'] ?? 'Lexend';
-$system_logo = $configs['system_logo'] ?? $gym['profile_picture'] ?? ''; 
+$configs = [
+    'system_name'     => $gym_name,
+    'system_logo'     => '',
+    'theme_color'     => '#8c2bee',
+    'secondary_color' => '#a1a1aa',
+    'text_color'      => '#d1d5db',
+    'bg_color'        => '#0a090d',
+    'card_color'      => '#141216',
+    'auto_card_theme' => '1',
+    'font_family'     => 'Lexend',
+];
 
-$stmtSub = $pdo->prepare("SELECT ws.plan_name FROM client_subscriptions cs JOIN website_plans ws ON cs.website_plan_id = ws.website_plan_id WHERE cs.gym_id = ? AND cs.subscription_status = 'Active' LIMIT 1"); 
-$stmtSub->execute([$gym_id]); 
-$sub = $stmtSub->fetch(); 
+// 1. Merge global settings (user_id = 0)
+$stmtGlobal = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$stmtGlobal->execute();
+foreach (($stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
+}
 
-$active_page = "register_member"; 
+// 2. Merge tenant-specific settings (user_id = owner_user_id)
+$stmtTenant = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtTenant->execute([$owner_user_id]);
+foreach (($stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
+}
+
+// 3. Resolved branding tokens
+$theme_color     = $configs['theme_color'];
+$highlight_color = $configs['secondary_color'];
+$text_color      = $configs['text_color'];
+$bg_color        = $configs['bg_color'];
+$font_family     = $configs['font_family'] ?? 'Lexend';
+$auto_card_theme = $configs['auto_card_theme'] ?? '1';
+$card_color      = $configs['card_color'];
+
+$primary_rgb   = hexToRgb($theme_color);
+$highlight_rgb = hexToRgb($highlight_color);
+$card_bg_css   = ($auto_card_theme === '1') ? "rgba({$primary_rgb}, 0.05)" : $card_color;
+
+$page = [
+    'logo_path'   => $configs['system_logo'] ?? $gym_data['profile_picture'] ?? '',
+    'theme_color' => $theme_color,
+    'bg_color'    => $bg_color,
+    'system_name' => $configs['system_name'] ?? $gym_name,
+];
+
+$active_page = "register"; 
 ?> 
 <!DOCTYPE html> 
 <html class="dark" lang="en"> 
 <head> 
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/> 
     <title>Walk-in Registration | Horizon Partners</title> 
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/> 
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/> 
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=<?= urlencode($font_family) ?>:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/> 
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/> 
+    
+    <!-- TailWind CSS Configuration -->
     <script src="https://cdn.tailwindcss.com"></script> 
     <script> 
         tailwind.config = { 
             darkMode: "class", 
-            theme: { extend: { colors: { "primary": "<?= $theme_color ?>", "background-dark": "<?= $bg_color ?>", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)"}}} 
+            theme: { extend: { colors: { 
+                "primary": "var(--primary)", 
+                "background": "var(--background)", 
+                "card-bg": "var(--card-bg)", 
+                "text-main": "var(--text-main)",
+                "highlight": "var(--highlight)"
+            }}} 
         } 
     </script> 
     <style> 
-        body { font-family: '<?= $font_family ?>', sans-serif; background-color: <?= $bg_color ?>; color: white; overflow: hidden; } 
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; } 
+        :root {
+            --primary:       <?= $theme_color ?>;
+            --primary-rgb:   <?= $primary_rgb ?>;
+            --highlight:     <?= $highlight_color ?>;
+            --highlight-rgb: <?= $highlight_rgb ?>;
+            --text-main:     <?= $text_color ?>;
+            --background:    <?= $bg_color ?>;
+            --card-bg:       <?= $card_bg_css ?>;
+            --card-blur:     20px;
+        }
+
+        body { 
+            font-family: '<?= $font_family ?>', sans-serif; 
+            background-color: var(--background); 
+            color: var(--text-main); 
+            display: flex; 
+            flex-direction: row; 
+            min-h-screen: 100vh; 
+            overflow: hidden; 
+        } 
+
+        .glass-card { 
+            background: var(--card-bg); 
+            border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 24px; 
+            backdrop-filter: blur(var(--card-blur));
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        } 
+
         .input-field { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; padding: 14px 18px; width: 100%; outline: none; transition: all 0.2s; font-size: 13px; font-weight: 500; color-scheme: dark; } 
-        .input-field:focus { border-color: <?= $theme_color ?>; background: rgba(255,255,255,0.08); } 
+        .input-field:focus { border-color: var(--primary); background: rgba(255,255,255,0.08); } 
         .input-field option { background-color: #1a1821; color: white; }
         ::-webkit-calendar-picker-indicator { filter: invert(1) brightness(0.8); opacity: 0.6; cursor: pointer; }
         .strength-bar { height: 4px; border-radius: 2px; transition: all 0.3s ease; width: 0; }
@@ -81,23 +172,34 @@ $active_page = "register_member";
         .strength-medium { background-color: #f59e0b; width: 66.66%; }
         .strength-strong { background-color: #10b981; width: 100%; }
         
-        .side-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 50; }
+        .side-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 50; background-color: var(--background); border-right: 1px solid rgba(255,255,255,0.05); }
         .side-nav:hover { width: 300px; }
         .main-content { margin-left: 110px; flex: 1; min-width: 0; transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .side-nav:hover ~ .main-content { margin-left: 300px; }
 
-        .nav-label { opacity: 0; transform: translateX(-15px); transition: all 0.3s ease-in-out; white-space: nowrap; pointer-events: none; }
+        .nav-label { opacity: 0; transform: translateX(-15px); transition: all 0.3s ease-in-out; white-space: nowrap; pointer-events: none; color: var(--text-main); }
         .side-nav:hover .nav-label { opacity: 1; transform: translateX(0); pointer-events: auto; }
         .nav-section-label { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); margin: 0 !important; pointer-events: none; }
         .side-nav:hover .nav-section-label { max-height: 20px; opacity: 1; margin-bottom: 8px !important; pointer-events: auto; }
         
-        .nav-item { display: flex; align-items: center; gap: 16px; padding: 10px 38px; transition: all 0.2s ease; text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
-        .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { color: <?= $theme_color ?> !important; position: relative; } 
-        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: <?= $theme_color ?>; border-radius: 4px 0 0 4px; }
+        .nav-item { 
+            display: flex; align-items: center; gap: 16px; padding: 10px 38px; 
+            transition: opacity 0.2s ease, color 0.2s ease; 
+            text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 800; 
+            text-transform: uppercase; letter-spacing: 0.05em; 
+            color: color-mix(in srgb, var(--text-main) 45%, transparent); 
+            position: relative;
+        }
+        .nav-item:hover { color: var(--text-main); }
+        .nav-item .material-symbols-rounded { color: var(--highlight); transition: transform 0.2s ease; }
+        .nav-item:hover .material-symbols-rounded { transform: scale(1.12); }
+        .nav-item.active { color: var(--primary) !important; position: relative; }
+        .nav-item.active .material-symbols-rounded { color: var(--primary); }
+        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: var(--primary); border-radius: 4px 0 0 4px; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; } 
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; } 
+    </style> 
     </style> 
     <script> 
         function updateHeaderClock() { 
@@ -126,7 +228,7 @@ $active_page = "register_member";
 
         function togglePassword(id, btn) {
             const input = document.getElementById(id);
-            const icon = btn.querySelector('.material-symbols-outlined');
+            const icon = btn.querySelector('.material-symbols-rounded');
             if (input.type === 'password') {
                 input.type = 'text';
                 icon.textContent = 'visibility_off';
@@ -166,51 +268,19 @@ $active_page = "register_member";
 </head> 
 <body class="antialiased flex h-screen overflow-hidden"> 
 
-<nav class="side-nav flex flex-col fixed left-0 top-0 h-screen bg-background-dark border-r border-white/5 z-50">
-    <div class="px-7 py-8 mb-4 shrink-0">
-        <div class="flex items-center gap-4">
-            <div class="size-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
-                <?php if (!empty($system_logo)): 
-                    $logo_src = (strpos($system_logo, 'data:image') === 0) ? $system_logo : '../' . $system_logo;
-                ?>
-                    <img src="<?= $logo_src ?>" class="size-full object-contain">
-                <?php else: ?>
-                    <span class="material-symbols-outlined text-white text-2xl">bolt</span>
-                <?php endif; ?>
-            </div>
-            <h1 class="nav-label text-lg font-black italic uppercase tracking-tighter text-white leading-tight">Staff Portal</h1>
-        </div>
-    </div>
-    <div class="flex-1 overflow-y-auto no-scrollbar space-y-1">
-        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Overview</span></div>
-        <a href="admin_dashboard.php" class="nav-item"><span class="material-symbols-outlined text-xl shrink-0">grid_view</span><span class="nav-label">Dashboard</span></a>
-        <a href="register_member.php" class="nav-item active"><span class="material-symbols-outlined text-xl shrink-0">person_add</span><span class="nav-label">Walk-in Member</span></a>
-        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
-        <a href="admin_users.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">group</span><span class="nav-label">My Users</span></a>
-        <a href="admin_transaction.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">receipt_long</span><span class="nav-label">Transactions</span></a>
-        <a href="admin_appointment.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">event_note</span><span class="nav-label">Bookings</span></a>
-        <a href="admin_attendance.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">history</span><span class="nav-label">Attendance</span></a>
-    </div>
-    <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
-        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
-        <a href="admin_profile.php" class="nav-item text-gray-400 hover:text-white"><span class="material-symbols-outlined text-xl shrink-0">account_circle</span><span class="nav-label">Profile</span></a>
-        <a href="../logout.php" class="nav-item text-gray-400 hover:text-rose-500 transition-colors">
-            <span class="material-symbols-outlined text-xl shrink-0">logout</span>
-            <span class="nav-label whitespace-nowrap">Sign Out</span>
-        </a>
-    </div>
-</nav>
+<!-- Dynamic Admin Sidebar -->
+<?php include '../includes/admin_sidebar.php'; ?>
 
 <div class="main-content flex-1 overflow-y-auto no-scrollbar">
     <main class="p-10 max-w-[1400px] mx-auto">
         <header class="mb-12 flex flex-row justify-between items-end gap-6">
             <div>
                 <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none tracking-tight">Walk-in <span class="text-primary">Registration</span></h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Staff Portal • New Member Entry</p>
+                <p class="text-[--text-main]/60 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Staff Portal • New Member Entry</p>
             </div>
             <div class="flex items-end gap-8 text-right shrink-0">
                 <div class="flex flex-col items-end">
-                    <p id="topClock" class="text-white font-black italic text-2xl leading-none tracking-tighter">00:00:00 AM</p>
+                    <p id="topClock" class="text-[--text-main] font-black italic text-2xl leading-none tracking-tighter uppercase">00:00:00 AM</p>
                     <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
                 </div>
             </div>
@@ -219,40 +289,40 @@ $active_page = "register_member";
         <div class="max-w-4xl mx-auto">
             <?php if($success): ?> 
                 <div class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-3 shadow-lg"> 
-                    <span class="material-symbols-outlined text-lg">check_circle</span> <?= $success ?> 
+                    <span class="material-symbols-rounded text-lg">check_circle</span> <?= $success ?> 
                 </div> 
             <?php endif; ?> 
 
             <?php if($error): ?> 
                 <div class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-3 shadow-lg"> 
-                    <span class="material-symbols-outlined text-lg">error</span> <?= $error ?> 
+                    <span class="material-symbols-rounded text-lg">error</span> <?= $error ?> 
                 </div> 
             <?php endif; ?> 
 
             <form method="POST" onsubmit="return validateForm(event)" class="space-y-8 pb-20"> 
-                <div class="glass-card p-8 border border-white/5">
+                <div class="glass-card p-8">
                     <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
-                        <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-xl">person</span> Personal Information
+                        <span class="material-symbols-rounded bg-primary/10 p-2 rounded-xl text-xl">person</span> Personal Information
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
                         <div class="space-y-2 lg:col-span-1">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Username <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Username <span class="text-red-500">*</span></label>
                             <input type="text" name="username" required value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" class="input-field" placeholder="Username">
                         </div>
                         <div class="space-y-2 lg:col-span-1">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">First Name <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">First Name <span class="text-red-500">*</span></label>
                             <input type="text" name="first_name" required value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>" class="input-field" placeholder="First Name">
                         </div>
                         <div class="space-y-2 lg:col-span-1">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Middle Name</label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Middle Name</label>
                             <input type="text" name="middle_name" value="<?= htmlspecialchars($_POST['middle_name'] ?? '') ?>" class="input-field" placeholder="Middle Name">
                         </div>
                         <div class="space-y-2 lg:col-span-1">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Last Name <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Last Name <span class="text-red-500">*</span></label>
                             <input type="text" name="last_name" required value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" class="input-field" placeholder="Last Name">
                         </div>
                         <div class="space-y-2 md:col-span-1">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Sex <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Sex <span class="text-red-500">*</span></label>
                             <select name="sex" required class="input-field appearance-none cursor-pointer">
                                 <option value="" disabled <?= !isset($_POST['sex']) ? 'selected' : '' ?>>Select Sex</option>
                                 <option value="Male" <?= ($_POST['sex'] ?? '') === 'Male' ? 'selected' : '' ?>>Male</option>
@@ -260,74 +330,74 @@ $active_page = "register_member";
                             </select>
                         </div>
                         <div class="space-y-2 md:col-span-1">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Birth Date <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Birth Date <span class="text-red-500">*</span></label>
                             <input type="date" name="birth_date" required value="<?= htmlspecialchars($_POST['birth_date'] ?? '') ?>" class="input-field">
                         </div>
                         <div class="space-y-2 md:col-span-2">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Password <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Password <span class="text-red-500">*</span></label>
                             <div class="relative">
                                 <input type="password" name="password" id="password" required onkeyup="checkPasswordStrength(this.value)" class="input-field" placeholder="Security Password">
-                                <button type="button" onclick="togglePassword('password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-all"><span class="material-symbols-outlined text-sm">visibility</span></button>
+                                <button type="button" onclick="togglePassword('password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-[--text-main]/40 hover:text-white transition-all"><span class="material-symbols-rounded text-sm">visibility</span></button>
                             </div>
                             <div class="w-full bg-white/5 h-1 rounded-full mt-2 overflow-hidden"><div id="strength-indicator" class="strength-bar"></div></div>
                             <p id="strength-text" class="text-[9px] font-black ml-1"></p>
                         </div>
                         <div class="space-y-2 md:col-span-2 md:col-start-3">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Confirm Password <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Confirm Password <span class="text-red-500">*</span></label>
                             <div class="relative">
                                 <input type="password" name="confirm_password" id="confirm_password" required class="input-field" placeholder="Re-type Password">
-                                <button type="button" onclick="togglePassword('confirm_password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-all"><span class="material-symbols-outlined text-sm">visibility</span></button>
+                                <button type="button" onclick="togglePassword('confirm_password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-[--text-main]/40 hover:text-white transition-all"><span class="material-symbols-rounded text-sm">visibility</span></button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="glass-card p-8 border border-white/5">
+                <div class="glass-card p-8">
                     <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
-                        <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-xl">alternate_email</span> Contact Information
+                        <span class="material-symbols-rounded bg-primary/10 p-2 rounded-xl text-xl">alternate_email</span> Contact Information
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div class="space-y-2">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Email Address <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Email Address <span class="text-red-500">*</span></label>
                             <input type="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" class="input-field" placeholder="email@address.com">
                         </div>
                         <div class="space-y-2">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Contact Number <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Contact Number <span class="text-red-500">*</span></label>
                             <input type="tel" name="phone" required oninput="formatPhoneNumber(this)" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>" class="input-field" placeholder="09XX-XXX-XXXX">
                         </div>
                         <div class="space-y-2 md:col-span-2">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Home Address <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Home Address <span class="text-red-500">*</span></label>
                             <input type="text" name="address" required value="<?= htmlspecialchars($_POST['address'] ?? '') ?>" class="input-field" placeholder="Street, Barangay, City">
                         </div>
                     </div>
                 </div>
 
-                <div class="glass-card p-8 border border-white/5">
+                <div class="glass-card p-8">
                     <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
-                        <span class="material-symbols-outlined bg-primary/10 p-2 rounded-xl text-xl">medical_information</span> Health & Profile
+                        <span class="material-symbols-rounded bg-primary/10 p-2 rounded-xl text-xl">medical_information</span> Health & Profile
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div class="space-y-2 md:col-span-2">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Occupation</label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Occupation</label>
                             <input type="text" name="occupation" value="<?= htmlspecialchars($_POST['occupation'] ?? '') ?>" class="input-field" placeholder="e.g. Software Engineer">
                         </div>
                         <div class="space-y-2">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Emergency Name <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Emergency Name <span class="text-red-500">*</span></label>
                             <input type="text" name="emergency_name" required value="<?= htmlspecialchars($_POST['emergency_name'] ?? '') ?>" class="input-field" placeholder="Full Name">
                         </div>
                         <div class="space-y-2">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Emergency Contact <span class="text-red-500">*</span></label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Emergency Contact <span class="text-red-500">*</span></label>
                             <input type="tel" name="emergency_phone" required oninput="formatPhoneNumber(this)" value="<?= htmlspecialchars($_POST['emergency_phone'] ?? '') ?>" class="input-field" placeholder="09XX-XXX-XXXX">
                         </div>
                         <div class="space-y-2 md:col-span-2">
-                            <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Medical History</label>
+                            <label class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Medical History</label>
                             <textarea name="medical_history" class="input-field min-h-[100px] py-4" placeholder="List any existing conditions or allergies..."><?= htmlspecialchars($_POST['medical_history'] ?? '') ?></textarea>
                         </div>
                     </div>
                 </div>
 
                 <div class="flex justify-end pt-4">
-                    <button type="submit" class="group px-10 h-16 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-4">Register Member <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl">arrow_forward</span></button>
+                    <button type="submit" class="group px-10 h-16 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-4">Register Member <span class="material-symbols-rounded group-hover:translate-x-1 transition-transform text-xl">arrow_forward</span></button>
                 </div>
             </form>
         </div>
