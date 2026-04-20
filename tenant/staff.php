@@ -527,8 +527,10 @@ $where = "s.gym_id = :gym_id";
 $params = [':gym_id' => $gym_id];
 
 if (!empty($search)) {
-    $where .= " AND (u.first_name LIKE :s OR u.last_name LIKE :s OR s.staff_role LIKE :s)";
-    $params[':s'] = "%$search%";
+    $where .= " AND (u.first_name LIKE :s1 OR u.last_name LIKE :s2 OR s.staff_role LIKE :s3)";
+    $params[':s1'] = "%$search%";
+    $params[':s2'] = "%$search%";
+    $params[':s3'] = "%$search%";
 }
 
 if (!empty($f_role)) {
@@ -1406,6 +1408,10 @@ $pending_apps_count = count($pending_apps);
                         <label class="label-muted">Birthdate</label>
                         <p id="view_birthdate" class="text-xs font-bold text-[--text-main]">Jan 01, 1990</p>
                     </div>
+                    <div class="flex items-center justify-between">
+                        <label class="label-muted">Hire Date</label>
+                        <p id="view_hire_date" class="text-xs font-bold text-[--text-main]">Jan 01, 2024</p>
+                    </div>
                     <div id="view_session_rate_container" class="flex items-center justify-between">
                         <label class="label-muted">Session Rate</label>
                         <p id="view_session_rate" class="text-xs font-bold text-primary tracking-widest italic">₱0.00
@@ -1836,21 +1842,30 @@ $pending_apps_count = count($pending_apps);
                         formData.append('session_rate', app.session_rate);
                         formData.append('employment', (app.coach_type || 'PART-TIME').toUpperCase());
 
-                        // Show loading on current button if possible
-                        const btn = event?.currentTarget;
+                        const btn = typeof event !== 'undefined' ? event.currentTarget : null;
                         const original = btn ? btn.innerHTML : '';
                         if (btn) btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Processing...`;
 
                         fetch('staff.php', { method: 'POST', body: formData })
-                            .then(res => res.json())
-                            .then(data => {
-                                if (data.success) {
-                                    showNotification(data.message, 'success');
-                                    setTimeout(() => location.href = 'staff.php?tab=roster', 1500);
-                                } else {
-                                    showNotification(data.message, 'error');
+                            .then(res => res.text())
+                            .then(text => {
+                                try {
+                                    const data = JSON.parse(text);
+                                    if (data.success) {
+                                        showNotification(data.message, 'success');
+                                        setTimeout(() => location.href = 'staff.php?tab=roster', 1500);
+                                    } else {
+                                        showNotification(data.message, 'error');
+                                        if (btn) btn.innerHTML = original;
+                                    }
+                                } catch(e) {
+                                    console.error(text);
+                                    showNotification('System Error: Refresh and try again.', 'error');
                                     if (btn) btn.innerHTML = original;
                                 }
+                            }).catch(err => {
+                                showNotification('Connection Exception: Protocol failed.', 'error');
+                                if (btn) btn.innerHTML = original;
                             });
                     }
                 );
@@ -2071,8 +2086,9 @@ $pending_apps_count = count($pending_apps);
 
         document.getElementById('confirmModalBtn').addEventListener('click', function () {
             if (customConfirmCallback) {
+                const cb = customConfirmCallback;
                 closeCustomConfirm();
-                customConfirmCallback();
+                cb();
             }
         });
     </script>
