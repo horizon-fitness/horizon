@@ -44,6 +44,11 @@ foreach ($plans as &$p) {
     $stmtF->execute([$p['website_plan_id']]);
     $p['features'] = $stmtF->fetchAll(PDO::FETCH_COLUMN);
 }
+
+// Fetch Affiliated Gyms (Registered Tenants)
+$stmtGyms = $pdo->prepare("SELECT gym_name, profile_picture FROM gyms WHERE status IN ('Active', 'Approved') ORDER BY created_at DESC LIMIT 15");
+$stmtGyms->execute();
+$affiliatedGyms = $stmtGyms->fetchAll();
 ?>
 <!DOCTYPE html>
 <html class="<?= htmlspecialchars($currentTheme) ?>" lang="en">
@@ -179,42 +184,86 @@ foreach ($plans as &$p) {
             color: var(--text-main);
         }
 
-        .dashboard-window {
-            background: var(--dashboard-bg);
+        .hero-action-card {
+            position: relative;
+            width: 100%;
+            height: 540px;
+            border-radius: 2.5rem;
+            overflow: hidden;
             border: 1px solid var(--border-color);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            min-height: 400px;
+            background: #08080a;
         }
-
-        .metric-card {
-            background: var(--surface-color);
-            border: 1px solid var(--border-color);
-            padding: 1.25rem;
-            border-radius: 1rem;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
+        .hero-action-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(0.7) contrast(1.1);
+            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .metric-card:hover {
-            transform: translateY(-2px);
-            border-color: #7f13ec;
+        .hero-action-card:hover img {
+            transform: scale(1.05);
         }
-        .metric-icon {
+        .hero-action-overlay {
             position: absolute;
-            right: -10px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 4rem;
-            opacity: 0.05;
-            pointer-events: none;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 50%, transparent 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 2.5rem;
         }
-        .status-pill {
-            padding: 2px 8px;
-            border-radius: 99px;
+        .hero-stats-glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 2rem;
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        .hero-stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .hero-stat-value {
+            font-family: 'Lexend', sans-serif;
+            font-weight: 900;
+            font-size: 1.5rem;
+            font-style: italic;
+            color: #fff;
+            line-height: 1;
+        }
+        .hero-stat-label {
             font-size: 8px;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.1em;
+            color: var(--primary);
+        }
+        .hero-badge {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            background: rgba(var(--primary-rgb), 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(var(--primary-rgb), 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 99px;
+            display: flex;
+            items-center: center;
+            gap: 8px;
+            z-index: 20;
+        }
+        .hero-badge span {
+            font-size: 9px;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
 
         /* Why Choose Us Styles */
@@ -335,6 +384,46 @@ foreach ($plans as &$p) {
             font-size: 18px;
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
+        /* Infinite Marquee Engine */
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .marquee-wrapper {
+            mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+        }
+        .marquee-content {
+            display: flex;
+            gap: 4rem;
+            width: max-content;
+            animation: marquee 40s linear infinite;
+        }
+        .marquee-content:hover {
+            animation-play-state: paused;
+        }
+        .gym-logo-item {
+            filter: contrast(1) opacity(0.9);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .gym-logo-item:hover {
+            filter: contrast(1.1) opacity(1);
+            transform: translateY(-10px) scale(1.05);
+        }
+        .gym-card-inner {
+            background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+        .gym-card-inner::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url('https://www.transparenttextures.com/patterns/carbon-fibre.png');
+            opacity: 0.03;
+            pointer-events: none;
+        }
         .dark .sun-icon { transform: translateY(100%); opacity: 0; }
         .dark .moon-icon { transform: translateY(0); opacity: 1; }
         .sun-icon { transform: translateY(0); opacity: 1; }
@@ -354,6 +443,7 @@ foreach ($plans as &$p) {
 
                     <div class="hidden md:flex items-center gap-8 text-[11px] font-display font-bold uppercase tracking-widest text-gray-500">
                         <a href="#" class="nav-link">Home</a>
+                        <a href="#why-choose-us" class="nav-link">Why Choose Us</a>
                         <a href="#about" class="nav-link">About Us</a>
                         <a href="#plans" class="nav-link">Plan</a>
                         <a href="#contact" class="nav-link">Contact</a>
@@ -416,66 +506,56 @@ foreach ($plans as &$p) {
                     </div>
                 </div>
 
-                <div class="relative">
-                    <div class="dashboard-window w-full rounded-2xl p-8 overflow-hidden">
-                        <header class="flex justify-between items-end mb-8">
-                            <div>
-                                <h3 class="text-xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter leading-none">
-                                    Welcome Back, <span class="text-primary italic">Tenant</span>
-                                </h3>
-                                <p class="text-[9px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-[0.3em] mt-1">Elite Fitness Management System</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-lg font-black italic text-gray-900 dark:text-white leading-none uppercase tracking-tighter">09:12:45 AM</p>
-                                <p class="text-primary text-[8px] font-black uppercase tracking-widest mt-1">Wednesday, May 06</p>
-                            </div>
-                        </header>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                            <div class="metric-card" style="border-color:rgba(127,19,236,0.2); background:linear-gradient(135deg,rgba(127,19,236,0.05) 0%,transparent 100%)">
-                                <span class="material-symbols-outlined metric-icon text-primary">badge</span>
-                                <p class="text-[9px] text-gray-500 uppercase font-black mb-1 tracking-widest">Total Staff</p>
-                                <h4 class="text-xl font-black italic text-gray-900 dark:text-white">12</h4>
-                                <span class="status-pill bg-primary/10 text-primary mt-2 inline-block">Active Personnel</span>
-                            </div>
-
-                            <div class="metric-card" style="border-color:rgba(16,185,129,0.2); background:linear-gradient(135deg,rgba(16,185,129,0.05) 0%,transparent 100%)">
-                                <span class="material-symbols-outlined metric-icon text-emerald-500">group</span>
-                                <p class="text-[9px] text-gray-500 uppercase font-black mb-1 tracking-widest">Active Members</p>
-                                <h4 class="text-xl font-black italic text-gray-900 dark:text-white">482</h4>
-                                <span class="status-pill bg-emerald-500/10 text-emerald-500 mt-2 inline-block">Currently Enrolled</span>
-                            </div>
+                <div class="relative group">
+                    <div class="hero-action-card">
+                        <img src="assests/hero_gym_cinematic.png" alt="Fitness Training">
+                        
+                        <div class="hero-badge">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                            </span>
+                            <span>Live Performance</span>
                         </div>
 
-                        <div class="metric-card border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
-                            <div class="flex justify-between items-center mb-4">
-                                <p class="text-[9px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest">Member Growth Trends</p>
-                                <div class="flex items-center gap-2">
-                                    <div class="w-2 h-2 rounded-full bg-primary"></div>
-                                    <span class="text-[8px] text-gray-500 font-bold uppercase tracking-tighter">Signups</span>
-                                </div>
+                        <div class="hero-action-overlay">
+                            <div class="mb-6">
+                                <h3 class="text-3xl font-display font-black text-white uppercase italic tracking-tighter leading-none mb-2">
+                                    Achieve More <br/> <span class="text-primary">Than Fitness</span>
+                                </h3>
+                                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em]">Scale your gym with elite technology</p>
                             </div>
-                            <div class="relative h-20 flex items-end">
-                                <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-                                    <path d="M0 80 Q 20 60, 40 70 T 80 30 T 100 20" fill="none" stroke="#7f13ec" stroke-width="3" stroke-linecap="round"/>
-                                    <path d="M0 80 Q 20 60, 40 70 T 80 30 T 100 20 V 100 H 0 Z" fill="url(#grad)" opacity="0.1"/>
-                                    <defs>
-                                        <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                            <stop offset="0%" style="stop-color:#7f13ec;stop-opacity:1" />
-                                            <stop offset="100%" style="stop-color:#7f13ec;stop-opacity:0" />
-                                        </linearGradient>
-                                    </defs>
-                                </svg>
+
+                            <div class="hero-stats-glass">
+                                <div class="hero-stat-item">
+                                    <span class="hero-stat-value">980+</span>
+                                    <span class="hero-stat-label">Happy Members</span>
+                                </div>
+                                <div class="hero-stat-item">
+                                    <span class="hero-stat-value">28+</span>
+                                    <span class="hero-stat-label">Daily Classes</span>
+                                </div>
+                                <div class="hero-stat-item">
+                                    <span class="hero-stat-value">180+</span>
+                                    <span class="hero-stat-label">Expert Coaches</span>
+                                </div>
+                                <div class="hero-stat-item">
+                                    <span class="hero-stat-value">99%</span>
+                                    <span class="hero-stat-label">Satisfaction</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="absolute -bottom-10 -left-10 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none"></div>
+                    
+                    <!-- Decorative Elements -->
+                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/20 blur-[80px] rounded-full pointer-events-none group-hover:bg-primary/30 transition-all duration-700"></div>
+                    <div class="absolute -bottom-10 -left-10 w-64 h-64 bg-primary/10 blur-[100px] rounded-full pointer-events-none group-hover:bg-primary/20 transition-all duration-700"></div>
                 </div>
             </div>
         </section>
 
         <!-- Why Choose Us Section -->
-        <section class="py-32 px-6 overflow-hidden">
+        <section id="why-choose-us" class="py-32 px-6 overflow-hidden">
             <div class="max-w-7xl mx-auto">
                 <div class="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
                     <div>
@@ -663,6 +743,76 @@ foreach ($plans as &$p) {
                 </div>
             </div>
         </section>
+
+        <!-- Affiliated Gyms Section -->
+        <section class="py-32 px-6 border-t border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01] overflow-hidden">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex flex-col items-center text-center mb-20">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/5 border border-primary/10 text-primary text-[9px] font-black uppercase tracking-[0.3em] mb-6">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                        </span>
+                        Verified Network
+                    </div>
+                    <h2 class="text-3xl md:text-5xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter leading-none">
+                        Our <span class="text-gradient">Affiliated Gyms</span>
+                    </h2>
+                    <p class="mt-6 text-sm text-gray-500 font-medium italic max-w-xl">
+                        Powering the next generation of fitness empires across the region.
+                    </p>
+                </div>
+                
+                <div class="marquee-wrapper relative">
+                    <?php if (empty($affiliatedGyms)): ?>
+                        <div class="flex justify-center py-10">
+                            <p class="text-[10px] text-gray-500 uppercase font-black tracking-[0.4em] opacity-30 italic animate-pulse">Launching New Partners Soon...</p>
+                        </div>
+                    <?php else: 
+                        $gymCount = count($affiliatedGyms);
+                        $useMarquee = $gymCount >= 6;
+                        $displayGyms = $useMarquee ? array_merge($affiliatedGyms, $affiliatedGyms, $affiliatedGyms) : $affiliatedGyms;
+                    ?>
+                        <div class="<?= $useMarquee ? 'marquee-content' : 'flex flex-wrap justify-center gap-12 md:gap-24' ?> py-16">
+                            <?php foreach ($displayGyms as $gym): ?>
+                                <div class="gym-logo-item flex flex-col items-center gap-6 group cursor-pointer relative">
+                                    <div class="relative">
+                                        <!-- Strength Badge -->
+                                        <div class="absolute -top-3 -right-3 z-30 size-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-xl shadow-primary/40 transform -rotate-12 group-hover:rotate-0 transition-all duration-500 scale-0 group-hover:scale-100">
+                                            <span class="material-symbols-outlined text-[18px]">fitness_center</span>
+                                        </div>
+                                        
+                                        <!-- Glow Effect -->
+                                        <div class="absolute -inset-6 bg-primary/25 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+                                        
+                                        <!-- Main Logo Container -->
+                                        <div class="gym-card-inner size-28 md:size-36 rounded-[2rem] overflow-hidden backdrop-blur-2xl p-2 relative z-10 shadow-2xl shadow-black/10 transition-all duration-500 group-hover:border-primary/40">
+                                            <div class="w-full h-full rounded-2xl overflow-hidden bg-gray-100 dark:bg-white/5 flex items-center justify-center relative">
+                                                <!-- Dumbbell Watermark -->
+                                                <span class="material-symbols-outlined absolute text-5xl text-primary opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none">exercise</span>
+                                                
+                                                <?php if (!empty($gym['profile_picture'])): ?>
+                                                    <img src="<?= htmlspecialchars($gym['profile_picture']) ?>" alt="<?= htmlspecialchars($gym['gym_name']) ?>" class="w-full h-full object-cover relative z-10">
+                                                <?php else: ?>
+                                                    <span class="text-3xl font-display font-black text-primary opacity-30 relative z-10"><?= strtoupper(substr($gym['gym_name'], 0, 1)) ?></span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex flex-col items-center gap-1">
+                                        <div class="flex items-center gap-2">
+                                            <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                            <span class="text-[12px] font-display font-black uppercase tracking-[0.2em] text-gray-400 group-hover:text-primary transition-all duration-300"><?= htmlspecialchars($gym['gym_name']) ?></span>
+                                        </div>
+                                        <p class="text-[7px] text-gray-600 dark:text-gray-500 font-black uppercase tracking-[0.3em] opacity-0 group-hover:opacity-100 transition-opacity">Authorized Facility</p>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </section>
     </main>
 
     <section class="w-full bg-slate-50 dark:bg-[#0a0a0c] border-y border-black/5 dark:border-white/5 py-20 px-6 relative overflow-hidden">
@@ -707,6 +857,7 @@ foreach ($plans as &$p) {
                     </h4>
                     <div class="flex flex-col gap-6 text-xs font-bold text-gray-500 uppercase tracking-widest">
                         <a href="#" class="hover:text-primary transition-all flex items-center gap-2 group">Home</a>
+                        <a href="#why-choose-us" class="hover:text-primary transition-all flex items-center gap-2 group">Why Choose Us</a>
                         <a href="#about" class="hover:text-primary transition-all flex items-center gap-2 group">About Us</a>
                         <a href="#plans" class="hover:text-primary transition-all flex items-center gap-2 group">Plan</a>
                         <a href="#contact" class="hover:text-primary transition-all flex items-center gap-2 group">Contact</a>
