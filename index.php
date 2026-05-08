@@ -91,9 +91,9 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             --text-main: #0f172a;
             --text-secondary: #334155;
             --nav-bg: rgba(248, 250, 252, 0.8);
-            --border-color: rgba(0, 0, 0, 0.06);
+            --border-color: rgba(0, 0, 0, 0.08);
             --card-bg: #ffffff;
-            --dashboard-bg: #f1f5f9;
+            --dashboard-bg: #ffffff;
             --primary: #7f13ec;
             --primary-rgb: 127, 19, 236;
         }
@@ -184,18 +184,56 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             color: var(--text-main);
         }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-15px); }
+        .dashboard-window {
+            background: var(--dashboard-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            min-height: 400px;
+            width: 100%;
+            border-radius: 2rem;
+            padding: 2rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        .metric-card {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            padding: 1.25rem;
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            border-color: #7f13ec;
+        }
+        .metric-icon {
+            position: absolute;
+            right: -10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 4rem;
+            opacity: 0.05;
+            pointer-events: none;
+        }
+        .status-pill {
+            padding: 2px 8px;
+            border-radius: 99px;
+            font-size: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
         .hero-visual-wrapper {
             position: relative;
             width: 100%;
-            height: 600px;
             display: flex;
             align-items: center;
             justify-content: center;
+            transform: translateY(-40px);
         }
 
         .model-cutout {
@@ -215,12 +253,13 @@ $affiliatedGyms = $stmtGyms->fetchAll();
 
         .hero-glow-back {
             position: absolute;
-            width: 500px;
-            height: 500px;
-            background: radial-gradient(circle, rgba(var(--primary-rgb), 0.2) 0%, transparent 70%);
+            width: 480px;
+            height: 480px;
+            background: radial-gradient(circle, rgba(var(--primary-rgb), 0.25) 0%, rgba(var(--primary-rgb), 0.05) 50%, transparent 70%);
+            border: 1px solid rgba(var(--primary-rgb), 0.1);
             border-radius: 50%;
             z-index: 1;
-            filter: blur(60px);
+            filter: blur(20px);
         }
 
         .floating-card {
@@ -230,37 +269,43 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 1rem 1.75rem;
-            border-radius: 1.5rem;
+            padding: 1.25rem 2rem;
+            border-radius: 2rem;
             display: flex;
             flex-direction: column;
             gap: 2px;
             box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-            animation: float 4s ease-in-out infinite;
-            min-width: 160px;
+            min-width: 180px;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .floating-card:hover {
+            transform: translateY(-5px);
+            background: rgba(var(--primary-rgb), 0.1);
+            border-color: var(--primary);
         }
 
         .floating-card .value {
             font-family: 'Lexend', sans-serif;
             font-weight: 900;
-            font-size: 1.5rem;
+            font-size: 1.75rem;
             font-style: italic;
             color: #fff;
             line-height: 1;
         }
 
         .floating-card .label {
-            font-size: 8px;
+            font-size: 9px;
             font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 0.15em;
             color: var(--primary);
         }
         
-        .floating-card.c1 { top: 10%; left: -5%; animation-delay: 0s; }
-        .floating-card.c2 { top: 15%; right: -5%; animation-delay: 1s; }
-        .floating-card.c3 { bottom: 20%; left: -10%; animation-delay: 2s; }
-        .floating-card.c4 { bottom: 25%; right: -10%; animation-delay: 3s; }
+        .floating-card.c1 { top: 12%; left: -8%; }
+        .floating-card.c2 { top: 18%; right: -8%; }
+        .floating-card.c3 { bottom: 18%; left: -12%; }
+        .floating-card.c4 { bottom: 22%; right: -12%; }
 
         /* Why Choose Us Styles */
         .why-us-card {
@@ -667,11 +712,57 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     </div>
                     
                     <div class="relative">
-                        <div class="rounded-2xl overflow-hidden border border-white/10 shadow-2xl relative z-10 bg-surface-dark p-2">
-                            <img src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop" alt="Gym" class="w-full rounded-xl grayscale hover:grayscale-0 transition-all duration-1000">
-                        </div>
-                        <div class="absolute -bottom-10 -left-10 w-48 h-48 rounded-2xl overflow-hidden border border-white/10 z-20 hidden md:block">
-                            <img src="https://images.unsplash.com/photo-1593079831268-3381b0db4a77?q=80&w=2069&auto=format&fit=crop" class="w-full h-full object-cover">
+                        <div class="dashboard-window w-full overflow-hidden">
+                            <header class="flex justify-between items-end mb-8">
+                                <div>
+                                    <h3 class="text-xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter leading-none">
+                                        Welcome Back, <span class="text-primary italic">Tenant</span>
+                                    </h3>
+                                    <p class="text-[9px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-[0.3em] mt-1">Elite Fitness Management System</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-lg font-black italic text-gray-900 dark:text-white leading-none uppercase tracking-tighter">09:12:45 AM</p>
+                                    <p class="text-primary text-[8px] font-black uppercase tracking-widest mt-1">Wednesday, May 06</p>
+                                </div>
+                            </header>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <div class="metric-card" style="border-color:rgba(127,19,236,0.2); background:linear-gradient(135deg,rgba(127,19,236,0.05) 0%,transparent 100%)">
+                                    <span class="material-symbols-outlined metric-icon text-primary">badge</span>
+                                    <p class="text-[9px] text-gray-500 uppercase font-black mb-1 tracking-widest">Total Staff</p>
+                                    <h4 class="text-xl font-black italic text-gray-900 dark:text-white">12</h4>
+                                    <span class="status-pill bg-primary/10 text-primary mt-2 inline-block">Active Personnel</span>
+                                </div>
+
+                                <div class="metric-card" style="border-color:rgba(16,185,129,0.2); background:linear-gradient(135deg,rgba(16,185,129,0.05) 0%,transparent 100%)">
+                                    <span class="material-symbols-outlined metric-icon text-emerald-500">group</span>
+                                    <p class="text-[9px] text-gray-500 uppercase font-black mb-1 tracking-widest">Active Members</p>
+                                    <h4 class="text-xl font-black italic text-gray-900 dark:text-white">482</h4>
+                                    <span class="status-pill bg-emerald-500/10 text-emerald-500 mt-2 inline-block">Currently Enrolled</span>
+                                </div>
+                            </div>
+
+                            <div class="metric-card border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01]">
+                                <div class="flex justify-between items-center mb-4">
+                                    <p class="text-[9px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest">Member Growth Trends</p>
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-2 h-2 rounded-full bg-primary"></div>
+                                        <span class="text-[8px] text-gray-500 font-bold uppercase tracking-tighter">Signups</span>
+                                    </div>
+                                </div>
+                                <div class="relative h-20 flex items-end">
+                                    <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                                        <path d="M0 80 Q 20 60, 40 70 T 80 30 T 100 20" fill="none" stroke="#7f13ec" stroke-width="3" stroke-linecap="round"/>
+                                        <path d="M0 80 Q 20 60, 40 70 T 80 30 T 100 20 V 100 H 0 Z" fill="url(#grad)" opacity="0.1"/>
+                                        <defs>
+                                            <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                                <stop offset="0%" style="stop-color:#7f13ec;stop-opacity:1" />
+                                                <stop offset="100%" style="stop-color:#7f13ec;stop-opacity:0" />
+                                            </linearGradient>
+                                        </defs>
+                                    </svg>
+                                </div>
+                            </div>
                         </div>
                         <div class="absolute -top-6 -right-6 w-32 h-32 bg-primary/30 blur-3xl rounded-full"></div>
                     </div>
