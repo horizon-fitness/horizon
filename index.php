@@ -184,52 +184,63 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             color: var(--text-main);
         }
 
-        .hero-action-card {
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .hero-visual-wrapper {
             position: relative;
             width: 100%;
-            height: 540px;
-            border-radius: 2.5rem;
-            overflow: hidden;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            background: #08080a;
-        }
-        .hero-action-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            filter: brightness(0.7) contrast(1.1);
-            transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .hero-action-card:hover img {
-            transform: scale(1.05);
-        }
-        .hero-action-overlay {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 50%, transparent 100%);
+            height: 600px;
             display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            padding: 2.5rem;
+            align-items: center;
+            justify-content: center;
         }
-        .hero-stats-glass {
+
+        .model-cutout {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 500px;
+            filter: drop-shadow(0 20px 50px rgba(0,0,0,0.5));
+            mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .hero-visual-wrapper:hover .model-cutout {
+            transform: scale(1.02);
+        }
+
+        .hero-glow-back {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(var(--primary-rgb), 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+            z-index: 1;
+            filter: blur(60px);
+        }
+
+        .floating-card {
+            position: absolute;
+            z-index: 20;
             background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 2rem;
-            padding: 1.5rem;
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-        }
-        .hero-stat-item {
+            padding: 1rem 1.75rem;
+            border-radius: 1.5rem;
             display: flex;
             flex-direction: column;
             gap: 2px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            animation: float 4s ease-in-out infinite;
+            min-width: 160px;
         }
-        .hero-stat-value {
+
+        .floating-card .value {
             font-family: 'Lexend', sans-serif;
             font-weight: 900;
             font-size: 1.5rem;
@@ -237,34 +248,19 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             color: #fff;
             line-height: 1;
         }
-        .hero-stat-label {
+
+        .floating-card .label {
             font-size: 8px;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.15em;
             color: var(--primary);
         }
-        .hero-badge {
-            position: absolute;
-            top: 2rem;
-            right: 2rem;
-            background: rgba(var(--primary-rgb), 0.2);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(var(--primary-rgb), 0.3);
-            padding: 0.5rem 1rem;
-            border-radius: 99px;
-            display: flex;
-            items-center: center;
-            gap: 8px;
-            z-index: 20;
-        }
-        .hero-badge span {
-            font-size: 9px;
-            font-weight: 900;
-            color: #fff;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
+        
+        .floating-card.c1 { top: 10%; left: -5%; animation-delay: 0s; }
+        .floating-card.c2 { top: 15%; right: -5%; animation-delay: 1s; }
+        .floating-card.c3 { bottom: 20%; left: -10%; animation-delay: 2s; }
+        .floating-card.c4 { bottom: 25%; right: -10%; animation-delay: 3s; }
 
         /* Why Choose Us Styles */
         .why-us-card {
@@ -506,50 +502,33 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     </div>
                 </div>
 
-                <div class="relative group">
-                    <div class="hero-action-card">
-                        <img src="assests/hero_gym_cinematic.png" alt="Fitness Training">
-                        
-                        <div class="hero-badge">
-                            <span class="relative flex h-2 w-2">
-                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                                <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                            </span>
-                            <span>Live Performance</span>
-                        </div>
-
-                        <div class="hero-action-overlay">
-                            <div class="mb-6">
-                                <h3 class="text-3xl font-display font-black text-white uppercase italic tracking-tighter leading-none mb-2">
-                                    Achieve More <br/> <span class="text-primary">Than Fitness</span>
-                                </h3>
-                                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em]">Scale your gym with elite technology</p>
-                            </div>
-
-                            <div class="hero-stats-glass">
-                                <div class="hero-stat-item">
-                                    <span class="hero-stat-value">980+</span>
-                                    <span class="hero-stat-label">Happy Members</span>
-                                </div>
-                                <div class="hero-stat-item">
-                                    <span class="hero-stat-value">28+</span>
-                                    <span class="hero-stat-label">Daily Classes</span>
-                                </div>
-                                <div class="hero-stat-item">
-                                    <span class="hero-stat-value">180+</span>
-                                    <span class="hero-stat-label">Expert Coaches</span>
-                                </div>
-                                <div class="hero-stat-item">
-                                    <span class="hero-stat-value">99%</span>
-                                    <span class="hero-stat-label">Satisfaction</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="hero-visual-wrapper">
+                    <!-- Glow behind the model -->
+                    <div class="hero-glow-back"></div>
                     
-                    <!-- Decorative Elements -->
-                    <div class="absolute -top-10 -right-10 w-40 h-40 bg-primary/20 blur-[80px] rounded-full pointer-events-none group-hover:bg-primary/30 transition-all duration-700"></div>
-                    <div class="absolute -bottom-10 -left-10 w-64 h-64 bg-primary/10 blur-[100px] rounded-full pointer-events-none group-hover:bg-primary/20 transition-all duration-700"></div>
+                    <!-- Floating Cards -->
+                    <div class="floating-card c1">
+                        <span class="value">980+</span>
+                        <span class="label">Happy Members</span>
+                    </div>
+                    <div class="floating-card c2">
+                        <span class="value">180+</span>
+                        <span class="label">Expert Coaches</span>
+                    </div>
+                    <div class="floating-card c3">
+                        <span class="value">28+</span>
+                        <span class="label">Daily Classes</span>
+                    </div>
+                    <div class="floating-card c4">
+                        <span class="value">99%</span>
+                        <span class="label">Satisfaction</span>
+                    </div>
+
+                    <!-- The Model Portrait -->
+                    <img src="assests/hero_model.png" alt="Fitness Training" class="model-cutout">
+                    
+                    <!-- Decorative blur -->
+                    <div class="absolute -bottom-10 -left-10 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none"></div>
                 </div>
             </div>
         </section>
