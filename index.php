@@ -204,8 +204,8 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             width: 100%;
             max-width: 500px;
             filter: drop-shadow(0 20px 50px rgba(0,0,0,0.5));
-            mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
-            -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+            mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
             transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
@@ -525,7 +525,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     </div>
 
                     <!-- The Model Portrait -->
-                    <img src="assests/hero_model.png" alt="Fitness Training" class="model-cutout">
+                    <img src="./assests/model.png?v=<?php echo time(); ?>" alt="Fitness Training" class="model-cutout">
                     
                     <!-- Decorative blur -->
                     <div class="absolute -bottom-10 -left-10 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none"></div>
