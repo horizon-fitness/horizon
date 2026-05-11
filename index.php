@@ -46,7 +46,7 @@ foreach ($plans as &$p) {
 }
 
 // Fetch Affiliated Gyms (Registered Tenants)
-$stmtGyms = $pdo->prepare("SELECT gym_name, profile_picture FROM gyms WHERE status IN ('Active', 'Approved') ORDER BY created_at DESC LIMIT 15");
+$stmtGyms = $pdo->prepare("SELECT gym_name, profile_picture FROM gyms WHERE status IN ('Active', 'Approved') ORDER BY created_at ASC LIMIT 15");
 $stmtGyms->execute();
 $affiliatedGyms = $stmtGyms->fetchAll();
 ?>
@@ -141,7 +141,10 @@ $affiliatedGyms = $stmtGyms->fetchAll();
         #plansSlider { cursor: grab; user-select: none; }
         #plansSlider:active { cursor: grabbing; }
 
-        html { scroll-behavior: smooth; }
+        html { 
+            scroll-behavior: smooth; 
+            scroll-padding-top: 80px;
+        }
         body { 
             background-color: var(--bg-color); 
             color: var(--text-main);
@@ -233,7 +236,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             display: flex;
             align-items: center;
             justify-content: center;
-            transform: translateY(-40px);
+            transform: translateY(-100px);
         }
 
         .model-cutout {
@@ -241,9 +244,11 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             z-index: 10;
             width: 100%;
             max-width: 500px;
-            filter: drop-shadow(0 20px 50px rgba(0,0,0,0.5));
-            mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
-            -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+            filter: drop-shadow(0 20px 50px rgba(0,0,0,0.3));
+            border: none;
+            outline: none;
+            display: block;
+            margin: 0 auto;
             transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
@@ -255,11 +260,14 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             position: absolute;
             width: 480px;
             height: 480px;
-            background: radial-gradient(circle, rgba(var(--primary-rgb), 0.25) 0%, rgba(var(--primary-rgb), 0.05) 50%, transparent 70%);
-            border: 1px solid rgba(var(--primary-rgb), 0.1);
+            background: radial-gradient(circle, rgba(var(--primary-rgb), 0.2) 0%, rgba(var(--primary-rgb), 0.05) 50%, transparent 70%);
+            border: none;
             border-radius: 50%;
             z-index: 1;
-            filter: blur(20px);
+            filter: blur(40px);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
 
         .floating-card {
@@ -279,6 +287,12 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
+        html:not(.dark) .floating-card {
+            background: rgba(255, 255, 255, 0.8);
+            border-color: rgba(var(--primary-rgb), 0.1);
+            box-shadow: 0 15px 35px rgba(var(--primary-rgb), 0.05);
+        }
+        
         .floating-card:hover {
             transform: translateY(-5px);
             background: rgba(var(--primary-rgb), 0.1);
@@ -290,7 +304,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             font-weight: 900;
             font-size: 1.75rem;
             font-style: italic;
-            color: #fff;
+            color: var(--text-main);
             line-height: 1;
         }
 
@@ -437,24 +451,21 @@ $affiliatedGyms = $stmtGyms->fetchAll();
         }
         .marquee-content {
             display: flex;
-            gap: 4rem;
-            width: max-content;
-            animation: marquee 40s linear infinite;
+            gap: 2.5rem;
+            flex-wrap: wrap;
         }
         .marquee-content:hover {
             animation-play-state: paused;
         }
         .gym-logo-item {
-            filter: contrast(1) opacity(0.9);
             transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .gym-logo-item:hover {
             filter: contrast(1.1) opacity(1);
-            transform: translateY(-10px) scale(1.05);
         }
         .gym-card-inner {
             background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
-            border: 1px solid rgba(255,255,255,0.1);
+            border: none;
             position: relative;
         }
         .gym-card-inner::before {
@@ -508,7 +519,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
     </nav>
 
     <main class="hero-glow">
-        <section class="relative pt-20 pb-20 md:pt-32 md:pb-40 px-6 flex items-center justify-center">
+        <section class="relative pt-20 pb-10 md:pt-32 md:pb-12 px-6 flex items-center justify-center">
             <div class="max-w-7xl w-full grid lg:grid-cols-2 gap-16 items-center relative z-10">
                 <div class="text-left">
                     <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
@@ -545,7 +556,26 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                             <p class="text-[10px] text-gray-600 dark:text-gray-400 uppercase font-black tracking-widest mt-1">Professional Coaches</p>
                         </div>
                     </div>
-                </div>
+
+                    <!-- Compact Affiliated Gyms Marquee -->
+                    <div class="mt-12 pt-8">
+                        <p class="text-[9px] text-black dark:text-gray-300 font-black uppercase tracking-[0.4em] mb-6">Partnered Fitness center</p>
+                                <div class="flex flex-wrap gap-8 items-center py-2">
+                                    <?php foreach ($affiliatedGyms as $gym): ?>
+                                        <div class="flex items-center gap-3 group opacity-100 transition-all duration-500 cursor-pointer shrink-0">
+                                            <div class="gym-card-inner size-12 rounded-xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm group-hover:shadow-primary/20 transition-all">
+                                                <?php if (!empty($gym['profile_picture'])): ?>
+                                                    <img src="<?= htmlspecialchars($gym['profile_picture']) ?>" alt="<?= htmlspecialchars($gym['gym_name']) ?>" class="gym-logo-item w-full h-full object-cover transition-all">
+                                                <?php else: ?>
+                                                    <div class="gym-logo-item w-full h-full flex items-center justify-center bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-black text-[14px]"><?= strtoupper(substr($gym['gym_name'], 0, 1)) ?></div>
+                                                <?php endif; ?>
+                                            </div>
+                                            <span class="text-[11px] font-display font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 group-hover:text-primary transition-colors"><?= htmlspecialchars($gym['gym_name']) ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                        </div>
+                    </div>
 
                 <div class="hero-visual-wrapper">
                     <!-- Glow behind the model -->
@@ -579,7 +609,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
         </section>
 
         <!-- Why Choose Us Section -->
-        <section id="why-choose-us" class="py-32 px-6 overflow-hidden">
+        <section id="why-choose-us" class="pt-12 pb-32 px-6 overflow-hidden">
             <div class="max-w-7xl mx-auto">
                 <div class="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
                     <div>
@@ -677,7 +707,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             </div>
         </section>
 
-        <section id="about" class="py-32 px-6 relative border-t border-black/5 dark:border-white/5 bg-gradient-to-b from-transparent to-black/5 dark:to-black/50">
+        <section id="about" class="pt-32 pb-16 px-6 relative border-t border-black/5 dark:border-white/5 bg-white dark:bg-transparent">
             <div class="max-w-7xl mx-auto">
                 <div class="grid lg:grid-cols-2 gap-20 items-center">
                     <div>
@@ -770,7 +800,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             </div>
         </section>
 
-        <section id="plans" class="py-32 px-6 relative border-t border-white/5">
+        <section id="plans" class="pt-16 pb-32 px-6 relative border-t border-white/5">
             <div class="max-w-7xl mx-auto text-center">
                 <div class="mb-16">
                     <div class="inline-flex items-center justify-center p-3 rounded-xl bg-primary/10 border border-primary/20 mb-6">
@@ -814,75 +844,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             </div>
         </section>
 
-        <!-- Affiliated Gyms Section -->
-        <section class="py-32 px-6 border-t border-black/5 dark:border-white/5 bg-black/[0.01] dark:bg-white/[0.01] overflow-hidden">
-            <div class="max-w-7xl mx-auto">
-                <div class="flex flex-col items-center text-center mb-20">
-                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/5 border border-primary/10 text-primary text-[9px] font-black uppercase tracking-[0.3em] mb-6">
-                        <span class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                        </span>
-                        Verified Network
-                    </div>
-                    <h2 class="text-3xl md:text-5xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter leading-none">
-                        Our <span class="text-gradient">Affiliated Gyms</span>
-                    </h2>
-                    <p class="mt-6 text-sm text-gray-500 font-medium italic max-w-xl">
-                        Powering the next generation of fitness empires across the region.
-                    </p>
-                </div>
-                
-                <div class="marquee-wrapper relative">
-                    <?php if (empty($affiliatedGyms)): ?>
-                        <div class="flex justify-center py-10">
-                            <p class="text-[10px] text-gray-500 uppercase font-black tracking-[0.4em] opacity-30 italic animate-pulse">Launching New Partners Soon...</p>
-                        </div>
-                    <?php else: 
-                        $gymCount = count($affiliatedGyms);
-                        $useMarquee = $gymCount >= 6;
-                        $displayGyms = $useMarquee ? array_merge($affiliatedGyms, $affiliatedGyms, $affiliatedGyms) : $affiliatedGyms;
-                    ?>
-                        <div class="<?= $useMarquee ? 'marquee-content' : 'flex flex-wrap justify-center gap-12 md:gap-24' ?> py-16">
-                            <?php foreach ($displayGyms as $gym): ?>
-                                <div class="gym-logo-item flex flex-col items-center gap-6 group cursor-pointer relative">
-                                    <div class="relative">
-                                        <!-- Strength Badge -->
-                                        <div class="absolute -top-3 -right-3 z-30 size-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-xl shadow-primary/40 transform -rotate-12 group-hover:rotate-0 transition-all duration-500 scale-0 group-hover:scale-100">
-                                            <span class="material-symbols-outlined text-[18px]">fitness_center</span>
-                                        </div>
-                                        
-                                        <!-- Glow Effect -->
-                                        <div class="absolute -inset-6 bg-primary/25 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-                                        
-                                        <!-- Main Logo Container -->
-                                        <div class="gym-card-inner size-28 md:size-36 rounded-[2rem] overflow-hidden backdrop-blur-2xl p-2 relative z-10 shadow-2xl shadow-black/10 transition-all duration-500 group-hover:border-primary/40">
-                                            <div class="w-full h-full rounded-2xl overflow-hidden bg-gray-100 dark:bg-white/5 flex items-center justify-center relative">
-                                                <!-- Dumbbell Watermark -->
-                                                <span class="material-symbols-outlined absolute text-5xl text-primary opacity-0 group-hover:opacity-10 transition-opacity pointer-events-none">exercise</span>
-                                                
-                                                <?php if (!empty($gym['profile_picture'])): ?>
-                                                    <img src="<?= htmlspecialchars($gym['profile_picture']) ?>" alt="<?= htmlspecialchars($gym['gym_name']) ?>" class="w-full h-full object-cover relative z-10">
-                                                <?php else: ?>
-                                                    <span class="text-3xl font-display font-black text-primary opacity-30 relative z-10"><?= strtoupper(substr($gym['gym_name'], 0, 1)) ?></span>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="flex flex-col items-center gap-1">
-                                        <div class="flex items-center gap-2">
-                                            <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                            <span class="text-[12px] font-display font-black uppercase tracking-[0.2em] text-gray-400 group-hover:text-primary transition-all duration-300"><?= htmlspecialchars($gym['gym_name']) ?></span>
-                                        </div>
-                                        <p class="text-[7px] text-gray-600 dark:text-gray-500 font-black uppercase tracking-[0.3em] opacity-0 group-hover:opacity-100 transition-opacity">Authorized Facility</p>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </section>
+
     </main>
 
     <section class="w-full bg-slate-50 dark:bg-[#0a0a0c] border-y border-black/5 dark:border-white/5 py-20 px-6 relative overflow-hidden">
@@ -1024,8 +986,10 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             // Immediate UI feedback
             if (newTheme === 'dark') {
                 html.classList.add('dark');
+                html.classList.remove('light');
             } else {
                 html.classList.remove('dark');
+                html.classList.add('light');
             }
 
             // Persistence via AJAX
