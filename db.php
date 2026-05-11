@@ -72,4 +72,12 @@ try {
             $pdo->exec("ALTER TABLE coach_applications ADD COLUMN session_rate DECIMAL(10,2) AFTER license_number");
         }
     }
+    // Application Schema Enhancements
+    $resGymApp = $pdo->query("SHOW TABLES LIKE 'gym_owner_applications'");
+    if ($resGymApp->fetch()) {
+        $resIdNum = $pdo->query("SHOW COLUMNS FROM gym_owner_applications LIKE 'owner_valid_id_number'");
+        if (!$resIdNum->fetch()) {
+            $pdo->exec("ALTER TABLE gym_owner_applications ADD COLUMN owner_valid_id_number VARCHAR(50) DEFAULT NULL AFTER owner_valid_id_type");
+        }
+    }
 } catch (Exception $e) { /* Silently fail to avoid blocking connection */ }

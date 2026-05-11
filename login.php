@@ -192,9 +192,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+// Fetch Global Theme Preference
+$stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'theme_preference'");
+$stmtTheme->execute();
+$currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
 ?>
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html class="<?= htmlspecialchars($currentTheme) ?>" lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
@@ -228,27 +233,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </script>
     <style>
+        :root {
+            --primary: <?= $branding['theme_color'] ?? '#7f13ec' ?>;
+            --bg-color: #050505;
+            --surface-color: rgba(8, 8, 10, 0.8);
+            --text-main: #f3f4f6;
+            --text-muted: #6b7280;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --input-bg: rgba(255, 255, 255, 0.02);
+            --card-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
+            --login-overlay: rgba(5, 5, 5, 0.8);
+        }
+
+        .light {
+            --bg-color: #f8fafc;
+            --surface-color: rgba(255, 255, 255, 0.9);
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --input-bg: rgba(0, 0, 0, 0.03);
+            --card-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.05);
+            --login-overlay: rgba(255, 255, 255, 0.6);
+        }
+
         /* Invisible Scroll System */
         *::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
 
         html, body { 
-            background-color: #050505 !important; 
-            color: #f3f4f6;
+            background-color: var(--bg-color) !important; 
+            color: var(--text-main);
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            transition: all 0.4s ease;
         }
         
         .hero-glow {
-            background-image: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.18), transparent 70%);
+            background-image: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.1), transparent 70%);
         }
 
         /* Gym Photo Integration */
         .login-bg-overlay {
             position: absolute;
             inset: 0;
-            background: linear-gradient(to bottom, rgba(5,5,5,0.8), #050505), url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop');
+            background: linear-gradient(to bottom, var(--login-overlay), var(--bg-color)), url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop');
             background-size: cover;
             background-position: center;
             opacity: 0.4;
@@ -256,14 +285,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .dashboard-window {
-            background: rgba(8, 8, 10, 0.8);
+            background: var(--surface-color);
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--card-shadow);
         }
 
         .input-gradient-focus:focus-within {
-            border-color: #7f13ec;
+            border-color: var(--primary);
             box-shadow: 0 0 0 1px rgba(127, 19, 236, 0.3);
         }
     </style>
@@ -281,7 +310,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <img src="assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
                 <?php endif; ?>
             </div>
-            <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>
+            <h2 class="text-lg font-display font-bold text-gray-900 dark:text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>
         </a>
         
         <div class="flex items-center gap-3">
@@ -291,7 +320,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     Back to Website
                 </a>
             <?php endif; ?>
-            <a href="tenant/tenant_application.php" class="font-display bg-white/5 hover:bg-white/10 text-white border border-white/10 px-5 py-2.5 rounded-custom text-[10px] font-bold uppercase tracking-widest transition-all">
+            <a href="tenant/tenant_application.php" class="font-display bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white border border-black/10 dark:border-white/10 px-5 py-2.5 rounded-custom text-[10px] font-bold uppercase tracking-widest transition-all">
                 Register Gym
             </a>
         </div>
@@ -306,7 +335,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
                         Secure Access
                     </div>
-                    <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-2">
+                    <h1 class="text-4xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter mb-2">
                         <?= $branding ? 'Access <span class="text-primary">Portal</span>' : 'Welcome <span class="text-primary">Back</span>' ?>
                     </h1>
                     <p class="text-xs text-gray-500 font-medium uppercase tracking-widest">Authorized Personnel Only</p>
@@ -328,9 +357,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-2">
                         <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Username</label>
                         <div class="relative group input-gradient-focus rounded-xl transition-all">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">person</span>
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 group-focus-within:text-primary transition-colors text-xl">person</span>
                             <input
-                                class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-12 pr-4 text-sm text-white placeholder:text-gray-700 focus:outline-none transition-all"
+                                class="flex h-14 w-full rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] pl-12 pr-4 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-700 focus:outline-none transition-all"
                                 name="username"
                                 placeholder="Username"
                                 autocomplete="username"
@@ -346,17 +375,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <a href="forgot_pass/forgot_password.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" class="text-[9px] font-display font-bold text-primary hover:text-white transition-colors uppercase tracking-widest">Forgot Password?</a>
                         </div>
                         <div class="relative group input-gradient-focus rounded-xl transition-all">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-600 group-focus-within:text-primary transition-colors text-xl">lock</span>
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 group-focus-within:text-primary transition-colors text-xl">lock</span>
                             <input
                                 id="login-password"
-                                class="flex h-14 w-full rounded-xl border border-white/5 bg-white/[0.02] pl-12 pr-14 text-sm text-white placeholder:text-gray-700 focus:outline-none transition-all"
+                                class="flex h-14 w-full rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] pl-12 pr-14 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-700 focus:outline-none transition-all"
                                 name="password"
                                 placeholder="••••••••"
                                 autocomplete="current-password"
                                 required
                                 type="password"
                             />
-                            <button type="button" onclick="toggleLoginPassword()" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-primary transition-colors">
+                            <button type="button" onclick="toggleLoginPassword()" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors">
                                 <span id="eye-icon" class="material-symbols-outlined text-[20px]">visibility</span>
                             </button>
                         </div>
@@ -370,7 +399,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </button>
                 </form>
 
-                <div class="text-center mt-10 pt-8 border-t border-white/5">
+                <div class="text-center mt-10 pt-8 border-t border-black/5 dark:border-white/5">
                     <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
                         New to the family? 
                         <a class="text-primary hover:text-white transition-colors ml-1" href="tenant/tenant_application.php">Create Account</a>

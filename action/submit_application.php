@@ -67,7 +67,6 @@ try {
         // Capture Business Info
         $gym_name = $_POST['gym_name'] ?? '';
         $business_name = $_POST['business_name'] ?? '';
-        $business_type = $_POST['business_type'] ?? '';
         $gym_email = $_POST['gym_email'] ?? ''; 
         $gym_contact = $_POST['gym_contact'] ?? ''; 
         
@@ -80,31 +79,22 @@ try {
 
         // Capture Application specifics
         $owner_valid_id_type = $_POST['owner_valid_id_type'] ?? '';
+        $owner_valid_id_number = $_POST['owner_valid_id_number'] ?? '';
         $bir_number = $_POST['bir_number'] ?? '';
         $business_permit_no = $_POST['business_permit_no'] ?? ''; 
         
-        // Capture Banking and Payout Info
-        $bank_name = $_POST['bank_name'] ?? '';
-        $account_name = $_POST['account_name'] ?? '';
-        $account_number = $_POST['account_number'] ?? '';
-
         // Sanitize formatted inputs (Strip dashes)
         $bir_number = str_replace('-', '', $bir_number);
-        $account_number = str_replace('-', '', $account_number);
         $owner_contact = str_replace('-', '', $contact_number);
         $gym_contact = str_replace('-', '', $gym_contact);
 
         // Data Integrity Checks
+        if (empty($owner_valid_id_number)) {
+            throw new Exception("Security Error: Valid ID Number is required.");
+        }
+
         if (strlen($bir_number) !== 12) {
             throw new Exception("Security Error: BIR/TIN number must be exactly 12 digits before formatting.");
-        }
-
-        if (empty($bank_name) || empty($account_name) || empty($account_number)) {
-            throw new Exception("Security Error: Complete payout information (Bank/E-wallet, Account Name, Account Number) is required.");
-        }
-
-        if (strlen($account_number) > 20) {
-            throw new Exception("Security Error: Bank Account Number cannot exceed 20 digits.");
         }
 
         // Capture facility payload (If present)
@@ -118,8 +108,8 @@ try {
         $about_text = $_POST['about_text'] ?? '';
         $rules_text = $_POST['rules_text'] ?? '';
         
-        // Combine facility and banking info into the `remarks` column so no data is lost
-        $facility_remarks = "PAYOUT PREF:\nBank: $bank_name | Acct Name: $account_name | Acct No: $account_number\n\nFACILITY:\nOpening: $opening_time | Closing: $closing_time | Max Cap: $max_capacity | Lockers: $has_lockers | Shower: $has_shower | Parking: $has_parking | Wifi: $has_wifi \nAbout: $about_text \nRules: $rules_text";
+        // Combine facility info into the `remarks` column
+        $facility_remarks = "FACILITY:\nOpening: $opening_time | Closing: $closing_time | Max Cap: $max_capacity | Lockers: $has_lockers | Shower: $has_shower | Parking: $has_parking | Wifi: $has_wifi \nAbout: $about_text \nRules: $rules_text";
 
         // 1. Final Validations (Verify non-existence of unique identifiers)
         $stmtCheckUsername = $pdo->prepare("SELECT user_id FROM users WHERE username = ? LIMIT 1");
@@ -176,8 +166,8 @@ try {
             'application' => [
                 'gym_name' => $gym_name,
                 'business_name' => $business_name,
-                'business_type' => $business_type,
                 'owner_valid_id_type' => $owner_valid_id_type,
+                'owner_valid_id_number' => $owner_valid_id_number,
                 'bir_number' => $bir_number,
                 'business_permit_no' => $business_permit_no,
                 'contact_number' => $gym_contact,

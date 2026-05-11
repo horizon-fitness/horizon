@@ -91,10 +91,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmtDefStatus->execute();
                     $real_status = $stmtDefStatus->fetchColumn() ?: 'Pending';
 
-                    $stmtApp = $pdo->prepare("INSERT INTO gym_owner_applications (user_id, gym_name, business_name, business_type, address_id, owner_valid_id_type, bir_number, business_permit_no, contact_number, email, application_status, submitted_at, remarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmtApp = $pdo->prepare("INSERT INTO gym_owner_applications (user_id, gym_name, business_name, address_id, owner_valid_id_type, owner_valid_id_number, bir_number, business_permit_no, contact_number, email, application_status, submitted_at, remarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                     $stmtApp->execute([
-                        $user_id, $s['application']['gym_name'], $s['application']['business_name'], $s['application']['business_type'],
-                        $address_id, $s['application']['owner_valid_id_type'], $s['application']['bir_number'],
+                        $user_id, $s['application']['gym_name'], $s['application']['business_name'],
+                        $address_id, $s['application']['owner_valid_id_type'], $s['application']['owner_valid_id_number'], $s['application']['bir_number'],
                         $s['application']['business_permit_no'], $s['application']['contact_number'], $s['application']['email'],
                         $real_status, $current_date, $s['application']['remarks']
                     ]);
