@@ -489,7 +489,9 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-12">
                     <div class="flex items-center gap-3">
-                        <img src="assests/horizon logo.png" alt="Horizon Logo" class="h-10 w-auto object-contain rounded-lg">
+                        <div class="size-10 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
+                            <img src="assests/horizon logo.png?v=<?= time() ?>" alt="Horizon Logo" class="size-full object-contain rounded-lg">
+                        </div>
                         <h2 class="text-xl font-display font-bold text-gray-900 dark:text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
                     </div>
 
@@ -864,7 +866,9 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                 <div class="space-y-8">
                     <div>
                         <div class="flex items-center gap-3 mb-6">
-                            <img src="assests/horizon logo.png" alt="Horizon Logo" class="h-12 w-auto object-contain rounded-lg">
+                            <div class="size-12 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
+                                <img src="assests/horizon logo.png?v=<?= time() ?>" alt="Horizon Logo" class="size-full object-contain rounded-lg">
+                            </div>
                             <h2 class="text-2xl font-display font-bold text-gray-900 dark:text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
                         </div>
                         <p class="text-[10px] text-primary font-black uppercase tracking-[0.4em] mb-6">Expand Your Horizon</p>

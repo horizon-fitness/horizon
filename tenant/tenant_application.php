@@ -151,7 +151,7 @@ $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
 <header class="relative z-20 w-full px-8 py-6 flex justify-between items-center bg-transparent">
     <a href="../index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
         <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
-            <img src="../assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
+            <img src="../assests/horizon logo.png?v=<?= time() ?>" alt="Horizon Logo" class="size-full object-contain rounded-lg">
         </div>
         <h2 class="text-lg font-display font-bold text-gray-900 dark:text-white uppercase italic tracking-tighter">Horizon <span class="text-primary">System</span></h2>
     </a>

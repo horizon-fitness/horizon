@@ -305,9 +305,9 @@ $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
         <a href="index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
                 <?php if ($branding && !empty($branding['logo_path'])): ?>
-                    <img src="<?= $branding['logo_path'] ?>" class="size-full object-contain">
+                    <img src="<?= $branding['logo_path'] ?>?v=<?= time() ?>" class="size-full object-contain">
                 <?php else: ?>
-                    <img src="assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
+                    <img src="assests/horizon logo.png?v=<?= time() ?>" alt="Horizon Logo" class="size-full object-contain rounded-lg">
                 <?php endif; ?>
             </div>
             <h2 class="text-lg font-display font-bold text-gray-900 dark:text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>
