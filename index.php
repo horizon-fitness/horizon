@@ -236,7 +236,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             display: flex;
             align-items: center;
             justify-content: center;
-            transform: translateY(-100px);
+            transform: translateY(-140px);
         }
 
         .model-cutout {

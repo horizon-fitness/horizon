@@ -193,10 +193,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch Global Theme Preference
-$stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'theme_preference'");
-$stmtTheme->execute();
-$currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
+// Fetch Theme Preference
+$currentTheme = 'dark';
+if (isset($_SESSION['user_id'])) {
+    $stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = ? AND setting_key = 'theme_preference'");
+    $stmtTheme->execute([$_SESSION['user_id']]);
+    $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
+} elseif (isset($_COOKIE['theme_preference'])) {
+    $currentTheme = $_COOKIE['theme_preference'];
+} else {
+    $stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'theme_preference'");
+    $stmtTheme->execute();
+    $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
+}
 ?>
 <!DOCTYPE html>
 <html class="<?= htmlspecialchars($currentTheme) ?>" lang="en">
@@ -270,7 +279,50 @@ $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
         }
         
         .hero-glow {
-            background-image: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.1), transparent 70%);
+            background-image: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.15), transparent 70%);
+        }
+
+        /* Premium Glow Effects */
+        .purple-glow-hover:hover {
+            box-shadow: 0 0 20px rgba(127, 19, 236, 0.3);
+            border-color: rgba(127, 19, 236, 0.5);
+        }
+
+        .dark .dashboard-window:hover {
+            border-color: rgba(127, 19, 236, 0.3);
+            box-shadow: 0 0 40px rgba(127, 19, 236, 0.1), var(--card-shadow);
+        }
+
+        .input-glow:focus-within {
+            box-shadow: 0 0 15px rgba(127, 19, 236, 0.15);
+        }
+
+        @keyframes pulse-purple {
+            0% { box-shadow: 0 0 0 0 rgba(127, 19, 236, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(127, 19, 236, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(127, 19, 236, 0); }
+        }
+
+        .btn-glow {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-glow::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .btn-glow:hover::after {
+            opacity: 1;
         }
 
         /* Gym Photo Integration */
@@ -286,9 +338,10 @@ $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
 
         .dashboard-window {
             background: var(--surface-color);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(20px);
             border: 1px solid var(--border-color);
             box-shadow: var(--card-shadow);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .input-gradient-focus:focus-within {
@@ -302,15 +355,18 @@ $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
     <div class="login-bg-overlay"></div>
 
     <nav class="w-full px-8 py-6 flex justify-between items-center relative z-20">
-        <a href="index.php" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/30 overflow-hidden">
+        <a href="index.php" class="flex items-center gap-3 transition-all duration-300 group">
+            <div class="size-8 bg-primary/20 rounded-lg flex items-center justify-center border border-primary/50 shadow-[0_0_15px_rgba(127,19,236,0.2)] overflow-hidden group-hover:border-primary group-hover:shadow-[0_0_20px_rgba(127,19,236,0.5)] transition-all">
                 <?php if ($branding && !empty($branding['logo_path'])): ?>
                     <img src="<?= $branding['logo_path'] ?>?v=<?= time() ?>" class="size-full object-contain">
                 <?php else: ?>
                     <img src="assests/horizon logo.png?v=<?= time() ?>" alt="Horizon Logo" class="size-full object-contain rounded-lg">
                 <?php endif; ?>
             </div>
-            <h2 class="text-lg font-display font-bold text-gray-900 dark:text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>
+            <h2 class="text-lg font-display font-bold text-gray-900 dark:text-white uppercase italic tracking-tighter">
+                <?= $branding['gym_name'] ?? 'Horizon' ?> 
+                <span class="text-primary group-hover:brightness-110 transition-all"><?= $branding ? 'Portal' : 'System' ?></span>
+            </h2>
         </a>
         
         <div class="flex items-center gap-3">
@@ -320,7 +376,7 @@ $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
                     Back to Website
                 </a>
             <?php endif; ?>
-            <a href="tenant/tenant_application.php" class="font-display bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white border border-black/10 dark:border-white/10 px-5 py-2.5 rounded-custom text-[10px] font-bold uppercase tracking-widest transition-all">
+            <a href="tenant/tenant_application.php" class="font-display bg-black/5 dark:bg-white/5 hover:bg-primary hover:text-white hover:border-primary hover:shadow-[0_0_20px_rgba(127,19,236,0.4)] text-gray-900 dark:text-white border border-black/10 dark:border-white/10 px-5 py-2.5 rounded-custom text-[10px] font-bold uppercase tracking-widest transition-all duration-300">
                 Register Gym
             </a>
         </div>
@@ -356,10 +412,10 @@ $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
                 <form method="POST" class="space-y-6">
                     <div class="space-y-2">
                         <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Username</label>
-                        <div class="relative group input-gradient-focus rounded-xl transition-all">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 group-focus-within:text-primary transition-colors text-xl">person</span>
+                        <div class="relative group input-gradient-focus input-glow rounded-xl transition-all">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 group-focus-within:text-primary group-hover:text-primary transition-colors text-xl">person</span>
                             <input
-                                class="flex h-14 w-full rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] pl-12 pr-4 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-700 focus:outline-none transition-all"
+                                class="flex h-14 w-full rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] pl-12 pr-4 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-700 focus:outline-none transition-all group-hover:border-primary/30"
                                 name="username"
                                 placeholder="Username"
                                 autocomplete="username"
@@ -372,13 +428,16 @@ $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
                     <div class="space-y-2">
                         <div class="flex justify-between items-center px-1">
                             <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500">Password</label>
-                            <a href="forgot_pass/forgot_password.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" class="text-[9px] font-display font-bold text-primary hover:text-white transition-colors uppercase tracking-widest">Forgot Password?</a>
+                            <a href="forgot_pass/forgot_password.php<?= isset($_GET['gym']) ? '?gym='.htmlspecialchars($_GET['gym']) : '' ?>" class="text-[9px] font-display font-bold text-primary hover:text-white transition-all duration-300 uppercase tracking-widest relative group/link">
+                                Forgot Password?
+                                <span class="absolute -bottom-1 left-0 w-0 h-[1px] bg-primary group-hover/link:w-full transition-all duration-300 shadow-[0_0_8px_rgba(127,19,236,0.8)]"></span>
+                            </a>
                         </div>
-                        <div class="relative group input-gradient-focus rounded-xl transition-all">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 group-focus-within:text-primary transition-colors text-xl">lock</span>
+                        <div class="relative group input-gradient-focus input-glow rounded-xl transition-all">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-gray-400 group-focus-within:text-primary group-hover:text-primary transition-colors text-xl">lock</span>
                             <input
                                 id="login-password"
-                                class="flex h-14 w-full rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] pl-12 pr-14 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-700 focus:outline-none transition-all"
+                                class="flex h-14 w-full rounded-xl border border-black/5 dark:border-white/5 bg-black/[0.02] dark:bg-white/[0.02] pl-12 pr-14 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-700 focus:outline-none transition-all group-hover:border-primary/30"
                                 name="password"
                                 placeholder="••••••••"
                                 autocomplete="current-password"
@@ -392,7 +451,7 @@ $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
                     </div>
 
                     <button
-                        class="w-full h-14 mt-6 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98]"
+                        class="w-full h-14 mt-6 rounded-xl bg-primary hover:bg-primary-dark text-white font-display font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 btn-glow hover:shadow-[0_0_30px_rgba(127,19,236,0.5)]"
                         type="submit">
                         Authorize Entry
                         <span class="material-symbols-outlined text-lg">arrow_forward</span>
@@ -402,15 +461,18 @@ $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
                 <div class="text-center mt-10 pt-8 border-t border-black/5 dark:border-white/5">
                     <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
                         New to the family? 
-                        <a class="text-primary hover:text-white transition-colors ml-1" href="tenant/tenant_application.php">Create Account</a>
+                        <a class="text-primary hover:text-white transition-all duration-300 ml-1 relative group/link" href="tenant/tenant_application.php">
+                            Create Account
+                            <span class="absolute -bottom-1 left-0 w-0 h-[1px] bg-primary group-hover/link:w-full transition-all duration-300 shadow-[0_0_8px_rgba(127,19,236,0.8)]"></span>
+                        </a>
                     </p>
                 </div>
             </div>
         </div>
     </main>
 
-    <footer class="relative z-20 w-full py-6 text-center -mt-10">
-        <p class="text-[9px] font-display font-bold text-gray-700 uppercase tracking-[0.4em]">
+    <footer class="relative z-20 w-full py-8 text-center -mt-10">
+        <p class="text-[9px] font-display font-bold text-gray-700/50 dark:text-gray-500/30 uppercase tracking-[0.5em] hover:text-primary transition-colors cursor-default">
             © 2026 HORIZON SYSTEM. SECURE ENVIRONMENT.
         </p>
     </footer>
