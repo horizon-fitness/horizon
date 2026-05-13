@@ -119,23 +119,36 @@ $is_sub_active = (strtolower($sub_status) === 'active');
 // Determine if we show the restriction modal (Only for non-active)
 $is_restricted = (!$is_sub_active);
 
+// Avatar Path Helper
+function getAvatarPath($path) {
+    if (empty($path)) return '';
+    // Handle base64 or absolute URLs
+    if (strpos($path, 'data:') === 0 || strpos($path, 'http') === 0) return $path;
+    // Clean redundant relative prefixes
+    $cleanPath = ltrim($path, './');
+    if (strpos($cleanPath, 'uploads/') === 0) return '../' . $cleanPath;
+    return '../uploads/profile_pics/' . $cleanPath;
+}
+
 // --- AJAX USER PROFILE FETCH (View Details) ---
 if (isset($_GET['ajax_user_id'])) {
     $uid = (int) $_GET['ajax_user_id'];
 
-    // Determine role to join correct detail tables
-    $stmtRoleCheck = $pdo->prepare("SELECT r.role_name FROM user_roles ur JOIN roles r ON ur.role_id = r.role_id WHERE ur.user_id = ? AND ur.gym_id = ? LIMIT 1");
-    $stmtRoleCheck->execute([$uid, $gym_id]);
-    $role_name = strtolower($stmtRoleCheck->fetchColumn() ?: '');
+    // 1. First fetch basic info to determine role
+    $stmtBasic = $pdo->prepare("SELECT r.role_name FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id WHERE u.user_id = ? AND ur.gym_id = ? LIMIT 1");
+    $stmtBasic->execute([$uid, $gym_id]);
+    $basic_role = $stmtBasic->fetchColumn() ?: '';
+    $role_name_lc = strtolower($basic_role);
 
+    // 2. Fetch full user data based on role
     $sql = "SELECT u.*, r.role_name as role, ur.role_status ";
-    if ($role_name === 'member') {
+    if ($role_name_lc === 'member') {
         $sql .= ", m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.medical_history, m.emergency_contact_name, m.emergency_contact_number ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id LEFT JOIN addresses a ON m.address_id = a.address_id ";
-    } elseif ($role_name === 'staff') {
+    } elseif ($role_name_lc === 'staff') {
         $sql .= ", s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN staff s ON u.user_id = s.user_id AND s.gym_id = ur.gym_id ";
-    } elseif ($role_name === 'coach') {
+    } elseif ($role_name_lc === 'coach') {
         $sql .= ", ca.coach_type as employment_type, 'Coach' as staff_role, c.hire_date, c.status as staff_status ";
         $sql .= " FROM users u 
                   JOIN user_roles ur ON u.user_id = ur.user_id 
@@ -152,185 +165,176 @@ if (isset($_GET['ajax_user_id'])) {
     $u = $stmtUser->fetch();
 
     if ($u): ?>
-        <div class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-6">
-            <header class="flex justify-between items-start border-b border-white/5 pb-8">
-                <div class="flex items-center gap-6">
-                    <div class="size-20 rounded-[24px] flex items-center justify-center font-black italic text-2xl uppercase border-2 shadow-lg"
-                         style="background:rgba(var(--primary-rgb), 0.1); border-color:rgba(var(--primary-rgb), 0.2); color:var(--primary); box-shadow:0 8px 24px rgba(var(--primary-rgb),0.2)">
-                        <?= substr($u['first_name'], 0, 1) ?>
+        <div class="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <header class="flex justify-between items-center mb-8 border-b border-white/5 pb-6">
+                <div class="flex items-center gap-4">
+                    <div class="size-20 rounded-2xl flex items-center justify-center font-bold text-xl uppercase border-2 overflow-hidden shadow-lg relative"
+                         style="background:rgba(var(--primary-rgb), 0.1); border-color:rgba(var(--primary-rgb), 0.3); color:var(--primary)">
+                        <?php $hasPic = !empty($u['profile_picture']); ?>
+                        <img src="<?= $hasPic ? getAvatarPath($u['profile_picture']) : '' ?>" 
+                             class="size-full object-cover<?= $hasPic ? '' : ' hidden' ?>" 
+                             onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden'); this.nextElementSibling.style.display='flex';">
+                        <div class="<?= $hasPic ? 'hidden' : '' ?> size-full flex items-center justify-center">
+                            <?= strtoupper(substr($u['first_name'] ?? 'U', 0, 1) . substr($u['last_name'] ?? '', 0, 1)) ?>
+                        </div>
                     </div>
                     <div>
-                        <div class="flex items-center gap-3 mb-1">
-                            <h2 class="text-2xl font-black italic uppercase tracking-tighter leading-tight" style="color:var(--text-main)">
-                                <?= htmlspecialchars($u['first_name'] . ' ' . $u['last_name']) ?>
-                            </h2>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase italic tracking-[0.15em] border"
-                                  style="background:rgba(var(--primary-rgb), 0.1); border-color:rgba(var(--primary-rgb), 0.2); color:var(--primary)">
-                                <?= $u['role'] ?>
-                            </span>
-                            <span class="text-[9px] font-bold opacity-40 uppercase tracking-widest italic"><?= htmlspecialchars($u['email']) ?></span>
-                        </div>
+                        <h2 class="text-xl font-bold text-white leading-tight">
+                            <?= htmlspecialchars($u['first_name'] . ' ' . $u['last_name']) ?>
+                        </h2>
+                        <p class="text-[11px] font-bold opacity-40 tracking-widest mt-1"><?= htmlspecialchars($u['email']) ?></p>
                     </div>
                 </div>
                 <button onclick="closeUserModal()"
-                    class="size-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center opacity-50 hover:opacity-100 group transition-all border border-white/5">
-                    <span class="material-symbols-outlined text-xl group-hover:rotate-90 transition-transform">close</span>
+                    class="size-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center opacity-50 hover:opacity-100 transition-all border border-white/5">
+                    <span class="material-symbols-outlined text-lg">close</span>
                 </button>
             </header>
 
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-10">
-                <div class="xl:col-span-2 space-y-10">
-                    <!-- Section 1: Personal Information -->
-                    <section class="glass-card p-8">
-                        <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3" style="color:var(--primary)">
-                            <span class="material-symbols-outlined p-2 rounded-xl text-xl" style="background:rgba(var(--primary-rgb), 0.1)">person</span> 
-                            Personal Information
-                        </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <div class="space-y-1">
-                                <p class="label-muted ml-1">First Name</p>
-                                <p class="text-sm font-black italic uppercase" style="color:var(--text-main)"><?= htmlspecialchars($u['first_name']) ?></p>
-                            </div>
-                            <?php if ($role_name === 'member'): ?>
-                                <div class="space-y-1">
-                                    <p class="label-muted ml-1">Middle Name</p>
-                                    <p class="text-sm font-black italic uppercase" style="color:var(--text-main)"><?= htmlspecialchars($u['middle_name'] ?: 'N/A') ?></p>
-                                </div>
-                            <?php endif; ?>
-                            <div class="space-y-1">
-                                <p class="label-muted ml-1">Last Name</p>
-                                <p class="text-sm font-black italic uppercase" style="color:var(--text-main)"><?= htmlspecialchars($u['last_name']) ?></p>
-                            </div>
-                            <?php if ($role_name === 'member'): ?>
-                                <div class="space-y-1">
-                                    <p class="label-muted ml-1">Sex</p>
-                                    <p class="text-sm font-black italic uppercase" style="color:var(--text-main)"><?= $u['sex'] ?: 'N/A' ?></p>
-                                </div>
-                                <div class="space-y-1">
-                                    <p class="label-muted ml-1">Birth Date</p>
-                                    <p class="text-sm font-black italic" style="color:var(--text-main)">
-                                        <?= $u['birth_date'] ? date('M d, Y', strtotime($u['birth_date'])) : 'N/A' ?>
-                                    </p>
-                                </div>
-                            <?php endif; ?>
+            <div class="space-y-6">
+                <!-- Section 1: Core Details -->
+                <section class="grid grid-cols-2 gap-6 bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                    <div class="space-y-1">
+                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Full Name</p>
+                        <p class="text-base font-medium text-white"><?= htmlspecialchars($u['first_name'] . ($u['middle_name'] ? ' ' . $u['middle_name'] : '') . ' ' . $u['last_name']) ?></p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">System Role</p>
+                        <p class="text-base font-medium text-white"><?= $u['role'] ?></p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Contact Number</p>
+                        <p class="text-base font-medium text-white"><?= htmlspecialchars($u['contact_number'] ?: 'None') ?></p>
+                    </div>
+                    <?php if ($role_name_lc === 'member'): ?>
+                        <div class="space-y-1">
+                            <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Sex</p>
+                            <p class="text-base font-medium text-white"><?= $u['sex'] ?: 'N/A' ?></p>
                         </div>
-                    </section>
+                    <?php endif; ?>
+                </section>
 
-                    <!-- Section 2: Contact Information -->
-                    <section class="glass-card p-8">
-                        <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3" style="color:var(--primary)">
-                            <span class="material-symbols-outlined p-2 rounded-xl text-xl" style="background:rgba(var(--primary-rgb), 0.1)">alternate_email</span>
-                            Contact Information
-                        </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="space-y-1">
-                                <p class="label-muted ml-1">Email Address</p>
-                                <p class="text-sm font-black italic truncate" style="color:var(--text-main)"><?= htmlspecialchars($u['email']) ?></p>
-                            </div>
-                            <div class="space-y-1">
-                                <p class="label-muted ml-1">Contact Number</p>
-                                <p class="text-sm font-black italic tracking-widest" style="color:var(--text-main)"><?= htmlspecialchars($u['contact_number'] ?: 'UNKNOWN') ?></p>
-                            </div>
-                            <?php if ($role_name === 'member' && !empty($u['address_line'])): ?>
-                                <div class="space-y-1 md:col-span-2">
-                                    <p class="label-muted ml-1">Home Address</p>
-                                    <p class="text-sm font-black italic" style="color:var(--text-main)"><?= htmlspecialchars($u['address_line']) ?></p>
-                                </div>
-                            <?php endif; ?>
+                <!-- Section 2: Extended Details -->
+                <section class="grid grid-cols-1 gap-6">
+                    <?php if ($role_name_lc === 'member' && !empty($u['address_line'])): ?>
+                        <div class="bg-white/[0.02] p-6 rounded-2xl border border-white/5 space-y-1">
+                            <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Home Address</p>
+                            <p class="text-sm font-medium text-white leading-relaxed"><?= htmlspecialchars($u['address_line']) ?></p>
                         </div>
-                    </section>
-
-                    <?php if ($role_name === 'member'): ?>
-                        <!-- Section 3: Health & Profile -->
-                        <section class="glass-card p-8">
-                            <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3" style="color:var(--primary)">
-                                <span class="material-symbols-outlined p-2 rounded-xl text-xl" style="background:rgba(var(--primary-rgb), 0.1)">medical_information</span>
-                                Health & Profile
-                            </h4>
-                            <div class="space-y-6">
-                                <div class="space-y-1">
-                                    <p class="label-muted ml-1">Occupation</p>
-                                    <p class="text-sm font-black italic uppercase" style="color:var(--text-main)"><?= htmlspecialchars($u['occupation'] ?: 'N/A') ?></p>
-                                </div>
-                                <div class="space-y-1">
-                                    <p class="label-muted ml-1">Medical History</p>
-                                    <div class="text-sm font-medium opacity-50 italic leading-relaxed bg-black/20 p-6 rounded-2xl border border-white/5" style="color:var(--text-main)">
-                                        <?= nl2br(htmlspecialchars($u['medical_history'] ?: 'No physical medical history recorded.')) ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
                     <?php endif; ?>
 
-                    <?php if ($role_name === 'staff' || $role_name === 'coach'): ?>
-                        <!-- Section 3: Professional Registry -->
-                        <section class="glass-card p-8">
-                            <h4 class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3" style="color:var(--primary)">
-                                <span class="material-symbols-outlined p-2 rounded-xl text-xl" style="background:rgba(var(--primary-rgb), 0.1)">badge</span>
-                                Professional Profile
-                            </h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <div class="space-y-1">
-                                    <p class="label-muted ml-1">System Role</p>
-                                    <p class="text-sm font-black italic uppercase" style="color:var(--text-main)"><?= $u['staff_role'] ?: $u['role'] ?></p>
-                                </div>
-                                <div class="space-y-1">
-                                    <p class="label-muted ml-1">Class</p>
-                                    <p class="text-sm font-black italic uppercase" style="color:var(--text-main)"><?= $u['employment_type'] ?: 'N/A' ?></p>
-                                </div>
-                                <div class="space-y-1">
-                                    <p class="label-muted ml-1">Registry Date</p>
-                                    <p class="text-sm font-black italic" style="color:var(--text-main)">
-                                        <?= $u['hire_date'] ? date('M d, Y', strtotime($u['hire_date'])) : 'N/A' ?>
-                                    </p>
-                                </div>
+                    <?php if ($role_name_lc === 'staff' || $role_name_lc === 'coach'): ?>
+                        <div class="bg-white/[0.02] p-6 rounded-2xl border border-white/5 grid grid-cols-2 gap-6">
+                            <div class="space-y-1">
+                                <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Job Type</p>
+                                <p class="text-sm font-medium text-white"><?= $u['employment_type'] ?: 'N/A' ?></p>
                             </div>
-                        </section>
+                            <div class="space-y-1">
+                                <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Date Joined</p>
+                                <p class="text-sm font-medium text-white"><?= $u['hire_date'] ? date('M d, Y', strtotime($u['hire_date'])) : 'N/A' ?></p>
+                            </div>
+                        </div>
                     <?php endif; ?>
+
+                    <?php if (!empty($u['medical_history'])): ?>
+                        <div class="bg-white/[0.02] p-6 rounded-2xl border border-white/5 space-y-2">
+                            <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Medical Notes</p>
+                            <p class="text-xs font-medium opacity-70 leading-relaxed"><?= nl2br(htmlspecialchars($u['medical_history'])) ?></p>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($u['emergency_contact_name'])): ?>
+                        <div class="bg-amber-500/5 p-6 rounded-2xl border border-amber-500/10 grid grid-cols-2 gap-6">
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-bold uppercase tracking-widest text-amber-500/60">Emergency Contact</p>
+                                <p class="text-base font-bold text-amber-500"><?= htmlspecialchars($u['emergency_contact_name']) ?></p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-bold uppercase tracking-widest text-amber-500/60">Contact Phone</p>
+                                <p class="text-base font-bold text-amber-500"><?= htmlspecialchars($u['emergency_contact_number']) ?></p>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </section>
+
+                <footer class="flex justify-between items-center pt-4 opacity-40">
+                    <div class="flex items-center gap-2">
+                        <span class="size-1.5 rounded-full <?= $u['is_active'] ? 'bg-emerald-500' : 'bg-rose-500' ?>"></span>
+                        <p class="text-[8px] font-bold uppercase tracking-[0.2em]"><?= $u['is_active'] ? 'Account Active' : 'Account Blocked' ?></p>
+                    </div>
+                </footer>
+            </div>
+        </div>
+<?php endif;
+    exit;
+}
+
+if (isset($_GET['ajax_search'])) {
+    $search = trim($_GET['ajax_search']);
+    
+    if (empty($search)) {
+        // Show "Recent Activity" (Top 5 newest users)
+        $stmt = $pdo->prepare("
+            SELECT u.user_id, u.first_name, u.last_name, u.email, u.profile_picture, r.role_name as role
+            FROM users u
+            JOIN user_roles ur ON u.user_id = ur.user_id
+            JOIN roles r ON ur.role_id = r.role_id
+            WHERE ur.gym_id = ?
+            ORDER BY u.created_at DESC
+            LIMIT 5
+        ");
+        $stmt->execute([$gym_id]);
+        $matches = $stmt->fetchAll();
+        $is_recent = true;
+    } else {
+        $stmt = $pdo->prepare("
+            SELECT u.user_id, u.first_name, u.last_name, u.email, u.profile_picture, r.role_name as role
+            FROM users u
+            JOIN user_roles ur ON u.user_id = ur.user_id
+            JOIN roles r ON ur.role_id = r.role_id
+            WHERE ur.gym_id = ? 
+            AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)
+            LIMIT 6
+        ");
+        $stmt->execute([$gym_id, "%$search%", "%$search%", "%$search%"]);
+        $matches = $stmt->fetchAll();
+        $is_recent = false;
+    }
+
+    if ($matches): ?>
+        <div class="p-2 space-y-1">
+            <?php if ($is_recent): ?>
+                <div class="px-4 py-3 flex items-center justify-between">
+                    <p class="text-[9px] font-black uppercase tracking-[0.2em] text-primary opacity-80">Recent Activity</p>
+                    <span class="size-1.5 rounded-full bg-primary animate-pulse"></span>
                 </div>
-
-                <div class="space-y-10">
-                    <section class="glass-card p-8">
-                        <h4 class="text-[10px] font-black uppercase tracking-[0.3em] border-l-4 pl-4 mb-6" style="color:var(--primary); border-color:var(--primary)">
-                            Security Registry
-                        </h4>
-                        <div class="p-6 rounded-2xl bg-white/[0.02] border border-white/5">
-                            <p class="text-[9px] font-black uppercase opacity-40 tracking-widest mb-4">Authentication Status</p>
-                            <div class="flex items-center gap-4">
-                                <span class="size-2 rounded-full <?= $u['is_active'] ? 'bg-emerald-500' : 'bg-red-500' ?>"></span>
-                                <p class="text-xs font-bold uppercase tracking-[0.1em] <?= $u['is_active'] ? 'text-emerald-500' : 'text-red-500' ?>">
-                                    <?= $u['is_active'] ? 'System Authorized' : 'Access Restricted' ?>
-                                </p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <?php if ($role_name === 'member' || !empty($u['emergency_contact_name'])): ?>
-                        <!-- Sidebar section: Emergency Support -->
-                        <section class="glass-card p-8">
-                            <h4 class="text-[10px] font-black uppercase tracking-[0.3em] border-l-4 border-amber-500 pl-4 mb-6" style="color:var(--highlight)">
-                                Emergency Protocol
-                            </h4>
-                            <div class="p-8 rounded-[32px] border border-amber-500/10" style="background:rgba(var(--highlight-rgb), 0.03)">
-                                <div class="space-y-6">
-                                    <div>
-                                        <p class="text-[9px] font-black uppercase opacity-50 tracking-widest mb-2">Primary Contact</p>
-                                        <p class="text-base font-black italic uppercase" style="color:var(--text-main)">
-                                            <?= htmlspecialchars($u['emergency_contact_name'] ?: 'NOT LISTED') ?>
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p class="text-[9px] font-black uppercase opacity-50 tracking-widest mb-2">Contact Signal</p>
-                                        <p class="text-base font-bold tracking-widest text-amber-500">
-                                            <?= htmlspecialchars($u['emergency_contact_number'] ?: 'OFFLINE') ?>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-                    <?php endif; ?>
+            <?php endif; ?>
+            <?php foreach ($matches as $m): ?>
+                <button type="button" 
+                    onclick="const inp = document.querySelector('input[name=\'search\']'); inp.value = '<?= addslashes($m['first_name'] . ' ' . $m['last_name']) ?>'; reactiveFilter(); document.getElementById('searchResults').classList.add('hidden'); viewUserProfile(<?= $m['user_id'] ?>);"
+                    class="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 transition-all text-left group border border-transparent hover:border-white/5">
+                    <div class="size-10 rounded-full flex items-center justify-center font-black italic text-[10px] border border-white/10 shrink-0 overflow-hidden shadow-inner relative bg-primary/10 text-primary">
+                        <?php if (!empty($m['profile_picture'])): ?>
+                            <img src="<?= getAvatarPath($m['profile_picture']) ?>" class="size-full object-cover">
+                        <?php else: ?>
+                            <?= strtoupper(substr($m['first_name'], 0, 1) . substr($m['last_name'], 0, 1)) ?>
+                        <?php endif; ?>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[13px] font-bold text-white group-hover:text-primary transition-colors truncate">
+                            <?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?>
+                        </p>
+                        <p class="text-[10px] opacity-40 font-medium truncate uppercase tracking-widest">
+                            <?= htmlspecialchars($m['role']) ?> • <?= htmlspecialchars($m['email']) ?>
+                        </p>
+                    </div>
+                    <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-all text-primary">arrow_forward</span>
+                </button>
+            <?php endforeach; ?>
+        </div>
+    <?php else: ?>
+        <div class="p-6 text-center">
+            <p class="text-[10px] font-bold uppercase tracking-widest opacity-30">No results found for "<?= htmlspecialchars($search) ?>"</p>
         </div>
     <?php endif;
     exit;
@@ -371,12 +375,16 @@ if ($sort_by === 'oldest')
     $order = "ORDER BY u.created_at ASC";
 if ($sort_by === 'name_asc')
     $order = "ORDER BY u.first_name ASC";
+if ($sort_by === 'name_desc')
+    $order = "ORDER BY u.first_name DESC";
 
 $where_sql = "WHERE " . implode(" AND ", $where);
 
 // Fetch Filtered Users
 $stmtUsers = $pdo->prepare("
-    SELECT u.user_id, u.first_name, u.last_name, u.email, r.role_name as role, u.is_active, u.created_at,
+    SELECT u.user_id, u.first_name, u.last_name, u.email, u.contact_number, 
+           u.profile_picture, 
+           r.role_name as role, u.is_active, u.created_at,
            CASE 
                WHEN r.role_name = 'Member' THEN m.member_status 
                WHEN r.role_name = 'Staff' THEN s.status
@@ -447,6 +455,7 @@ $page_title = "User Database";
             --highlight-rgb: <?= $highlight_rgb ?>;
             --text-main:     <?= $text_color ?>;
             --background:    <?= $bg_color ?>;
+            --background-rgb: <?= hexToRgb($bg_color) ?>;
             --card-bg:       <?= $card_bg_css ?>;
             --card-blur:     20px;
         }
@@ -469,7 +478,6 @@ $page_title = "User Database";
         .hover-lift:hover {
             transform: translateY(-6px);
             border-color: rgba(var(--primary-rgb),0.25);
-            box-shadow: 0 20px 40px -20px rgba(var(--primary-rgb),0.3);
         }
 
         /* Sidebar */
@@ -555,21 +563,32 @@ $page_title = "User Database";
         /* Inputs */
         .input-box {
             background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
             color: var(--text-main);
-            padding: 10px 16px;
+            padding: 12px 18px;
             font-size: 11px;
-            font-weight: 500;
+            font-weight: 600;
             outline: none;
-            transition: all 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .input-box:focus { border-color: var(--primary); background: rgba(255, 255, 255, 0.08); }
+        .input-box:focus { 
+            border-color: var(--primary); 
+            background-color: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1);
+        }
         .input-box option { background: #14121a; color: white; }
         select.input-box {
-            cursor: pointer; color-scheme: dark; appearance: none;
+            cursor: pointer; 
+            color-scheme: dark; 
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-            background-repeat: no-repeat; background-position: right 0.75rem center; background-size: 0.85em; padding-right: 2.5rem;
+            background-repeat: no-repeat !important;
+            background-position: right 1.25rem center !important;
+            background-size: 0.85em !important;
+            padding-right: 3rem !important;
         }
 
         /* Status Cards (Superadmin Sync) */
@@ -587,16 +606,21 @@ $page_title = "User Database";
         }
 
         /* Sidebar-Aware Modals (Superadmin Pattern) */
-        #profileModal, #subModal {
-            position: fixed; top: 0; right: 0; bottom: 0;
-            left: 110px; z-index: 200;
-            display: none; align-items: center; justify-content: center;
-            padding: 40px;
-            background: rgba(0, 0, 0, 0.82);
-            backdrop-filter: blur(12px);
+        #profileModal {
+            position: fixed;
+            top: 0; right: 0; bottom: 0;
+            left: 110px;
+            background: rgba(var(--background-rgb), 0.4);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        #profileModal.active, #subModal.active { display: flex; }
+        #profileModal.active { display: flex; }
         
         .side-nav:hover ~ #profileModal,
         .side-nav:hover ~ #subModal {
@@ -606,10 +630,13 @@ $page_title = "User Database";
         .modal-container {
             position: relative;
             width: 100%;
-            max-width: 900px;
+            max-width: 650px;
             max-height: 85vh;
             overflow-y: auto;
             z-index: 10;
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 32px;
         }
 
         .modal-backdrop { display: none; } /* Handled by parent padding/bg now */
@@ -619,8 +646,9 @@ $page_title = "User Database";
             position: fixed; top: 0; right: 0; bottom: 0; left: 110px; 
             z-index: 200; display: none !important; 
             align-items: center; justify-content: center; 
-            padding: 24px; background: rgba(0, 0, 0, 0.8); 
-            backdrop-filter: blur(12px); 
+            padding: 24px; background: rgba(var(--background-rgb), 0.4); 
+            backdrop-filter: blur(20px) saturate(180%); 
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1); 
         }
         #subModal.active { display: flex !important; }
@@ -649,8 +677,29 @@ $page_title = "User Database";
         window.addEventListener('DOMContentLoaded', updateTopClock);
 
         let filterTimeout;
+        let searchTimeout;
+
         function reactiveFilter() {
             clearTimeout(filterTimeout);
+            clearTimeout(searchTimeout);
+
+            const searchInput = document.querySelector('input[name="search"]');
+            const query = searchInput.value.trim();
+            const resultsBox = document.getElementById('searchResults');
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`?ajax_search=${encodeURIComponent(query)}`);
+                    const html = await res.text();
+                    if (html.trim()) {
+                        resultsBox.innerHTML = html;
+                        resultsBox.classList.remove('hidden');
+                    } else {
+                        resultsBox.classList.add('hidden');
+                    }
+                } catch (e) { console.error(e); }
+            }, 150);
+
             filterTimeout = setTimeout(() => {
                 const form = document.getElementById('filterForm');
                 const formData = new FormData(form);
@@ -663,10 +712,29 @@ $page_title = "User Database";
                     .then(html => {
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(html, 'text/html');
-                        document.getElementById('tableContainer').innerHTML = doc.getElementById('tableContainer').innerHTML;
+                        const table = doc.getElementById('tableContainer');
+                        if (table) {
+                            document.getElementById('tableContainer').innerHTML = table.innerHTML;
+                        }
                     });
-            }, 300);
+            }, 400);
         }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.querySelector('input[name="search"]');
+            if (searchInput) {
+                searchInput.addEventListener('focus', reactiveFilter);
+            }
+        });
+
+        // Close search results when clicking outside
+        document.addEventListener('click', (e) => {
+            const resultsBox = document.getElementById('searchResults');
+            const searchInput = document.querySelector('input[name="search"]');
+            if (!resultsBox.contains(e.target) && e.target !== searchInput) {
+                resultsBox.classList.add('hidden');
+            }
+        });
 
         async function viewUserProfile(id) {
             const modal = document.getElementById('profileModal');
@@ -702,9 +770,9 @@ $page_title = "User Database";
         <header class="mb-10 flex justify-between items-end">
             <div>
                 <h2 class="text-3xl font-black uppercase tracking-tighter italic" style="color:var(--text-main)">
-                    User <span style="color:var(--primary)" class="italic">Database</span>
+                    All <span style="color:var(--primary)" class="italic">Users</span>
                 </h2>
-                <p class="label-muted mt-1 italic"><?= htmlspecialchars($gym_name) ?> Community Roster</p>
+                <p class="label-muted mt-1 italic"><?= htmlspecialchars($gym_name) ?> User List</p>
             </div>
 
             <div class="text-right">
@@ -717,17 +785,17 @@ $page_title = "User Database";
             <!-- Total Community -->
             <div class="glass-card p-8 status-card-primary relative overflow-hidden group hover:scale-[1.02] transition-all">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform" style="color:var(--primary)">group</span>
-                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Registry Growth</p>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">All People</p>
                 <h3 class="text-3xl font-black italic uppercase" style="color:var(--text-main)">
                     <?= $total_members + $total_coaches ?>
                 </h3>
-                <p class="text-[10px] font-black uppercase mt-2 italic" style="color:var(--primary)">Total Community</p>
+                <p class="text-[10px] font-black uppercase mt-2 italic" style="color:var(--primary)">Total Users</p>
             </div>
 
             <!-- Active Members -->
             <div class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02] transition-all">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">how_to_reg</span>
-                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Member Nodes</p>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Gym Members</p>
                 <h3 class="text-3xl font-black italic uppercase" style="color:var(--text-main)">
                     <?= $total_members ?>
                 </h3>
@@ -737,54 +805,66 @@ $page_title = "User Database";
             <!-- Expert Coaches -->
             <div class="glass-card p-8 status-card-yellow relative overflow-hidden group hover:scale-[1.02] transition-all">
                 <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">workspace_premium</span>
-                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Vetted Talent</p>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Coaches</p>
                 <h3 class="text-3xl font-black italic uppercase" style="color:var(--text-main)">
                     <?= $total_coaches ?>
                 </h3>
-                <p class="text-amber-500 text-[10px] font-black uppercase mt-2 italic">Expert Coaches</p>
+                <p class="text-amber-500 text-[10px] font-black uppercase mt-2 italic">Coaches List</p>
             </div>
         </div>
 
-        <!-- ADVANCED FILTERS -->
+        <!-- SEARCH AND FILTERS -->
         <div class="mb-10">
             <form id="filterForm" onsubmit="event.preventDefault(); reactiveFilter();"
-                class="glass-card p-8 relative overflow-hidden">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                    <div class="space-y-2 lg:col-span-2">
-                        <p class="text-[9px] font-black uppercase tracking-widest ml-1" style="color:var(--primary)">Search</p>
-                        <div class="relative">
-                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-lg opacity-40">search</span>
-                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                                placeholder="Filter user registry..." oninput="reactiveFilter()"
-                                class="input-box pl-12 w-full">
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        <p class="label-muted ml-1">Authority Filter</p>
-                        <select name="role" onchange="reactiveFilter()" class="input-box w-full">
-                            <option value="">All Roles</option>
-                            <option value="Member" <?= ($filter_role == 'Member') ? 'selected' : '' ?>>Members</option>
-                            <option value="Staff" <?= ($filter_role == 'Staff') ? 'selected' : '' ?>>Staff</option>
-                            <option value="Coach" <?= ($filter_role == 'Coach') ? 'selected' : '' ?>>Coach</option>
-                        </select>
-                    </div>
-                    <div class="space-y-2">
-                        <p class="label-muted ml-1">Account Protocol</p>
-                        <select name="status" onchange="reactiveFilter()" class="input-box w-full">
-                            <option value="">All Status</option>
-                            <option value="1" <?= ($filter_status == '1') ? 'selected' : '' ?>>Active</option>
-                            <option value="0" <?= ($filter_status == '0') ? 'selected' : '' ?>>Restricted</option>
-                        </select>
-                    </div>
-                    <div class="space-y-2">
-                        <p class="label-muted ml-1">Sort Registry</p>
-                        <select name="sort" onchange="reactiveFilter()" class="input-box w-full">
-                            <option value="newest" <?= ($sort_by == 'newest') ? 'selected' : '' ?>>Newest</option>
-                            <option value="oldest" <?= ($sort_by == 'oldest') ? 'selected' : '' ?>>Oldest</option>
-                            <option value="name_asc" <?= ($sort_by == 'name_asc') ? 'selected' : '' ?>>Name A-Z</option>
-                        </select>
+                class="glass-card px-8 py-5 flex flex-wrap items-center gap-5 relative">
+                
+                <!-- Search Input -->
+                <div class="flex-1 min-w-[280px] relative group">
+                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary transition-all">search</span>
+                    <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
+                        placeholder="Search users by name or email..." oninput="reactiveFilter()"
+                        autocomplete="off"
+                        class="input-box pl-12 w-full">
+                    
+                    <!-- Result Dropdown -->
+                    <div id="searchResults" class="absolute top-[calc(100%+8px)] left-0 right-0 glass-card z-[100] hidden overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-white/10">
+                        <!-- Content via AJAX -->
                     </div>
                 </div>
+
+                <!-- Role Filter -->
+                <div class="w-[180px] relative">
+                    <select name="role" onchange="reactiveFilter()" class="input-box w-full">
+                        <option value="">All Roles</option>
+                        <option value="Member" <?= ($filter_role == 'Member') ? 'selected' : '' ?>>Members</option>
+                        <option value="Staff" <?= ($filter_role == 'Staff') ? 'selected' : '' ?>>Staff</option>
+                        <option value="Coach" <?= ($filter_role == 'Coach') ? 'selected' : '' ?>>Coach</option>
+                    </select>
+                </div>
+
+                <!-- Status Filter -->
+                <div class="w-[160px] relative">
+                    <select name="status" onchange="reactiveFilter()" class="input-box w-full">
+                        <option value="">All Status</option>
+                        <option value="1" <?= ($filter_status == '1') ? 'selected' : '' ?>>Active</option>
+                        <option value="0" <?= ($filter_status == '0') ? 'selected' : '' ?>>Restricted</option>
+                    </select>
+                </div>
+
+                <!-- Sort Filter -->
+                <div class="w-[160px] relative">
+                    <select name="sort" onchange="reactiveFilter()" class="input-box w-full">
+                        <option value="newest" <?= ($sort_by == 'newest') ? 'selected' : '' ?>>Newest</option>
+                        <option value="oldest" <?= ($sort_by == 'oldest') ? 'selected' : '' ?>>Oldest</option>
+                        <option value="name_asc" <?= ($sort_by == 'name_asc') ? 'selected' : '' ?>>Name A-Z</option>
+                        <option value="name_desc" <?= ($sort_by == 'name_desc') ? 'selected' : '' ?>>Name Z-A</option>
+                    </select>
+                </div>
+
+                <!-- Reset Button -->
+                <a href="my_users.php" class="size-11 rounded-[14px] bg-white/5 border border-white/5 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 transition-all">
+                    <span class="material-symbols-outlined text-lg">refresh</span>
+                </a>
             </form>
         </div>
 
@@ -792,55 +872,65 @@ $page_title = "User Database";
             <table class="w-full text-left">
                 <thead>
                     <tr class="bg-black/20 border-b border-white/5">
-                        <th class="px-8 py-5 label-muted">Individual</th>
-                        <th class="px-8 py-5 label-muted">Role / Protocol</th>
-                        <th class="px-8 py-5 label-muted">Detail Info</th>
-                        <th class="px-8 py-5 label-muted text-right">System Access</th>
+                        <th class="px-8 py-5 label-muted">Name</th>
+                        <th class="px-8 py-5 label-muted">Role</th>
+                        <th class="px-8 py-5 label-muted">Email</th>
+                        <th class="px-8 py-5 label-muted">Phone Number</th>
+                        <th class="px-8 py-5 label-muted">Joined Date</th>
+                        <th class="px-8 py-5 label-muted text-center">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-white/5">
                     <?php if (empty($users_list)): ?>
                         <tr>
-                            <td colspan="4" class="px-8 py-10 text-center label-muted italic">
-                                No matching users found in registry
+                            <td colspan="5" class="px-8 py-10 text-center label-muted italic">
+                                No users found
                             </td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($users_list as $u): ?>
                             <tr class="group hover:bg-white/[0.02] transition-colors">
-                                <td class="px-8 py-6 flex items-center gap-4">
-                                    <div class="size-10 rounded-full flex items-center justify-center font-black italic text-xs border border-white/5"
-                                         style="background:rgba(var(--primary-rgb), 0.1); color:var(--primary)">
-                                        <?= strtoupper(substr($u['first_name'] ?? 'U', 0, 1)) ?>
-                                    </div>
-                                    <div>
-                                        <p class="text-sm font-black italic uppercase tracking-tighter" style="color:var(--text-main)">
+                                <td class="px-8 py-6 align-middle">
+                                    <div class="flex items-center gap-4">
+                                        <?php $hasPic = !empty($u['profile_picture']); ?>
+                                        <div class="size-11 rounded-full flex items-center justify-center font-black italic text-[11px] border border-white/10 shrink-0 overflow-hidden shadow-inner relative"
+                                             style="background:rgba(var(--primary-rgb), 0.1); color:var(--primary)">
+                                            <img src="<?= $hasPic ? getAvatarPath($u['profile_picture']) : '' ?>" 
+                                                 class="size-full object-cover<?= $hasPic ? '' : ' hidden' ?>"
+                                                 onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden'); this.nextElementSibling.style.display='flex';">
+                                            <div class="<?= $hasPic ? 'hidden' : '' ?> size-full flex items-center justify-center">
+                                                <?= strtoupper(substr($u['first_name'] ?? 'U', 0, 1) . substr($u['last_name'] ?? '', 0, 1)) ?>
+                                            </div>
+                                        </div>
+                                        <p class="text-[13px] font-bold tracking-wider" style="color:var(--text-main)">
                                             <?= htmlspecialchars($u['first_name'] . ' ' . $u['last_name']) ?>
                                         </p>
-                                        <p class="text-[10px] font-bold opacity-50">
-                                            <?= htmlspecialchars($u['email']) ?>
-                                        </p>
                                     </div>
                                 </td>
-                                <td class="px-8 py-6">
-                                    <div class="flex flex-col gap-1">
-                                        <span class="text-[10px] font-black uppercase italic tracking-widest" style="color:var(--primary)">
-                                            <?= $u['role'] ?>
-                                        </span>
-                                        <span class="text-[8px] font-bold uppercase tracking-widest <?= ($u['is_active']) ? 'text-emerald-500' : 'text-rose-500' ?>">
-                                            <?= ($u['is_active']) ? 'Authorized' : 'Restricted' ?>
-                                        </span>
-                                    </div>
+                                <td class="px-8 py-6 align-middle">
+                                    <span class="text-[13px] font-bold tracking-wider" style="color: var(--text-main);">
+                                        <?= $u['role'] ?>
+                                    </span>
                                 </td>
-                                <td class="px-8 py-6">
-                                    <p class="text-[10px] font-black uppercase opacity-50 italic tracking-widest group-hover:opacity-100 transition-opacity truncate max-w-[200px]" style="color:var(--text-main)">
-                                        <?= htmlspecialchars($u['detail_info'] ?: 'None') ?>
+                                <td class="px-8 py-6 align-middle">
+                                    <p class="text-[12px] font-medium opacity-60 tracking-wide" style="color:var(--text-main)">
+                                        <?= htmlspecialchars($u['email']) ?>
                                     </p>
                                 </td>
-                                <td class="px-8 py-6 text-right">
+                                <td class="px-8 py-6 align-middle">
+                                    <p class="text-[12px] font-medium opacity-60 tracking-wide" style="color:var(--text-main)">
+                                        <?= htmlspecialchars($u['contact_number'] ?: 'None') ?>
+                                    </p>
+                                </td>
+                                <td class="px-8 py-6 align-middle">
+                                    <p class="text-[12px] font-bold tracking-wider" style="color:var(--primary)">
+                                        <?= date('M d, Y', strtotime($u['created_at'])) ?>
+                                    </p>
+                                </td>
+                                <td class="px-8 py-6 text-center align-middle">
                                     <button onclick="viewUserProfile(<?= $u['user_id'] ?>)"
-                                        class="size-9 rounded-xl bg-white/5 hover:bg-primary transition-all flex items-center justify-center opacity-50 hover:opacity-100 inline-flex border border-white/5 shadow-sm group-hover:shadow-primary/20">
-                                        <span class="material-symbols-outlined text-xl">visibility</span>
+                                        class="size-8 rounded-lg bg-white/5 hover:bg-primary transition-all flex items-center justify-center opacity-40 hover:opacity-100 inline-flex border border-white/5">
+                                        <span class="material-symbols-outlined text-lg">visibility</span>
                                     </button>
                                 </td>
                             </tr>
@@ -914,7 +1004,7 @@ $page_title = "User Database";
 
     <!-- USER PROFILE MODAL -->
     <div id="profileModal" onclick="if(event.target === this) closeUserModal()">
-        <div class="modal-container glass-card shadow-[0_0_100px_rgba(0,0,0,0.5)] border-primary/10 animate-in fade-in zoom-in duration-300">
+        <div class="modal-container glass-card border-primary/10 animate-in fade-in zoom-in duration-300">
             <div id="modalContent" class="p-8">
                 <!-- Content loaded via AJAX -->
             </div>
@@ -923,28 +1013,27 @@ $page_title = "User Database";
 
     <!-- Restriction Modal (Sidebar-Aware) -->
     <div id="subModal">
-        <div class="glass-card max-w-md w-full p-8 text-center animate-in zoom-in duration-300 relative border-primary/20" 
-             style="box-shadow:0 0 80px rgba(var(--primary-rgb),0.15)">
+        <div class="glass-card max-w-md w-full p-8 text-center animate-in zoom-in duration-300 relative border-primary/20">
             <div class="size-20 rounded-3xl flex items-center justify-center mx-auto mb-8 border"
                  style="background:rgba(var(--primary-rgb), 0.1); border-color:rgba(var(--primary-rgb), 0.2)">
                 <span class="material-symbols-outlined text-4xl" style="color:var(--primary)">lock</span>
             </div>
-            <h3 class="text-2xl font-black italic uppercase tracking-tighter mb-3" style="color:var(--text-main)">Subscription Required</h3>
+            <h3 class="text-2xl font-black italic uppercase tracking-tighter mb-3" style="color:var(--text-main)">You Need to Pay First</h3>
             <p class="label-muted mb-10 leading-relaxed italic px-4">
-                Access to user management and platform analytics is restricted. Your status is <span class="italic animate-pulse" style="color:var(--primary)"><?= $sub_status ?></span>. Please activate a growth plan to unlock.
+                You cannot see users or stats right now. Your status is <span class="italic animate-pulse" style="color:var(--primary)"><?= $sub_status ?></span>. Please buy a plan to continue.
             </p>
             <div class="flex flex-col gap-4">
                 <?php if (strpos($sub_status, 'Pending') !== false): ?>
                     <a href="tenant_dashboard.php" class="h-14 rounded-2xl text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all group"
-                       style="background:var(--primary); box-shadow:0 8px 24px rgba(var(--primary-rgb),0.25)">
+                       style="background:var(--primary)">
                         <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">grid_view</span>
-                        Back to Dashboard
+                        Go Back
                     </a>
                 <?php else: ?>
                     <a href="subscription_plan.php" class="h-14 rounded-2xl text-white text-[11px] font-black uppercase italic tracking-[0.2em] flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-95 transition-all group"
-                       style="background:var(--primary); box-shadow:0 8px 24px rgba(var(--primary-rgb),0.25)">
+                       style="background:var(--primary)">
                         <span class="material-symbols-outlined text-xl group-hover:scale-110 transition-transform">payments</span>
-                        Select Growth Plan
+                        Choose a Plan
                     </a>
                 <?php endif; ?>
             </div>

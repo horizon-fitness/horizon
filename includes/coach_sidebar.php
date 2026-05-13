@@ -81,6 +81,12 @@
             <span class="nav-label">My Members</span>
         </a>
 
+        <div class="nav-section-label px-[38px] mt-6 mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Training</span></div>
+        <a href="coach_workouts.php" class="nav-item <?= ($active_page == 'workouts') ? 'active' : '' ?>">
+            <span class="material-symbols-outlined text-xl shrink-0">fitness_center</span> 
+            <span class="nav-label">Workouts</span>
+        </a>
+
     </div>
 
     <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6 flex flex-col">
