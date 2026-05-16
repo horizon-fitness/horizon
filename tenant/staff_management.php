@@ -263,7 +263,7 @@ $members = [
         <div class="flex flex-col md:flex-row md:items-end justify-between w-full">
             <div>
                 <h2 class="text-3xl font-black italic uppercase tracking-tighter">My <span class="text-primary">Users</span></h2>
-                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Manage your community roster</p>
+                <p class="text-gray-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-2">Manage your team</p>
             </div>
             <div class="flex flex-col items-end mt-4 md:mt-0">
                 <p id="topClock" class="text-white font-black italic text-2xl leading-none">00:00:00 AM</p>

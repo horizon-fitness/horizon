@@ -412,7 +412,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <header class="mb-10 flex justify-between items-center">
         <a href="staff.php" class="text-gray-500 hover:text-white flex items-center gap-2 font-black italic uppercase text-[10px] tracking-widest transition-all ml-auto">
-            <span class="material-symbols-outlined text-sm text-primary">arrow_back</span> Back to Roster
+            <span class="material-symbols-outlined text-sm text-primary">arrow_back</span> Back to Staff List
         </a>
     </header>
 

@@ -31,7 +31,7 @@ try {
 }
 
 $active_page = 'staff';
-$active_tab = $_GET['tab'] ?? 'roster';
+$active_tab = $_GET['tab'] ?? 'team';
 
 // --- AJAX APPLICATION DETAILS ---
 if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
@@ -91,7 +91,7 @@ if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
                         </p>
                     </div>
                     <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
-                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Contact Vector</p>
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Contact Number</p>
                         <p class="text-sm font-bold text-white tracking-tight italic">
                             <?= htmlspecialchars($app['contact_number'] ?: '---') ?></p>
                     </div>
@@ -101,7 +101,7 @@ if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
                             <?= $app['birth_date'] ? date('M d, Y', strtotime($app['birth_date'])) : '---' ?></p>
                     </div>
                     <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
-                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Identity Sex</p>
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Gender</p>
                         <p class="text-sm font-bold text-white tracking-tight italic uppercase">
                             <?= htmlspecialchars($app['sex'] ?: '---') ?></p>
                     </div>
@@ -111,7 +111,7 @@ if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
                     <h4
                         class="text-[10px] font-black uppercase text-primary tracking-[0.2em] mb-4 flex items-center gap-2 italic">
                         <span class="material-symbols-outlined text-sm">verified_user</span>
-                        License Registry
+                        License Details
                     </h4>
                     <div class="flex items-center justify-between">
                         <div>
@@ -128,10 +128,10 @@ if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
                 </div>
 
                 <div class="bg-white/[0.01] p-6 rounded-[24px] border border-white/5 border-dashed">
-                    <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-2 italic">Reviewer Remarks
+                    <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-2 italic">Reviewer Notes
                     </p>
                     <p class="text-xs text-gray-400 italic leading-relaxed">
-                        <?= !empty($app['remarks']) ? nl2br(htmlspecialchars($app['remarks'])) : "No archival remarks provided for this recruitment cycle." ?>
+                        <?= !empty($app['remarks']) ? nl2br(htmlspecialchars($app['remarks'])) : "No notes provided for this hiring period." ?>
                     </p>
                 </div>
             </div>
@@ -139,7 +139,7 @@ if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
             <!-- Document Viewer -->
             <div class="space-y-4">
                 <div class="flex items-center justify-between px-2">
-                    <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] italic">Credential Vault</h4>
+                    <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] italic">Skills & Files</h4>
                     <a href="<?= $app['certification_file'] ?>" target="_blank"
                         class="text-[9px] font-black uppercase tracking-widest text-primary flex items-center gap-1.5 hover:underline">
                         <span class="material-symbols-outlined text-xs">open_in_new</span> Full Resolution
@@ -165,7 +165,7 @@ if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
                     </div>
                 </div>
                 <p class="text-[8px] font-extrabold text-gray-600 uppercase tracking-[0.3em] text-center italic">Verified
-                    Professional Certification Document</p>
+                    Document</p>
             </div>
         </div>
 
@@ -335,7 +335,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     exit;
                 }
                 if ($age < 18) {
-                    echo json_encode(['success' => false, 'message' => "Personnel Restriction: Minimum age for registration is 18 years."]);
+                    echo json_encode(['success' => false, 'message' => "Error: Staff must be at least 18 years old."]);
                     exit;
                 }
             }
@@ -345,7 +345,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $password = bin2hex(random_bytes(4));
 
             if (empty($fname) || empty($lname) || empty($email) || empty($role)) {
-                echo json_encode(['success' => false, 'message' => "Critical Exception: Missing required registration identity vectors."]);
+                echo json_encode(['success' => false, 'message' => "Error: Missing required information."]);
                 exit;
             } else {
                 // Global Email Uniqueness Check
@@ -618,6 +618,9 @@ $pending_apps_count = count($pending_apps);
             --background:
                 <?= $bg_color ?>
             ;
+            --background-rgb:
+                <?= hexToRgb($bg_color) ?>
+            ;
             --card-bg:
                 <?= $card_bg_css ?>
             ;
@@ -753,7 +756,7 @@ $pending_apps_count = count($pending_apps);
         .label-muted {
             color: var(--text-main);
             opacity: 0.6;
-            font-size: 10px;
+            font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.15em;
@@ -779,15 +782,16 @@ $pending_apps_count = count($pending_apps);
         }
 
         .modal-overlay {
-            background: rgba(0, 0, 0, 0.82);
-            backdrop-filter: blur(12px);
+            background: rgba(var(--background-rgb), 0.4);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
             display: none !important;
             position: fixed;
             top: 0;
             right: 0;
             bottom: 0;
             left: 110px;
-            z-index: 100;
+            z-index: 1000;
             align-items: center;
             justify-content: center;
             padding: 24px;
@@ -822,9 +826,9 @@ $pending_apps_count = count($pending_apps);
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 14px;
-            padding: 12px 18px;
+            padding: 14px 22px;
             color: var(--text-main);
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 700;
             outline: none;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -857,9 +861,9 @@ $pending_apps_count = count($pending_apps);
             font-size: 10px;
             font-weight: 900;
             text-transform: uppercase;
-            letter-spacing: 0.3em;
+            letter-spacing: 0.25em;
             color: var(--text-main);
-            opacity: 0.35;
+            opacity: 0.5;
         }
 
         .blur-overlay {
@@ -878,13 +882,14 @@ $pending_apps_count = count($pending_apps);
             right: 0;
             bottom: 0;
             left: 110px;
-            z-index: 200;
+            z-index: 2000;
             display: none !important;
             align-items: center;
             justify-content: center;
             padding: 24px;
-            background: rgba(0, 0, 0, 0.82);
-            backdrop-filter: blur(12px);
+            background: rgba(var(--background-rgb), 0.4);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
@@ -1009,9 +1014,9 @@ $pending_apps_count = count($pending_apps);
             <header class="mb-10 flex flex-row justify-between items-end gap-6">
                 <div>
                     <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none"
-                        style="color:var(--text-main)">Staff <span class="text-primary">Management</span></h2>
+                        style="color:var(--text-main)">Our <span class="text-primary">Team</span></h2>
                     <p class="text-[--text-main] opacity-40 text-xs font-bold uppercase tracking-widest mt-2">
-                        <?= htmlspecialchars($gym['gym_name'] ?? 'Horizon Gym') ?> Personnel Management</p>
+                        <?= htmlspecialchars($gym['gym_name'] ?? 'Horizon Gym') ?> Staff List</p>
                 </div>
                 <div class="text-right shrink-0">
                     <p id="topClock"
@@ -1026,7 +1031,7 @@ $pending_apps_count = count($pending_apps);
                 <div
                     class="mb-8 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 animate-pulse">
                     <span class="material-symbols-outlined text-emerald-500">check_circle</span>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-emerald-400 italic">Personnel registered
+                    <p class="text-[10px] font-black uppercase tracking-widest text-emerald-400 italic">Staff added
                         successfully!</p>
                 </div>
             <?php endif; ?>
@@ -1049,8 +1054,8 @@ $pending_apps_count = count($pending_apps);
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total
                         Staff</p>
                     <h3 class="text-2xl font-black italic uppercase" style="color:var(--text-main)">
-                        <?= number_format($total_staff) ?> <span class="text-xs opacity-40">Staff Personnel</span></h3>
-                    <p class="text-primary text-[10px] font-black uppercase mt-2 italic shadow-sm">Verified Team Size
+                        <?= number_format($total_staff) ?> <span class="text-xs opacity-40">Staff Members</span></h3>
+                    <p class="text-primary text-[10px] font-black uppercase mt-2 italic shadow-sm">Total Team Size
                     </p>
                 </div>
 
@@ -1061,7 +1066,7 @@ $pending_apps_count = count($pending_apps);
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">
                         Active Staff</p>
                     <h3 class="text-2xl font-black italic uppercase text-emerald-400">
-                        <?= number_format($active_personnel) ?> <span class="text-xs opacity-40">Active</span></h3>
+                        <?= number_format($active_personnel) ?> <span class="text-xs opacity-40">Active Staff</span></h3>
                     <p class="text-emerald-500/60 text-[10px] font-black uppercase mt-2 italic flex items-center gap-2">
                         <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                         Currently Active
@@ -1077,127 +1082,113 @@ $pending_apps_count = count($pending_apps);
                         Roles</p>
                     <h3 class="text-2xl font-black italic uppercase" style="color:var(--text-main)"><?= count($roles) ?>
                         <span class="text-xs opacity-40">Active Roles</span></h3>
-                    <p class="text-[10px] font-black uppercase mt-2 italic" style="color:var(--primary)">Roles Breakdown
-                    </p>
+                    <p class="text-[10px] font-black uppercase mt-2 italic" style="color:var(--primary)">Roles Breakdown</p>
                 </div>
             </div>
 
-            <div class="glass-card p-8 mb-10 border border-white/5 bg-white/[0.01]">
-                <form method="GET" class="flex flex-wrap items-end gap-8">
-                    <div class="flex-1 min-w-[200px] flex flex-col gap-2.5">
-                        <label class="label-muted ml-1">Staff Search</label>
-                        <div class="relative group">
-                            <span
-                                class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm transition-transform group-hover:scale-110"
-                                style="color:var(--primary)">search</span>
-                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                                placeholder="Name or Role..." class="filter-input w-full pl-12">
-                        </div>
-                    </div>
-
-                    <div class="w-48 flex flex-col gap-2.5">
-                        <label class="label-muted ml-1">Department/Role</label>
-                        <select name="f_role" class="filter-input w-full">
-                            <option value="">All Roles</option>
-                            <?php foreach ($roles as $r): ?>
-                                <option value="<?= htmlspecialchars($r) ?>" <?= $f_role === $r ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($r) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div class="w-36 flex flex-col gap-2.5">
-                        <label class="label-muted ml-1">Staff Status</label>
-                        <select name="f_status" class="filter-input w-full">
-                            <option value="">All Status</option>
-                            <option value="Active" <?= $f_status === 'Active' ? 'selected' : '' ?>>Active</option>
-                            <option value="Inactive" <?= $f_status === 'Inactive' ? 'selected' : '' ?>>Inactive</option>
-                        </select>
-                    </div>
-
-                    <div class="flex gap-2.5">
-                        <button type="submit"
-                            class="h-12 flex items-center justify-center gap-3 px-8 rounded-2xl text-white text-[10px] font-black uppercase italic tracking-widest transition-all hover:scale-[1.03] active:scale-95 shadow-xl group"
-                            style="background:var(--primary); shadow-color:rgba(var(--primary-rgb),0.2)">
-                            <span
-                                class="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">filter_list</span>
-                            Sync Filter
-                        </button>
-                        <a href="staff.php"
-                            class="h-12 w-12 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-gray-500 hover:text-white hover:bg-white/10 transition-all shadow-lg"
-                            title="Clear All">
-                            <span class="material-symbols-outlined text-xl">restart_alt</span>
-                        </a>
-                        <button type="button" onclick="<?= $is_sub_active ? 'toggleAddModal()' : 'showSubWarning()' ?>"
-                            class="h-12 flex items-center justify-center gap-3 px-8 rounded-2xl border border-white/10 text-white text-[10px] font-black uppercase italic tracking-widest transition-all hover:border-primary/50 hover:bg-white/5 active:scale-95 shadow-lg group <?= !$is_sub_active ? 'opacity-50 cursor-not-allowed' : '' ?>">
-                            <span
-                                class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform"><?= $is_sub_active ? 'person_add' : 'lock' ?></span>
-                            <?= $is_sub_active ? 'Add Staff' : 'Access Locked' ?>
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Segmented Tab Control -->
-            <div class="flex items-center justify-center mb-10">
-                <div
-                    class="inline-flex p-1.5 rounded-[24px] bg-white/[0.03] border border-white/5 shadow-inner relative group">
-                    <a href="?tab=roster"
-                        class="px-10 py-3.5 rounded-[20px] font-black italic uppercase tracking-widest text-[10px] transition-all flex items-center gap-3 relative z-10 <?= $active_tab === 'roster' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-gray-500 hover:text-white' ?>">
-                        <span class="material-symbols-outlined text-lg">groups</span>
+            <!-- Superadmin Style Underline Tabs -->
+            <div class="flex items-center gap-12 mb-10 border-b border-white/5 px-2">
+                <a href="?tab=team"
+                    class="pb-5 relative transition-all duration-300 group">
+                    <span class="text-[10px] font-black uppercase tracking-[0.3em] <?= $active_tab === 'team' ? 'text-primary' : 'text-white/30 group-hover:text-white/50' ?>">
                         Staff List
-                    </a>
-                    <a href="?tab=recruitment"
-                        class="relative px-10 py-3.5 rounded-[20px] font-black italic uppercase tracking-widest text-[10px] transition-all flex items-center gap-3 z-10 <?= $active_tab === 'recruitment' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-gray-500 hover:text-white' ?>">
-                        <span class="material-symbols-outlined text-lg">person_search</span>
-                        Recruitment
-                        <?php if ($pending_apps_count > 0): ?>
-                            <span
-                                class="absolute -top-1 -right-1 size-5 rounded-full bg-amber-500 text-white text-[9px] font-black flex items-center justify-center shadow-lg border-2 border-background-dark animate-pulse">
-                                <?= $pending_apps_count ?>
-                            </span>
-                        <?php endif; ?>
-                    </a>
-                </div>
+                    </span>
+                    <?php if ($active_tab === 'team'): ?>
+                        <div class="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]"></div>
+                    <?php endif; ?>
+                </a>
+                <a href="?tab=requests"
+                    class="pb-5 relative transition-all duration-300 group">
+                    <span class="text-[10px] font-black uppercase tracking-[0.3em] <?= $active_tab === 'requests' ? 'text-primary' : 'text-white/30 group-hover:text-white/50' ?>">
+                        Join Requests
+                    </span>
+                    <?php if ($pending_apps_count > 0): ?>
+                        <span class="absolute top-[-2px] right-[-12px] flex h-1.5 w-1.5">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                        </span>
+                    <?php endif; ?>
+                    <?php if ($active_tab === 'requests'): ?>
+                        <div class="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]"></div>
+                    <?php endif; ?>
+                </a>
             </div>
 
-            <div class="glass-card overflow-hidden shadow-2xl">
-                <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                    <h4 class="font-black italic uppercase text-xs tracking-widest flex items-center gap-2"
-                        style="color:var(--text-main)">
-                        <span class="material-symbols-outlined"
-                            style="color:var(--primary)"><?= $active_tab === 'recruitment' ? 'person_search' : 'groups' ?></span>
-                        <?= $active_tab === 'recruitment' ? 'Pending Applications' : 'Full Team Roster' ?>
-                    </h4>
-                    <div class="label-muted italic">
-                        <?= $active_tab === 'recruitment' ? "Awaiting Review: $pending_apps_count" : "Active Personnel: " . count($staff_list) ?>
-                    </div>
+            <div class="glass-card overflow-hidden shadow-2xl border border-white/5">
+                <!-- Elite Filter Bar -->
+                <div class="p-8 border-b border-white/5 bg-white/[0.01]">
+                    <form method="GET" class="flex flex-wrap items-center gap-4">
+                        <input type="hidden" name="tab" value="<?= $active_tab ?>">
+
+                        <!-- Search -->
+                        <div class="flex-1 min-w-[280px] relative group">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-base transition-transform group-focus-within:scale-110">search</span>
+                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" 
+                                   placeholder="Search by name, role or email..." 
+                                   class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[11px] font-bold uppercase tracking-wider text-white outline-none focus:border-primary/50 transition-all">
+                        </div>
+
+                        <!-- Role Filter -->
+                        <div class="w-56 shrink-0 relative">
+                            <select name="f_role" onchange="this.form.submit()"
+                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white/60 outline-none hover:border-white/20 transition-all appearance-none">
+                                <option value="">All Roles</option>
+                                <?php foreach ($roles as $r): ?>
+                                    <option value="<?= htmlspecialchars($r) ?>" <?= $f_role === $r ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($r) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none">expand_more</span>
+                        </div>
+
+                        <!-- Status Filter -->
+                        <div class="w-44 shrink-0 relative">
+                            <select name="f_status" onchange="this.form.submit()"
+                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white/60 outline-none hover:border-white/20 transition-all appearance-none">
+                                <option value="">All Status</option>
+                                <option value="Active" <?= $f_status === 'Active' ? 'selected' : '' ?>>Active Members</option>
+                                <option value="Inactive" <?= $f_status === 'Inactive' ? 'selected' : '' ?>>Inactive Members</option>
+                            </select>
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none">expand_more</span>
+                        </div>
+
+                        <!-- Clear & Add -->
+                        <div class="flex items-center gap-3">
+                            <a href="staff.php?tab=<?= $active_tab ?>" 
+                               class="h-[52px] w-[52px] flex items-center justify-center rounded-2xl bg-white/[0.03] border border-white/10 text-white/40 hover:text-white transition-all active:scale-95" title="Clear Filters">
+                                <span class="material-symbols-outlined text-xl">restart_alt</span>
+                            </a>
+                            <button type="button" onclick="<?= $is_sub_active ? 'toggleAddModal()' : 'showSubWarning()' ?>"
+                                    class="h-[52px] px-8 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-2xl shadow-primary/20 flex items-center gap-3">
+                                <span class="material-symbols-outlined text-lg">person_add</span>
+                                Add Staff
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
-                        <thead>
-                            <?php if ($active_tab === 'recruitment'): ?>
-                                <tr class="border-b border-white/5 bg-white/[0.01]">
-                                    <th class="px-8 py-6 table-header-alt">Applicant Name</th>
-                                    <th class="px-8 py-6 table-header-alt">Coach Type</th>
-                                    <th class="px-8 py-6 table-header-alt">Credentials</th>
-                                    <th class="px-8 py-6 table-header-alt">Submitted At</th>
-                                    <th class="px-8 py-6 table-header-alt text-right">Action</th>
+                            <thead>
+                                <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                    <?php if ($active_tab === 'requests'): ?>
+                                        <th class="px-8 py-5 table-header-alt w-[40%]">Name & Email</th>
+                                        <th class="px-8 py-5 table-header-alt w-[15%]">Role</th>
+                                        <th class="px-8 py-5 table-header-alt text-center w-[15%]">Status</th>
+                                        <th class="px-8 py-5 table-header-alt text-center w-[20%]">Join Date</th>
+                                        <th class="px-8 py-5 table-header-alt text-center w-[10%]">Action</th>
+                                    <?php else: ?>
+                                        <th class="px-8 py-5 table-header-alt w-[40%]">Name & Email</th>
+                                        <th class="px-8 py-5 table-header-alt w-[15%]">Role</th>
+                                        <th class="px-8 py-5 table-header-alt text-center w-[15%]">Status</th>
+                                        <th class="px-8 py-5 table-header-alt text-center w-[20%]">Join Date</th>
+                                        <th class="px-8 py-5 table-header-alt text-center w-[10%]">Action</th>
+                                    <?php endif; ?>
                                 </tr>
-                            <?php else: ?>
-                                <tr class="border-b border-white/5 bg-white/[0.01]">
-                                    <th class="px-8 py-6 table-header-alt">Staff Profile</th>
-                                    <th class="px-8 py-6 table-header-alt">Role</th>
-                                    <th class="px-8 py-6 table-header-alt">Employment Status</th>
-                                    <th class="px-8 py-6 table-header-alt text-center">Status</th>
-                                    <th class="px-8 py-6 table-header-alt text-right">Action</th>
-                                </tr>
-                            <?php endif; ?>
-                        </thead>
+                            </thead>
                         <tbody class="divide-y divide-white/5">
-                            <?php if ($active_tab === 'recruitment'): ?>
+                            <?php if ($active_tab === 'requests'): ?>
                                 <?php if (empty($pending_apps)): ?>
                                     <tr>
                                         <td colspan="5"
@@ -1206,51 +1197,52 @@ $pending_apps_count = count($pending_apps);
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($pending_apps as $app): ?>
-                                        <tr class="hover:bg-white/[0.04] transition-all group">
-                                            <td class="px-8 py-6">
+                                        <tr class="hover:bg-white/5 transition-all text-[--text-main]">
+                                            <td class="px-8 py-5">
                                                 <div class="flex items-center gap-4">
-                                                    <div
-                                                        class="size-14 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center font-black italic text-primary opacity-40">
+                                                    <div class="size-11 rounded-full border border-white/10 flex items-center justify-center font-black italic text-primary text-[11px] shrink-0 overflow-hidden shadow-inner relative"
+                                                         style="background:rgba(var(--primary-rgb), 0.1)">
                                                         <?= strtoupper(substr($app['first_name'], 0, 1) . substr($app['last_name'], 0, 1)) ?>
                                                     </div>
                                                     <div>
-                                                        <p
-                                                            class="font-black italic uppercase tracking-tighter text-[13.5px] text-white">
+                                                        <p class="text-[13px] font-bold tracking-wider text-white">
                                                             <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?>
                                                         </p>
-                                                        <p
-                                                            class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mt-1">
-                                                            <?= htmlspecialchars($app['email']) ?></p>
+                                                        <p class="text-[12px] font-medium opacity-60 tracking-wide text-white">
+                                                            <?= htmlspecialchars($app['email']) ?>
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-6">
-                                                <span
-                                                    class="px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary text-[9px] font-black uppercase tracking-widest italic"><?= htmlspecialchars($app['coach_type']) ?></span>
+                                            <td class="px-8 py-5">
+                                                <p class="text-[13px] font-bold tracking-wider text-primary">
+                                                    <?= htmlspecialchars($app['coach_type']) ?>
+                                                </p>
+                                                <p class="text-[11px] font-medium opacity-40 tracking-wide mt-1">
+                                                    <?= $app['license_number'] ?: 'No License' ?>
+                                                </p>
                                             </td>
-                                            <td class="px-8 py-6">
-                                                <div class="flex flex-col gap-1.5">
-                                                    <p class="text-[11px] font-black uppercase text-white tracking-tighter italic">
-                                                        <?= $app['license_number'] ?: 'No License ID' ?></p>
-                                                    <div class="flex items-center gap-2">
-                                                        <span class="size-1 rounded-full bg-primary animate-pulse"></span>
-                                                        <span
-                                                            class="text-[9px] font-black uppercase tracking-widest text-gray-500 italic">Certified
-                                                            credentials</span>
-                                                    </div>
-                                                </div>
+                                            <td class="px-8 py-5 text-center">
+                                                <span class="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-500 font-black uppercase tracking-wider italic">
+                                                    Pending
+                                                </span>
                                             </td>
-                                            <td class="px-8 py-6 text-[10px] font-bold text-white/40 uppercase italic">
-                                                <?= date('M d, Y', strtotime($app['submitted_at'])) ?>
+                                            <td class="px-8 py-5 text-center">
+                                                <p class="text-[12px] font-bold tracking-wider text-white">
+                                                    <?= date('M d, Y', strtotime($app['submitted_at'])) ?>
+                                                </p>
+                                                <p class="text-[10px] font-medium opacity-40 tracking-wide mt-0.5">
+                                                    <?= date('h:i A', strtotime($app['submitted_at'])) ?>
+                                                </p>
                                             </td>
-                                            <td class="px-8 py-6 text-right">
-                                                <div class="flex justify-end gap-2 outline-none">
+                                            <td class="px-8 py-5 text-center">
+                                                <div class="flex justify-center gap-2">
                                                     <button onclick="openAppDetails(<?= $app['coach_application_id'] ?>)"
-                                                        class="h-10 px-6 rounded-xl bg-white/5 border border-white/10 text-white text-[10px] font-black uppercase italic tracking-widest hover:bg-primary hover:text-white hover:border-primary transition-all active:scale-95 group/btn flex items-center gap-2 shadow-lg">
-                                                        View Details
+                                                            class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-primary transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="Review Application">
+                                                        <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
                                                     </button>
                                                     <button onclick="rejectApplication(<?= $app['coach_application_id'] ?>)"
-                                                        class="size-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-95 flex items-center justify-center">
+                                                            class="size-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center">
                                                         <span class="material-symbols-outlined text-sm">close</span>
                                                     </button>
                                                 </div>
@@ -1259,78 +1251,66 @@ $pending_apps_count = count($pending_apps);
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             <?php else: ?>
-                                <!-- Existing Roster Logic -->
+                                <!-- Staff List Logic -->
                                 <?php if (empty($staff_list)): ?>
                                     <tr>
                                         <td colspan="5"
                                             class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
-                                            No personnel records detected.</td>
+                                            No staff found.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($staff_list as $s): ?>
-                                        <tr class="hover:bg-white/[0.04] transition-all group">
-                                            <td class="px-8 py-6">
+                                        <tr class="hover:bg-white/5 transition-all text-[--text-main]">
+                                            <td class="px-8 py-5">
                                                 <div class="flex items-center gap-4">
                                                     <?php $initials = strtoupper(substr($s['first_name'] ?? '', 0, 1) . substr($s['last_name'] ?? '', 0, 1)); ?>
-                                                    <div
-                                                        class="size-14 rounded-2xl bg-white/5 border border-white/5 overflow-hidden flex items-center justify-center relative group-hover:border-primary/20 transition-colors">
+                                                    <div class="size-11 rounded-full border border-white/10 flex items-center justify-center font-black italic text-primary text-[11px] shrink-0 overflow-hidden shadow-inner relative"
+                                                         style="background:rgba(var(--primary-rgb), 0.1)">
                                                         <?php if (!empty($s['profile_picture'])): ?>
                                                             <img src="<?= htmlspecialchars('../' . $s['profile_picture']) ?>"
                                                                 class="size-full object-cover"
-                                                                onerror="this.outerHTML='<span class=\'text-[--text-main] opacity-40 font-black italic text-sm tracking-tighter\'><?= $initials ?></span>'">
+                                                                onerror="this.outerHTML='<span class=\'text-primary font-black italic text-[11px]\'><?= $initials ?></span>'">
                                                         <?php else: ?>
-                                                            <span
-                                                                class="text-[--text-main] opacity-40 font-black italic text-sm tracking-tighter"><?= $initials ?></span>
+                                                            <span class="text-primary font-black italic text-[11px]"><?= $initials ?></span>
                                                         <?php endif; ?>
-                                                        <div
-                                                            class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        </div>
                                                     </div>
                                                     <div>
-                                                        <p
-                                                            class="font-black italic uppercase tracking-tighter text-[13.5px] text-white">
-                                                            <?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?></p>
-                                                        <p
-                                                            class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-40 mt-1">
-                                                            <?= htmlspecialchars($s['email']) ?></p>
+                                                        <p class="text-[13px] font-bold tracking-wider text-white">
+                                                            <?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?>
+                                                        </p>
+                                                        <p class="text-[12px] font-medium opacity-60 tracking-wide text-white">
+                                                            <?= htmlspecialchars($s['email']) ?>
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-6">
-                                                <span
-                                                    class="px-3 py-1.5 rounded-xl bg-primary/5 border border-primary/10 text-primary text-[9px] font-black uppercase tracking-widest italic"><?= htmlspecialchars($s['staff_role']) ?></span>
+                                            <td class="px-8 py-5">
+                                                <p class="text-[13px] font-bold tracking-wider text-primary">
+                                                    <?= htmlspecialchars($s['staff_role']) ?>
+                                                </p>
+                                                <p class="text-[11px] font-medium opacity-40 tracking-wide mt-1">
+                                                    <?= $s['employment_type'] ?>
+                                                </p>
                                             </td>
-                                            <td class="px-8 py-6">
-                                                <p class="text-[11px] font-black uppercase text-white tracking-tighter italic">
-                                                    <?= $s['employment_type'] ?></p>
-                                                <div class="flex flex-col gap-0.5 mt-1.5">
-                                                    <?php if (strpos(strtolower($s['staff_role']), 'coach') !== false || strpos(strtolower($s['staff_role']), 'trainer') !== false): ?>
-                                                        <p class="text-[10px] font-black uppercase tracking-widest text-primary italic">
-                                                            ₱<?= number_format($s['session_rate'], 2) ?> Per Session</p>
-                                                    <?php endif; ?>
-                                                </div>
+                                            <td class="px-8 py-5 text-center">
+                                                <?php 
+                                                $sc = $s['status'] === 'Active' ? 'emerald-500' : 'rose-500';
+                                                ?>
+                                                <span class="px-2.5 py-1 rounded-lg bg-<?= $sc ?>/10 border border-<?= $sc ?>/20 text-[9px] text-<?= $sc ?> font-black uppercase tracking-wider italic">
+                                                    <?= $s['status'] ?>
+                                                </span>
                                             </td>
-                                            <td class="px-8 py-6 text-center">
-                                                <?php if ($s['status'] === 'Active'): ?>
-                                                    <span
-                                                        class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-[0.1em] italic flex items-center gap-2 justify-center mx-auto w-fit shadow-lg shadow-emerald-500/5">
-                                                        <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                        Operational
-                                                    </span>
-                                                <?php else: ?>
-                                                    <span
-                                                        class="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[9px] font-black uppercase tracking-widest italic inline-flex items-center gap-2 justify-center w-fit">
-                                                        Inactive
-                                                    </span>
-                                                <?php endif; ?>
+                                            <td class="px-8 py-5 text-center">
+                                                <p class="text-[12px] font-bold tracking-wider text-white">
+                                                    <?= date('M d, Y', strtotime($s['created_at'] ?? 'now')) ?>
+                                                </p>
                                             </td>
-                                            <td class="px-8 py-6 text-right">
-                                                <div class="flex justify-end gap-2 outline-none">
-                                                    <button
-                                                        data-staff='<?= htmlspecialchars(json_encode($s), ENT_QUOTES, 'UTF-8') ?>'
-                                                        onclick="openViewModal(this)"
-                                                        class="h-10 px-6 rounded-xl bg-white/5 border border-white/10 text-white text-[10px] font-black uppercase italic tracking-widest hover:bg-primary hover:text-white hover:border-primary transition-all active:scale-95 group/btn flex items-center gap-2 shadow-lg">
-                                                        View Details
+                                            <td class="px-8 py-5 text-center">
+                                                <div class="flex justify-center">
+                                                    <button data-staff='<?= htmlspecialchars(json_encode($s), ENT_QUOTES, 'UTF-8') ?>'
+                                                            onclick="openViewModal(this)"
+                                                            class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-primary transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="View Details">
+                                                        <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
                                                     </button>
                                                 </div>
                                             </td>
@@ -1347,126 +1327,125 @@ $pending_apps_count = count($pending_apps);
 
     <!-- View Staff Modal -->
     <div id="viewStaffModal" class="modal-overlay">
-        <div class="modal-content overflow-hidden max-w-[480px]">
-            <div class="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                <h4 class="font-black italic uppercase text-sm tracking-widest flex items-center gap-3"
-                    style="color:var(--text-main)">
-                    <span class="material-symbols-outlined" style="color:var(--primary)">person</span> Personnel Details
-                </h4>
-                <button onclick="hideViewModal()"
-                    class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center">
+        <div class="modal-content overflow-hidden max-w-[600px]">
+            <div class="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <div class="flex items-center gap-5">
+                    <div id="view_avatar" class="size-20 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shadow-lg relative">
+                        <!-- Profile/Initials injected here -->
+                    </div>
+                    <div>
+                        <h4 id="view_full_name" class="text-xl font-black uppercase tracking-tight text-white leading-tight">Staff Member</h4>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="view_status_badge" class="px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.2em] italic border">ACTIVE</span>
+                            <span id="view_role_badge" class="text-[9px] font-bold uppercase tracking-widest text-primary opacity-80">COACH</span>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="hideViewModal()" class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center border border-white/5">
                     <span class="material-symbols-outlined text-xl">close</span>
                 </button>
             </div>
-            <div class="p-8 space-y-8 text-left">
-                <div class="flex items-center gap-6 group">
-                    <div id="view_avatar"
-                        class="size-24 rounded-3xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shadow-2xl relative transition-transform duration-500 group-hover:scale-105">
-                        <div
-                            class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity">
+
+            <div class="p-8 space-y-6 text-left max-h-[70vh] overflow-y-auto no-scrollbar">
+                <!-- Section 1: Job Details -->
+                <section class="grid grid-cols-2 gap-6 bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                    <div class="space-y-1">
+                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Position / Role</p>
+                        <p id="view_detailed_role" class="text-sm font-bold text-white uppercase italic tracking-wider">Department Lead</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Employment Type</p>
+                        <p id="view_employment" class="text-sm font-bold text-white uppercase italic tracking-wider">Full-Time</p>
+                    </div>
+                </section>
+
+                <!-- Section 2: Contact Info -->
+                <section class="grid grid-cols-1 gap-6 bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="space-y-1">
+                            <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Email Address</p>
+                            <p id="view_email" class="text-sm font-medium text-white truncate">staff@horizon.com</p>
+                        </div>
+                        <div class="space-y-1">
+                            <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Contact Number</p>
+                            <p id="view_contact" class="text-sm font-medium text-white">09XX-XXX-XXXX</p>
                         </div>
                     </div>
-                    <div>
-                        <h5 id="view_full_name"
-                            class="text-2xl font-black italic uppercase tracking-tighter text-white leading-none mb-2">
-                            Personnel Name</h5>
-                        <div id="view_status_badge"
-                            class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest italic w-fit">
-                            ACTIVE</div>
-                    </div>
-                </div>
+                </section>
 
-                <div class="grid grid-cols-2 gap-6 pb-2">
-                    <div class="space-y-1.5">
-                        <label class="label-muted">Staff Role</label>
-                        <p id="view_role_badge"
-                            class="text-xs font-black italic uppercase text-primary tracking-widest leading-none mt-2">
-                            Team Lead</p>
+                <!-- Section 3: Personal & Bio -->
+                <section class="grid grid-cols-3 gap-6">
+                    <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                        <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Gender</p>
+                        <p id="view_sex" class="text-xs font-bold text-white">N/A</p>
                     </div>
-                    <div class="space-y-1.5 text-right">
-                        <label class="label-muted">Employment</label>
-                        <p id="view_employment"
-                            class="text-xs font-black italic uppercase text-white tracking-widest leading-none mt-2">
-                            FULL-TIME</p>
+                    <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                        <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Birthdate</p>
+                        <p id="view_birthdate" class="text-xs font-bold text-white">N/A</p>
                     </div>
-                </div>
+                    <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                        <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Joined On</p>
+                        <p id="view_hire_date" class="text-xs font-bold text-white">N/A</p>
+                    </div>
+                </section>
 
-                <div class="space-y-6 pt-4 border-t border-white/5">
-                    <div class="flex items-center justify-between">
-                        <label class="label-muted">Email Address</label>
-                        <p id="view_email" class="text-xs font-bold text-[--text-main]">staff@example.com</p>
+                <!-- Special: Rate (Conditional) -->
+                <section id="view_session_rate_container" class="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <span class="material-symbols-outlined text-primary text-2xl">payments</span>
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-primary/60">Session Yield</p>
+                            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Coach Compensation Rate</p>
+                        </div>
                     </div>
-                    <div class="flex items-center justify-between">
-                        <label class="label-muted">Contact Handle</label>
-                        <p id="view_contact" class="text-xs font-bold text-[--text-main]">0917 XXX XXXX</p>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <label class="label-muted">Biological Sex</label>
-                        <p id="view_sex" class="text-xs font-bold text-[--text-main]">Male</p>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <label class="label-muted">Birthdate</label>
-                        <p id="view_birthdate" class="text-xs font-bold text-[--text-main]">Jan 01, 1990</p>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <label class="label-muted">Hire Date</label>
-                        <p id="view_hire_date" class="text-xs font-bold text-[--text-main]">Jan 01, 2024</p>
-                    </div>
-                    <div id="view_session_rate_container" class="flex items-center justify-between">
-                        <label class="label-muted">Session Rate</label>
-                        <p id="view_session_rate" class="text-xs font-bold text-primary tracking-widest italic">₱0.00
-                        </p>
-                    </div>
-                </div>
+                    <p id="view_session_rate" class="text-2xl font-black italic text-primary tracking-tighter">₱0.00</p>
+                </section>
             </div>
-            <div class="p-8 pt-0">
-                <button onclick="hideViewModal()"
-                    class="w-full h-14 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase italic tracking-[0.2em] text-gray-400 hover:text-white hover:bg-white/10 transition-all shadow-lg active:scale-95">
-                    Close Manifest
-                </button>
-            </div>
+
+
         </div>
     </div>
 
     <!-- Add Staff Modal -->
     <div id="addStaffModal" class="modal-overlay">
-        <div class="modal-content overflow-hidden max-w-[550px] max-h-[90vh] flex flex-col">
+        <div class="modal-content overflow-hidden max-w-[550px] max-h-[90vh] flex flex-col shadow-2xl border-white/10">
             <div class="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                <h4 class="font-black italic uppercase text-sm tracking-[0.2em] flex items-center gap-3"
-                    style="color:var(--text-main)">
-                    <span class="material-symbols-outlined" style="color:var(--primary)">person_add</span> Register
-                    Personnel
-                </h4>
+                <div>
+                    <h4 class="font-black italic uppercase text-base tracking-[0.2em] flex items-center gap-3"
+                        style="color:var(--text-main)">
+                        <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1">person_add</span>
+                        New Staff Identity
+                    </h4>
+                    <p class="text-[9px] font-bold uppercase tracking-widest text-white/30 mt-1 italic ml-8">Onboarding Professional Personnel</p>
+                </div>
                 <button onclick="toggleAddModal()"
-                    class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center">
+                    class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center border border-white/5">
                     <span class="material-symbols-outlined text-xl">close</span>
                 </button>
             </div>
 
-            <form method="POST" class="overflow-y-auto no-scrollbar flex-1 text-left" autocomplete="off"
-                enctype="multipart/form-data">
+            <form method="POST" class="overflow-y-auto no-scrollbar flex-1 text-left" autocomplete="off" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="add_staff">
-                <div class="p-10 space-y-8">
-                    <div class="space-y-6">
-                        <div class="flex items-center gap-3 mb-2 opacity-40">
-                            <span class="material-symbols-outlined text-sm">badge</span>
-                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Identity Details</span>
+                <div class="p-10 space-y-10">
+                    <!-- Identity Group -->
+                    <section class="space-y-6">
+                        <div class="flex items-center gap-4 opacity-40">
+                            <div class="h-px flex-1 bg-white/5"></div>
+                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Personal Identity</span>
+                            <div class="h-px flex-1 bg-white/5"></div>
                         </div>
                         <div class="grid grid-cols-2 gap-x-8 gap-y-6">
                             <div class="space-y-2.5">
                                 <label class="label-muted ml-1">First Name</label>
-                                <input type="text" name="first_name" required placeholder="Ex. John"
-                                    class="filter-input w-full" autocomplete="off">
+                                <input type="text" name="first_name" required placeholder="Ex. John" class="filter-input w-full" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
                                 <label class="label-muted ml-1">Middle Name</label>
-                                <input type="text" name="middle_name" placeholder="Ex. Quincey"
-                                    class="filter-input w-full" autocomplete="off">
+                                <input type="text" name="middle_name" placeholder="Ex. Quincey" class="filter-input w-full" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
                                 <label class="label-muted ml-1">Last Name</label>
-                                <input type="text" name="last_name" required placeholder="Ex. Doe"
-                                    class="filter-input w-full" autocomplete="off">
+                                <input type="text" name="last_name" required placeholder="Ex. Doe" class="filter-input w-full" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
                                 <label class="label-muted ml-1">Sex</label>
@@ -1478,108 +1457,95 @@ $pending_apps_count = count($pending_apps);
                             </div>
                             <div class="space-y-2.5">
                                 <label class="label-muted ml-1">Birthdate</label>
-                                <input type="date" name="birth_date" id="birth_date" required
-                                    max="<?= date('Y-m-d', strtotime('-18 years')) ?>"
-                                    class="filter-input w-full [color-scheme:dark]" autocomplete="off">
+                                <input type="date" name="birth_date" id="birth_date" required max="<?= date('Y-m-d', strtotime('-18 years')) ?>" class="filter-input w-full [color-scheme:dark]" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
                                 <label class="label-muted ml-1">Contact No.</label>
-                                <input type="text" name="contact_number" id="contact_number" required
-                                    placeholder="09XX-XXX-XXXX" class="filter-input w-full" autocomplete="off">
+                                <input type="text" name="contact_number" id="contact_number" required placeholder="09XX-XXX-XXXX" class="filter-input w-full" autocomplete="off">
                             </div>
                         </div>
-                    </div>
+                    </section>
 
-                    <div class="space-y-6 pt-4">
-                        <div class="flex items-center gap-3 mb-2 opacity-40">
-                            <span class="material-symbols-outlined text-sm">contact_mail</span>
-                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Account & Role</span>
+                    <!-- Professional Placement -->
+                    <section class="space-y-6">
+                        <div class="flex items-center gap-4 opacity-40">
+                            <div class="h-px flex-1 bg-white/5"></div>
+                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Job Placement</span>
+                            <div class="h-px flex-1 bg-white/5"></div>
                         </div>
-                        <div class="space-y-6">
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-6">
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Email Address (Gmail Only)</label>
-                                <input type="email" name="email" id="email" required placeholder="official@gmail.com"
-                                    class="filter-input w-full" autocomplete="off">
+                                <label class="label-muted ml-1">Staff Role</label>
+                                <select name="role" required class="filter-input w-full italic" onchange="handleRoleChange()">
+                                    <option value="">Choose Position...</option>
+                                    <option value="Team Lead">Team Lead</option>
+                                    <option value="Coach">Coach</option>
+                                    <option value="Personal Trainer">Personal Trainer</option>
+                                    <option value="Receptionist">Receptionist</option>
+                                    <option value="Support Staff">Support Staff</option>
+                                </select>
                             </div>
-
-                            <div class="grid grid-cols-2 gap-x-8 gap-y-6">
-                                <div class="space-y-2.5">
-                                    <label class="label-muted ml-1">Assigned Role</label>
-                                    <select name="role" class="filter-input w-full italic">
-                                        <option value="Coach">Coach / Trainer</option>
-                                        <option value="Staff">Operational Staff</option>
-                                    </select>
-                                </div>
-                                <div class="space-y-2.5">
-                                    <label class="label-muted ml-1">Employment Type</label>
-                                    <select name="employment" class="filter-input w-full italic">
-                                        <option value="FULL-TIME">Full-time</option>
-                                        <option value="PART-TIME">Part-time</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="pt-2">
-                                <div id="session_rate_field" class="space-y-4 transition-all duration-300">
-                                    <div class="space-y-2.5">
-                                        <label class="label-muted ml-1">Session Rate (₱)</label>
-                                        <input type="number" step="0.01" name="session_rate" placeholder="0.00"
-                                            class="filter-input w-full" autocomplete="off">
-                                    </div>
-
-                                    <!-- Professional Credentials (Optional) -->
-                                    <div id="coach_credentials" class="space-y-4 pt-4 border-t border-white/5">
-                                        <div class="flex items-center gap-3 opacity-40">
-                                            <span class="material-symbols-outlined text-sm">workspace_premium</span>
-                                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Professional
-                                                Credentials (Optional)</span>
-                                        </div>
-                                        <div class="space-y-2.5">
-                                            <label class="label-muted ml-1">License / Certification Number</label>
-                                            <input type="text" name="license_number" placeholder="Optional"
-                                                class="filter-input w-full" autocomplete="off">
-                                        </div>
-                                        <div class="space-y-2.5">
-                                            <label class="label-muted ml-1">Certification Document (PDF or
-                                                Image)</label>
-                                            <div class="relative group/file">
-                                                <input type="file" name="certification_file" accept=".pdf,image/*"
-                                                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                                                <div
-                                                    class="filter-input w-full flex items-center justify-between group-hover/file:border-primary/50 transition-all">
-                                                    <span
-                                                        class="text-[10px] text-white/40 font-bold uppercase tracking-widest file-name-label">Choose
-                                                        File...</span>
-                                                    <span
-                                                        class="material-symbols-outlined text-sm text-primary">upload_file</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Employment</label>
+                                <select name="employment_type" required class="filter-input w-full italic">
+                                    <option value="Full-Time">Full-Time</option>
+                                    <option value="Part-Time">Part-Time</option>
+                                    <option value="Contractor">Contractor</option>
+                                </select>
                             </div>
                         </div>
-                    </div>
+                    </section>
+
+                    <!-- Contact & Financials -->
+                    <section class="space-y-6">
+                        <div class="flex items-center gap-4 opacity-40">
+                            <div class="h-px flex-1 bg-white/5"></div>
+                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Communication & Rates</span>
+                            <div class="h-px flex-1 bg-white/5"></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-6">
+                            <div class="space-y-2.5">
+                                <label class="label-muted ml-1">Email Address</label>
+                                <input type="email" name="email" id="email" required placeholder="name@example.com" class="filter-input w-full" autocomplete="off">
+                            </div>
+                            <div class="space-y-2.5 col-span-2 hidden animate-in slide-in-from-top-2" id="session_rate_field">
+                                <label class="label-muted ml-1">Session Rate (₱)</label>
+                                <input type="number" step="0.01" name="session_rate" placeholder="0.00" class="filter-input w-full font-black text-primary">
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Profile Image -->
+                    <section class="space-y-6">
+                        <div class="flex items-center gap-4 opacity-40">
+                            <div class="h-px flex-1 bg-white/5"></div>
+                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Avatar Profile</span>
+                            <div class="h-px flex-1 bg-white/5"></div>
+                        </div>
+                        <div class="space-y-2.5">
+                            <label class="label-muted ml-1">Profile Image (Optional)</label>
+                            <label class="w-full h-16 border-2 border-dashed border-white/5 rounded-2xl flex items-center justify-center gap-3 cursor-pointer hover:border-primary/20 hover:bg-primary/5 transition-all group">
+                                <span class="material-symbols-outlined text-primary/40 group-hover:text-primary transition-colors">image</span>
+                                <span class="text-[10px] font-black uppercase tracking-widest text-white/30 file-name-label group-hover:text-white/60 transition-colors">Choose profile image...</span>
+                                <input type="file" name="certification_file" class="hidden" accept="image/*">
+                            </label>
+                        </div>
+                    </section>
 
                     <div class="p-6 rounded-2xl bg-white/[0.02] border-l-2 border-primary/50 flex flex-col gap-3">
                         <div class="flex items-center gap-3">
                             <span class="material-symbols-outlined text-primary text-xl opacity-80">verified_user</span>
-                            <p class="text-[10px] font-black text-white/90 uppercase tracking-widest">Credentials</p>
+                            <p class="text-[10px] font-black text-white/90 uppercase tracking-widest">Security</p>
                         </div>
-                        <p class="text-[9px] font-medium text-white/40 uppercase leading-relaxed italic">For security,
-                            the account username and password will be automatically generated and securely delivered to
-                            the recipient's email address upon confirmation.</p>
+                        <p class="text-[9px] font-medium text-white/40 uppercase leading-relaxed italic">For security, the account username and password will be automatically generated and securely delivered to the recipient's email address upon confirmation.</p>
                     </div>
                 </div>
 
                 <div class="p-10 pt-0 flex gap-4">
-                    <button type="submit"
-                        class="flex-1 h-14 rounded-2xl text-white text-[11px] font-black uppercase italic tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-primary/20 group"
-                        style="background:var(--primary)">
+                    <button type="submit" class="flex-1 h-14 rounded-2xl text-white text-[13px] font-black uppercase italic tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-primary/20 group" style="background:var(--primary)">
                         Create Account
                     </button>
-                    <button type="button" onclick="toggleAddModal()"
-                        class="flex-1 h-14 bg-white/5 border border-white/10 text-gray-400 rounded-2xl font-black italic uppercase tracking-widest text-[11px] hover:bg-white/10 transition-all active:scale-95">
+                    <button type="button" onclick="toggleAddModal()" class="flex-1 h-14 bg-white/5 border border-white/10 text-gray-400 rounded-2xl font-black italic uppercase tracking-widest text-[13px] hover:bg-white/10 transition-all active:scale-95">
                         Cancel
                     </button>
                 </div>
@@ -1588,6 +1554,7 @@ $pending_apps_count = count($pending_apps);
     </div>
 
     <script>
+
         function updateClock() {
             const now = new Date();
             const clock = document.getElementById('topClock');
@@ -1611,13 +1578,9 @@ $pending_apps_count = count($pending_apps);
 
             const isCoach = roleSelect.value.toLowerCase().includes('coach') || roleSelect.value.toLowerCase().includes('trainer');
             if (isCoach) {
-                rateField.style.opacity = '1';
-                rateField.style.pointerEvents = 'auto';
-                rateField.style.transform = 'translateY(0)';
+                rateField.style.display = 'block';
             } else {
-                rateField.style.opacity = '0.3';
-                rateField.style.pointerEvents = 'none';
-                rateField.style.transform = 'translateY(5px)';
+                rateField.style.display = 'none';
             }
         }
 
@@ -1646,7 +1609,7 @@ $pending_apps_count = count($pending_apps);
             const notify = document.createElement('div');
             notify.className = `elite-notify elite-notify-${type}`;
             const icon = type === 'success' ? 'check_circle' : 'error';
-            const title = type === 'success' ? 'Protocol Success' : 'Input Violation';
+            const title = type === 'success' ? 'Success' : 'Error';
 
             notify.innerHTML = `
                 <div class="elite-notify-icon">
@@ -1691,13 +1654,13 @@ $pending_apps_count = count($pending_apps);
                     return;
                 }
                 if (age < 18) {
-                    showNotification('Personnel Restriction: Staff must be at least 18 years old.', 'error');
+                    showNotification('Error: Staff must be at least 18 years old.', 'error');
                     return;
                 }
             }
 
             if (!email.endsWith('@gmail.com')) {
-                showNotification('Registration Restricted: Only official @gmail.com addresses are permitted.', 'error');
+                showNotification('Error: Only official @gmail.com addresses are allowed.', 'error');
                 return;
             }
 
@@ -1708,7 +1671,7 @@ $pending_apps_count = count($pending_apps);
 
             // Lock & Load
             btn.disabled = true;
-            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Deploying...`;
+            btn.innerHTML = `<span class="material-symbols-outlined animate-spin text-sm">sync</span> Adding...`;
 
             const formData = new FormData(this);
             fetch('staff.php', {
@@ -1727,7 +1690,7 @@ $pending_apps_count = count($pending_apps);
                     }
                 })
                 .catch(err => {
-                    showNotification('System Exception: Failed to transmit registration protocol.', 'error');
+                    showNotification('Error: Failed to send data.', 'error');
                     btn.disabled = false;
                     btn.innerHTML = originalText;
                 });
@@ -1746,28 +1709,39 @@ $pending_apps_count = count($pending_apps);
             const initials = ((fNameStr[0] || '') + (lNameStr[0] || '')).toUpperCase() || '?';
 
             if (s.profile_picture) {
-                avatarDiv.innerHTML = `<img src="../${s.profile_picture}" class="size-full object-cover shadow-inner group-hover:scale-110 transition-transform duration-500" onerror="this.outerHTML='<span class=\\'text-gray-500 font-black italic text-4xl tracking-tighter\\'>${initials}</span>'">`;
+                avatarDiv.innerHTML = `<img src="../${s.profile_picture}" class="size-full object-cover shadow-inner group-hover:scale-110 transition-transform duration-500" onerror="this.outerHTML='<span class=\\'text-primary/40 font-black italic text-3xl tracking-tighter\\'>${initials}</span>'">`;
             } else {
-                avatarDiv.innerHTML = `<span class="text-gray-500 font-black italic text-4xl tracking-tighter">${initials}</span>`;
+                avatarDiv.innerHTML = `<span class="text-primary/40 font-black italic text-3xl tracking-tighter">${initials}</span>`;
             }
 
             document.getElementById('view_full_name').innerText = s.first_name + (s.middle_name ? ' ' + s.middle_name : '') + ' ' + s.last_name;
-            document.getElementById('view_role_badge').innerText = s.staff_role;
+            document.getElementById('view_detailed_role').innerText = s.staff_role;
+            document.getElementById('view_role_badge').innerText = (s.staff_role.toLowerCase().includes('coach') || s.staff_role.toLowerCase().includes('trainer')) ? 'COACH' : 'STAFF';
             document.getElementById('view_email').innerText = s.email;
             document.getElementById('view_contact').innerText = s.contact_number || 'N/A';
             document.getElementById('view_employment').innerText = s.employment_type;
             document.getElementById('view_sex').innerText = s.sex || 'N/A';
 
+            // Status Badge Colors
+            const statusBadge = document.getElementById('view_status_badge');
+            statusBadge.innerText = s.status.toUpperCase();
+            if (s.status.toLowerCase() === 'active') {
+                statusBadge.className = 'px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.2em] italic border border-emerald-500/30 bg-emerald-500/10 text-emerald-500';
+            } else {
+                statusBadge.className = 'px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.2em] italic border border-rose-500/30 bg-rose-500/10 text-rose-500';
+            }
+
             // Format Rates
             const srate = parseFloat(s.session_rate || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
             document.getElementById('view_session_rate').innerText = '₱' + srate;
 
             const rateContainer = document.getElementById('view_session_rate_container');
             if (s.staff_role.toLowerCase().includes('coach') || s.staff_role.toLowerCase().includes('trainer')) {
-                rateContainer.style.display = 'flex';
+                rateContainer.classList.remove('hidden');
+                rateContainer.classList.add('flex');
             } else {
-                rateContainer.style.display = 'none';
+                rateContainer.classList.add('hidden');
+                rateContainer.classList.remove('flex');
             }
 
             // Format Dates
@@ -1778,14 +1752,11 @@ $pending_apps_count = count($pending_apps);
                 document.getElementById('view_birthdate').innerText = 'N/A';
             }
 
-            const hireDate = new Date(s.hire_date);
-            document.getElementById('view_hire_date').innerText = hireDate.toLocaleDateString('en-US', options);
-
-            // Status Badge
-            const statusBadge = document.getElementById('view_status_badge');
-            statusBadge.innerText = s.status;
-            statusBadge.className = 'px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest italic ' +
-                (s.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-500');
+            if (s.created_at) {
+                document.getElementById('view_hire_date').innerText = new Date(s.created_at).toLocaleDateString('en-US', options);
+            } else {
+                document.getElementById('view_hire_date').innerText = 'N/A';
+            }
 
             modal.classList.add('active');
         }
@@ -1794,7 +1765,7 @@ $pending_apps_count = count($pending_apps);
             document.getElementById('viewStaffModal').classList.remove('active');
         }
 
-        // --- RECRUITMENT LOGIC ---
+        // --- REQUESTS LOGIC ---
         let currentAppId = null;
 
         function openAppDetails(id) {
@@ -1853,7 +1824,7 @@ $pending_apps_count = count($pending_apps);
                                     const data = JSON.parse(text);
                                     if (data.success) {
                                         showNotification(data.message, 'success');
-                                        setTimeout(() => location.href = 'staff.php?tab=roster', 1500);
+                                        setTimeout(() => location.href = 'staff.php?tab=team', 1500);
                                     } else {
                                         showNotification(data.message, 'error');
                                         if (btn) btn.innerHTML = original;
@@ -1897,7 +1868,7 @@ $pending_apps_count = count($pending_apps);
                     const formData = new FormData();
                     formData.append('action', 'reject_coach_app');
                     formData.append('application_id', id);
-                    formData.append('remarks', 'Declined via management roster');
+                    formData.append('remarks', 'Declined via staff list');
 
                     fetch('staff.php', {
                         method: 'POST',
@@ -1935,7 +1906,7 @@ $pending_apps_count = count($pending_apps);
                 .then(data => {
                     if (data.success) {
                         showNotification(data.message, 'success');
-                        setTimeout(() => location.href = 'staff.php?tab=roster', 1500);
+                        setTimeout(() => location.href = 'staff.php?tab=team', 1500);
                     } else {
                         showNotification(data.message, 'error');
                         btn.disabled = false;
@@ -1959,7 +1930,7 @@ $pending_apps_count = count($pending_apps);
                 <h4 class="font-black italic uppercase text-sm tracking-widest flex items-center gap-3"
                     style="color:var(--text-main)">
                     <span class="material-symbols-outlined" style="color:var(--primary)">person_search</span>
-                    Recruitment Detail View
+                    Applicant Details
                 </h4>
                 <button onclick="toggleDetailsModal()"
                     class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center">
@@ -1989,7 +1960,7 @@ $pending_apps_count = count($pending_apps);
                 <input type="hidden" name="application_id" id="app_id_field">
 
                 <div class="p-6 rounded-2xl bg-primary/5 border border-primary/20">
-                    <p class="text-[9px] font-black uppercase tracking-widest text-primary/60 mb-1">Onboarding Coach</p>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-primary/60 mb-1">New Coach</p>
                     <h5 id="approve_name" class="text-xl font-black italic uppercase tracking-tighter text-white">Coach
                         Name</h5>
                 </div>
@@ -2105,7 +2076,7 @@ $pending_apps_count = count($pending_apps);
             <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-3">Subscription Required</h3>
             <p
                 class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-10 leading-relaxed italic px-4">
-                Access to staff management and personnel logs is restricted. Your status is <span
+                Access to staff management and records is restricted. Your status is <span
                     class="text-primary italic animate-pulse"><?= $sub_status ?></span>. Please activate a growth plan
                 to unlock.
             </p>
