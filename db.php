@@ -80,4 +80,7 @@ try {
             $pdo->exec("ALTER TABLE gym_owner_applications ADD COLUMN owner_valid_id_number VARCHAR(50) DEFAULT NULL AFTER owner_valid_id_type");
         }
     }
-} catch (Exception $e) { /* Silently fail to avoid blocking connection */ }
+
+} catch (Exception $e) { /* Silently fail to avoid blocking connection */
+}
+

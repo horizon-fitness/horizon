@@ -81,6 +81,21 @@ try {
         }
     }
 
+    // 4. Fetch Health Metrics (Height, Weight, BMI)
+    $height = null;
+    $weight = null;
+    $bmi = null;
+    if ($roleData && !empty($roleData['member_id'])) {
+        $stmtMetrics = $pdo->prepare("SELECT height_cm, weight_kg, bmi FROM member_health_metrics WHERE member_id = ? ORDER BY recorded_at DESC LIMIT 1");
+        $stmtMetrics->execute([$roleData['member_id']]);
+        $metrics = $stmtMetrics->fetch();
+        if ($metrics) {
+            $height = (float)$metrics['height_cm'];
+            $weight = (float)$metrics['weight_kg'];
+            $bmi = (float)$metrics['bmi'];
+        }
+    }
+
     $response = [
         'success' => true,
         'user' => [
@@ -113,10 +128,14 @@ try {
             'emergency_contact_number' => (string)($roleData['emergency_contact_number'] ?? ''),
             'parent_name' => (string)($roleData['parent_name'] ?? ''),
             'parent_contact_number' => (string)($roleData['parent_contact'] ?? ''),
-            'member_status' => (string)($roleData['member_status'] ?? 'Active')
+            'member_status' => (string)($roleData['member_status'] ?? 'Active'),
+            'height_cm' => $height,
+            'weight_kg' => $weight,
+            'bmi' => $bmi
         ],
         'branding' => $branding
     ];
+
 
     ob_end_clean();
     echo json_encode($response);

@@ -143,7 +143,10 @@ if (isset($_GET['ajax_user_id'])) {
     // 2. Fetch full user data based on role
     $sql = "SELECT u.*, r.role_name as role, ur.role_status ";
     if ($role_name_lc === 'member') {
-        $sql .= ", m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.medical_history, m.emergency_contact_name, m.emergency_contact_number ";
+        $sql .= ", m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.medical_history, m.emergency_contact_name, m.emergency_contact_number, ";
+        $sql .= " (SELECT height_cm FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as height_cm, ";
+        $sql .= " (SELECT weight_kg FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as weight_kg, ";
+        $sql .= " (SELECT bmi FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as bmi ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id LEFT JOIN addresses a ON m.address_id = a.address_id ";
     } elseif ($role_name_lc === 'staff') {
         $sql .= ", s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
@@ -232,6 +235,36 @@ if (isset($_GET['ajax_user_id'])) {
                             <div class="space-y-1">
                                 <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Date Joined</p>
                                 <p class="text-sm font-medium text-white"><?= $u['hire_date'] ? date('M d, Y', strtotime($u['hire_date'])) : 'N/A' ?></p>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if ($role_name_lc === 'member' && (!empty($u['height_cm']) || !empty($u['weight_kg']))): ?>
+                        <div class="bg-white/[0.02] p-6 rounded-2xl border border-white/5 space-y-4">
+                            <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Physical Assessment</p>
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="bg-white/[0.02] p-4 rounded-xl border border-white/5 text-center">
+                                    <p class="text-[9px] font-bold uppercase tracking-widest opacity-40 mb-1">Height</p>
+                                    <p class="text-base font-bold text-white"><?= !empty($u['height_cm']) ? htmlspecialchars($u['height_cm']) . ' cm' : '---' ?></p>
+                                </div>
+                                <div class="bg-white/[0.02] p-4 rounded-xl border border-white/5 text-center">
+                                    <p class="text-[9px] font-bold uppercase tracking-widest opacity-40 mb-1">Weight</p>
+                                    <p class="text-base font-bold text-white"><?= !empty($u['weight_kg']) ? htmlspecialchars($u['weight_kg']) . ' kg' : '---' ?></p>
+                                </div>
+                                <div class="bg-white/[0.02] p-4 rounded-xl border border-white/5 text-center">
+                                    <p class="text-[9px] font-bold uppercase tracking-widest opacity-40 mb-1">BMI</p>
+                                    <?php 
+                                    $bmi = $u['bmi'] ?? null;
+                                    $class = '';
+                                    if ($bmi) {
+                                        if ($bmi < 18.5) $class = 'Underweight';
+                                        elseif ($bmi < 24.9) $class = 'Normal';
+                                        elseif ($bmi < 29.9) $class = 'Overweight';
+                                        else $class = 'Obese';
+                                    }
+                                    ?>
+                                    <p class="text-base font-bold text-white"><?= $bmi ? htmlspecialchars($bmi) . '<span class="text-[9px] block opacity-50 font-normal mt-0.5">' . $class . '</span>' : '---' ?></p>
+                                </div>
                             </div>
                         </div>
                     <?php endif; ?>

@@ -132,6 +132,31 @@ try {
             $user_id,
             $gym_id
         ]);
+
+        // 4. Log health metrics (Height, Weight, BMI) if provided
+        $height = isset($input['height_cm']) ? (float)$input['height_cm'] : 0.0;
+        $weight = isset($input['weight_kg']) ? (float)$input['weight_kg'] : 0.0;
+        if ($height > 0 && $weight > 0) {
+            $height_m = $height / 100;
+            $bmi = round($weight / ($height_m * $height_m), 1);
+            
+            // Get member_id
+            $stmtGetMember = $pdo->prepare("SELECT member_id FROM members WHERE user_id = ? AND gym_id = ? LIMIT 1");
+            $stmtGetMember->execute([$user_id, $gym_id]);
+            $member_id = $stmtGetMember->fetchColumn();
+            
+            if ($member_id) {
+                // Check if the latest metric record is identical to avoid duplicate inserts on simple profile updates
+                $stmtLatest = $pdo->prepare("SELECT height_cm, weight_kg FROM member_health_metrics WHERE member_id = ? ORDER BY recorded_at DESC LIMIT 1");
+                $stmtLatest->execute([$member_id]);
+                $latest = $stmtLatest->fetch();
+                
+                if (!$latest || (float)$latest['height_cm'] !== $height || (float)$latest['weight_kg'] !== $weight) {
+                    $stmtInsMetric = $pdo->prepare("INSERT INTO member_health_metrics (member_id, weight_kg, height_cm, bmi, recorded_at) VALUES (?, ?, ?, ?, NOW())");
+                    $stmtInsMetric->execute([$member_id, $weight, $height, $bmi]);
+                }
+            }
+        }
     }
 
     ob_end_clean();
