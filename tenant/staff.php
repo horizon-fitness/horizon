@@ -67,7 +67,8 @@ if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
             </div>
             <div>
                 <h3 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none mb-2">
-                    <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></h3>
+                    <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?>
+                </h3>
                 <div class="flex items-center gap-3">
                     <span
                         class="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[9px] text-primary font-black uppercase tracking-widest italic"><?= htmlspecialchars($app['coach_type']) ?>
@@ -93,17 +94,20 @@ if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
                     <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Contact Number</p>
                         <p class="text-sm font-bold text-white tracking-tight italic">
-                            <?= htmlspecialchars($app['contact_number'] ?: '---') ?></p>
+                            <?= htmlspecialchars($app['contact_number'] ?: '---') ?>
+                        </p>
                     </div>
                     <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Date of Birth</p>
                         <p class="text-sm font-bold text-white tracking-tight italic">
-                            <?= $app['birth_date'] ? date('M d, Y', strtotime($app['birth_date'])) : '---' ?></p>
+                            <?= $app['birth_date'] ? date('M d, Y', strtotime($app['birth_date'])) : '---' ?>
+                        </p>
                     </div>
                     <div class="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Gender</p>
                         <p class="text-sm font-bold text-white tracking-tight italic uppercase">
-                            <?= htmlspecialchars($app['sex'] ?: '---') ?></p>
+                            <?= htmlspecialchars($app['sex'] ?: '---') ?>
+                        </p>
                     </div>
                 </div>
 
@@ -118,7 +122,8 @@ if (isset($_GET['ajax']) && isset($_GET['application_id'])) {
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1">Coach License ID
                             </p>
                             <p class="text-lg font-black text-white italic tracking-tighter">
-                                <?= htmlspecialchars($app['license_number'] ?: 'UNREGISTERED') ?></p>
+                                <?= htmlspecialchars($app['license_number'] ?: 'UNREGISTERED') ?>
+                            </p>
                         </div>
                         <div
                             class="size-12 rounded-xl bg-primary/20 border border-primary/20 flex items-center justify-center">
@@ -522,6 +527,8 @@ $active_personnel = (int) $stmtActive->fetchColumn();
 $search = $_GET['search'] ?? '';
 $f_role = $_GET['f_role'] ?? '';
 $f_status = $_GET['f_status'] ?? '';
+$from_date = $_GET['from_date'] ?? '';
+$to_date = $_GET['to_date'] ?? '';
 
 $where = "s.gym_id = :gym_id";
 $params = [':gym_id' => $gym_id];
@@ -559,16 +566,39 @@ $stmtRoles->execute([$gym_id]);
 $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
 
 // --- PENDING APPLICATIONS ---
+$stmtPendingBadge = $pdo->prepare("SELECT COUNT(*) FROM coach_applications WHERE gym_id = ? AND application_status = 'Pending'");
+$stmtPendingBadge->execute([$gym_id]);
+$pending_apps_count = (int) $stmtPendingBadge->fetchColumn();
+
+$pending_where = "ca.gym_id = :gym_id AND ca.application_status = 'Pending'";
+$pending_params = [':gym_id' => $gym_id];
+
+if (!empty($search)) {
+    $pending_where .= " AND (u.first_name LIKE :s1 OR u.last_name LIKE :s2 OR u.email LIKE :s3)";
+    $pending_params[':s1'] = "%$search%";
+    $pending_params[':s2'] = "%$search%";
+    $pending_params[':s3'] = "%$search%";
+}
+
+if (!empty($from_date)) {
+    $pending_where .= " AND ca.submitted_at >= :from_date";
+    $pending_params[':from_date'] = $from_date . ' 00:00:00';
+}
+
+if (!empty($to_date)) {
+    $pending_where .= " AND ca.submitted_at <= :to_date";
+    $pending_params[':to_date'] = $to_date . ' 23:59:59';
+}
+
 $stmtPending = $pdo->prepare("
     SELECT ca.*, u.first_name, u.last_name, u.email, u.profile_picture, u.contact_number
     FROM coach_applications ca
     JOIN users u ON ca.user_id = u.user_id
-    WHERE ca.gym_id = ? AND ca.application_status = 'Pending'
+    WHERE $pending_where
     ORDER BY ca.submitted_at DESC
 ");
-$stmtPending->execute([$gym_id]);
+$stmtPending->execute($pending_params);
 $pending_apps = $stmtPending->fetchAll();
-$pending_apps_count = count($pending_apps);
 ?>
 
 <!DOCTYPE html>
@@ -599,6 +629,9 @@ $pending_apps_count = count($pending_apps);
         }
     </script>
     <style>
+        html, body {
+            color-scheme: dark;
+        }
         :root {
             --primary:
                 <?= $theme_color ?>
@@ -641,6 +674,49 @@ $pending_apps_count = count($pending_apps);
             border-radius: 24px;
             backdrop-filter: blur(var(--card-blur));
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Elite Pagination Component Styling */
+        .pagination-btn {
+            padding: 8px 16px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        .pagination-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .pagination-status {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-main);
+            opacity: 0.5;
         }
 
         .side-nav {
@@ -837,7 +913,7 @@ $pending_apps_count = count($pending_apps);
 
         .filter-input:focus {
             border-color: var(--primary);
-            background: rgba(var(--primary-rgb), 0.08);
+            background-color: #2a2a2a;
             box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1);
         }
 
@@ -851,7 +927,7 @@ $pending_apps_count = count($pending_apps);
         }
 
         select.filter-input option {
-            background-color: #141216;
+            background-color: #2a2a2a;
             color: var(--text-main);
             padding: 15px;
             font-weight: 600;
@@ -1016,14 +1092,16 @@ $pending_apps_count = count($pending_apps);
                     <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none"
                         style="color:var(--text-main)">Our <span class="text-primary">Team</span></h2>
                     <p class="text-[--text-main] opacity-40 text-xs font-bold uppercase tracking-widest mt-2">
-                        <?= htmlspecialchars($gym['gym_name'] ?? 'Horizon Gym') ?> Staff List</p>
+                        <?= htmlspecialchars($gym['gym_name'] ?? 'Horizon Gym') ?> Staff List
+                    </p>
                 </div>
                 <div class="text-right shrink-0">
                     <p id="topClock"
                         class="text-[--text-main] font-black italic text-2xl tracking-tighter leading-none mb-2">
                         00:00:00 AM</p>
                     <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none opacity-80">
-                        <?= date('l, M d, Y') ?></p>
+                        <?= date('l, M d, Y') ?>
+                    </p>
                 </div>
             </header>
 
@@ -1054,7 +1132,8 @@ $pending_apps_count = count($pending_apps);
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total
                         Staff</p>
                     <h3 class="text-2xl font-black italic uppercase" style="color:var(--text-main)">
-                        <?= number_format($total_staff) ?> <span class="text-xs opacity-40">Staff Members</span></h3>
+                        <?= number_format($total_staff) ?> <span class="text-xs opacity-40">Staff Members</span>
+                    </h3>
                     <p class="text-primary text-[10px] font-black uppercase mt-2 italic shadow-sm">Total Team Size
                     </p>
                 </div>
@@ -1066,7 +1145,8 @@ $pending_apps_count = count($pending_apps);
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">
                         Active Staff</p>
                     <h3 class="text-2xl font-black italic uppercase text-emerald-400">
-                        <?= number_format($active_personnel) ?> <span class="text-xs opacity-40">Active Staff</span></h3>
+                        <?= number_format($active_personnel) ?> <span class="text-xs opacity-40">Active Staff</span>
+                    </h3>
                     <p class="text-emerald-500/60 text-[10px] font-black uppercase mt-2 italic flex items-center gap-2">
                         <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                         Currently Active
@@ -1081,35 +1161,42 @@ $pending_apps_count = count($pending_apps);
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total
                         Roles</p>
                     <h3 class="text-2xl font-black italic uppercase" style="color:var(--text-main)"><?= count($roles) ?>
-                        <span class="text-xs opacity-40">Active Roles</span></h3>
-                    <p class="text-[10px] font-black uppercase mt-2 italic" style="color:var(--primary)">Roles Breakdown</p>
+                        <span class="text-xs opacity-40">Active Roles</span>
+                    </h3>
+                    <p class="text-[10px] font-black uppercase mt-2 italic" style="color:var(--primary)">Roles Breakdown
+                    </p>
                 </div>
             </div>
 
             <!-- Superadmin Style Underline Tabs -->
             <div class="flex items-center gap-12 mb-10 border-b border-white/5 px-2">
-                <a href="?tab=team"
-                    class="pb-5 relative transition-all duration-300 group">
-                    <span class="text-[10px] font-black uppercase tracking-[0.3em] <?= $active_tab === 'team' ? 'text-primary' : 'text-white/30 group-hover:text-white/50' ?>">
+                <a href="?tab=team" class="pb-5 relative transition-all duration-300 group">
+                    <span
+                        class="text-[10px] font-black uppercase tracking-[0.3em] <?= $active_tab === 'team' ? 'text-primary' : 'text-white/30 group-hover:text-white/50' ?>">
                         Staff List
                     </span>
                     <?php if ($active_tab === 'team'): ?>
-                        <div class="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]"></div>
+                        <div
+                            class="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]">
+                        </div>
                     <?php endif; ?>
                 </a>
-                <a href="?tab=requests"
-                    class="pb-5 relative transition-all duration-300 group">
-                    <span class="text-[10px] font-black uppercase tracking-[0.3em] <?= $active_tab === 'requests' ? 'text-primary' : 'text-white/30 group-hover:text-white/50' ?>">
+                <a href="?tab=requests" class="pb-5 relative transition-all duration-300 group">
+                    <span
+                        class="text-[10px] font-black uppercase tracking-[0.3em] <?= $active_tab === 'requests' ? 'text-primary' : 'text-white/30 group-hover:text-white/50' ?>">
                         Join Requests
                     </span>
                     <?php if ($pending_apps_count > 0): ?>
                         <span class="absolute top-[-2px] right-[-12px] flex h-1.5 w-1.5">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
                         </span>
                     <?php endif; ?>
                     <?php if ($active_tab === 'requests'): ?>
-                        <div class="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]"></div>
+                        <div
+                            class="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]">
+                        </div>
                     <?php endif; ?>
                 </a>
             </div>
@@ -1122,45 +1209,75 @@ $pending_apps_count = count($pending_apps);
 
                         <!-- Search -->
                         <div class="flex-1 min-w-[280px] relative group">
-                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-base transition-transform group-focus-within:scale-110">search</span>
-                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" 
-                                   placeholder="Search by name, role or email..." 
-                                   class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[11px] font-bold uppercase tracking-wider text-white outline-none focus:border-primary/50 transition-all">
+                            <span
+                                class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-base transition-transform group-focus-within:scale-110">search</span>
+                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
+                                placeholder="<?= $active_tab === 'requests' ? 'Search by name or email...' : 'Search by name, role or email...' ?>" <?= !empty($search) ? 'autofocus onfocus="let val = this.value; this.value = \'\'; this.value = val;"' : '' ?>
+                                oninput="clearTimeout(this.delay); this.delay = setTimeout(() => { this.form.submit(); }, 600);"
+                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[11px] font-bold uppercase tracking-wider text-white outline-none focus:border-primary/50 transition-all">
                         </div>
 
-                        <!-- Role Filter -->
-                        <div class="w-56 shrink-0 relative">
-                            <select name="f_role" onchange="this.form.submit()"
-                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white/60 outline-none hover:border-white/20 transition-all appearance-none">
-                                <option value="">All Roles</option>
-                                <?php foreach ($roles as $r): ?>
-                                    <option value="<?= htmlspecialchars($r) ?>" <?= $f_role === $r ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($r) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none">expand_more</span>
-                        </div>
+                        <?php if ($active_tab === 'requests'): ?>
+                            <!-- From Date Filter -->
+                            <div class="w-48 shrink-0 relative">
+                                <input type="date" name="from_date" value="<?= htmlspecialchars($from_date) ?>"
+                                    max="<?= !empty($to_date) ? htmlspecialchars($to_date) : date('Y-m-d') ?>"
+                                    oninput="syncDateBounds('from')"
+                                    onchange="this.form.submit()"
+                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
+                            </div>
 
-                        <!-- Status Filter -->
-                        <div class="w-44 shrink-0 relative">
-                            <select name="f_status" onchange="this.form.submit()"
+                            <!-- To Date Filter -->
+                            <div class="w-48 shrink-0 relative">
+                                <input type="date" name="to_date" value="<?= htmlspecialchars($to_date) ?>"
+                                    min="<?= !empty($from_date) ? htmlspecialchars($from_date) : '' ?>"
+                                    max="<?= date('Y-m-d') ?>"
+                                    oninput="syncDateBounds('to')"
+                                    onchange="this.form.submit()"
+                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
+                            </div>
+                        <?php else: ?>
+                            <!-- Role Filter -->
+                            <div class="w-40 shrink-0 relative">
+                                <select name="f_role" onchange="this.form.submit()"
                                     class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white/60 outline-none hover:border-white/20 transition-all appearance-none">
-                                <option value="">All Status</option>
-                                <option value="Active" <?= $f_status === 'Active' ? 'selected' : '' ?>>Active Members</option>
-                                <option value="Inactive" <?= $f_status === 'Inactive' ? 'selected' : '' ?>>Inactive Members</option>
-                            </select>
-                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none">expand_more</span>
-                        </div>
+                                    <option value="" class="bg-[#1e1e1e] text-[10px]">All Roles</option>
+                                    <?php foreach ($roles as $r): ?>
+                                        <option value="<?= htmlspecialchars($r) ?>" <?= $f_role === $r ? 'selected' : '' ?>
+                                            class="bg-[#1e1e1e] text-[10px]">
+                                            <?= htmlspecialchars($r) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <span
+                                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none">expand_more</span>
+                            </div>
+
+                            <!-- Status Filter -->
+                            <div class="w-60 shrink-0 relative">
+                                <select name="f_status" onchange="this.form.submit()"
+                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white/60 outline-none hover:border-white/20 transition-all appearance-none">
+                                    <option value="" class="bg-[#1e1e1e] text-[10px]">All Status</option>
+                                    <option value="Active" <?= $f_status === 'Active' ? 'selected' : '' ?>
+                                        class="bg-[#1e1e1e] text-[10px]">Active Members</option>
+                                    <option value="Inactive" <?= $f_status === 'Inactive' ? 'selected' : '' ?>
+                                        class="bg-[#1e1e1e] text-[10px]">Inactive Members</option>
+                                </select>
+                                <span
+                                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none">expand_more</span>
+                            </div>
+                        <?php endif; ?>
 
                         <!-- Clear & Add -->
                         <div class="flex items-center gap-3">
-                            <a href="staff.php?tab=<?= $active_tab ?>" 
-                               class="h-[52px] w-[52px] flex items-center justify-center rounded-2xl bg-white/[0.03] border border-white/10 text-white/40 hover:text-white transition-all active:scale-95" title="Clear Filters">
+                            <a href="staff.php?tab=<?= $active_tab ?>"
+                                class="h-[52px] w-[52px] flex items-center justify-center rounded-2xl bg-white/[0.03] border border-white/10 text-white/40 hover:text-white transition-all active:scale-95"
+                                title="Clear Filters">
                                 <span class="material-symbols-outlined text-xl">restart_alt</span>
                             </a>
-                            <button type="button" onclick="<?= $is_sub_active ? 'toggleAddModal()' : 'showSubWarning()' ?>"
-                                    class="h-[52px] px-8 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-2xl shadow-primary/20 flex items-center gap-3">
+                            <button type="button"
+                                onclick="<?= $is_sub_active ? 'toggleAddModal()' : 'showSubWarning()' ?>"
+                                class="h-[52px] px-8 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-95 shadow-2xl shadow-primary/20 flex items-center gap-3">
                                 <span class="material-symbols-outlined text-lg">person_add</span>
                                 Add Staff
                             </button>
@@ -1170,27 +1287,20 @@ $pending_apps_count = count($pending_apps);
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
-                            <thead>
-                                <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
-                                    <?php if ($active_tab === 'requests'): ?>
-                                        <th class="px-8 py-5 table-header-alt w-[40%]">Name & Email</th>
-                                        <th class="px-8 py-5 table-header-alt w-[15%]">Role</th>
-                                        <th class="px-8 py-5 table-header-alt text-center w-[15%]">Status</th>
-                                        <th class="px-8 py-5 table-header-alt text-center w-[20%]">Join Date</th>
-                                        <th class="px-8 py-5 table-header-alt text-center w-[10%]">Action</th>
-                                    <?php else: ?>
-                                        <th class="px-8 py-5 table-header-alt w-[40%]">Name & Email</th>
-                                        <th class="px-8 py-5 table-header-alt w-[15%]">Role</th>
-                                        <th class="px-8 py-5 table-header-alt text-center w-[15%]">Status</th>
-                                        <th class="px-8 py-5 table-header-alt text-center w-[20%]">Join Date</th>
-                                        <th class="px-8 py-5 table-header-alt text-center w-[10%]">Action</th>
-                                    <?php endif; ?>
-                                </tr>
-                            </thead>
-                        <tbody class="divide-y divide-white/5">
+                        <thead>
+                            <tr
+                                class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                <th class="px-8 py-5 table-header-alt w-[40%]">Name & Email</th>
+                                <th class="px-8 py-5 table-header-alt w-[15%]">Role</th>
+                                <th class="px-8 py-5 table-header-alt text-center w-[15%]">Status</th>
+                                <th class="px-8 py-5 table-header-alt text-center w-[20%]">Join Date</th>
+                                <th class="px-8 py-5 table-header-alt text-center w-[10%]">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staffTableBody" class="divide-y divide-white/5">
                             <?php if ($active_tab === 'requests'): ?>
                                 <?php if (empty($pending_apps)): ?>
-                                    <tr>
+                                    <tr class="no-pagination">
                                         <td colspan="5"
                                             class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
                                             No staff members found.</td>
@@ -1201,7 +1311,7 @@ $pending_apps_count = count($pending_apps);
                                             <td class="px-8 py-5">
                                                 <div class="flex items-center gap-4">
                                                     <div class="size-11 rounded-full border border-white/10 flex items-center justify-center font-black italic text-primary text-[11px] shrink-0 overflow-hidden shadow-inner relative"
-                                                         style="background:rgba(var(--primary-rgb), 0.1)">
+                                                        style="background:rgba(var(--primary-rgb), 0.1)">
                                                         <?= strtoupper(substr($app['first_name'], 0, 1) . substr($app['last_name'], 0, 1)) ?>
                                                     </div>
                                                     <div>
@@ -1223,7 +1333,8 @@ $pending_apps_count = count($pending_apps);
                                                 </p>
                                             </td>
                                             <td class="px-8 py-5 text-center">
-                                                <span class="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-500 font-black uppercase tracking-wider italic">
+                                                <span
+                                                    class="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-500 font-black uppercase tracking-wider italic">
                                                     Pending
                                                 </span>
                                             </td>
@@ -1238,11 +1349,13 @@ $pending_apps_count = count($pending_apps);
                                             <td class="px-8 py-5 text-center">
                                                 <div class="flex justify-center gap-2">
                                                     <button onclick="openAppDetails(<?= $app['coach_application_id'] ?>)"
-                                                            class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-primary transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="Review Application">
-                                                        <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
+                                                        class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-primary transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn"
+                                                        title="Review Application">
+                                                        <span
+                                                            class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
                                                     </button>
                                                     <button onclick="rejectApplication(<?= $app['coach_application_id'] ?>)"
-                                                            class="size-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center">
+                                                        class="size-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center">
                                                         <span class="material-symbols-outlined text-sm">close</span>
                                                     </button>
                                                 </div>
@@ -1253,7 +1366,7 @@ $pending_apps_count = count($pending_apps);
                             <?php else: ?>
                                 <!-- Staff List Logic -->
                                 <?php if (empty($staff_list)): ?>
-                                    <tr>
+                                    <tr class="no-pagination">
                                         <td colspan="5"
                                             class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
                                             No staff found.</td>
@@ -1265,13 +1378,14 @@ $pending_apps_count = count($pending_apps);
                                                 <div class="flex items-center gap-4">
                                                     <?php $initials = strtoupper(substr($s['first_name'] ?? '', 0, 1) . substr($s['last_name'] ?? '', 0, 1)); ?>
                                                     <div class="size-11 rounded-full border border-white/10 flex items-center justify-center font-black italic text-primary text-[11px] shrink-0 overflow-hidden shadow-inner relative"
-                                                         style="background:rgba(var(--primary-rgb), 0.1)">
+                                                        style="background:rgba(var(--primary-rgb), 0.1)">
                                                         <?php if (!empty($s['profile_picture'])): ?>
                                                             <img src="<?= htmlspecialchars('../' . $s['profile_picture']) ?>"
                                                                 class="size-full object-cover"
                                                                 onerror="this.outerHTML='<span class=\'text-primary font-black italic text-[11px]\'><?= $initials ?></span>'">
                                                         <?php else: ?>
-                                                            <span class="text-primary font-black italic text-[11px]"><?= $initials ?></span>
+                                                            <span
+                                                                class="text-primary font-black italic text-[11px]"><?= $initials ?></span>
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
@@ -1293,10 +1407,11 @@ $pending_apps_count = count($pending_apps);
                                                 </p>
                                             </td>
                                             <td class="px-8 py-5 text-center">
-                                                <?php 
+                                                <?php
                                                 $sc = $s['status'] === 'Active' ? 'emerald-500' : 'rose-500';
                                                 ?>
-                                                <span class="px-2.5 py-1 rounded-lg bg-<?= $sc ?>/10 border border-<?= $sc ?>/20 text-[9px] text-<?= $sc ?> font-black uppercase tracking-wider italic">
+                                                <span
+                                                    class="px-2.5 py-1 rounded-lg bg-<?= $sc ?>/10 border border-<?= $sc ?>/20 text-[9px] text-<?= $sc ?> font-black uppercase tracking-wider italic">
                                                     <?= $s['status'] ?>
                                                 </span>
                                             </td>
@@ -1307,10 +1422,13 @@ $pending_apps_count = count($pending_apps);
                                             </td>
                                             <td class="px-8 py-5 text-center">
                                                 <div class="flex justify-center">
-                                                    <button data-staff='<?= htmlspecialchars(json_encode($s), ENT_QUOTES, 'UTF-8') ?>'
-                                                            onclick="openViewModal(this)"
-                                                            class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-primary transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="View Details">
-                                                        <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
+                                                    <button
+                                                        data-staff='<?= htmlspecialchars(json_encode($s), ENT_QUOTES, 'UTF-8') ?>'
+                                                        onclick="openViewModal(this)"
+                                                        class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-primary transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn"
+                                                        title="View Details">
+                                                        <span
+                                                            class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
                                                     </button>
                                                 </div>
                                             </td>
@@ -1321,6 +1439,12 @@ $pending_apps_count = count($pending_apps);
                         </tbody>
                     </table>
                 </div>
+                <!-- Pagination Container -->
+                <div id="pagination-staff"
+                    class="px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center hidden">
+                    <p class="pagination-status status-text"></p>
+                    <div class="flex items-center gap-2 controls-container"></div>
+                </div>
             </div>
 
     </main>
@@ -1330,18 +1454,23 @@ $pending_apps_count = count($pending_apps);
         <div class="modal-content overflow-hidden max-w-[600px]">
             <div class="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                 <div class="flex items-center gap-5">
-                    <div id="view_avatar" class="size-20 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shadow-lg relative">
+                    <div id="view_avatar"
+                        class="size-20 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shadow-lg relative">
                         <!-- Profile/Initials injected here -->
                     </div>
                     <div>
-                        <h4 id="view_full_name" class="text-xl font-black uppercase tracking-tight text-white leading-tight">Staff Member</h4>
+                        <h4 id="view_full_name"
+                            class="text-xl font-black uppercase tracking-tight text-white leading-tight">Staff Member
+                        </h4>
                         <div class="flex items-center gap-2 mt-1">
-                            <span id="view_status_badge" class="px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.2em] italic border">ACTIVE</span>
-                            <span id="view_role_badge" class="text-[9px] font-bold uppercase tracking-widest text-primary opacity-80">COACH</span>
+                            <span id="view_status_badge"
+                                class="px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.2em] italic border">ACTIVE</span>
+                            <span id="view_role_badge" class="hidden">COACH</span>
                         </div>
                     </div>
                 </div>
-                <button onclick="hideViewModal()" class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center border border-white/5">
+                <button onclick="hideViewModal()"
+                    class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center border border-white/5">
                     <span class="material-symbols-outlined text-xl">close</span>
                 </button>
             </div>
@@ -1351,11 +1480,13 @@ $pending_apps_count = count($pending_apps);
                 <section class="grid grid-cols-2 gap-6 bg-white/[0.02] p-6 rounded-2xl border border-white/5">
                     <div class="space-y-1">
                         <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Position / Role</p>
-                        <p id="view_detailed_role" class="text-sm font-bold text-white uppercase italic tracking-wider">Department Lead</p>
+                        <p id="view_detailed_role" class="text-sm font-bold text-white uppercase italic tracking-wider">
+                            Department Lead</p>
                     </div>
                     <div class="space-y-1">
                         <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Employment Type</p>
-                        <p id="view_employment" class="text-sm font-bold text-white uppercase italic tracking-wider">Full-Time</p>
+                        <p id="view_employment" class="text-sm font-bold text-white uppercase italic tracking-wider">
+                            Full-Time</p>
                     </div>
                 </section>
 
@@ -1390,12 +1521,14 @@ $pending_apps_count = count($pending_apps);
                 </section>
 
                 <!-- Special: Rate (Conditional) -->
-                <section id="view_session_rate_container" class="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex items-center justify-between">
+                <section id="view_session_rate_container"
+                    class="bg-primary/5 p-6 rounded-2xl border border-white/5 flex items-center justify-between">
                     <div class="flex items-center gap-4">
                         <span class="material-symbols-outlined text-primary text-2xl">payments</span>
                         <div>
                             <p class="text-[10px] font-bold uppercase tracking-widest text-primary/60">Session Yield</p>
-                            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Coach Compensation Rate</p>
+                            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Coach Compensation
+                                Rate</p>
                         </div>
                     </div>
                     <p id="view_session_rate" class="text-2xl font-black italic text-primary tracking-tighter">₱0.00</p>
@@ -1410,142 +1543,163 @@ $pending_apps_count = count($pending_apps);
     <div id="addStaffModal" class="modal-overlay">
         <div class="modal-content overflow-hidden max-w-[550px] max-h-[90vh] flex flex-col shadow-2xl border-white/10">
             <div class="px-10 py-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
-                <div>
-                    <h4 class="font-black italic uppercase text-base tracking-[0.2em] flex items-center gap-3"
-                        style="color:var(--text-main)">
-                        <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1">person_add</span>
-                        New Staff Identity
-                    </h4>
-                    <p class="text-[9px] font-bold uppercase tracking-widest text-white/30 mt-1 italic ml-8">Onboarding Professional Personnel</p>
-                </div>
+                <h3
+                    class="font-black italic uppercase text-sm tracking-[0.2em] flex items-center gap-3 text-emerald-500">
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">person_add</span>
+                    Register Personnel
+                </h3>
                 <button onclick="toggleAddModal()"
                     class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center border border-white/5">
                     <span class="material-symbols-outlined text-xl">close</span>
                 </button>
             </div>
 
-            <form method="POST" class="overflow-y-auto no-scrollbar flex-1 text-left" autocomplete="off" enctype="multipart/form-data">
+            <form method="POST" class="overflow-y-auto no-scrollbar flex-1 text-left" autocomplete="off"
+                enctype="multipart/form-data">
                 <input type="hidden" name="action" value="add_staff">
                 <div class="p-10 space-y-10">
                     <!-- Identity Group -->
                     <section class="space-y-6">
-                        <div class="flex items-center gap-4 opacity-40">
-                            <div class="h-px flex-1 bg-white/5"></div>
-                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Personal Identity</span>
-                            <div class="h-px flex-1 bg-white/5"></div>
+                        <div class="flex items-center gap-4 text-white/40 mb-6">
+                            <span class="material-symbols-outlined text-lg">badge</span>
+                            <span class="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Identity
+                                Details</span>
+                            <div class="h-[1px] flex-1 bg-white/5"></div>
                         </div>
                         <div class="grid grid-cols-2 gap-x-8 gap-y-6">
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">First Name</label>
-                                <input type="text" name="first_name" required placeholder="Ex. John" class="filter-input w-full" autocomplete="off">
+                                <label class="label-muted ml-1">FIRST NAME</label>
+                                <input type="text" name="first_name" required placeholder="Ex. John"
+                                    class="filter-input w-full" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Middle Name</label>
-                                <input type="text" name="middle_name" placeholder="Ex. Quincey" class="filter-input w-full" autocomplete="off">
+                                <label class="label-muted ml-1">MIDDLE NAME</label>
+                                <input type="text" name="middle_name" placeholder="Ex. Quincey"
+                                    class="filter-input w-full" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Last Name</label>
-                                <input type="text" name="last_name" required placeholder="Ex. Doe" class="filter-input w-full" autocomplete="off">
+                                <label class="label-muted ml-1">LAST NAME</label>
+                                <input type="text" name="last_name" required placeholder="Ex. Doe"
+                                    class="filter-input w-full" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Sex</label>
-                                <select name="sex" class="filter-input w-full italic">
+                                <label class="label-muted ml-1">SEX</label>
+                                <select name="sex" class="filter-input w-full">
                                     <option value="Male">Male</option>
                                     <option value="Female">Female</option>
                                     <option value="Prefer not to say">Prefer not to say</option>
                                 </select>
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Birthdate</label>
-                                <input type="date" name="birth_date" id="birth_date" required max="<?= date('Y-m-d', strtotime('-18 years')) ?>" class="filter-input w-full [color-scheme:dark]" autocomplete="off">
+                                <label class="label-muted ml-1">BIRTHDATE</label>
+                                <input type="date" name="birth_date" id="birth_date" required
+                                    max="<?= date('Y-m-d', strtotime('-18 years')) ?>"
+                                    class="filter-input w-full [color-scheme:dark]" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Contact No.</label>
-                                <input type="text" name="contact_number" id="contact_number" required placeholder="09XX-XXX-XXXX" class="filter-input w-full" autocomplete="off">
+                                <label class="label-muted ml-1">CONTACT NO.</label>
+                                <input type="text" name="contact_number" id="contact_number" required
+                                    placeholder="09XX-XXX-XXXX" class="filter-input w-full" autocomplete="off">
+                                <p class="text-[9px] font-medium text-emerald-500 tracking-wider ml-1 uppercase mt-1">
+                                    Starts with 09 automatically</p>
                             </div>
                         </div>
                     </section>
 
-                    <!-- Professional Placement -->
+                    <!-- Account & Role Placement -->
                     <section class="space-y-6">
-                        <div class="flex items-center gap-4 opacity-40">
-                            <div class="h-px flex-1 bg-white/5"></div>
-                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Job Placement</span>
-                            <div class="h-px flex-1 bg-white/5"></div>
+                        <div class="flex items-center gap-4 text-white/40 mb-6">
+                            <span class="material-symbols-outlined text-lg">admin_panel_settings</span>
+                            <span class="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Account &
+                                Role</span>
+                            <div class="h-[1px] flex-1 bg-white/5"></div>
                         </div>
                         <div class="grid grid-cols-2 gap-x-8 gap-y-6">
+                            <div class="space-y-2.5 col-span-2">
+                                <label class="label-muted ml-1">EMAIL ADDRESS (GMAIL ONLY)</label>
+                                <input type="email" name="email" id="email" required placeholder="official@gmail.com"
+                                    class="filter-input w-full" autocomplete="off">
+                            </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Staff Role</label>
-                                <select name="role" required class="filter-input w-full italic" onchange="handleRoleChange()">
-                                    <option value="">Choose Position...</option>
-                                    <option value="Team Lead">Team Lead</option>
+                                <label class="label-muted ml-1">ASSIGNED ROLE</label>
+                                <select name="role" required class="filter-input w-full" onchange="handleRoleChange()">
                                     <option value="Coach">Coach</option>
-                                    <option value="Personal Trainer">Personal Trainer</option>
-                                    <option value="Receptionist">Receptionist</option>
-                                    <option value="Support Staff">Support Staff</option>
+                                    <option value="Staff">Staff</option>
                                 </select>
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Employment</label>
-                                <select name="employment_type" required class="filter-input w-full italic">
-                                    <option value="Full-Time">Full-Time</option>
-                                    <option value="Part-Time">Part-Time</option>
-                                    <option value="Contractor">Contractor</option>
+                                <label class="label-muted ml-1">EMPLOYMENT TYPE</label>
+                                <select name="employment" required class="filter-input w-full">
+                                    <option value="Full-Time">Full-time</option>
+                                    <option value="Part-Time">Part-time</option>
                                 </select>
+                            </div>
+                            <div class="space-y-2.5 col-span-2" id="session_rate_field">
+                                <label class="label-muted ml-1">SESSION RATE (₱)</label>
+                                <input type="number" step="0.01" name="session_rate" placeholder="0.00"
+                                    class="filter-input w-full font-black text-emerald-500">
                             </div>
                         </div>
                     </section>
 
-                    <!-- Contact & Financials -->
-                    <section class="space-y-6">
-                        <div class="flex items-center gap-4 opacity-40">
-                            <div class="h-px flex-1 bg-white/5"></div>
-                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Communication & Rates</span>
-                            <div class="h-px flex-1 bg-white/5"></div>
+                    <!-- Professional Credentials -->
+                    <section class="space-y-6" id="professional_credentials_section">
+                        <div class="flex items-center gap-4 text-white/40 mb-6">
+                            <span class="material-symbols-outlined text-lg">workspace_premium</span>
+                            <span
+                                class="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Professional
+                                Credentials (Optional)</span>
+                            <div class="h-[1px] flex-1 bg-white/5"></div>
                         </div>
                         <div class="grid grid-cols-2 gap-x-8 gap-y-6">
-                            <div class="space-y-2.5">
-                                <label class="label-muted ml-1">Email Address</label>
-                                <input type="email" name="email" id="email" required placeholder="name@example.com" class="filter-input w-full" autocomplete="off">
+                            <div class="space-y-2.5 col-span-2">
+                                <label class="label-muted ml-1">LICENSE / CERTIFICATION NUMBER</label>
+                                <input type="text" name="license_number" id="license_number"
+                                    placeholder="Ex. 123456789012" maxlength="12" class="filter-input w-full"
+                                    autocomplete="off">
                             </div>
-                            <div class="space-y-2.5 col-span-2 hidden animate-in slide-in-from-top-2" id="session_rate_field">
-                                <label class="label-muted ml-1">Session Rate (₱)</label>
-                                <input type="number" step="0.01" name="session_rate" placeholder="0.00" class="filter-input w-full font-black text-primary">
+                            <div class="space-y-2.5 col-span-2">
+                                <label class="label-muted ml-1">CERTIFICATION DOCUMENT (PDF OR IMAGE)</label>
+                                <div class="relative w-full h-16">
+                                    <label
+                                        class="w-full h-full border border-dashed border-white/10 rounded-2xl flex items-center justify-between px-6 cursor-pointer hover:border-emerald-500/20 hover:bg-emerald-500/5 transition-all group">
+                                        <span
+                                            class="text-xs font-black uppercase tracking-widest text-white/30 file-name-label group-hover:text-white/60 transition-colors">Choose
+                                            file...</span>
+                                        <span
+                                            class="material-symbols-outlined text-emerald-500 text-lg group-hover:scale-110 transition-transform file-icon">upload_file</span>
+                                        <input type="file" name="certification_file" id="certification_file"
+                                            class="hidden" accept="image/*,application/pdf">
+                                    </label>
+                                    <button type="button" id="remove_cert_btn"
+                                        class="hidden absolute right-16 top-1/2 -translate-y-1/2 size-8 text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg flex items-center justify-center transition-all">
+                                        <span class="material-symbols-outlined text-lg">delete</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </section>
 
-                    <!-- Profile Image -->
-                    <section class="space-y-6">
-                        <div class="flex items-center gap-4 opacity-40">
-                            <div class="h-px flex-1 bg-white/5"></div>
-                            <span class="text-[9px] font-black uppercase tracking-[0.3em]">Avatar Profile</span>
-                            <div class="h-px flex-1 bg-white/5"></div>
+                    <div class="p-6 rounded-2xl bg-white/[0.02] border-l-2 border-white/40 flex flex-col gap-3">
+                        <div class="flex items-center gap-3 text-emerald-500">
+                            <span class="material-symbols-outlined text-lg">shield</span>
+                            <p class="text-[12px] font-black uppercase tracking-widest">Credentials</p>
                         </div>
-                        <div class="space-y-2.5">
-                            <label class="label-muted ml-1">Profile Image (Optional)</label>
-                            <label class="w-full h-16 border-2 border-dashed border-white/5 rounded-2xl flex items-center justify-center gap-3 cursor-pointer hover:border-primary/20 hover:bg-primary/5 transition-all group">
-                                <span class="material-symbols-outlined text-primary/40 group-hover:text-primary transition-colors">image</span>
-                                <span class="text-[10px] font-black uppercase tracking-widest text-white/30 file-name-label group-hover:text-white/60 transition-colors">Choose profile image...</span>
-                                <input type="file" name="certification_file" class="hidden" accept="image/*">
-                            </label>
-                        </div>
-                    </section>
-
-                    <div class="p-6 rounded-2xl bg-white/[0.02] border-l-2 border-primary/50 flex flex-col gap-3">
-                        <div class="flex items-center gap-3">
-                            <span class="material-symbols-outlined text-primary text-xl opacity-80">verified_user</span>
-                            <p class="text-[10px] font-black text-white/90 uppercase tracking-widest">Security</p>
-                        </div>
-                        <p class="text-[9px] font-medium text-white/40 uppercase leading-relaxed italic">For security, the account username and password will be automatically generated and securely delivered to the recipient's email address upon confirmation.</p>
+                        <p
+                            class="text-[12px] font-medium text-white/50 text-justify leading-relaxed italic tracking-wide">
+                            For security, the account username and password will be automatically generated and securely
+                            delivered to the recipient's email address upon confirmation.
+                        </p>
                     </div>
                 </div>
 
                 <div class="p-10 pt-0 flex gap-4">
-                    <button type="submit" class="flex-1 h-14 rounded-2xl text-white text-[13px] font-black uppercase italic tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-primary/20 group" style="background:var(--primary)">
+                    <button type="submit"
+                        class="flex-1 h-11 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest transition-all hover:bg-emerald-500 hover:scale-[1.02] active:scale-95 shadow-lg shadow-emerald-900/20 group">
                         Create Account
                     </button>
-                    <button type="button" onclick="toggleAddModal()" class="flex-1 h-14 bg-white/5 border border-white/10 text-gray-400 rounded-2xl font-black italic uppercase tracking-widest text-[13px] hover:bg-white/10 transition-all active:scale-95">
+                    <button type="button" onclick="toggleAddModal()"
+                        class="flex-1 h-11 bg-white/5 border border-white/10 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-white/10 transition-all active:scale-95">
                         Cancel
                     </button>
                 </div>
@@ -1555,6 +1709,39 @@ $pending_apps_count = count($pending_apps);
 
     <script>
 
+        function syncDateBounds(source) {
+            const fromInput = document.querySelector('input[name="from_date"]');
+            const toInput = document.querySelector('input[name="to_date"]');
+            if (!fromInput || !toInput) return;
+
+            const fromVal = fromInput.value;
+            const toVal = toInput.value;
+
+            // Dynamically lock native calendar selection ranges
+            if (fromVal) {
+                toInput.min = fromVal;
+            } else {
+                toInput.removeAttribute('min');
+            }
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (toVal) {
+                fromInput.max = toVal;
+            } else {
+                fromInput.max = todayStr;
+            }
+
+            if (source === 'from') {
+                if (fromVal && toVal && fromVal > toVal) {
+                    toInput.value = fromVal;
+                }
+            } else if (source === 'to') {
+                if (fromVal && toVal && toVal < fromVal) {
+                    fromInput.value = toVal;
+                }
+            }
+        }
+
         function updateClock() {
             const now = new Date();
             const clock = document.getElementById('topClock');
@@ -1563,24 +1750,117 @@ $pending_apps_count = count($pending_apps);
         setInterval(updateClock, 1000);
         updateClock();
 
+        /**
+         * Horizon Table Pagination Engine 2.0
+         * Premium Glassmorphism Logic with Range Awareness & Empty Row Padding
+         */
+        function initTablePagination(tbodyId, paginationId, rowsPerPage = 10) {
+            const tbody = document.getElementById(tbodyId);
+            const footer = document.getElementById(paginationId);
+            if (!tbody || !footer) return;
+
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination)'));
+            const totalRows = rows.length;
+
+            // Make sure the footer is always visible (as requested by user)
+            footer.classList.remove('hidden');
+
+            const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+            let currentPage = 1;
+
+            const status = footer.querySelector('.status-text');
+            const controls = footer.querySelector('.controls-container');
+
+            function showPage(p) {
+                currentPage = p;
+                const start = (p - 1) * rowsPerPage;
+                const end = start + rowsPerPage;
+
+                rows.forEach((row, i) => {
+                    if (i >= start && i < end) {
+                        row.classList.remove('hidden');
+                        row.classList.add('animate-in', 'fade-in', 'duration-500');
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                });
+
+                renderControls();
+                if (totalRows === 0) {
+                    status.innerHTML = `Showing 0 to 0 of 0 staff`;
+                } else {
+                    status.innerHTML = `Showing ${start + 1} to ${Math.min(end, totalRows)} of ${totalRows} staff`;
+                }
+            }
+
+            function renderControls() {
+                controls.innerHTML = '';
+
+                // Prev Button
+                const prev = document.createElement('button');
+                prev.type = 'button';
+                prev.className = `pagination-btn ${currentPage === 1 ? 'disabled' : ''}`;
+                prev.disabled = currentPage === 1;
+                prev.textContent = 'Prev';
+                prev.onclick = () => currentPage > 1 && showPage(currentPage - 1);
+                controls.appendChild(prev);
+
+                // Indices
+                for (let i = 1; i <= totalPages; i++) {
+                    if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+                        btn.innerText = i;
+                        btn.onclick = () => showPage(i);
+                        controls.appendChild(btn);
+                    } else if (i === currentPage - 3 || i === currentPage + 3) {
+                        const dot = document.createElement('span');
+                        dot.className = 'text-[--text-main]/20 text-[10px] font-black mx-1';
+                        dot.innerText = '...';
+                        controls.appendChild(dot);
+                    }
+                }
+
+                // Next Button
+                const next = document.createElement('button');
+                next.type = 'button';
+                next.className = `pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`;
+                next.disabled = currentPage === totalPages;
+                next.textContent = 'Next';
+                next.onclick = () => currentPage < totalPages && showPage(currentPage + 1);
+                controls.appendChild(next);
+            }
+
+            showPage(1);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initTablePagination('staffTableBody', 'pagination-staff', 10);
+        });
+
         function toggleAddModal() {
             const modal = document.getElementById('addStaffModal');
             modal.classList.toggle('active');
             if (modal.classList.contains('active')) {
                 handleRoleChange(); // Initial check
+                resetUploader(); // Clean file uploader
             }
         }
 
         function handleRoleChange() {
             const roleSelect = document.querySelector('select[name="role"]');
             const rateField = document.getElementById('session_rate_field');
-            if (!roleSelect || !rateField) return;
+            const credentialsSection = document.getElementById('professional_credentials_section');
+            if (!roleSelect) return;
 
             const isCoach = roleSelect.value.toLowerCase().includes('coach') || roleSelect.value.toLowerCase().includes('trainer');
             if (isCoach) {
-                rateField.style.display = 'block';
+                if (rateField) rateField.style.display = 'block';
+                if (credentialsSection) credentialsSection.style.display = 'block';
             } else {
-                rateField.style.display = 'none';
+                if (rateField) rateField.style.display = 'none';
+                if (credentialsSection) credentialsSection.style.display = 'none';
             }
         }
 
@@ -1590,16 +1870,86 @@ $pending_apps_count = count($pending_apps);
         const phoneInput = document.getElementById('contact_number');
         if (phoneInput) {
             phoneInput.addEventListener('input', function (e) {
-                let x = e.target.value.replace(/\D/g, '').match(/(\d{0,4})(\d{0,3})(\d{0,4})/);
-                e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
+                let val = e.target.value;
+
+                // If completely cleared or single digit, allow clearing to show placeholder
+                if (val === '' || val === '0') {
+                    e.target.value = '';
+                    return;
+                }
+
+                // Keep '09' as start if they type something
+                let digits = val.replace(/\D/g, '');
+                if (digits.length > 0) {
+                    if (!digits.startsWith('09')) {
+                        if (digits.startsWith('9')) {
+                            digits = '0' + digits;
+                        } else {
+                            digits = '09' + digits;
+                        }
+                    }
+                }
+
+                let formatted = '';
+                if (digits.length > 0) {
+                    if (digits.length <= 4) {
+                        formatted = digits;
+                    } else if (digits.length <= 7) {
+                        formatted = digits.slice(0, 4) + '-' + digits.slice(4);
+                    } else {
+                        formatted = digits.slice(0, 4) + '-' + digits.slice(4, 7) + '-' + digits.slice(7, 11);
+                    }
+                }
+                e.target.value = formatted;
             });
         }
 
-        // File name display listener
-        document.querySelector('input[name="certification_file"]').addEventListener('change', function (e) {
-            const fileName = e.target.files[0]?.name || 'Choose File...';
-            this.parentElement.querySelector('.file-name-label').textContent = fileName;
-        });
+        const licenseInput = document.getElementById('license_number');
+        if (licenseInput) {
+            licenseInput.addEventListener('input', function (e) {
+                e.target.value = e.target.value.replace(/\D/g, '').slice(0, 12);
+            });
+        }
+
+        const rateInput = document.querySelector('input[name="session_rate"]');
+        if (rateInput) {
+            rateInput.addEventListener('keydown', function (e) {
+                if (['e', 'E', '+', '-'].includes(e.key)) {
+                    e.preventDefault();
+                }
+            });
+        }
+
+        // File name display listener and premium remover logic
+        const fileInput = document.getElementById('certification_file');
+        const removeBtn = document.getElementById('remove_cert_btn');
+        const fileNameLabel = document.querySelector('.file-name-label');
+        const fileIcon = document.querySelector('.file-icon');
+
+        if (fileInput && removeBtn) {
+            fileInput.addEventListener('change', function (e) {
+                if (this.files && this.files.length > 0) {
+                    fileNameLabel.textContent = this.files[0].name;
+                    removeBtn.classList.remove('hidden');
+                    if (fileIcon) fileIcon.textContent = 'check_circle';
+                } else {
+                    resetUploader();
+                }
+            });
+
+            removeBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                resetUploader();
+            });
+        }
+
+        function resetUploader() {
+            if (fileInput) fileInput.value = '';
+            if (fileNameLabel) fileNameLabel.textContent = 'Choose file...';
+            if (fileIcon) fileIcon.textContent = 'upload_file';
+            if (removeBtn) removeBtn.classList.add('hidden');
+        }
 
         // --- ELITE NOTIFICATION SYSTEM ---
         function showNotification(msg, type = 'success') {
@@ -1829,7 +2179,7 @@ $pending_apps_count = count($pending_apps);
                                         showNotification(data.message, 'error');
                                         if (btn) btn.innerHTML = original;
                                     }
-                                } catch(e) {
+                                } catch (e) {
                                     console.error(text);
                                     showNotification('System Error: Refresh and try again.', 'error');
                                     if (btn) btn.innerHTML = original;

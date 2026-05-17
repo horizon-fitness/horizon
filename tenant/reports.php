@@ -328,8 +328,51 @@ $is_restricted = (!$is_sub_active);
 
         .table-header-alt {
             font-size: 10px; font-weight: 900;
-            text-transform: uppercase; letter-spacing: 0.3em;
-            color: var(--text-main); opacity: 0.35;
+            text-transform: uppercase; letter-spacing: 0.25em;
+            color: var(--text-main); opacity: 0.5;
+        }
+
+        /* Elite Pagination Component Styling */
+        .pagination-btn {
+            padding: 8px 16px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        .pagination-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .pagination-status {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-main);
+            opacity: 0.5;
         }
 
 
@@ -525,244 +568,403 @@ $is_restricted = (!$is_sub_active);
                 </div>
             </div>
 
-            <!-- Polished Filter Bar -->
-            <div class="glass-card p-8 mb-10 border border-white/5 bg-white/[0.01]">
-                <form method="GET" class="flex flex-wrap items-end gap-8">
-                    <div class="flex-1 min-w-[200px] flex flex-col gap-2.5">
-                        <label class="label-muted ml-1 flex items-center gap-2">
-                             <span class="material-symbols-outlined text-xs" style="color:var(--primary)">calendar_today</span> Start Date
-                        </label>
-                        <input type="date" name="date_from" value="<?= $date_from ?>" class="filter-input w-full">
-                    </div>
-                    <div class="flex-1 min-w-[200px] flex flex-col gap-2.5">
-                        <label class="label-muted ml-1 flex items-center gap-2">
-                            <span class="material-symbols-outlined text-xs" style="color:var(--primary)">event</span> End Date
-                        </label>
-                        <input type="date" name="date_to" value="<?= $date_to ?>" class="filter-input w-full">
-                    </div>
-                    <div class="flex gap-3">
-                        <a href="reports.php"
-                            class="h-12 w-12 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-[--text-main] opacity-40 hover:opacity-100 hover:bg-white/10 transition-all shadow-lg" title="Clear Filters">
-                            <span class="material-symbols-outlined text-xl">restart_alt</span>
-                        </a>
-                        <button type="submit"
-                            class="h-12 px-10 rounded-2xl text-white text-[10px] font-black uppercase italic tracking-widest transition-all hover:scale-[1.03] active:scale-95 shadow-xl group" style="background:var(--primary); box-shadow: 0 10px 30px -10px rgba(var(--primary-rgb), 0.4)">
-                            <span class="material-symbols-outlined text-lg group-hover:rotate-12 transition-transform">filter_list</span>
-                            Apply Filter</button>
-                    </div>
-                </form>
+            <!-- Superadmin Style Underline Tabs (Outside the Table Card) -->
+            <div class="flex items-center gap-12 mb-10 border-b border-white/5 px-2">
+                <button onclick="switchReport('financial')" id="btn-financial" class="pb-5 relative transition-all duration-300 group outline-none">
+                    <span id="tab-label-financial" class="text-[10px] font-black uppercase tracking-[0.3em] text-primary">
+                        Money
+                    </span>
+                    <div id="line-financial" class="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]"></div>
+                </button>
+                <button onclick="switchReport('attendance')" id="btn-attendance" class="pb-5 relative transition-all duration-300 group outline-none">
+                    <span id="tab-label-attendance" class="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 group-hover:text-white/50">
+                        Entry Log
+                    </span>
+                    <div id="line-attendance" class="hidden absolute bottom-0 left-0 w-full h-[2px] bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]"></div>
+                </button>
+                <button onclick="switchReport('membership')" id="btn-membership" class="pb-5 relative transition-all duration-300 group outline-none">
+                    <span id="tab-label-membership" class="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 group-hover:text-white/50">
+                        Memberships
+                    </span>
+                    <div id="line-membership" class="hidden absolute bottom-0 left-0 w-full h-[2px] bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]"></div>
+                </button>
             </div>
 
             <div class="glass-card overflow-hidden shadow-2xl min-h-[500px] border border-white/5">
 
-                <div class="px-10 border-b border-white/10 flex bg-white/[0.01]">
-                    <div class="flex items-center">
-                        <button onclick="switchReport('financial')" id="btn-financial"
-                            class="line-tab report-tab-active">Money</button>
-                        <button onclick="switchReport('attendance')" id="btn-attendance"
-                            class="line-tab report-tab-inactive">Entry Log</button>
-                        <button onclick="switchReport('membership')" id="btn-membership"
-                            class="line-tab report-tab-inactive">Memberships</button>
+                <!-- Elite Filter Bar (Inside the Card) -->
+                <div class="p-8 border-b border-white/5 bg-white/[0.01]">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <!-- Search -->
+                        <div class="relative group min-w-[240px]">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-base transition-transform group-focus-within:scale-110">search</span>
+                            <input type="text" id="reportSearchInput" onkeyup="filterTableRows()"
+                                placeholder="Search records..."
+                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 focus:border-white/30 transition-all">
+                        </div>
+
+                        <form method="GET" class="flex flex-wrap items-center gap-4">
+                            <!-- From Date -->
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-white/40">From:</span>
+                                <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>"
+                                    max="<?= !empty($date_to) ? htmlspecialchars($date_to) : date('Y-m-d') ?>"
+                                    oninput="syncDateBounds('from')"
+                                    onchange="this.form.submit()"
+                                    class="h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
+                            </div>
+
+                            <!-- To Date -->
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-black uppercase tracking-widest text-white/40">To:</span>
+                                <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>"
+                                    min="<?= !empty($date_from) ? htmlspecialchars($date_from) : '' ?>"
+                                    max="<?= date('Y-m-d') ?>"
+                                    oninput="syncDateBounds('to')"
+                                    onchange="this.form.submit()"
+                                    class="h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
+                            </div>
+
+                            <!-- Clear Filter -->
+                            <a href="reports.php"
+                                class="h-[52px] w-[52px] flex items-center justify-center rounded-2xl bg-white/[0.03] border border-white/10 text-white/40 hover:text-white transition-all active:scale-95"
+                                title="Clear Filters">
+                                <span class="material-symbols-outlined text-xl">restart_alt</span>
+                            </a>
+                        </form>
+
+                        <!-- Action Buttons (Right-aligned next to filters) -->
+                        <div class="flex items-center gap-2 ml-auto">
+                            <button type="button" onclick="exportActiveReport(true)"
+                                class="h-[52px] px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-2.5 active:scale-95">
+                                <span class="material-symbols-outlined text-sm">visibility</span>
+                                View Report
+                            </button>
+                            <button type="button" id="pdfExportBtn" onclick="exportActiveReport(false)"
+                                class="h-[52px] px-6 rounded-2xl border border-primary/20 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all flex items-center gap-2.5 active:scale-95">
+                                <span class="material-symbols-outlined text-sm">picture_as_pdf</span>
+                                Get PDF
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div id="section-financial" class="report-section">
-                    <div class="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
-                        <h3 class="font-black italic uppercase text-xs tracking-widest text-primary">Money Reports
-                        </h3>
-                        <div class="flex gap-2">
-                            <button onclick="exportReportToPDF('section-financial', 'Money Report', true)"
-                                class="text-[10px] font-black uppercase border border-white/5 px-4 py-2 rounded-lg transition-all flex items-center gap-2 opacity-60 hover:opacity-100" style="color: var(--text-main)">
-                                <span class="material-symbols-outlined text-sm">visibility</span>
-                                View Report
-                            </button>
-                            <button onclick="exportReportToPDF('section-financial', 'Money Report', false)"
-                                class="text-[10px] font-black uppercase text-primary border border-primary/20 px-4 py-2 rounded-lg hover:bg-primary/10 transition-all flex items-center gap-2">
-                                <span class="material-symbols-outlined text-sm">picture_as_pdf</span>
-                                Get PDF
-                            </button>
-                        </div>
-                    </div>
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="border-b border-white/5 bg-white/[0.01]">
-                                <th class="px-8 py-6 table-header-alt">Ref ID</th>
-                                <th class="px-8 py-6 table-header-alt">Payer Name</th>
-                                <th class="px-8 py-6 table-header-alt">Amount</th>
-                                <th class="px-8 py-6 table-header-alt">Method</th>
-                                <th class="px-8 py-6 table-header-alt text-right">Date</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-white/5 text-sm font-medium">
-                            <?php if (empty($financials)): ?>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                    <th class="px-8 py-5 table-header-alt">Ref ID</th>
+                                    <th class="px-8 py-5 table-header-alt">Payer Name</th>
+                                    <th class="px-8 py-5 table-header-alt">Amount</th>
+                                    <th class="px-8 py-5 table-header-alt">Method</th>
+                                    <th class="px-8 py-5 table-header-alt text-right">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="financialTableBody" class="divide-y divide-white/5">
+                                <?php if (empty($financials)): ?>
+                                    <tr class="no-pagination">
+                                        <td colspan="5" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                            No financial records found for this period.
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($financials as $f): ?>
+                                        <tr class="hover:bg-white/5 transition-all text-[--text-main]">
+                                            <td class="px-8 py-5 font-mono text-[10px] opacity-40">
+                                                <?= !empty($f['reference_number']) ? htmlspecialchars($f['reference_number']) : '#' . str_pad($f['payment_id'], 5, '0', STR_PAD_LEFT) ?>
+                                            </td>
+                                            <td class="px-8 py-5">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="size-2 rounded-full bg-primary/20"></div>
+                                                    <p class="font-black italic uppercase tracking-tighter text-xs" style="color: var(--text-main)">
+                                                        <?= $f['first_name'] ? htmlspecialchars($f['first_name'] . ' ' . $f['last_name']) : 'Manual Entry' ?>
+                                                    </p>
+                                                </div>
+                                            </td>
+                                            <td class="px-8 py-5 font-black italic text-primary">
+                                                ₱<?= number_format($f['amount'], 2) ?></td>
+                                            <td class="px-8 py-5 uppercase text-[10px] font-bold opacity-30">
+                                                <?= $f['payment_method'] ?></td>
+                                            <td class="px-8 py-5 text-right text-[11px] opacity-40">
+                                                <?= date('M d, Y', strtotime($f['created_at'])) ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                            <tfoot class="border-t-2 border-white/10 bg-white/[0.02]">
                                 <tr>
-                                    <td colspan="5" class="px-8 py-24 text-center text-[10px] uppercase font-black opacity-30 italic tracking-widest" style="color: var(--text-main)">
-                                        No financial records found for this period.
+                                    <td colspan="2" class="px-8 py-6 text-xs font-black uppercase italic tracking-widest text-primary">Total amount</td>
+                                    <td colspan="3" class="px-8 py-6 text-right text-xl font-black italic" style="color: var(--text-main)">
+                                        ₱<?= number_format($total_money, 2) ?>
                                     </td>
                                 </tr>
-                            <?php else: ?>
-                                <?php foreach ($financials as $f): ?>
-                                    <tr class="hover:bg-white/[0.04] transition-all group">
-                                        <td class="px-8 py-6 font-mono text-[10px] opacity-40 group-hover:opacity-100 transition-opacity" style="color: var(--text-main)">
-                                            <?= !empty($f['reference_number']) ? htmlspecialchars($f['reference_number']) : '#' . str_pad($f['payment_id'], 5, '0', STR_PAD_LEFT) ?>
-                                        </td>
-                                        <td class="px-8 py-6">
-                                            <div class="flex items-center gap-3">
-                                                <div class="size-2 rounded-full bg-primary/20 group-hover:bg-primary transition-colors"></div>
-                                                <p class="font-black italic uppercase tracking-tighter text-xs" style="color: var(--text-main)">
-                                                    <?= $f['first_name'] ? htmlspecialchars($f['first_name'] . ' ' . $f['last_name']) : 'Manual Entry' ?>
-                                                </p>
-                                            </div>
-                                        </td>
-                                        <td class="px-8 py-6 font-black italic group-hover:text-primary transition-colors" style="color: var(--text-main)">
-                                            ₱<?= number_format($f['amount'], 2) ?></td>
-                                        <td class="px-8 py-6 uppercase text-[10px] font-bold opacity-30 group-hover:opacity-60 transition-opacity" style="color: var(--text-main)">
-                                            <?= $f['payment_method'] ?></td>
-                                        <td class="px-8 py-6 text-right text-[11px] opacity-40 group-hover:opacity-100 transition-opacity" style="color: var(--text-main)">
-                                            <?= date('M d, Y', strtotime($f['created_at'])) ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                        <tfoot class="border-t-2 border-white/10 bg-white/[0.02]">
-                            <tr>
-                                <td colspan="2" class="px-8 py-6 text-xs font-black uppercase italic tracking-widest text-primary">Total amount</td>
-                                <td colspan="3" class="px-8 py-6 text-right text-xl font-black italic" style="color: var(--text-main)">
-                                    ₱<?= number_format($total_money, 2) ?>
-                                </td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <!-- Pagination Container -->
+                    <div id="pagination-financial"
+                        class="px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center hidden">
+                        <p class="pagination-status status-text"></p>
+                        <div class="flex items-center gap-2 controls-container"></div>
+                    </div>
                 </div>
 
                 <div id="section-attendance" class="report-section hidden">
-                    <div class="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
-                        <h3 class="font-black italic uppercase text-xs tracking-widest text-emerald-500">Entry Log</h3>
-                        <div class="flex gap-2">
-                            <button onclick="exportReportToPDF('section-attendance', 'Entry Report', true)"
-                                class="text-[10px] font-black uppercase text-gray-500 border border-white/5 px-4 py-2 rounded-lg hover:text-white transition-all flex items-center gap-2">
-                                <span class="material-symbols-outlined text-sm">visibility</span>
-                                View Report
-                            </button>
-                            <button onclick="exportReportToPDF('section-attendance', 'Entry Report', false)"
-                                class="text-[10px] font-black uppercase text-emerald-500 border border-emerald-500/20 px-4 py-2 rounded-lg hover:bg-emerald-500/10 transition-all flex items-center gap-2">
-                                <span class="material-symbols-outlined text-sm">picture_as_pdf</span>
-                                Get PDF
-                            </button>
-                        </div>
-                    </div>
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="border-b border-white/5 bg-white/[0.01]">
-                                <th class="px-8 py-6 table-header-alt">Member</th>
-                                <th class="px-8 py-6 table-header-alt">Check In</th>
-                                <th class="px-8 py-6 table-header-alt">Check Out</th>
-                                <th class="px-8 py-6 table-header-alt text-right">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-white/5 text-sm font-medium">
-                            <?php if (empty($attendance_logs)): ?>
-                                <tr>
-                                    <td colspan="4" class="px-8 py-24 text-center text-[10px] uppercase font-black opacity-30 italic tracking-widest" style="color: var(--text-main)">
-                                        No attendance entries found for this period.
-                                    </td>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                    <th class="px-8 py-5 table-header-alt">Member</th>
+                                    <th class="px-8 py-5 table-header-alt">Check In</th>
+                                    <th class="px-8 py-5 table-header-alt">Check Out</th>
+                                    <th class="px-8 py-5 table-header-alt text-right">Status</th>
                                 </tr>
-                            <?php else: ?>
-                                <?php foreach ($attendance_logs as $a): ?>
-                                    <tr class="hover:bg-white/[0.04] transition-all group">
-                                        <td class="px-8 py-6 font-black italic uppercase tracking-tighter text-white transition-colors group-hover:text-primary" style="color: var(--text-main)">
-                                            <?= htmlspecialchars($a['first_name'] . ' ' . $a['last_name']) ?></td>
-                                        <td class="px-8 py-6 text-emerald-400 font-bold">
-                                            <?= date('h:i A', strtotime($a['check_in_time'])) ?></td>
-                                        <td class="px-8 py-6 opacity-40 group-hover:opacity-100 transition-opacity" style="color: var(--text-main)">
-                                            <?= $a['check_out_time'] ? date('h:i A', strtotime($a['check_out_time'])) : '---' ?>
-                                        </td>
-                                        <td class="px-8 py-6 text-right">
-                                            <span
-                                                class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-[0.1em] italic">
-                                                <?= htmlspecialchars($a['attendance_status']) ?>
-                                            </span>
+                            </thead>
+                            <tbody id="attendanceTableBody" class="divide-y divide-white/5">
+                                <?php if (empty($attendance_logs)): ?>
+                                    <tr class="no-pagination">
+                                        <td colspan="4" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                            No attendance entries found for this period.
                                         </td>
                                     </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+                                <?php else: ?>
+                                    <?php foreach ($attendance_logs as $a): ?>
+                                        <tr class="hover:bg-white/5 transition-all text-[--text-main]">
+                                            <td class="px-8 py-5 font-black italic uppercase tracking-tighter text-white" style="color: var(--text-main)">
+                                                <?= htmlspecialchars($a['first_name'] . ' ' . $a['last_name']) ?></td>
+                                            <td class="px-8 py-5 text-emerald-400 font-bold">
+                                                <?= date('h:i A', strtotime($a['check_in_time'])) ?></td>
+                                            <td class="px-8 py-5 opacity-40" style="color: var(--text-main)">
+                                                <?= $a['check_out_time'] ? date('h:i A', strtotime($a['check_out_time'])) : '---' ?>
+                                            </td>
+                                            <td class="px-8 py-5 text-right">
+                                                <span
+                                                    class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-wider italic">
+                                                    <?= htmlspecialchars($a['attendance_status']) ?>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination Container -->
+                    <div id="pagination-attendance"
+                        class="px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center hidden">
+                        <p class="pagination-status status-text"></p>
+                        <div class="flex items-center gap-2 controls-container"></div>
+                    </div>
                 </div>
 
                 <div id="section-membership" class="report-section hidden">
-                    <div class="px-8 py-6 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
-                        <h3 class="font-black italic uppercase text-xs tracking-widest text-amber-500">Memberships</h3>
-                        <div class="flex gap-2">
-                            <button onclick="exportReportToPDF('section-membership', 'Membership Report', true)"
-                                class="text-[10px] font-black uppercase text-gray-500 border border-white/5 px-4 py-2 rounded-lg hover:text-white transition-all flex items-center gap-2">
-                                <span class="material-symbols-outlined text-sm">visibility</span>
-                                View Report
-                            </button>
-                            <button onclick="exportReportToPDF('section-membership', 'Membership Report', false)"
-                                class="text-[10px] font-black uppercase text-amber-500 border border-amber-500/20 px-4 py-2 rounded-lg hover:bg-amber-500/10 transition-all flex items-center gap-2">
-                                <span class="material-symbols-outlined text-sm">picture_as_pdf</span>
-                                Get PDF
-                            </button>
-                        </div>
-                    </div>
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="border-b border-white/5 bg-white/[0.01]">
-                                <th class="px-8 py-6 table-header-alt">Member</th>
-                                <th class="px-8 py-6 table-header-alt">Tier</th>
-                                <th class="px-8 py-6 table-header-alt">Renewal Date</th>
-                                <th class="px-8 py-6 table-header-alt text-right">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-white/5 text-sm font-medium">
-                            <?php if (empty($subscriptions)): ?>
-                                <tr>
-                                    <td colspan="4" class="px-8 py-24 text-center text-[10px] uppercase font-black opacity-30 italic tracking-widest" style="color: var(--text-main)">
-                                        No active membership records found.
-                                    </td>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                    <th class="px-8 py-5 table-header-alt">Member</th>
+                                    <th class="px-8 py-5 table-header-alt">Tier</th>
+                                    <th class="px-8 py-5 table-header-alt">Renewal Date</th>
+                                    <th class="px-8 py-5 table-header-alt text-right">Status</th>
                                 </tr>
-                            <?php else: ?>
-                                <?php foreach ($subscriptions as $s): ?>
-                                    <tr class="hover:bg-white/[0.04] transition-all group">
-                                        <td class="px-8 py-6 font-black italic uppercase tracking-tighter text-white transition-colors group-hover:text-primary" style="color: var(--text-main)">
-                                            <?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?></td>
-                                        <td class="px-8 py-6 text-[10px] font-black uppercase italic opacity-30 group-hover:opacity-60 transition-opacity" style="color: var(--text-main)">
-                                            <?= htmlspecialchars($s['plan_name']) ?></td>
-                                        <td class="px-8 py-6 font-bold opacity-40 group-hover:opacity-100 transition-opacity" style="color: var(--text-main)">
-                                            <?= date('M d, Y', strtotime($s['end_date'])) ?></td>
-                                        <td class="px-8 py-6 text-right">
-                                            <span
-                                                class="px-3 py-1.5 rounded-xl text-[8px] font-black uppercase border border-white/5 bg-white/5 opacity-60 group-hover:opacity-100 transition-opacity">
-                                                <?= htmlspecialchars($s['subscription_status']) ?>
-                                            </span>
+                            </thead>
+                            <tbody id="membershipTableBody" class="divide-y divide-white/5">
+                                <?php if (empty($subscriptions)): ?>
+                                    <tr class="no-pagination">
+                                        <td colspan="4" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                            No active membership records found.
                                         </td>
                                     </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+                                <?php else: ?>
+                                    <?php foreach ($subscriptions as $s): ?>
+                                        <tr class="hover:bg-white/5 transition-all text-[--text-main]">
+                                            <td class="px-8 py-5 font-black italic uppercase tracking-tighter text-white" style="color: var(--text-main)">
+                                                <?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?></td>
+                                            <td class="px-8 py-5 text-[10px] font-black uppercase italic opacity-30" style="color: var(--text-main)">
+                                                <?= htmlspecialchars($s['plan_name']) ?></td>
+                                            <td class="px-8 py-5 font-bold opacity-40" style="color: var(--text-main)">
+                                                <?= date('M d, Y', strtotime($s['end_date'])) ?></td>
+                                            <td class="px-8 py-5 text-right">
+                                                <?php
+                                                $sub_color = strtolower($s['subscription_status']) === 'active' ? 'emerald-500' : 'amber-500';
+                                                ?>
+                                                <span
+                                                    class="px-2.5 py-1 rounded-lg bg-<?= $sub_color ?>/10 border border-<?= $sub_color ?>/20 text-[9px] text-<?= $sub_color ?> font-black uppercase tracking-wider italic">
+                                                    <?= htmlspecialchars($s['subscription_status']) ?>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination Container -->
+                    <div id="pagination-membership"
+                        class="px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center hidden">
+                        <p class="pagination-status status-text"></p>
+                        <div class="flex items-center gap-2 controls-container"></div>
+                    </div>
                 </div>
 
             </div>
     </main>
 
     <script>
+        const paginationRegistry = {};
+
         function switchReport(type) {
+            // Save tab to local storage to persist on filter/reload
+            localStorage.setItem('reports_active_tab', type);
+
+            // Clean search filter when switching tabs so user gets fresh results
+            const searchInput = document.getElementById('reportSearchInput');
+            if (searchInput) searchInput.value = '';
+            
+            // Clear hidden search classes on all rows
+            document.querySelectorAll('tr.hidden-search').forEach(tr => tr.classList.remove('hidden-search'));
+
             const sections = document.querySelectorAll('.report-section');
             sections.forEach(s => s.classList.add('hidden'));
-            document.getElementById('section-' + type).classList.remove('hidden');
+            const activeSection = document.getElementById('section-' + type);
+            if (activeSection) {
+                activeSection.classList.remove('hidden');
+            }
 
             const tabs = ['financial', 'attendance', 'membership'];
             tabs.forEach(t => {
-                const btn = document.getElementById('btn-' + t);
-                if (t === type) {
-                    btn.classList.add('report-tab-active');
-                    btn.classList.remove('report-tab-inactive');
-                } else {
-                    btn.classList.add('report-tab-inactive');
+                const label = document.getElementById('tab-label-' + t);
+                const line = document.getElementById('line-' + t);
+                
+                if (label && line) {
+                    if (t === type) {
+                        if (t === 'financial') {
+                            label.className = "text-[10px] font-black uppercase tracking-[0.3em] text-primary";
+                            line.className = "absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]";
+                            line.classList.remove('hidden');
+                        } else if (t === 'attendance') {
+                            label.className = "text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500";
+                            line.className = "absolute bottom-0 left-0 w-full h-[2px] bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]";
+                            line.classList.remove('hidden');
+                        } else {
+                            label.className = "text-[10px] font-black uppercase tracking-[0.3em] text-amber-500";
+                            line.className = "absolute bottom-0 left-0 w-full h-[2px] bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]";
+                            line.classList.remove('hidden');
+                        }
+                    } else {
+                        label.className = "text-[10px] font-black uppercase tracking-[0.3em] text-white/30 group-hover:text-white/50";
+                        line.className = "hidden absolute bottom-0 left-0 w-full h-[2px]";
+                        line.classList.add('hidden');
+                    }
                 }
             });
+
+            // Dynamically change PDF download button's theme to match the active tab
+            const pdfBtn = document.getElementById('pdfExportBtn');
+            if (pdfBtn) {
+                if (type === 'financial') {
+                    pdfBtn.className = "h-[52px] px-6 rounded-2xl border border-primary/20 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all flex items-center gap-2.5 active:scale-95";
+                } else if (type === 'attendance') {
+                    pdfBtn.className = "h-[52px] px-6 rounded-2xl border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-500/10 transition-all flex items-center gap-2.5 active:scale-95";
+                } else if (type === 'membership') {
+                    pdfBtn.className = "h-[52px] px-6 rounded-2xl border border-amber-500/20 text-[10px] font-black uppercase tracking-widest text-amber-500 hover:bg-amber-500/10 transition-all flex items-center gap-2.5 active:scale-95";
+                }
+            }
+
+            // Re-run pagination since search is reset
+            const tbodyId = type === 'financial' ? 'financialTableBody' : (type === 'attendance' ? 'attendanceTableBody' : 'membershipTableBody');
+            if (paginationRegistry[tbodyId]) {
+                paginationRegistry[tbodyId]();
+            }
+        }
+
+        function filterTableRows() {
+            const query = document.getElementById('reportSearchInput').value.toLowerCase().trim();
+            const activeTab = localStorage.getItem('reports_active_tab') || 'financial';
+            
+            let tbodyId, searchCols;
+            if (activeTab === 'financial') {
+                tbodyId = 'financialTableBody';
+                searchCols = [1, 3]; // Payer, Method
+            } else if (activeTab === 'attendance') {
+                tbodyId = 'attendanceTableBody';
+                searchCols = [0, 3]; // Member, Status
+            } else if (activeTab === 'membership') {
+                tbodyId = 'membershipTableBody';
+                searchCols = [0, 1, 3]; // Member, Tier Plan, Status
+            }
+
+            const tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
+
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination)'));
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                let match = false;
+                searchCols.forEach(colIdx => {
+                    if (cells[colIdx] && cells[colIdx].textContent.toLowerCase().includes(query)) {
+                        match = true;
+                    }
+                });
+
+                if (query === '' || match) {
+                    row.classList.remove('hidden-search');
+                } else {
+                    row.classList.add('hidden-search');
+                }
+            });
+
+            // Refresh pagination to account for hidden search results
+            if (paginationRegistry[tbodyId]) {
+                paginationRegistry[tbodyId]();
+            }
+        }
+
+        function exportActiveReport(preview) {
+            const activeTab = localStorage.getItem('reports_active_tab') || 'financial';
+            if (activeTab === 'financial') {
+                exportReportToPDF('section-financial', 'Money Report', preview);
+            } else if (activeTab === 'attendance') {
+                exportReportToPDF('section-attendance', 'Entry Report', preview);
+            } else if (activeTab === 'membership') {
+                exportReportToPDF('section-membership', 'Membership Report', preview);
+            }
+        }
+
+        function syncDateBounds(source) {
+            const fromInput = document.querySelector('input[name="date_from"]');
+            const toInput = document.querySelector('input[name="date_to"]');
+            const today = new Date().toISOString().split('T')[0];
+
+            if (!fromInput || !toInput) return;
+
+            if (source === 'from') {
+                if (fromInput.value) {
+                    // Lock the To field's min boundary to this value
+                    toInput.min = fromInput.value;
+                    
+                    // Logical correction: Push To forward if From is later than To
+                    if (toInput.value && fromInput.value > toInput.value) {
+                        toInput.value = fromInput.value;
+                    }
+                } else {
+                    toInput.removeAttribute('min');
+                }
+            } else if (source === 'to') {
+                if (toInput.value) {
+                    // Lock the From field's max boundary to this value
+                    fromInput.max = toInput.value;
+                    
+                    // Logical correction: Pull From back if To is earlier than From
+                    if (fromInput.value && toInput.value < fromInput.value) {
+                        fromInput.value = toInput.value;
+                    }
+                } else {
+                    fromInput.max = today;
+                }
+            }
         }
 
         function exportReportToPDF(sectionId, reportTitle, preview = false) {
@@ -894,6 +1096,113 @@ $is_restricted = (!$is_sub_active);
                 html2pdf().set(opt).from(wrapper).save();
             }
         }
+
+        /**
+         * Horizon Table Pagination Engine 2.0 (Search-Aware & Dynamic Registry)
+         * Premium Glassmorphism Logic with Range Awareness & Empty Row Padding
+         */
+        function initTablePagination(tbodyId, paginationId, rowsPerPage = 10) {
+            const tbody = document.getElementById(tbodyId);
+            const footer = document.getElementById(paginationId);
+            if (!tbody || !footer) return;
+
+            // Make sure the footer is always visible (as requested by user)
+            footer.classList.remove('hidden');
+
+            let currentPage = 1;
+
+            const status = footer.querySelector('.status-text');
+            const controls = footer.querySelector('.controls-container');
+
+            function refresh() {
+                // Select only rows that are NOT marked as hidden-search
+                const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination):not(.hidden-search)'));
+                const totalRows = rows.length;
+
+                const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+                if (currentPage > totalPages) currentPage = totalPages;
+                if (currentPage < 1) currentPage = 1;
+
+                const start = (currentPage - 1) * rowsPerPage;
+                const end = start + rowsPerPage;
+
+                // Hide all rows in this section first
+                tbody.querySelectorAll('tr:not(.no-pagination)').forEach(row => {
+                    row.classList.add('hidden');
+                });
+
+                // Display only matching rows within the paginated bounds
+                rows.forEach((row, i) => {
+                    if (i >= start && i < end) {
+                        row.classList.remove('hidden');
+                        row.classList.add('animate-in', 'fade-in', 'duration-300');
+                    }
+                });
+
+                // Render control buttons
+                controls.innerHTML = '';
+
+                // Prev Button
+                const prev = document.createElement('button');
+                prev.type = 'button';
+                prev.className = `pagination-btn ${currentPage === 1 ? 'disabled' : ''}`;
+                prev.disabled = currentPage === 1;
+                prev.textContent = 'Prev';
+                prev.onclick = () => { if (currentPage > 1) { currentPage--; refresh(); } };
+                controls.appendChild(prev);
+
+                // Indices
+                for (let i = 1; i <= totalPages; i++) {
+                    if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+                        btn.innerText = i;
+                        btn.onclick = () => { currentPage = i; refresh(); };
+                        controls.appendChild(btn);
+                    } else if (i === currentPage - 3 || i === currentPage + 3) {
+                        const dot = document.createElement('span');
+                        dot.className = 'text-[--text-main]/20 text-[10px] font-black mx-1';
+                        dot.innerText = '...';
+                        controls.appendChild(dot);
+                    }
+                }
+
+                // Next Button
+                const next = document.createElement('button');
+                next.type = 'button';
+                next.className = `pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`;
+                next.disabled = currentPage === totalPages;
+                next.textContent = 'Next';
+                next.onclick = () => { if (currentPage < totalPages) { currentPage++; refresh(); } };
+                controls.appendChild(next);
+
+                if (totalRows === 0) {
+                    status.innerHTML = `Showing 0 to 0 of 0 records`;
+                } else {
+                    status.innerHTML = `Showing ${start + 1} to ${Math.min(end, totalRows)} of ${totalRows} records`;
+                }
+            }
+
+            // Register this pagination refresh callback globally
+            paginationRegistry[tbodyId] = refresh;
+
+            refresh();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initTablePagination('financialTableBody', 'pagination-financial', 10);
+            initTablePagination('attendanceTableBody', 'pagination-attendance', 10);
+            initTablePagination('membershipTableBody', 'pagination-membership', 10);
+
+            // Restore active tab from local storage
+            const activeTab = localStorage.getItem('reports_active_tab') || 'financial';
+            switchReport(activeTab);
+            
+            // Sync dates max/min boundaries on load
+            syncDateBounds('from');
+            syncDateBounds('to');
+        });
     </script>
 
 
