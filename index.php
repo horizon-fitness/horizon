@@ -4,7 +4,7 @@ require_once 'db.php';
 
 // Handle AJAX Theme Toggle
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'toggle_theme') {
-    $newTheme = ($_POST['theme'] === 'dark') ? 'dark' : 'light';
+    $newTheme = in_array($_POST['theme'], ['dark', 'light', 'system']) ? $_POST['theme'] : 'dark';
     $userId = $_SESSION['user_id'] ?? 0;
     
     $stmt = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) 
@@ -51,8 +51,35 @@ $stmtGyms->execute();
 $affiliatedGyms = $stmtGyms->fetchAll();
 ?>
 <!DOCTYPE html>
-<html class="<?= htmlspecialchars($currentTheme) ?>" lang="en">
+<html lang="en">
 <head>
+    <script>
+        // Synchronously apply theme settings to prevent flash of incorrect theme
+        (function() {
+            const savedTheme = <?= json_encode($currentTheme) ?>;
+            const html = document.documentElement;
+            if (savedTheme === 'system') {
+                const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (systemDark) {
+                    html.classList.add('dark');
+                    html.classList.remove('light');
+                } else {
+                    html.classList.add('light');
+                    html.classList.remove('dark');
+                }
+                html.setAttribute('data-theme-preference', 'system');
+            } else {
+                if (savedTheme === 'dark') {
+                    html.classList.add('dark');
+                    html.classList.remove('light');
+                } else {
+                    html.classList.add('light');
+                    html.classList.remove('dark');
+                }
+                html.setAttribute('data-theme-preference', savedTheme);
+            }
+        })();
+    </script>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
     <title>Horizon | Multi-Tenant Management System</title>
@@ -194,9 +221,14 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             min-height: 400px;
             width: 100%;
             border-radius: 2rem;
-            padding: 2rem;
+            padding: 1.25rem;
             position: relative;
             z-index: 10;
+        }
+        @media (min-width: 768px) {
+            .dashboard-window {
+                padding: 2rem;
+            }
         }
 
         .metric-card {
@@ -236,7 +268,12 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             display: flex;
             align-items: center;
             justify-content: center;
-            transform: translateY(-140px);
+            transform: translateY(0);
+        }
+        @media (min-width: 1024px) {
+            .hero-visual-wrapper {
+                transform: translateY(-140px);
+            }
         }
 
         .model-cutout {
@@ -480,6 +517,43 @@ $affiliatedGyms = $stmtGyms->fetchAll();
         .dark .moon-icon { transform: translateY(0); opacity: 1; }
         .sun-icon { transform: translateY(0); opacity: 1; }
         .moon-icon { transform: translateY(-100%); opacity: 0; }
+
+        /* Mobile & Tablet Optimizations */
+        @media (max-width: 768px) {
+            .floating-card {
+                padding: 0.75rem 1.25rem !important;
+                min-width: 130px !important;
+            }
+            .floating-card .value {
+                font-size: 1.25rem !important;
+            }
+            .floating-card .label {
+                font-size: 8px !important;
+            }
+            .floating-card.c1 { top: 12%; left: -2%; }
+            .floating-card.c2 { top: 18%; right: -2%; }
+            .floating-card.c3 { bottom: 18%; left: -4%; }
+            .floating-card.c4 { bottom: 22%; right: -4%; }
+        }
+
+        /* Theme Tabs Segmented Control Styling */
+        .theme-tab-btn {
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .theme-tab-btn.active {
+            color: #ffffff !important;
+            background: var(--primary) !important;
+            box-shadow: 0 4px 12px rgba(127, 19, 236, 0.2);
+        }
+        .theme-tab-btn:not(.active):hover {
+            color: var(--text-main);
+            background: rgba(127, 19, 236, 0.05);
+        }
     </style>
 </head>
 <body class="font-sans antialiased overflow-x-hidden">
@@ -505,81 +579,86 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                 </div>
 
                 <div class="flex items-center gap-4">
-                    <button id="themeToggle" class="theme-toggle-btn" aria-label="Toggle Theme">
+                    <button id="themeToggle" class="hidden lg:flex theme-toggle-btn" aria-label="Toggle Theme">
                         <span class="material-symbols-outlined icon sun-icon">light_mode</span>
                         <span class="material-symbols-outlined icon moon-icon">dark_mode</span>
                     </button>
-                    <a href="login.php" class="font-display bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white border border-black/10 dark:border-white/10 px-5 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all">
+                    <a href="login.php" class="hidden md:inline-flex font-display bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white border border-black/10 dark:border-white/10 px-5 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all">
                         Staff Login
                     </a>
-                    <a href="tenant/tenant_application.php" class="font-display bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-primary/20">
+                    <a href="tenant/tenant_application.php" class="hidden md:inline-flex font-display bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-primary/20">
                         Apply Now
                     </a>
+                    <button id="mobileMenuToggle" class="md:hidden theme-toggle-btn" aria-label="Open Menu">
+                        <span class="material-symbols-outlined">menu</span>
+                    </button>
                 </div>
             </div>
         </div>
     </nav>
 
+    <!-- Mobile Menu Drawer (Overlay) -->
+    <div id="mobileMenu" class="fixed inset-0 z-[60] opacity-0 pointer-events-none md:hidden">
+        <!-- Backdrop -->
+        <div id="mobileMenuBackdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-500 ease-in-out"></div>
+        <!-- Drawer Content -->
+        <div id="mobileMenuDrawer" class="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white dark:bg-[#0d0d10] border-l border-black/10 dark:border-white/10 p-8 flex flex-col justify-between shadow-2xl z-10 translate-x-full transition-transform duration-300 ease-in-out">
+            <div>
+                <div class="flex items-center justify-between mb-12">
+                    <span class="text-xs font-display font-black text-gray-500 uppercase tracking-[0.2em]">Navigation</span>
+                    <button id="closeMobileMenu" class="theme-toggle-btn" aria-label="Close Menu">
+                        <span class="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+                
+                <nav class="flex flex-col gap-6 text-sm font-display font-bold uppercase tracking-widest text-gray-600 dark:text-gray-400">
+                    <a href="#" class="mobile-nav-link hover:text-primary transition-colors">Home</a>
+                    <a href="#why-choose-us" class="mobile-nav-link hover:text-primary transition-colors">Why Choose Us</a>
+                    <a href="#about" class="mobile-nav-link hover:text-primary transition-colors">About Us</a>
+                    <a href="#plans" class="mobile-nav-link hover:text-primary transition-colors">Plan</a>
+                    <a href="#contact" class="mobile-nav-link hover:text-primary transition-colors">Contact</a>
+                </nav>
+            </div>
+            
+            <div class="flex flex-col gap-4 pt-8 border-t border-black/5 dark:border-white/5">
+                <a href="login.php" class="font-display block text-center bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-gray-900 dark:text-white border border-black/10 dark:border-white/10 px-5 py-3.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all">
+                    Staff Login
+                </a>
+                <a href="tenant/tenant_application.php" class="font-display block text-center bg-primary hover:bg-primary-dark text-white px-5 py-3.5 rounded-custom text-[11px] font-bold uppercase tracking-widest transition-all shadow-lg shadow-primary/20">
+                    Apply Now
+                </a>
+            </div>
+        </div>
+    </div>
+
     <main class="hero-glow">
         <section class="relative pt-20 pb-10 md:pt-32 md:pb-12 px-6 flex items-center justify-center">
-            <div class="max-w-7xl w-full grid lg:grid-cols-2 gap-16 items-center relative z-10">
-                <div class="text-left">
-                    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-8">
+            <div class="max-w-7xl w-full grid lg:grid-cols-2 gap-x-16 gap-y-0 items-center relative z-10">
+                <!-- Sibling 1: Title, paragraph, and Apply Now button -->
+                <div class="text-center lg:text-left lg:col-start-1 lg:row-start-1 lg:self-end">
+                    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6 md:mb-8">
                         <span class="material-symbols-outlined text-sm">hub</span>
                         Next-Gen Multi-Tenant Platform
                     </div>
                     
-                    <h1 class="text-6xl md:text-8xl font-display font-black leading-[0.85] tracking-tighter text-gray-900 dark:text-white uppercase italic mb-8">
+                    <h1 class="text-5xl md:text-8xl font-display font-black leading-[0.85] tracking-tighter text-gray-900 dark:text-white uppercase italic mb-6 md:mb-8">
                         Expand Your <br/>
                         <span class="text-gradient">Horizon</span>
                     </h1>
                     
-                    <p class="text-lg text-gray-700 dark:text-gray-500 font-medium leading-relaxed max-w-md mb-10 italic">
+                    <p class="text-sm sm:text-base md:text-lg text-gray-700 dark:text-gray-500 font-medium leading-relaxed max-w-md mx-auto lg:mx-0 mb-6 md:mb-10 italic">
                         Together with <span class="text-gray-900 dark:text-white font-bold">HORIZON</span>, your fitness business will really form and scale. Interested? Join now!
                     </p>
                     
-                    <div class="flex flex-wrap gap-4 mb-16">
-                        <a href="tenant/tenant_application.php" class="font-display h-16 px-10 bg-primary text-white font-bold rounded-custom text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20 flex items-center justify-center">
+                    <div class="flex flex-wrap justify-center lg:justify-start gap-4 mb-6 md:mb-16">
+                        <a href="tenant/tenant_application.php" class="font-display h-14 md:h-16 px-8 md:px-10 bg-primary text-white font-bold rounded-custom text-[10px] md:text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20 flex items-center justify-center">
                             Apply Now
                         </a>
                     </div>
+                </div>
 
-                    <div class="flex gap-12 border-t border-black/5 dark:border-white/5 pt-10">
-                        <div>
-                            <h3 class="text-3xl font-display font-black text-primary">28</h3>
-                            <p class="text-[10px] text-gray-600 dark:text-gray-400 uppercase font-black tracking-widest mt-1">Exercise Programs</p>
-                        </div>
-                        <div>
-                            <h3 class="text-3xl font-display font-black text-gray-900 dark:text-white">980+</h3>
-                            <p class="text-[10px] text-gray-600 dark:text-gray-400 uppercase font-black tracking-widest mt-1">Total Members</p>
-                        </div>
-                        <div>
-                            <h3 class="text-3xl font-display font-black text-gray-900 dark:text-white">180+</h3>
-                            <p class="text-[10px] text-gray-600 dark:text-gray-400 uppercase font-black tracking-widest mt-1">Professional Coaches</p>
-                        </div>
-                    </div>
-
-                    <!-- Compact Affiliated Gyms Marquee -->
-                    <div class="mt-12 pt-8">
-                        <p class="text-[9px] text-black dark:text-gray-300 font-black uppercase tracking-[0.4em] mb-6">Partnered Fitness center</p>
-                                <div class="flex flex-wrap gap-8 items-center py-2">
-                                    <?php foreach ($affiliatedGyms as $gym): ?>
-                                        <div class="flex items-center gap-3 group opacity-100 transition-all duration-500 cursor-pointer shrink-0">
-                                            <div class="gym-card-inner size-12 rounded-xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm group-hover:shadow-primary/20 transition-all">
-                                                <?php if (!empty($gym['profile_picture'])): ?>
-                                                    <img src="<?= htmlspecialchars($gym['profile_picture']) ?>" alt="<?= htmlspecialchars($gym['gym_name']) ?>" class="gym-logo-item w-full h-full object-cover transition-all">
-                                                <?php else: ?>
-                                                    <div class="gym-logo-item w-full h-full flex items-center justify-center bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-black text-[14px]"><?= strtoupper(substr($gym['gym_name'], 0, 1)) ?></div>
-                                                <?php endif; ?>
-                                            </div>
-                                            <span class="text-[11px] font-display font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 group-hover:text-primary transition-colors"><?= htmlspecialchars($gym['gym_name']) ?></span>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                        </div>
-                    </div>
-
-                <div class="hero-visual-wrapper">
+                <!-- Sibling 2: The Model Portrait (under Apply Now on mobile, right column on desktop) -->
+                <div class="hero-visual-wrapper lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-center mt-6 mb-12 lg:my-0">
                     <!-- Glow behind the model -->
                     <div class="hero-glow-back"></div>
                     
@@ -607,6 +686,43 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     <!-- Decorative blur -->
                     <div class="absolute -bottom-10 -left-10 w-64 h-64 bg-primary/20 blur-[100px] rounded-full pointer-events-none"></div>
                 </div>
+
+                <!-- Sibling 3: Stats and Partnered Gyms -->
+                <div class="lg:col-start-1 lg:row-start-2 lg:self-start w-full">
+                    <div class="flex justify-center lg:justify-start gap-12 border-t border-black/5 dark:border-white/5 pt-10">
+                        <div class="text-center lg:text-left">
+                            <h3 class="text-3xl font-display font-black text-primary">28</h3>
+                            <p class="text-[10px] text-gray-600 dark:text-gray-400 uppercase font-black tracking-widest mt-1">Exercise Programs</p>
+                        </div>
+                        <div class="text-center lg:text-left">
+                            <h3 class="text-3xl font-display font-black text-gray-900 dark:text-white">980+</h3>
+                            <p class="text-[10px] text-gray-600 dark:text-gray-400 uppercase font-black tracking-widest mt-1">Total Members</p>
+                        </div>
+                        <div class="text-center lg:text-left">
+                            <h3 class="text-3xl font-display font-black text-gray-900 dark:text-white">180+</h3>
+                            <p class="text-[10px] text-gray-600 dark:text-gray-400 uppercase font-black tracking-widest mt-1">Professional Coaches</p>
+                        </div>
+                    </div>
+
+                    <!-- Compact Affiliated Gyms Marquee -->
+                    <div class="mt-12 pt-8 text-center lg:text-left">
+                        <p class="text-[9px] text-black dark:text-gray-300 font-black uppercase tracking-[0.4em] mb-6">Partnered Fitness center</p>
+                        <div class="flex flex-wrap justify-center lg:justify-start gap-8 items-center py-2">
+                            <?php foreach ($affiliatedGyms as $gym): ?>
+                                <div class="flex items-center gap-3 group opacity-100 transition-all duration-500 cursor-pointer shrink-0">
+                                    <div class="gym-card-inner size-12 rounded-xl overflow-hidden border border-black/5 dark:border-white/10 shadow-sm group-hover:shadow-primary/20 transition-all">
+                                        <?php if (!empty($gym['profile_picture'])): ?>
+                                            <img src="<?= htmlspecialchars($gym['profile_picture']) ?>" alt="<?= htmlspecialchars($gym['gym_name']) ?>" class="gym-logo-item w-full h-full object-cover transition-all">
+                                        <?php else: ?>
+                                            <div class="gym-logo-item w-full h-full flex items-center justify-center bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-black text-[14px]"><?= strtoupper(substr($gym['gym_name'], 0, 1)) ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                    <span class="text-[11px] font-display font-bold uppercase tracking-widest text-gray-700 dark:text-gray-300 group-hover:text-primary transition-colors"><?= htmlspecialchars($gym['gym_name']) ?></span>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -620,7 +736,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                             Why <span class="text-gradient">Choose Us</span>
                         </h2>
                     </div>
-                    <div class="flex gap-4">
+                    <div class="hidden md:flex gap-4">
                         <button onclick="scrollFeatures('left')" class="size-12 rounded-full border border-black/10 dark:border-white/10 flex items-center justify-center text-gray-900 dark:text-white hover:border-primary hover:text-primary transition-all">
                             <span class="material-symbols-outlined">west</span>
                         </button>
@@ -630,9 +746,9 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     </div>
                 </div>
 
-                <div id="featuresContainer" class="flex gap-8 overflow-x-auto snap-x snap-mandatory hide-scrollbar py-12 px-4 -mx-4 scroll-smooth">
+                <div id="featuresContainer" class="flex gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar py-12 px-6 scroll-smooth w-full">
                     <!-- Feature 1: Management -->
-                    <div class="why-us-card min-w-[320px] md:min-w-[400px] snap-start">
+                    <div class="why-us-card min-w-[calc(100vw-3rem)] lg:min-w-[400px] lg:w-[400px] snap-center">
                         <div class="h-32 flex items-center justify-start">
                             <span class="material-symbols-outlined text-6xl text-primary">fitness_center</span>
                         </div>
@@ -643,7 +759,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     </div>
 
                     <!-- Feature 2: BMI & Member Analytics -->
-                    <div class="why-us-card min-w-[320px] md:min-w-[400px] snap-start">
+                    <div class="why-us-card min-w-[calc(100vw-3rem)] lg:min-w-[400px] lg:w-[400px] snap-center">
                         <div class="h-32 flex items-center justify-start">
                             <span class="material-symbols-outlined text-6xl text-primary">query_stats</span>
                         </div>
@@ -654,7 +770,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     </div>
 
                     <!-- Feature 3: Financial Growth -->
-                    <div class="why-us-card min-w-[320px] md:min-w-[400px] snap-start">
+                    <div class="why-us-card min-w-[calc(100vw-3rem)] lg:min-w-[400px] lg:w-[400px] snap-center">
                         <div class="h-32 flex items-center justify-start">
                             <span class="material-symbols-outlined text-6xl text-primary">account_balance_wallet</span>
                         </div>
@@ -665,7 +781,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     </div>
 
                     <!-- Feature 4: Multi-Branch Control -->
-                    <div class="why-us-card min-w-[320px] md:min-w-[400px] snap-start">
+                    <div class="why-us-card min-w-[calc(100vw-3rem)] lg:min-w-[400px] lg:w-[400px] snap-center">
                         <div class="h-32 flex items-center justify-start">
                             <span class="material-symbols-outlined text-6xl text-primary">hub</span>
                         </div>
@@ -676,7 +792,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     </div>
 
                     <!-- Feature 5: Automated Reporting -->
-                    <div class="why-us-card min-w-[320px] md:min-w-[400px] snap-start">
+                    <div class="why-us-card min-w-[calc(100vw-3rem)] lg:min-w-[400px] lg:w-[400px] snap-center">
                         <div class="h-32 flex items-center justify-start">
                             <span class="material-symbols-outlined text-6xl text-primary">assessment</span>
                         </div>
@@ -687,7 +803,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     </div>
 
                     <!-- Feature 6: Private Security -->
-                    <div class="why-us-card min-w-[320px] md:min-w-[400px] snap-start">
+                    <div class="why-us-card min-w-[calc(100vw-3rem)] lg:min-w-[400px] lg:w-[400px] snap-center">
                         <div class="h-32 flex items-center justify-start">
                             <span class="material-symbols-outlined text-6xl text-primary">verified_user</span>
                         </div>
@@ -709,18 +825,18 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             </div>
         </section>
 
-        <section id="about" class="pt-32 pb-16 px-6 relative border-t border-black/5 dark:border-white/5 bg-white dark:bg-transparent">
+        <section id="about" class="py-24 px-6 relative border-t border-black/5 dark:border-white/5 bg-white dark:bg-transparent">
             <div class="max-w-7xl mx-auto">
                 <div class="grid lg:grid-cols-2 gap-20 items-center">
                     <div>
                         <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6">
                             Behind the System
                         </div>
-                        <h2 class="text-5xl font-display font-black text-gray-900 dark:text-white uppercase italic leading-tight mb-8">
+                        <h2 class="text-4xl md:text-5xl font-display font-black text-gray-900 dark:text-white uppercase italic leading-tight mb-8">
                             One Platform.<br/>
                             <span class="text-gradient">Infinite Gyms.</span>
                         </h2>
-                        <div class="space-y-6 text-gray-400 italic leading-relaxed">
+                        <div class="space-y-6 text-gray-600 dark:text-gray-400 italic leading-relaxed text-justify">
                             <p>
                                 Horizon is more than just a management tool; it is a multi-tenant ecosystem designed to revolutionize how fitness centers operate. We provide the digital backbone that allows gym owners to automate their workflow.
                             </p>
@@ -729,30 +845,30 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                             </p>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-6 mt-12">
-                            <div class="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                                <span class="material-symbols-outlined text-primary mb-2">security</span>
-                                <h4 class="text-gray-900 dark:text-white text-xs font-bold uppercase tracking-widest mb-1 italic">Data Isolation</h4>
-                                <p class="text-[10px] text-gray-600 dark:text-gray-500">Your gym's data is strictly yours. Secure tenant separation at every layer.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-12">
+                            <div class="p-5 rounded-xl bg-black/[0.01] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+                                <span class="material-symbols-outlined text-primary mb-3 text-2xl">security</span>
+                                <h4 class="text-gray-900 dark:text-white text-sm font-black uppercase tracking-widest mb-2 italic">Data Isolation</h4>
+                                <p class="text-xs text-gray-600 dark:text-gray-500 leading-relaxed">Your gym's data is strictly yours. Secure tenant separation at every layer.</p>
                             </div>
-                            <div class="p-4 rounded-xl bg-white/[0.02] border border-white/5">
-                                <span class="material-symbols-outlined text-primary mb-2">speed</span>
-                                <h4 class="text-gray-900 dark:text-white text-xs font-bold uppercase tracking-widest mb-1 italic">High Velocity</h4>
-                                <p class="text-[10px] text-gray-600 dark:text-gray-500">Optimized for real-time check-ins and instant membership updates.</p>
+                            <div class="p-5 rounded-xl bg-black/[0.01] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+                                <span class="material-symbols-outlined text-primary mb-3 text-2xl">speed</span>
+                                <h4 class="text-gray-900 dark:text-white text-sm font-black uppercase tracking-widest mb-2 italic">High Velocity</h4>
+                                <p class="text-xs text-gray-600 dark:text-gray-500 leading-relaxed">Optimized for real-time check-ins and instant membership updates.</p>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="relative">
+                    <div class="relative lg:translate-y-8">
                         <div class="dashboard-window w-full overflow-hidden">
-                            <header class="flex justify-between items-end mb-8">
+                            <header class="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-4 mb-8 text-left">
                                 <div>
                                     <h3 class="text-xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter leading-none">
                                         Welcome Back, <span class="text-primary italic">Tenant</span>
                                     </h3>
                                     <p class="text-[9px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-[0.3em] mt-1">Elite Fitness Management System</p>
                                 </div>
-                                <div class="text-right">
+                                <div class="text-left sm:text-right">
                                     <p class="text-lg font-black italic text-gray-900 dark:text-white leading-none uppercase tracking-tighter">09:12:45 AM</p>
                                     <p class="text-primary text-[8px] font-black uppercase tracking-widest mt-1">Wednesday, May 06</p>
                                 </div>
@@ -802,7 +918,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             </div>
         </section>
 
-        <section id="plans" class="pt-16 pb-32 px-6 relative border-t border-white/5">
+        <section id="plans" class="pt-16 pb-32 px-6 relative border-t border-black/5 dark:border-white/5">
             <div class="max-w-7xl mx-auto text-center">
                 <div class="mb-16">
                     <div class="inline-flex items-center justify-center p-3 rounded-xl bg-primary/10 border border-primary/20 mb-6">
@@ -811,36 +927,33 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                     <h2 class="text-4xl md:text-5xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter mb-4">
                         Choose Your <span class="text-primary">Growth Plan</span>
                     </h2>
-                    <p class="text-[10px] text-gray-500 font-bold uppercase tracking-[0.3em]">Select a plan to activate your gym's digital infrastructure</p>
+                    <p class="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-[0.3em]">Select a plan to activate your gym's digital infrastructure</p>
                 </div>
 
-                <div id="plansSlider" class="overflow-x-auto snap-x snap-mandatory custom-scrollbar scroll-smooth">
-                    <!-- Centering Wrapper: Ensures small content lists are centered -->
-                    <div class="flex justify-center min-w-full w-max">
-                        <!-- Content Wrapper: Handles gap and padding, and keeps items aligned to start when overflowing -->
-                        <div class="flex justify-start items-stretch gap-10 py-12 px-10">
-                            <?php foreach ($plans as $plan): 
-                                $hasBadge = !empty($plan['badge_text']);
-                            ?>
-                            <div class="plan-card rounded-2xl p-10 flex flex-col text-left shrink-0 w-[calc(100%-2rem)] md:w-[400px] snap-start <?= $hasBadge ? 'border-primary/50 bg-primary/5 scale-105 shadow-2xl shadow-primary/20' : '' ?>">
-                                <h3 class="text-xl font-display font-black text-gray-900 dark:text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
-                                <p class="text-[9px] <?= $hasBadge ? 'text-primary' : 'text-gray-600' ?> font-bold uppercase tracking-widest mb-8">
-                                    <?= $hasBadge ? htmlspecialchars($plan['badge_text']) : htmlspecialchars($plan['billing_cycle']) ?>
-                                </p>
-                                <div class="mb-10">
-                                    <span class="text-4xl font-display font-black text-gray-900 dark:text-white">₱<?= number_format($plan['price']) ?></span>
-                                    <span class="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest">/ <?= ($plan['duration_months'] == 12) ? 'Yr' : 'Term' ?></span>
-                                </div>
-                                <ul class="space-y-4 mb-12 flex-grow">
-                                    <?php foreach ($plan['features'] as $feature): ?>
-                                    <li class="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                                        <span class="material-symbols-outlined text-primary text-sm">check_circle</span> <?= htmlspecialchars(trim($feature)) ?>
-                                    </li>
-                                    <?php endforeach; ?>
-                                </ul>
+                <div id="plansSlider" class="overflow-x-auto snap-x snap-mandatory custom-scrollbar scroll-smooth w-full">
+                    <!-- Centering Wrapper: Centers cards on screen if they fit; aligns left and scrolls normally if they overflow -->
+                    <div class="flex justify-start items-stretch gap-6 md:gap-10 py-12 px-6 md:px-10 mx-auto w-max max-w-full">
+                        <?php foreach ($plans as $plan): 
+                            $hasBadge = !empty($plan['badge_text']);
+                        ?>
+                        <div class="plan-card rounded-2xl p-6 md:p-10 flex flex-col text-left shrink-0 w-[calc(100vw-3rem)] lg:w-[400px] snap-start <?= $hasBadge ? 'border-primary/50 bg-primary/5 scale-105 shadow-2xl shadow-primary/20' : '' ?>">
+                            <h3 class="text-xl font-display font-black text-gray-900 dark:text-white uppercase italic mb-1"><?= htmlspecialchars($plan['plan_name']) ?></h3>
+                            <p class="text-[9px] <?= $hasBadge ? 'text-primary' : 'text-gray-600' ?> font-bold uppercase tracking-widest mb-8">
+                                <?= $hasBadge ? htmlspecialchars($plan['badge_text']) : htmlspecialchars($plan['billing_cycle']) ?>
+                            </p>
+                            <div class="mb-10">
+                                <span class="text-4xl font-display font-black text-gray-900 dark:text-white">₱<?= number_format($plan['price']) ?></span>
+                                <span class="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-widest">/ <?= ($plan['duration_months'] == 12) ? 'Yr' : 'Term' ?></span>
                             </div>
-                            <?php endforeach; ?>
+                            <ul class="space-y-4 mb-12 flex-grow">
+                                <?php foreach ($plan['features'] as $feature): ?>
+                                <li class="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400 font-medium">
+                                    <span class="material-symbols-outlined text-primary text-sm">check_circle</span> <?= htmlspecialchars(trim($feature)) ?>
+                                </li>
+                                <?php endforeach; ?>
+                            </ul>
                         </div>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             </div>
@@ -862,7 +975,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
 
     <footer id="contact" class="bg-white dark:bg-[#08080a] border-t border-black/5 dark:border-white/5 pt-24 pb-12 px-6">
         <div class="max-w-7xl mx-auto">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-16 mb-24">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16 mb-24">
                 <div class="space-y-8">
                     <div>
                         <div class="flex items-center gap-3 mb-6">
@@ -930,7 +1043,19 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                 </div>
             </div>
 
-            <div class="pt-10 border-t border-white/5 text-center">
+            <!-- Theme Selector for Mobile & Tablet -->
+            <div class="flex lg:hidden justify-center mb-8">
+                <div class="inline-flex p-1 rounded-xl bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 relative">
+                    <button onclick="setThemeMode('light')" data-mode="light" class="theme-tab-btn flex items-center justify-center size-10 rounded-lg <?= ($currentTheme === 'light') ? 'active' : '' ?>" aria-label="Light Mode">
+                        <span class="material-symbols-outlined text-[20px]">light_mode</span>
+                    </button>
+                    <button onclick="setThemeMode('dark')" data-mode="dark" class="theme-tab-btn flex items-center justify-center size-10 rounded-lg <?= ($currentTheme !== 'light') ? 'active' : '' ?>" aria-label="Dark Mode">
+                        <span class="material-symbols-outlined text-[20px]">dark_mode</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="pt-10 border-t border-black/5 dark:border-white/5 text-center">
                 <p class="text-[9px] font-bold text-gray-700 uppercase tracking-[0.5em]">
                     © 2026 HORIZON SYSTEM. SECURE ENVIRONMENT. ALL RIGHTS RESERVED.
                 </p>
@@ -979,16 +1104,38 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             }
         };
 
-        // --- Theme Toggle Engine ---
-        const themeToggle = document.getElementById('themeToggle');
+        // --- Theme Engine (Light, Dark, Orientation) ---
         const html = document.documentElement;
+        const systemMedia = window.matchMedia('(prefers-color-scheme: dark)');
 
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = html.classList.contains('dark') ? 'dark' : 'light';
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        function handleSystemThemeChange(e) {
+            const themePref = html.getAttribute('data-theme-preference');
+            if (themePref === 'system') {
+                if (e.matches) {
+                    html.classList.add('dark');
+                    html.classList.remove('light');
+                } else {
+                    html.classList.remove('dark');
+                    html.classList.add('light');
+                }
+            }
+        }
 
-            // Immediate UI feedback
-            if (newTheme === 'dark') {
+        systemMedia.addEventListener('change', handleSystemThemeChange);
+
+        function setThemeMode(mode) {
+            html.setAttribute('data-theme-preference', mode);
+
+            // Apply light/dark classes dynamically
+            if (mode === 'system') {
+                if (systemMedia.matches) {
+                    html.classList.add('dark');
+                    html.classList.remove('light');
+                } else {
+                    html.classList.remove('dark');
+                    html.classList.add('light');
+                }
+            } else if (mode === 'dark') {
                 html.classList.add('dark');
                 html.classList.remove('light');
             } else {
@@ -996,10 +1143,19 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                 html.classList.add('light');
             }
 
-            // Persistence via AJAX
+            // Highlight the active button in the footer segmented control
+            document.querySelectorAll('.theme-tab-btn').forEach(btn => {
+                if (btn.getAttribute('data-mode') === mode) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Save choice via AJAX
             const formData = new FormData();
             formData.append('action', 'toggle_theme');
-            formData.append('theme', newTheme);
+            formData.append('theme', mode);
 
             fetch('index.php', {
                 method: 'POST',
@@ -1010,11 +1166,37 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                 console.log('Theme saved:', data.theme);
             })
             .catch(error => console.error('Error saving theme:', error));
+        }
+
+        // Initialize active state of bottom tabs
+        document.addEventListener('DOMContentLoaded', () => {
+            const activePref = html.classList.contains('dark') ? 'dark' : 'light';
+            document.querySelectorAll('.theme-tab-btn').forEach(btn => {
+                if (btn.getAttribute('data-mode') === activePref) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
         });
+
+        // Desktop header button fallback toggle
+        const desktopThemeToggle = document.getElementById('themeToggle');
+        if (desktopThemeToggle) {
+            desktopThemeToggle.addEventListener('click', () => {
+                const currentPref = html.getAttribute('data-theme-preference') || 'dark';
+                let currentActual = currentPref;
+                if (currentPref === 'system') {
+                    currentActual = systemMedia.matches ? 'dark' : 'light';
+                }
+                const newTheme = currentActual === 'dark' ? 'light' : 'dark';
+                setThemeMode(newTheme);
+            });
+        }
         function scrollFeatures(direction) {
             const container = document.getElementById('featuresContainer');
             const cardWidth = container.querySelector('.why-us-card').offsetWidth;
-            const gap = 32;
+            const gap = 24;
             const scrollAmount = cardWidth + gap;
             
             if (direction === 'left') {
@@ -1027,7 +1209,7 @@ $affiliatedGyms = $stmtGyms->fetchAll();
         function scrollToFeature(index) {
             const container = document.getElementById('featuresContainer');
             const cardWidth = container.querySelector('.why-us-card').offsetWidth;
-            const gap = 32;
+            const gap = 24;
             container.scrollTo({ left: index * (cardWidth + gap), behavior: 'smooth' });
         }
 
@@ -1044,6 +1226,60 @@ $affiliatedGyms = $stmtGyms->fetchAll();
                 if (i === index) dot.classList.add('active');
                 else dot.classList.remove('active');
             });
+        });
+
+        // --- Mobile Menu Engine ---
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const closeMobileMenu = document.getElementById('closeMobileMenu');
+        const mobileMenu = document.getElementById('mobileMenu');
+        const mobileMenuDrawer = document.getElementById('mobileMenuDrawer');
+        const mobileMenuBackdrop = document.getElementById('mobileMenuBackdrop');
+        const mobileNavLinks = document.querySelectorAll('.mobile-nav-link');
+
+        function openMenu() {
+            // Instantly activate parent layout wrapper
+            mobileMenu.classList.remove('opacity-0', 'pointer-events-none');
+            mobileMenu.classList.add('opacity-100', 'pointer-events-auto');
+            
+            // Slide in sidebar immediately
+            mobileMenuDrawer.classList.remove('translate-x-full');
+            mobileMenuDrawer.classList.add('translate-x-0');
+            
+            // Fade in blurred backdrop with a delay
+            mobileMenuBackdrop.classList.add('delay-150');
+            mobileMenuBackdrop.classList.remove('opacity-0');
+            mobileMenuBackdrop.classList.add('opacity-100');
+            
+            document.body.style.overflow = 'hidden'; // prevent page scroll when menu is open
+        }
+
+        function closeMenu() {
+            // Slide out sidebar immediately
+            mobileMenuDrawer.classList.remove('translate-x-0');
+            mobileMenuDrawer.classList.add('translate-x-full');
+            
+            // Fade out backdrop instantly (no delay)
+            mobileMenuBackdrop.classList.remove('delay-150');
+            mobileMenuBackdrop.classList.remove('opacity-100');
+            mobileMenuBackdrop.classList.add('opacity-0');
+            
+            // Deactivate wrapper layout after drawer completes translation
+            setTimeout(() => {
+                if (mobileMenuDrawer.classList.contains('translate-x-full')) {
+                    mobileMenu.classList.remove('opacity-100', 'pointer-events-auto');
+                    mobileMenu.classList.add('opacity-0', 'pointer-events-none');
+                }
+            }, 300);
+            
+            document.body.style.overflow = ''; // restore page scroll
+        }
+
+        mobileMenuToggle.addEventListener('click', openMenu);
+        closeMobileMenu.addEventListener('click', closeMenu);
+        mobileMenuBackdrop.addEventListener('click', closeMenu);
+
+        mobileNavLinks.forEach(link => {
+            link.addEventListener('click', closeMenu);
         });
     </script>
 </body>
