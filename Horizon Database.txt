@@ -415,6 +415,7 @@ CREATE TABLE member_health_metrics (
 CREATE TABLE user_fitness_profiles (
     profile_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
+    fitness_goal VARCHAR(100),
     experience_level VARCHAR(50),
     weekly_commitment VARCHAR(50),
     target_weight DECIMAL(5,2),
