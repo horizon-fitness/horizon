@@ -52,6 +52,9 @@ try {
     // Verification Tables
     $pdo->exec("CREATE TABLE IF NOT EXISTS user_verifications (verification_id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, verification_type VARCHAR(50) NOT NULL, code VARCHAR(10) NOT NULL, status ENUM('pending', 'verified', 'expired') DEFAULT 'pending', expires_at DATETIME NOT NULL, created_at DATETIME NOT NULL, verified_at DATETIME NULL)");
 
+    // User Fitness Profiles
+    $pdo->exec("CREATE TABLE IF NOT EXISTS user_fitness_profiles (profile_id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, experience_level VARCHAR(50), weekly_commitment VARCHAR(50), target_weight DECIMAL(5,2), equipment_availability VARCHAR(100), injuries_limitations TEXT, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, INDEX(user_id))");
+
     // Original Website Plans Migrations (Safe-mode)
     $resPlan = $pdo->query("SHOW TABLES LIKE 'website_plans'");
     if ($resPlan->fetch()) {

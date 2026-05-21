@@ -34,7 +34,7 @@ try {
     $isGlobalRequest = (empty($tenant_code) || $tenant_code === '000' || strtolower($tenant_code) === 'horizon');
     
     $sqlRole = "SELECT ur.*, r.role_name, g.gym_name, g.tenant_code as g_tenant_code,
-                m.member_id, m.member_code, m.occupation, 
+                m.member_id, m.member_code, m.occupation,
                 addr.address_line AS member_address, addr.address_line, addr.barangay, addr.city, addr.province, addr.region, 
                 m.emergency_contact_name, m.emergency_contact_number, m.medical_history, m.member_status,
                 m.parent_name, m.parent_contact

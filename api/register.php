@@ -155,6 +155,16 @@ try {
         $province = trim($input['province'] ?? '');
         $region = trim($input['region'] ?? '');
         $reg_source = trim($input['registration_source'] ?? 'Mobile');
+        
+        // Premium Onboarding: Fitness Goals & Metrics
+        $experience_level = trim($input['experience_level'] ?? '');
+        $weekly_commitment = trim($input['weekly_commitment'] ?? '');
+        $target_weight = isset($input['target_weight']) && is_numeric($input['target_weight']) ? (float)$input['target_weight'] : null;
+        $equipment_availability = trim($input['equipment_availability'] ?? '');
+        $injuries_limitations = trim($input['injuries_limitations'] ?? '');
+        $current_weight = isset($input['current_weight']) && is_numeric($input['current_weight']) ? (float)$input['current_weight'] : null;
+        $height_cm = isset($input['height_cm']) && is_numeric($input['height_cm']) ? (float)$input['height_cm'] : null;
+
         $now = date('Y-m-d H:i:s');
 
         $pdo->beginTransaction();
@@ -200,6 +210,19 @@ try {
         $member_code = 'MBR-' . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
         $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, parent_name, parent_contact, registration_source, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
         $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $parent_name, $parent_phone, $reg_source, $now, $now]);
+        $member_id = $pdo->lastInsertId();
+
+        // Save Fitness Profile
+        if ($experience_level || $weekly_commitment || $target_weight !== null || $equipment_availability || $injuries_limitations) {
+            $stmtFitness = $pdo->prepare("INSERT INTO user_fitness_profiles (user_id, experience_level, weekly_commitment, target_weight, equipment_availability, injuries_limitations, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtFitness->execute([$new_user_id, $experience_level, $weekly_commitment, $target_weight, $equipment_availability, $injuries_limitations, $now, $now]);
+        }
+
+        // Save Initial Health Metrics
+        if ($current_weight !== null && $height_cm !== null) {
+            $stmtHealth = $pdo->prepare("INSERT INTO member_health_metrics (member_id, weight_kg, height_cm, recorded_at) VALUES (?, ?, ?, ?)");
+            $stmtHealth->execute([$member_id, $current_weight, $height_cm, $now]);
+        }
 
         // Cleanup Verification
         $pdo->prepare("UPDATE user_verifications SET status = 'verified', verified_at = ? WHERE verification_id = ?")

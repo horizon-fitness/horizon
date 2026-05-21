@@ -86,7 +86,7 @@ try {
     $weight = null;
     $bmi = null;
     if ($roleData && !empty($roleData['member_id'])) {
-        $stmtMetrics = $pdo->prepare("SELECT height_cm, weight_kg, bmi FROM member_health_metrics WHERE member_id = ? ORDER BY recorded_at DESC LIMIT 1");
+        $stmtMetrics = $pdo->prepare("SELECT height_cm, weight_kg, ROUND(weight_kg / POWER(height_cm / 100, 2), 1) as bmi FROM member_health_metrics WHERE member_id = ? ORDER BY recorded_at DESC LIMIT 1");
         $stmtMetrics->execute([$roleData['member_id']]);
         $metrics = $stmtMetrics->fetch();
         if ($metrics) {

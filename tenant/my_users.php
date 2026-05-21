@@ -146,7 +146,7 @@ if (isset($_GET['ajax_user_id'])) {
         $sql .= ", m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.medical_history, m.emergency_contact_name, m.emergency_contact_number, ";
         $sql .= " (SELECT height_cm FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as height_cm, ";
         $sql .= " (SELECT weight_kg FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as weight_kg, ";
-        $sql .= " (SELECT bmi FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as bmi ";
+        $sql .= " (SELECT ROUND(weight_kg / POWER(height_cm / 100, 2), 1) FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as bmi ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id LEFT JOIN addresses a ON m.address_id = a.address_id ";
     } elseif ($role_name_lc === 'staff') {
         $sql .= ", s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
