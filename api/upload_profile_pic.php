@@ -23,9 +23,21 @@ try {
         exit;
     }
 
-    if (empty($base64_image)) {
+    if (empty($base64_image) || $base64_image === 'remove' || $base64_image === 'delete') {
+        $stmt = $pdo->prepare("UPDATE users SET profile_picture = NULL, updated_at = NOW() WHERE user_id = ?");
+        $result = $stmt->execute([$user_id]);
+
+        if (!$result) {
+            $errorInfo = $stmt->errorInfo();
+            throw new Exception("Database update failed: " . ($errorInfo[2] ?? 'Unknown error'));
+        }
+
         ob_end_clean();
-        echo json_encode(['success' => false, 'message' => 'Image data is empty.']);
+        echo json_encode([
+            'success' => true,
+            'message' => 'Profile picture removed.',
+            'path'    => ''
+        ]);
         exit;
     }
 
