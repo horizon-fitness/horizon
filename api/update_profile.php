@@ -40,30 +40,49 @@ try {
     }
 
     // 1. Update USERS table
-    $sqlUser = "UPDATE users SET 
-                username = COALESCE(NULLIF(?, ''), username),
-                email = COALESCE(NULLIF(?, ''), email),
-                first_name = ?, 
-                last_name = ?, 
-                middle_name = ?, 
-                contact_number = ?, 
-                birth_date = ?, 
-                sex = ?,
-                updated_at = NOW() 
-                WHERE user_id = ?";
-    
-    $stmtUser = $pdo->prepare($sqlUser);
-    $stmtUser->execute([
-        $username,
-        $email,
-        $input['first_name'] ?? '',
-        $input['last_name'] ?? '',
-        $input['middle_name'] ?? '',
-        $input['contact_number'] ?? '',
-        $input['birth_date'] ?? null,
-        $input['sex'] ?? '',
-        $user_id
-    ]);
+    $userFields = [];
+    $userParams = [];
+
+    if (array_key_exists('username', $input) && !empty(trim($input['username']))) {
+        $userFields[] = "username = ?";
+        $userParams[] = trim($input['username']);
+    }
+    if (array_key_exists('email', $input) && !empty(trim($input['email']))) {
+        $userFields[] = "email = ?";
+        $userParams[] = trim($input['email']);
+    }
+    if (array_key_exists('first_name', $input)) {
+        $userFields[] = "first_name = ?";
+        $userParams[] = trim($input['first_name']);
+    }
+    if (array_key_exists('last_name', $input)) {
+        $userFields[] = "last_name = ?";
+        $userParams[] = trim($input['last_name']);
+    }
+    if (array_key_exists('middle_name', $input)) {
+        $userFields[] = "middle_name = ?";
+        $userParams[] = trim($input['middle_name']);
+    }
+    if (array_key_exists('contact_number', $input)) {
+        $userFields[] = "contact_number = ?";
+        $userParams[] = trim($input['contact_number']);
+    }
+    if (array_key_exists('birth_date', $input)) {
+        $userFields[] = "birth_date = ?";
+        $userParams[] = !empty($input['birth_date']) ? $input['birth_date'] : null;
+    }
+    if (array_key_exists('sex', $input)) {
+        $userFields[] = "sex = ?";
+        $userParams[] = trim($input['sex']);
+    }
+
+    if (!empty($userFields)) {
+        $userFields[] = "updated_at = NOW()";
+        $sqlUser = "UPDATE users SET " . implode(', ', $userFields) . " WHERE user_id = ?";
+        $userParams[] = $user_id;
+        $stmtUser = $pdo->prepare($sqlUser);
+        $stmtUser->execute($userParams);
+    }
 
     // 2. Handle Address if gym_id is provided
     $gym_id = isset($input['gym_id']) ? (int)$input['gym_id'] : 0;
@@ -76,62 +95,97 @@ try {
         $address_id = $member ? $member['address_id'] : null;
 
         if ($address_id) {
-            // Update existing address
-            $sqlAddr = "UPDATE addresses SET 
-                        address_line = ?, 
-                        barangay = ?, 
-                        city = ?, 
-                        province = ?, 
-                        region = ?, 
-                        updated_at = NOW() 
-                        WHERE address_id = ?";
-            $stmtAddr = $pdo->prepare($sqlAddr);
-            $stmtAddr->execute([
-                $input['address_line'] ?? ($input['address'] ?? ''),
-                $input['barangay'] ?? '',
-                $input['city'] ?? '',
-                $input['province'] ?? '',
-                $input['region'] ?? '',
-                $address_id
-            ]);
+            $addrFields = [];
+            $addrParams = [];
+            if (array_key_exists('address_line', $input) || array_key_exists('address', $input)) {
+                $addrFields[] = "address_line = ?";
+                $addrParams[] = $input['address_line'] ?? ($input['address'] ?? '');
+            }
+            if (array_key_exists('barangay', $input)) {
+                $addrFields[] = "barangay = ?";
+                $addrParams[] = $input['barangay'];
+            }
+            if (array_key_exists('city', $input)) {
+                $addrFields[] = "city = ?";
+                $addrParams[] = $input['city'];
+            }
+            if (array_key_exists('province', $input)) {
+                $addrFields[] = "province = ?";
+                $addrParams[] = $input['province'];
+            }
+            if (array_key_exists('region', $input)) {
+                $addrFields[] = "region = ?";
+                $addrParams[] = $input['region'];
+            }
+
+            if (!empty($addrFields)) {
+                $addrFields[] = "updated_at = NOW()";
+                $sqlAddr = "UPDATE addresses SET " . implode(', ', $addrFields) . " WHERE address_id = ?";
+                $addrParams[] = $address_id;
+                $stmtAddr = $pdo->prepare($sqlAddr);
+                $stmtAddr->execute($addrParams);
+            }
         } else {
-            // Create new address
-            $sqlAddr = "INSERT INTO addresses (address_line, barangay, city, province, region, created_at, updated_at) 
-                        VALUES (?, ?, ?, ?, ?, NOW(), NOW())";
-            $stmtAddr = $pdo->prepare($sqlAddr);
-            $stmtAddr->execute([
-                $input['address_line'] ?? ($input['address'] ?? ''),
-                $input['barangay'] ?? '',
-                $input['city'] ?? '',
-                $input['province'] ?? '',
-                $input['region'] ?? ''
-            ]);
-            $address_id = $pdo->lastInsertId();
+            // Create new address if address fields are provided
+            $hasAddressInput = array_key_exists('address_line', $input) || array_key_exists('address', $input) ||
+                               array_key_exists('barangay', $input) || array_key_exists('city', $input) ||
+                               array_key_exists('province', $input) || array_key_exists('region', $input);
+
+            if ($hasAddressInput) {
+                $sqlAddr = "INSERT INTO addresses (address_line, barangay, city, province, region, created_at, updated_at) 
+                            VALUES (?, ?, ?, ?, ?, NOW(), NOW())";
+                $stmtAddr = $pdo->prepare($sqlAddr);
+                $stmtAddr->execute([
+                    $input['address_line'] ?? ($input['address'] ?? ''),
+                    $input['barangay'] ?? '',
+                    $input['city'] ?? '',
+                    $input['province'] ?? '',
+                    $input['region'] ?? ''
+                ]);
+                $address_id = $pdo->lastInsertId();
+            }
         }
 
         // 3. Update MEMBERS table
-        $sqlMem = "UPDATE members SET 
-                   address_id = ?, 
-                   occupation = ?, 
-                   medical_history = ?, 
-                   emergency_contact_name = ?, 
-                   emergency_contact_number = ?, 
-                   parent_name = ?, 
-                   parent_contact = ?, 
-                   updated_at = NOW() 
-                   WHERE user_id = ? AND gym_id = ?";
-        $stmtMem = $pdo->prepare($sqlMem);
-        $stmtMem->execute([
-            $address_id,
-            $input['occupation'] ?? '',
-            $input['medical_history'] ?? '',
-            $input['emergency_contact_name'] ?? '',
-            $input['emergency_contact_number'] ?? '',
-            $input['parent_name'] ?? '',
-            $input['parent_contact_number'] ?? ($input['parent_contact'] ?? ''),
-            $user_id,
-            $gym_id
-        ]);
+        $memFields = [];
+        $memParams = [];
+        if ($address_id) {
+            $memFields[] = "address_id = ?";
+            $memParams[] = $address_id;
+        }
+        if (array_key_exists('occupation', $input)) {
+            $memFields[] = "occupation = ?";
+            $memParams[] = $input['occupation'];
+        }
+        if (array_key_exists('medical_history', $input)) {
+            $memFields[] = "medical_history = ?";
+            $memParams[] = $input['medical_history'];
+        }
+        if (array_key_exists('emergency_contact_name', $input)) {
+            $memFields[] = "emergency_contact_name = ?";
+            $memParams[] = $input['emergency_contact_name'];
+        }
+        if (array_key_exists('emergency_contact_number', $input)) {
+            $memFields[] = "emergency_contact_number = ?";
+            $memParams[] = $input['emergency_contact_number'];
+        }
+        if (array_key_exists('parent_name', $input)) {
+            $memFields[] = "parent_name = ?";
+            $memParams[] = $input['parent_name'];
+        }
+        if (array_key_exists('parent_contact_number', $input) || array_key_exists('parent_contact', $input)) {
+            $memFields[] = "parent_contact = ?";
+            $memParams[] = $input['parent_contact_number'] ?? ($input['parent_contact'] ?? '');
+        }
+
+        if (!empty($memFields)) {
+            $memFields[] = "updated_at = NOW()";
+            $sqlMem = "UPDATE members SET " . implode(', ', $memFields) . " WHERE user_id = ? AND gym_id = ?";
+            $memParams[] = $user_id;
+            $memParams[] = $gym_id;
+            $stmtMem = $pdo->prepare($sqlMem);
+            $stmtMem->execute($memParams);
+        }
 
         // 4. Log health metrics (Height, Weight) if provided
         $height = isset($input['height_cm']) ? (float)$input['height_cm'] : 0.0;
