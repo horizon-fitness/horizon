@@ -43,6 +43,12 @@ try {
     $pdo->exec("CREATE TABLE IF NOT EXISTS addresses (address_id INT AUTO_INCREMENT PRIMARY KEY, address_line TEXT, barangay VARCHAR(100), city VARCHAR(100), province VARCHAR(100), region VARCHAR(100), created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS members (member_id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, gym_id INT NOT NULL, member_code VARCHAR(50), address_id INT, occupation VARCHAR(100), member_status VARCHAR(20) DEFAULT 'Active', created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, INDEX(user_id), INDEX(gym_id))");
 
+    // Ensure members table has profile_picture for gym-specific photos
+    $resMemberPic = $pdo->query("SHOW COLUMNS FROM members LIKE 'profile_picture'");
+    if (!$resMemberPic->fetch()) {
+        $pdo->exec("ALTER TABLE members ADD COLUMN profile_picture LONGTEXT DEFAULT NULL AFTER member_status");
+    }
+
     // Ensure users table has profile_pic
     $resUser = $pdo->query("SHOW COLUMNS FROM users LIKE 'profile_pic'");
     if (!$resUser->fetch()) {

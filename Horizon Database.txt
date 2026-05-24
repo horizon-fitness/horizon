@@ -214,6 +214,7 @@ CREATE TABLE members (
     registration_source VARCHAR(100),
     registered_by_user_id INT,
     member_status VARCHAR(50) NOT NULL,
+    profile_picture LONGTEXT,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 );
