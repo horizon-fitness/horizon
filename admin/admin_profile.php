@@ -149,7 +149,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $old_values = $stmtOld->fetch(PDO::FETCH_ASSOC);
 
         $remove_profile = isset($_POST['remove_profile_picture']) && $_POST['remove_profile_picture'] === '1';
-        $profile_picture = convertFileToBase64('profile_picture');
+        $profile_picture_path = null;
+        $profile_updated = false;
+
+        $file_input_key = null;
+        if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] === UPLOAD_ERR_OK) {
+            $file_input_key = 'profile_pic';
+        } elseif (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+            $file_input_key = 'profile_picture';
+        }
+
+        if ($file_input_key) {
+            $file = $_FILES[$file_input_key];
+            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+
+            if (!in_array($mime_type, $allowed_types)) {
+                throw new Exception("Invalid image format. Only JPG, PNG, GIF, and WEBP are allowed.");
+            }
+
+            $target_dir = '../assets/uploads/profile_pics/';
+            if (!is_dir($target_dir)) {
+                mkdir($target_dir, 0755, true);
+            }
+            if (!is_writable($target_dir)) {
+                $target_dir = '../uploads/profile_pics/';
+                if (!is_dir($target_dir)) {
+                    mkdir($target_dir, 0755, true);
+                }
+            }
+            if (!is_writable($target_dir)) {
+                throw new Exception("Upload directory is not writable.");
+            }
+
+            $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+            if (empty($ext)) {
+                $ext = ($mime_type === 'image/png') ? 'png' : (($mime_type === 'image/gif') ? 'gif' : (($mime_type === 'image/webp') ? 'webp' : 'jpg'));
+            }
+            $filename = 'profile_' . $user_id . '_' . time() . '.' . $ext;
+            $dest_path = $target_dir . $filename;
+
+            if (!move_uploaded_file($file['tmp_name'], $dest_path)) {
+                throw new Exception("Failed to save the uploaded image file.");
+            }
+
+            $profile_picture_path = ltrim(str_replace('../', '', $dest_path), '/');
+            $profile_updated = true;
+
+            if (!empty($old_values['profile_picture']) && strpos($old_values['profile_picture'], 'data:') !== 0) {
+                $old_file = '../' . ltrim($old_values['profile_picture'], '/');
+                if (file_exists($old_file)) {
+                    @unlink($old_file);
+                }
+            }
+        }
 
         // Build Update Query
         $updates = [
@@ -166,12 +221,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if ($remove_profile) {
             $updates[] = "profile_picture = NULL";
             $new_values['profile_picture'] = 'REMOVED';
-        }
-
-        if ($profile_picture) {
+            
+            if (!empty($old_values['profile_picture']) && strpos($old_values['profile_picture'], 'data:') !== 0) {
+                $old_file = '../' . ltrim($old_values['profile_picture'], '/');
+                if (file_exists($old_file)) {
+                    @unlink($old_file);
+                }
+            }
+            $_SESSION['user_pic'] = null;
+        } elseif ($profile_updated) {
             $updates[] = "profile_picture = ?";
-            $params[] = $profile_picture;
-            $new_values['profile_picture'] = '[IMAGE DATA]';
+            $params[] = $profile_picture_path;
+            $new_values['profile_picture'] = $profile_picture_path;
+            $_SESSION['user_pic'] = $profile_picture_path;
         }
 
         // Handle Password Change
@@ -448,6 +510,8 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
             <?php endif; ?>
 
             <div class="flex flex-col xl:flex-row gap-8 items-start justify-center">
+                <form id="profile-form" action="" method="POST" enctype="multipart/form-data" class="flex flex-col gap-12" onsubmit="validateAndSubmit(event)">
+                <input type="hidden" name="action" value="update_profile">
                 <!-- Left Panel (Identity Card) -->
                 <div class="w-full xl:w-72 shrink-0 flex flex-col gap-6">
                     <div class="glass-card relative overflow-hidden p-8 text-center group shadow-2xl">
@@ -455,8 +519,10 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                         <div class="relative z-10">
                             <div class="size-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-transparent border border-white/10 mb-6 shadow-2xl overflow-hidden group">
                                 <div id="profile-container" class="size-full rounded-[30px] bg-black/20 flex items-center justify-center overflow-hidden relative">
-                                    <?php if (!empty($user['profile_picture'])): ?>
-                                        <img id="profilePreviewImg" src="<?= $user['profile_picture'] ?>" class="size-full aspect-square object-cover transition-transform duration-700 group-hover:scale-110">
+                                    <?php if (!empty($user['profile_picture'])): 
+                                         $display_pic = (strpos($user['profile_picture'], 'data:') === 0 || strpos($user['profile_picture'], 'http') === 0 || strpos($user['profile_picture'], '../') === 0) ? $user['profile_picture'] : '../' . $user['profile_picture'];
+                                     ?>
+                                        <img id="profilePreviewImg" src="<?= $display_pic ?>" class="size-full aspect-square object-cover transition-transform duration-700 group-hover:scale-110">
                                     <?php else: ?>
                                         <div id="profilePlaceholder" class="size-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-primary text-5xl font-black italic uppercase">
                                             <?php 
@@ -466,10 +532,11 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                                             ?>
                                         </div>
                                     <?php endif; ?>
-                                    <label id="profile-label" class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px] hidden">
+                                    <label id="profile-label" for="profile-input-file" class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px] hidden">
                                         <span class="material-symbols-rounded text-2xl text-white">add_a_photo</span>
-                                        <input type="file" name="profile_picture" form="profile-form" id="profile-input-file" class="hidden" accept="image/*" onchange="previewProfileImage(this)">
                                     </label>
+                                    <input type="hidden" name="remove_profile_picture" id="remove-profile-input" value="0">
+                                    <input type="file" name="profile_picture" id="profile-input-file" class="hidden" accept="image/*" onchange="previewProfileImage(this)">
                                     <button type="button" id="remove-photo-btn" onclick="removeProfilePhoto()" class="absolute top-2.5 right-2.5 size-7 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center opacity-0 hover:bg-rose-500 hover:text-white transition-all duration-300 z-20 hidden backdrop-blur-md">
                                         <span class="material-symbols-rounded text-base">delete</span>
                                     </button>
@@ -487,11 +554,11 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                         </div>
                     </div>
 
-                    <button id="edit-btn" onclick="toggleEdit()" class="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 text-[--text-main] text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group">
+                    <button type="button" id="edit-btn" onclick="toggleEdit()" class="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 text-[--text-main] text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group">
                         <span class="material-symbols-rounded group-hover:text-primary transition-colors">edit_square</span>
                         <span>Edit Profile</span>
                     </button>
-                    <button id="discard-btn" onclick="cancelEdit()" class="hidden w-full py-4 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 text-rose-500 text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3">
+                    <button type="button" id="discard-btn" onclick="cancelEdit()" class="hidden w-full py-4 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 text-rose-500 text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3">
                         <span class="material-symbols-rounded">close</span>
                         <span>Discard Changes</span>
                     </button>
@@ -503,9 +570,6 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                         <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Identity Management</h1>
                         <div id="edit-indicator" class="hidden px-4 py-1.5 rounded-lg bg-primary/20 text-primary text-[9px] font-black italic uppercase tracking-[0.2em] animate-pulse">Editing Mode</div>
                     </div>
-
-                    <form id="profile-form" action="" method="POST" enctype="multipart/form-data" class="flex flex-col gap-12" onsubmit="validateAndSubmit(event)">
-                        <input type="hidden" name="action" value="update_profile">
                         
                         <div class="space-y-6">
                             <h3 class="profile-section-title">Account Details</h3>
@@ -514,7 +578,7 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                                     <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Username</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">alternate_email</span></div>
-                                        <input type="text" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner">
+                                        <input type="text" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner" autocomplete="username">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
@@ -534,28 +598,28 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                                     <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">First Name</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">person</span></div>
-                                        <input type="text" name="first_name" value="<?= htmlspecialchars($user['first_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner">
+                                        <input type="text" name="first_name" value="<?= htmlspecialchars($user['first_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner" autocomplete="given-name">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
                                     <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Middle Name</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">person</span></div>
-                                        <input type="text" name="middle_name" value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner" placeholder="Optional">
+                                        <input type="text" name="middle_name" value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner" placeholder="Optional" autocomplete="additional-name">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
                                     <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Last Name</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">person</span></div>
-                                        <input type="text" name="last_name" value="<?= htmlspecialchars($user['last_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner">
+                                        <input type="text" name="last_name" value="<?= htmlspecialchars($user['last_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner" autocomplete="family-name">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
                                     <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Birth Date</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">cake</span></div>
-                                        <input type="date" name="birth_date" value="<?= $user['birth_date'] ?? '' ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner appearance-none">
+                                        <input type="date" name="birth_date" value="<?= $user['birth_date'] ?? '' ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner appearance-none" autocomplete="bday">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
@@ -579,14 +643,14 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                                     <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Email Address</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">mail</span></div>
-                                        <input type="email" name="email" value="<?= htmlspecialchars($user['email'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner">
+                                        <input type="email" name="email" value="<?= htmlspecialchars($user['email'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner" autocomplete="email">
                                     </div>
                                 </div>
                                 <div class="space-y-2">
                                     <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest pl-1">Phone number</label>
                                     <div class="relative group">
                                         <div class="input-icon-container"><span class="material-symbols-rounded">smartphone</span></div>
-                                        <input type="text" name="contact_number" value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" disabled required oninput="formatPhone(this)" class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner" placeholder="09XX-XXX-XXXX">
+                                        <input type="text" name="contact_number" value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" disabled required oninput="formatPhone(this)" class="w-full profile-input has-icon rounded-2xl px-6 py-4 text-sm font-bold shadow-inner" placeholder="09XX-XXX-XXXX" autocomplete="tel">
                                     </div>
                                 </div>
                             </div>
@@ -600,6 +664,9 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                                     <span class="material-symbols-rounded text-primary text-2xl">lock_reset</span>
                                     Update Security Key
                                 </h4>
+                                <!-- Prevent Autofill -->
+                                <input type="text" style="display:none" autocomplete="username">
+                                <input type="password" style="display:none" autocomplete="current-password">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8">
                                     <div class="space-y-2">
                                         <div class="flex items-center justify-between ml-1">
@@ -607,7 +674,7 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                                             <p id="strength-text" class="text-[9px] font-black uppercase tracking-widest min-h-[15px]"></p>
                                         </div>
                                         <div class="relative">
-                                            <input type="password" name="new_password" id="new_pass" onkeyup="checkStrength(this.value)" placeholder="Leave blank to keep current" class="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/20" disabled>
+                                            <input type="password" name="new_password" id="new_pass" onkeyup="checkStrength(this.value)" placeholder="Leave blank to keep current" autocomplete="new-password" class="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/20" disabled>
                                             <button type="button" onclick="togglePass('new_pass', 'icon_new')" class="absolute right-6 top-1/2 -translate-y-1/2 text-[--text-main]/20 hover:text-white transition-colors">
                                                 <span class="material-symbols-rounded text-lg" id="icon_new">visibility_off</span>
                                             </button>
@@ -640,7 +707,7 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                                             <p class="text-[9px] min-h-[15px]"></p>
                                         </div>
                                         <div class="relative">
-                                            <input type="password" name="confirm_password" id="confirm_pass" placeholder="Re-enter new password" class="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/20" disabled>
+                                            <input type="password" name="confirm_password" id="confirm_pass" placeholder="Re-enter new password" autocomplete="new-password" class="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/20" disabled>
                                             <button type="button" onclick="togglePass('confirm_pass', 'icon_confirm')" class="absolute right-6 top-1/2 -translate-y-1/2 text-[--text-main]/20 hover:text-white transition-colors">
                                                 <span class="material-symbols-rounded text-lg" id="icon_confirm">visibility_off</span>
                                             </button>
@@ -665,7 +732,7 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                                 </div>
                                 <div class="flex flex-col sm:flex-row items-center gap-6 w-full md:w-auto relative z-10 shrink-0">
                                     <div class="relative w-full sm:w-56 group/input">
-                                        <input type="password" name="current_password" id="current_pass" required placeholder="Verify Password" disabled class="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-[11px] font-black italic text-[--text-main] focus:border-primary focus:outline-none transition-all pr-14 placeholder:text-[--text-main]/20 tracking-[0.2em] font-sans">
+                                        <input type="password" name="current_password" id="current_pass" placeholder="Verify Password" autocomplete="current-password" disabled class="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-[11px] font-black italic text-[--text-main] focus:border-primary focus:outline-none transition-all pr-14 placeholder:text-[--text-main]/20 tracking-[0.2em] font-sans">
                                         <button type="button" onclick="togglePass('current_pass', 'icon_cur')" class="absolute right-5 top-1/2 -translate-y-1/2 text-[--text-main]/20 hover:text-white transition-colors">
                                             <span class="material-symbols-rounded text-lg" id="icon_cur">visibility_off</span>
                                         </button>
@@ -676,6 +743,7 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
                         </div>
 
                         <input type="hidden" name="remove_profile_picture" id="remove-profile-input" value="0">
+                        <input type="file" name="profile_picture" id="profile-input-file" class="hidden" accept="image/*" onchange="previewProfileImage(this)">
                     </form>
                 </div>
             </div>
@@ -727,6 +795,16 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
             discardBtn.classList.remove('hidden');
             saveSection.classList.remove('hidden');
             indicator.classList.remove('hidden');
+
+            // Prevent autofill from keeping old values
+            setTimeout(() => {
+                const np = document.getElementById('new_pass');
+                const cp = document.getElementById('confirm_pass');
+                const currp = document.getElementById('current_pass');
+                if(np) np.value = '';
+                if(cp) cp.value = '';
+                if(currp) currp.value = '';
+            }, 50);
             profileLabel.classList.remove('hidden');
             if (hasPhoto) removeBtn.classList.remove('hidden');
 
@@ -857,6 +935,7 @@ $employmentType = $user['employment_type'] ?? 'Full-Time';
 
             if (phone.length !== 11) { showModal('Error', 'Contact number must be 11 digits.', 'error'); return; }
             if (!pass) {
+                 showModal('Password Required', 'Please enter your current password to save changes.', 'error');
                  const pi = document.getElementById('current_pass');
                  pi.focus(); pi.classList.add('border-rose-500/50');
                  setTimeout(() => pi.classList.remove('border-rose-500/50'), 2000);

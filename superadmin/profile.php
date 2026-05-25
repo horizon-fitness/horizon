@@ -103,7 +103,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $old_values = $stmtOld->fetch(PDO::FETCH_ASSOC);
 
         $remove_profile = isset($_POST['remove_profile_picture']) && $_POST['remove_profile_picture'] === '1';
-        $profile_picture = convertFileToBase64('profile_picture');
+        $profile_picture_path = null;
+        $profile_updated = false;
+
+        // Check if a file was uploaded via $_FILES['profile_pic'] or $_FILES['profile_picture']
+        $file_input_key = null;
+        if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] === UPLOAD_ERR_OK) {
+            $file_input_key = 'profile_pic';
+        } elseif (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+            $file_input_key = 'profile_picture';
+        }
+
+        if ($file_input_key) {
+            $file = $_FILES[$file_input_key];
+            
+            // Validate file type securely
+            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+
+            if (!in_array($mime_type, $allowed_types)) {
+                throw new Exception("Invalid image format. Only JPG, PNG, GIF, and WEBP are allowed.");
+            }
+
+            // Ensure upload directory exists and is writable
+            $target_dir = '../assets/uploads/profile_pics/';
+            if (!is_dir($target_dir)) {
+                mkdir($target_dir, 0755, true);
+            }
+            if (!is_writable($target_dir)) {
+                $target_dir = '../uploads/profile_pics/';
+                if (!is_dir($target_dir)) {
+                    mkdir($target_dir, 0755, true);
+                }
+            }
+            if (!is_writable($target_dir)) {
+                throw new Exception("Upload directory is not writable. Please check permissions.");
+            }
+
+            // Generate a secure unique filename
+            $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+            if (empty($ext)) {
+                $ext = ($mime_type === 'image/png') ? 'png' : (($mime_type === 'image/gif') ? 'gif' : (($mime_type === 'image/webp') ? 'webp' : 'jpg'));
+            }
+            $filename = 'profile_' . $user_id . '_' . time() . '.' . $ext;
+            $dest_path = $target_dir . $filename;
+
+            // Move the file
+            if (!move_uploaded_file($file['tmp_name'], $dest_path)) {
+                throw new Exception("Failed to save the uploaded image file.");
+            }
+
+            // Save path relative to root for consistency
+            $profile_picture_path = ltrim(str_replace('../', '', $dest_path), '/');
+            $profile_updated = true;
+
+            // Clean up old physical file if it exists
+            if (!empty($old_values['profile_picture']) && strpos($old_values['profile_picture'], 'data:') !== 0) {
+                $old_file = '../' . ltrim($old_values['profile_picture'], '/');
+                if (file_exists($old_file)) {
+                    @unlink($old_file);
+                }
+            }
+        }
 
         // Build Update Query
         $updates = [
@@ -132,12 +195,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if ($remove_profile) {
             $updates[] = "profile_picture = NULL";
             $new_values['profile_picture'] = 'REMOVED';
-        }
-
-        if ($profile_picture) {
+            
+            // Clean up old physical file if it exists
+            if (!empty($old_values['profile_picture']) && strpos($old_values['profile_picture'], 'data:') !== 0) {
+                $old_file = '../' . ltrim($old_values['profile_picture'], '/');
+                if (file_exists($old_file)) {
+                    @unlink($old_file);
+                }
+            }
+            $_SESSION['user_pic'] = null;
+        } elseif ($profile_updated) {
             $updates[] = "profile_picture = ?";
-            $params[] = $profile_picture;
-            $new_values['profile_picture'] = '[IMAGE DATA]';
+            $params[] = $profile_picture_path;
+            $new_values['profile_picture'] = $profile_picture_path;
+            $_SESSION['user_pic'] = $profile_picture_path;
         }
 
         // Handle Password Change if requested
@@ -660,9 +731,11 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                 class="w-32 h-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden group">
                                 <div id="profile-container"
                                     class="w-full h-full rounded-[30px] bg-black/20 flex items-center justify-center overflow-hidden relative">
-                                    <?php if (!empty($user['profile_picture'])): ?>
-                                        <img id="profilePreviewImg" src="<?= $user['profile_picture'] ?>"
-                                            class="size-full aspect-square object-cover object-center transition-transform duration-700 group-hover:scale-110">
+                                     <?php if (!empty($user['profile_picture'])): 
+                                         $display_pic = (strpos($user['profile_picture'], 'data:') === 0 || strpos($user['profile_picture'], 'http') === 0 || strpos($user['profile_picture'], '../') === 0) ? $user['profile_picture'] : '../' . $user['profile_picture'];
+                                     ?>
+                                         <img id="profilePreviewImg" src="<?= $display_pic ?>"
+                                             class="size-full aspect-square object-cover object-center transition-transform duration-700 group-hover:scale-110">
                                     <?php else: ?>
                                         <div id="profilePlaceholder"
                                             class="size-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-primary text-4xl font-black italic">
@@ -671,15 +744,12 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                     <?php endif; ?>
 
                                     <!-- Edit Overlay -->
-                                    <label id="profile-label"
+                                    <label id="profile-label" for="profile-input-file"
                                         class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px] hidden">
                                         <div
                                             class="size-12 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300">
                                             <span class="material-symbols-rounded text-2xl">add_a_photo</span>
                                         </div>
-                                        <input type="file" name="profile_picture" form="profile-form" class="hidden"
-                                            id="profile-input-file" accept=".jpg,.jpeg,.png"
-                                            onchange="previewProfileImage(this)">
                                     </label>
 
                                     <!-- Remove Photo Button -->
@@ -801,6 +871,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                                     <input type="password" name="new_password" id="new_pass"
                                                         onkeyup="checkStrength(this.value)"
                                                         placeholder="Leave blank to keep current"
+                                                        autocomplete="new-password"
                                                         class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/30"
                                                         disabled>
                                                     <button type="button"
@@ -858,6 +929,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                                 <div class="relative">
                                                     <input type="password" name="confirm_password" id="confirm_pass"
                                                         placeholder="Re-enter new password"
+                                                        autocomplete="new-password"
                                                         class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/30"
                                                         disabled>
                                                     <button type="button"
@@ -1002,11 +1074,6 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                     </div>
                                 </div>
 
-
-
-
-
-
                             </div>
                         </div>
 
@@ -1037,6 +1104,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
                                     <div class="relative w-full sm:w-44 group/input">
                                         <input type="password" name="current_password" id="current_pass" required
                                             placeholder="Password" disabled
+                                            autocomplete="current-password"
                                             class="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-xs font-black italic text-[--text-main] focus:border-primary/50 focus:outline-none transition-all pr-12 placeholder:text-[--text-main]/30 tracking-widest">
                                         <button type="button" onclick="togglePassword('current_pass', 'icon_curr')"
                                             class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white transition-colors flex items-center justify-center">
@@ -1055,6 +1123,7 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
 
                         <!-- Hidden Inputs for Profile Picture Management -->
                         <input type="hidden" name="remove_profile_picture" id="remove-profile-input" value="0">
+                        <input type="file" name="profile_picture" class="hidden" id="profile-input-file" accept=".jpg,.jpeg,.png" onchange="previewProfileImage(this)">
 
                     </form>
                 </div>

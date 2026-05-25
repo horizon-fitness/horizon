@@ -88,14 +88,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $old_values = $stmtOld->fetch(PDO::FETCH_ASSOC);
 
         $remove_profile = isset($_POST['remove_profile_picture']) && $_POST['remove_profile_picture'] === '1';
-        $profile_picture = convertFileToBase64('profile_picture');
+        $profile_picture_path = null;
+        $profile_updated = false;
+
+        $file_input_key = null;
+        if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] === UPLOAD_ERR_OK) {
+            $file_input_key = 'profile_pic';
+        } elseif (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
+            $file_input_key = 'profile_picture';
+        }
+
+        if ($file_input_key) {
+            $file = $_FILES[$file_input_key];
+            $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime_type = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+
+            if (!in_array($mime_type, $allowed_types)) {
+                throw new Exception("Invalid image format. Only JPG, PNG, GIF, and WEBP are allowed.");
+            }
+
+            $target_dir = '../assets/uploads/profile_pics/';
+            if (!is_dir($target_dir)) {
+                mkdir($target_dir, 0755, true);
+            }
+            if (!is_writable($target_dir)) {
+                $target_dir = '../uploads/profile_pics/';
+                if (!is_dir($target_dir)) {
+                    mkdir($target_dir, 0755, true);
+                }
+            }
+            if (!is_writable($target_dir)) {
+                throw new Exception("Upload directory is not writable.");
+            }
+
+            $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+            if (empty($ext)) {
+                $ext = ($mime_type === 'image/png') ? 'png' : (($mime_type === 'image/gif') ? 'gif' : (($mime_type === 'image/webp') ? 'webp' : 'jpg'));
+            }
+            $filename = 'profile_' . $user_id . '_' . time() . '.' . $ext;
+            $dest_path = $target_dir . $filename;
+
+            if (!move_uploaded_file($file['tmp_name'], $dest_path)) {
+                throw new Exception("Failed to save the uploaded image file.");
+            }
+
+            $profile_picture_path = ltrim(str_replace('../', '', $dest_path), '/');
+            $profile_updated = true;
+
+            if (!empty($old_values['profile_picture']) && strpos($old_values['profile_picture'], 'data:') !== 0) {
+                $old_file = '../' . ltrim($old_values['profile_picture'], '/');
+                if (file_exists($old_file)) {
+                    @unlink($old_file);
+                }
+            }
+        }
 
         $updates = ["username = ?", "first_name = ?", "middle_name = ?", "last_name = ?", "email = ?", "contact_number = ?", "birth_date = ?", "sex = ?", "updated_at = ?"];
         $params = [$username, $first_name, $middle_name, $last_name, $email, $contact_number, $birth_date, $sex, $now];
         $new_values = ['username' => $username, 'first_name' => $first_name, 'middle_name' => $middle_name, 'last_name' => $last_name, 'email' => $email, 'contact_number' => $contact_number, 'birth_date' => $birth_date, 'sex' => $sex];
 
-        if ($remove_profile) { $updates[] = "profile_picture = NULL"; $new_values['profile_picture'] = 'REMOVED'; }
-        if ($profile_picture) { $updates[] = "profile_picture = ?"; $params[] = $profile_picture; $new_values['profile_picture'] = '[IMAGE DATA]'; }
+        if ($remove_profile) {
+            $updates[] = "profile_picture = NULL";
+            $new_values['profile_picture'] = 'REMOVED';
+            
+            if (!empty($old_values['profile_picture']) && strpos($old_values['profile_picture'], 'data:') !== 0) {
+                $old_file = '../' . ltrim($old_values['profile_picture'], '/');
+                if (file_exists($old_file)) {
+                    @unlink($old_file);
+                }
+            }
+            $_SESSION['user_pic'] = null;
+        } elseif ($profile_updated) {
+            $updates[] = "profile_picture = ?";
+            $params[] = $profile_picture_path;
+            $new_values['profile_picture'] = $profile_picture_path;
+            $_SESSION['user_pic'] = $profile_picture_path;
+        }
 
         if (!empty($new_password)) {
             if ($new_password !== $confirm_password) throw new Exception("New passwords do not match.");
@@ -347,7 +417,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
         /* Hide icons strictly and align text flush (nakasagad) in view mode */
         .tab-content:not(.edit-mode) .input-icon-container { display: none !important; }
         .tab-content:not(.edit-mode) .profile-input.has-icon { padding-left: 0 !important; }
-        .group:focus-within .input-icon-container { color: var(--primary); transform: scale(1.1); }
+        .group:focus-within .input-icon-container { color: var(--primary); }
 
         .pill-save-bar { background: rgba(20, 18, 22, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); border-radius: 999px; padding: 12px 12px 12px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
         .save-bar-icon-circle { width: 56px; height: 56px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary); flex-shrink: 0; }
@@ -411,8 +481,20 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                         <div id="sidebar-user-content" class="relative z-10 transition-all duration-300">
                             <div class="w-32 h-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden group">
                                 <div id="profile-container" class="w-full h-full rounded-[30px] bg-black/20 flex items-center justify-center overflow-hidden relative">
-                                    <?php if (!empty($user['profile_picture'])): ?><img id="profilePreviewImg" src="<?= $user['profile_picture'] ?>" class="size-full aspect-square object-cover object-center transition-transform duration-700 group-hover:scale-110"><?php else: ?><div id="profilePlaceholder" class="size-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-transparent text-primary text-4xl font-black italic"><?= strtoupper($user['first_name'][0] . ($user['last_name'][0] ?? '')) ?></div><?php endif; ?>
-                                    <label id="profile-label" class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px] hidden"><span class="material-symbols-outlined text-2xl">add_a_photo</span><input type="file" name="profile_picture" form="profile-form" class="hidden" id="profile-input-file" accept="image/*" onchange="previewProfileImage(this)"></label>
+                                    <?php if (!empty($user['profile_picture'])): 
+                                        $display_pic = (strpos($user['profile_picture'], 'data:') === 0 || strpos($user['profile_picture'], 'http') === 0 || strpos($user['profile_picture'], '../') === 0) ? $user['profile_picture'] : '../' . $user['profile_picture'];
+                                    ?>
+                                        <img id="profilePreviewImg" src="<?= $display_pic ?>" class="size-full aspect-square object-cover object-center transition-transform duration-700 group-hover:scale-110">
+                                    <?php else: ?>
+                                        <div id="profilePlaceholder" class="size-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-transparent text-primary text-4xl font-black italic">
+                                            <?= strtoupper($user['first_name'][0] . ($user['last_name'][0] ?? '')) ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    <label id="profile-label" for="profile-input-file" class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px] hidden">
+                                        <div class="size-12 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300">
+                                            <span class="material-symbols-outlined text-2xl">add_a_photo</span>
+                                        </div>
+                                    </label>
                                     <button type="button" id="remove-photo-btn" onclick="removeProfilePhoto()" class="absolute top-2.5 right-2.5 size-7 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center opacity-0 hover:bg-rose-500 hover:text-white z-20 hidden backdrop-blur-md"><span class="material-symbols-outlined text-base">delete</span></button>
                                 </div>
                             </div>
@@ -446,7 +528,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                         <form id="profile-form" action="" method="POST" enctype="multipart/form-data" class="flex flex-col gap-10" onsubmit="validateAndSubmit(event)">
                             <input type="hidden" name="action" value="update_profile">
                             <div class="space-y-6">
-                                <h3 class="profile-section-title">Account Information</h3>
+                                <h3 class="profile-section-title">Account Details</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                     <div class="space-y-2">
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Username</label>
@@ -454,31 +536,58 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                             <span class="input-icon-container">
                                                 <span class="material-symbols-outlined text-lg">alternate_email</span>
                                             </span>
-                                            <input type="text" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            <input type="text" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" autocomplete="username">
                                         </div>
                                     </div>
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Full Name</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Administrator Role</label>
                                         <div class="relative group">
                                             <span class="input-icon-container">
                                                 <span class="material-symbols-outlined text-lg">badge</span>
                                             </span>
-                                            <input type="text" value="<?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            <input type="text" name="staff_role" value="<?= $role ?>" disabled class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
                             <div class="space-y-6">
-                                <h3 class="profile-section-title">Personal Details</h3>
+                                <h3 class="profile-section-title">Personal Information</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Birth Date</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">First Name</label>
+                                        <div class="relative group">
+                                            <span class="input-icon-container">
+                                                <span class="material-symbols-outlined text-lg">badge</span>
+                                            </span>
+                                            <input type="text" name="first_name" value="<?= htmlspecialchars($user['first_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" autocomplete="given-name">
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Middle Name</label>
+                                        <div class="relative group">
+                                            <span class="input-icon-container">
+                                                <span class="material-symbols-outlined text-lg">badge</span>
+                                            </span>
+                                            <input type="text" name="middle_name" value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" autocomplete="additional-name">
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Last Name</label>
+                                        <div class="relative group">
+                                            <span class="input-icon-container">
+                                                <span class="material-symbols-outlined text-lg">badge</span>
+                                            </span>
+                                            <input type="text" name="last_name" value="<?= htmlspecialchars($user['last_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" autocomplete="family-name">
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Date of Birth</label>
                                         <div class="relative group">
                                             <span class="input-icon-container">
                                                 <span class="material-symbols-outlined text-lg">cake</span>
                                             </span>
-                                            <input type="date" name="birth_date" value="<?= $birthDate ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            <input type="date" name="birth_date" id="birth_date" value="<?= $birthDate ?>" disabled required max="<?= date('Y-m-d') ?>" class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold [color-scheme:dark]" autocomplete="bday">
                                         </div>
                                     </div>
                                     <div class="space-y-2">
@@ -487,7 +596,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                             <span class="input-icon-container">
                                                 <span class="material-symbols-outlined text-lg">wc</span>
                                             </span>
-                                            <select name="sex" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none">
+                                            <select name="sex" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none cursor-pointer">
                                                 <option value="Male" <?= $sex === 'Male' ? 'selected' : '' ?>>Male</option>
                                                 <option value="Female" <?= $sex === 'Female' ? 'selected' : '' ?>>Female</option>
                                                 <option value="Other" <?= $sex === 'Other' ? 'selected' : '' ?>>Other</option>
@@ -498,7 +607,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                             </div>
 
                             <div class="space-y-6">
-                                <h3 class="profile-section-title">Contact Information</h3>
+                                <h3 class="profile-section-title">Contact & Details</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                     <div class="space-y-2">
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Contact No.</label>
@@ -521,11 +630,17 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                 </div>
                             </div>
 
-                            <div class="edit-reveal">
-                                <div class="p-8 rounded-3xl bg-primary/[0.03] border border-primary/10">
+
+
+                            <!-- Password Update Section (Reveal on Edit) -->
+                            <div class="edit-reveal w-full">
+                                <div class="p-8 rounded-[32px] bg-primary/[0.03] border border-primary/10 relative overflow-hidden group/sec">
                                     <h4 class="text-[10px] font-black italic text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                                         <span class="material-symbols-outlined text-primary text-xl">lock_reset</span>Update Password
                                     </h4>
+                                    <!-- Prevent Autofill -->
+                                    <input type="text" style="display:none" autocomplete="username">
+                                    <input type="password" style="display:none" autocomplete="current-password">
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div class="space-y-2">
                                             <div class="flex items-center justify-between ml-1">
@@ -533,7 +648,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <p id="strength-text" class="text-[9px] font-black uppercase tracking-widest min-h-[15px]"></p>
                                             </div>
                                             <div class="relative">
-                                                <input type="password" name="new_password" id="new_pass" onkeyup="checkStrength(this.value)" placeholder="Leave blank to keep current" class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary placeholder:text-[--text-main]/30" disabled>
+                                                <input type="password" name="new_password" id="new_pass" onkeyup="checkStrength(this.value)" placeholder="Leave blank to keep current" autocomplete="new-password" class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary placeholder:text-[--text-main]/30" disabled>
                                                 <button type="button" onclick="togglePassword('new_pass', 'icon_new')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white"><span class="material-symbols-outlined text-lg" id="icon_new">visibility_off</span></button>
                                             </div>
                                             <div class="h-1.5 w-full bg-white/5 rounded-full mt-3 overflow-hidden"><div id="strength-bar" class="h-full w-0 transition-all duration-500 bg-rose-500"></div></div>
@@ -541,7 +656,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                         <div class="space-y-2">
                                             <label class="text-[9px] uppercase font-bold text-[--text-main]/60 tracking-widest ml-1">Confirm New Password</label>
                                             <div class="relative">
-                                                <input type="password" name="confirm_password" id="confirm_pass" placeholder="Re-enter new password" class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary placeholder:text-[--text-main]/30" disabled>
+                                                <input type="password" name="confirm_password" id="confirm_pass" placeholder="Re-enter new password" autocomplete="new-password" class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary placeholder:text-[--text-main]/30" disabled>
                                                 <button type="button" onclick="togglePassword('confirm_pass', 'icon_confirm')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white"><span class="material-symbols-outlined text-lg" id="icon_confirm">visibility_off</span></button>
                                             </div>
                                         </div>
@@ -564,7 +679,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
 
                                     <div class="flex items-center gap-4">
                                         <div class="relative group/input">
-                                            <input type="password" name="current_password" id="current_pass" required placeholder="Password" disabled class="pill-save-input">
+                                            <input type="password" name="current_password" id="current_pass" placeholder="Password" autocomplete="current-password" disabled class="pill-save-input">
                                             <button type="button" onclick="togglePassword('current_pass', 'icon_curr')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white transition-colors flex items-center justify-center">
                                                 <span class="material-symbols-outlined text-lg" id="icon_curr">visibility_off</span>
                                             </button>
@@ -576,6 +691,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                 </div>
                             </div>
                             <input type="hidden" name="remove_profile_picture" id="remove-profile-input" value="0">
+                            <input type="file" name="profile_picture" id="profile-input-file" class="hidden" accept="image/*" onchange="previewProfileImage(this)">
                         </form>
                     </div>
 
@@ -754,6 +870,16 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
 
             document.getElementById('edit-btn').classList.add('hidden');
             document.getElementById('discard-btn').classList.remove('hidden');
+
+            // Prevent autofill from keeping old values
+            setTimeout(() => {
+                const np = document.getElementById('new_pass');
+                const cp = document.getElementById('confirm_pass');
+                const currp = document.getElementById('current_pass');
+                if(np) np.value = '';
+                if(cp) cp.value = '';
+                if(currp) currp.value = '';
+            }, 50);
             
             const editIndicator = activeTab.querySelector('[id$="-edit-indicator"]');
             if (editIndicator) editIndicator.classList.remove('hidden');
@@ -799,31 +925,71 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
 
         function previewProfileImage(input) {
             if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    let img = document.getElementById('profilePreviewImg');
-                    if (!img) {
-                        img = document.createElement('img'); img.id = 'profilePreviewImg';
-                        img.className = 'size-full aspect-square object-cover object-center';
-                        document.getElementById('profile-container').insertBefore(img, document.getElementById('profile-container').firstChild);
-                        if (document.getElementById('profilePlaceholder')) document.getElementById('profilePlaceholder').classList.add('hidden');
-                    }
-                    img.src = e.target.result;
-                    document.getElementById('remove-photo-btn').classList.remove('hidden');
+                const file = input.files[0];
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+
+                if (!allowedTypes.includes(file.type)) {
+                    showModal('Invalid File Type', 'Only PNG and JPG images are allowed. Please pick a different file.', 'error');
+                    input.value = ''; // Reset the input
+                    return;
                 }
-                reader.readAsDataURL(input.files[0]);
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    let container = document.getElementById('profile-container');
+                    let img = document.getElementById('profilePreviewImg');
+                    let placeholder = document.getElementById('profilePlaceholder');
+                    let removeBtn = document.getElementById('remove-photo-btn');
+
+                    if (!img) {
+                        img = document.createElement('img');
+                        img.id = 'profilePreviewImg';
+                        img.className = 'size-full aspect-square object-cover object-center transition-transform duration-700 group-hover:scale-110';
+                        container.insertBefore(img, container.firstChild);
+                        if (placeholder) placeholder.classList.add('hidden');
+                    } else {
+                        img.classList.remove('hidden');
+                    }
+
+                    img.src = e.target.result;
+                    removeBtn.classList.remove('hidden');
+                    setTimeout(() => removeBtn.classList.add('opacity-100'), 100);
+                    document.getElementById('remove-profile-input').value = "0";
+                }
+                reader.readAsDataURL(file);
             }
         }
 
         function removeProfilePhoto() {
-            showModal("Remove Photo", "Revert to default placeholder?", "confirm", () => {
-                const img = document.getElementById('profilePreviewImg');
-                const placeholder = document.getElementById('profilePlaceholder');
-                if (img) img.classList.add('hidden');
-                if (placeholder) placeholder.classList.remove('hidden');
-                document.getElementById('remove-photo-btn').classList.add('hidden');
-                document.getElementById('remove-profile-input').value = "1";
-            });
+            const img = document.getElementById('profilePreviewImg');
+            const placeholder = document.getElementById('profilePlaceholder');
+            const removeBtn = document.getElementById('remove-photo-btn');
+            const removeInput = document.getElementById('remove-profile-input');
+            const fileInput = document.getElementById('profile-input-file');
+
+            showModal(
+                "Remove Photo",
+                "Are you sure you want to remove your profile picture? This will revert to your initials placeholder.",
+                "confirm",
+                () => {
+                    if (img) img.classList.add('hidden');
+
+                    if (!placeholder) {
+                        const newPlaceholder = document.createElement('div');
+                        newPlaceholder.id = 'profilePlaceholder';
+                        newPlaceholder.className = 'size-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-primary text-4xl font-black italic';
+                        newPlaceholder.innerText = "<?= strtoupper($user['first_name'][0] . ($user['last_name'][0] ?? '')) ?>";
+                        document.getElementById('profile-container').insertBefore(newPlaceholder, document.getElementById('profile-label'));
+                    } else {
+                        placeholder.classList.remove('hidden');
+                    }
+
+                    removeBtn.classList.add('hidden');
+                    removeBtn.classList.remove('opacity-100');
+                    removeInput.value = "1";
+                    if (fileInput) fileInput.value = ""; // Clear any staged upload
+                }
+            );
         }
 
         function checkStrength(p) {
@@ -852,8 +1018,17 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
         function validateAndSubmit(e) {
             e.preventDefault();
             const cp = document.getElementById('current_pass');
-            if (cp.value.trim() === "") { cp.focus(); return false; }
-            showModal("Confirm Update", "Are you sure you want to save these profile changes?", "confirm", () => { document.getElementById('profile-form').submit(); });
+            if (!cp || cp.value.trim() === "") { 
+                showModal("Password Required", "Please enter your current password to save changes.", "error");
+                if (cp) cp.focus(); 
+                return false; 
+            }
+            showModal("Confirm Update", "Are you sure you want to save these profile changes?", "confirm", () => { 
+                const form = document.getElementById('profile-form');
+                if (form) {
+                    form.submit();
+                }
+            });
             return false;
         }
 
