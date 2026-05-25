@@ -806,7 +806,7 @@ $page = [
                                             <span class="material-symbols-rounded text-lg">alternate_email</span>
                                         </span>
                                         <input type="text" name="username"
-                                            value="<?= htmlspecialchars($user['username'] ?? '') ?>" disabled required
+                                            value="<?= !empty($user['username']) ? htmlspecialchars($user['username']) : '---' ?>" disabled required
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                     </div>
                                 </div>
@@ -936,7 +936,7 @@ $page = [
                                             <span class="material-symbols-rounded text-lg">badge</span>
                                         </span>
                                         <input type="text" name="first_name"
-                                            value="<?= htmlspecialchars($user['first_name'] ?? '') ?>" disabled required
+                                            value="<?= !empty($user['first_name']) ? htmlspecialchars($user['first_name']) : '---' ?>" disabled required
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                     </div>
                                 </div>
@@ -951,7 +951,7 @@ $page = [
                                             <span class="material-symbols-rounded text-lg">badge</span>
                                         </span>
                                         <input type="text" name="middle_name"
-                                            value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>" disabled
+                                            value="<?= !empty($user['middle_name']) ? htmlspecialchars($user['middle_name']) : '---' ?>" disabled
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                     </div>
                                 </div>
@@ -966,7 +966,7 @@ $page = [
                                             <span class="material-symbols-rounded text-lg">badge</span>
                                         </span>
                                         <input type="text" name="last_name"
-                                            value="<?= htmlspecialchars($user['last_name'] ?? '') ?>" disabled required
+                                            value="<?= !empty($user['last_name']) ? htmlspecialchars($user['last_name']) : '---' ?>" disabled required
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                     </div>
                                 </div>
@@ -1030,7 +1030,7 @@ $page = [
                                             <span class="material-symbols-rounded text-lg">smartphone</span>
                                         </span>
                                         <input type="text" name="contact_number" id="contact_number"
-                                            value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" disabled
+                                            value="<?= !empty($user['contact_number']) ? htmlspecialchars($user['contact_number']) : '---' ?>" disabled
                                             required maxlength="13" oninput="formatContactNumber(this)"
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                     </div>
@@ -1045,7 +1045,7 @@ $page = [
                                             <span class="material-symbols-rounded text-lg">mail</span>
                                         </span>
                                         <input type="email" name="email"
-                                            value="<?= htmlspecialchars($user['email'] ?? '') ?>" disabled required
+                                            value="<?= !empty($user['email']) ? htmlspecialchars($user['email']) : '---' ?>" disabled required
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                     </div>
                                 </div>
@@ -1228,6 +1228,9 @@ $page = [
                 if (input.name !== 'staff_role') {
                     input.disabled = false;
                     initialValues[input.name] = input.value;
+                    if (input.value === '---') {
+                        input.value = '';
+                    }
                 }
             });
 

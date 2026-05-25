@@ -265,7 +265,7 @@ $active_page = "profile";
 // ── Branding Config System ─────────────────────────────────────────────
 $configs = [
     'system_name'     => $gym['gym_name'] ?? 'Horizon Gym',
-    'system_logo'     => '',
+    'system_logo'     => $gym['profile_picture'] ?? '',
     'theme_color'     => '#8c2bee',
     'secondary_color' => '#a1a1aa',
     'text_color'      => '#d1d5db',
@@ -693,7 +693,13 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                         <div id="sidebar-gym-content" class="hidden relative z-10">
                             <div class="w-32 h-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden">
                                 <div class="w-full h-full rounded-[30px] bg-black/20 flex items-center justify-center overflow-hidden relative">
-                                    <img src="<?= htmlspecialchars(!empty($configs['system_logo']) ? '../' . $configs['system_logo'] : '../assets/horizon logo.png') ?>" class="size-full object-contain transition-transform duration-700 hover:scale-110">
+                                    <?php 
+                                    $display_logo = '../assests/horizon logo.png';
+                                    if (!empty($configs['system_logo'])) {
+                                        $display_logo = (strpos($configs['system_logo'], 'data:') === 0 || strpos($configs['system_logo'], 'http') === 0 || strpos($configs['system_logo'], '../') === 0) ? $configs['system_logo'] : '../' . $configs['system_logo'];
+                                    }
+                                    ?>
+                                    <img src="<?= htmlspecialchars($display_logo) ?>" class="size-full object-contain transition-transform duration-700 hover:scale-110">
                                 </div>
                             </div>
                             <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">
@@ -756,7 +762,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                                 <span class="material-symbols-rounded text-lg">alternate_email</span>
                                             </span>
-                                            <input type="text" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>"
+                                            <input type="text" name="username" value="<?= !empty($user['username']) ? htmlspecialchars($user['username']) : '---' ?>"
                                                 disabled required
                                                 class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -854,7 +860,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                                 <span class="material-symbols-rounded text-lg">badge</span>
                                             </span>
-                                            <input type="text" name="first_name" value="<?= htmlspecialchars($user['first_name'] ?? '') ?>"
+                                            <input type="text" name="first_name" value="<?= !empty($user['first_name']) ? htmlspecialchars($user['first_name']) : '---' ?>"
                                                 disabled required
                                                 class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -866,7 +872,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                                 <span class="material-symbols-rounded text-lg">badge</span>
                                             </span>
-                                            <input type="text" name="middle_name" value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>"
+                                            <input type="text" name="middle_name" value="<?= !empty($user['middle_name']) ? htmlspecialchars($user['middle_name']) : '---' ?>"
                                                 disabled
                                                 class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -878,7 +884,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                                 <span class="material-symbols-rounded text-lg">badge</span>
                                             </span>
-                                            <input type="text" name="last_name" value="<?= htmlspecialchars($user['last_name'] ?? '') ?>"
+                                            <input type="text" name="last_name" value="<?= !empty($user['last_name']) ? htmlspecialchars($user['last_name']) : '---' ?>"
                                                 disabled required
                                                 class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -930,7 +936,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <span class="material-symbols-rounded text-lg">smartphone</span>
                                             </span>
                                             <input type="text" name="contact_number" id="contact_number"
-                                                value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>"
+                                                value="<?= !empty($user['contact_number']) ? htmlspecialchars($user['contact_number']) : '---' ?>"
                                                 disabled required maxlength="13" oninput="formatContactNumber(this)"
                                                 class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -943,7 +949,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <span class="material-symbols-rounded text-lg">mail</span>
                                             </span>
                                             <input type="email" name="email"
-                                                value="<?= htmlspecialchars($user['email'] ?? '') ?>"
+                                                value="<?= !empty($user['email']) ? htmlspecialchars($user['email']) : '---' ?>"
                                                 disabled required
                                                 class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
@@ -1009,34 +1015,61 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                     <h3 class="profile-section-title">Brand Identity</h3>
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                         <div class="space-y-2">
-                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Official Business Name</label>
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Official Gym Name / Brand Name</label>
                                             <div class="relative">
                                                 <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
-                                                    <span class="material-symbols-rounded text-lg">corporate_fare</span>
+                                                    <span class="material-symbols-rounded text-lg">fitness_center</span>
                                                 </span>
-                                                <input type="text" value="<?= htmlspecialchars($gym['business_name'] ?? '') ?>" disabled
+                                                <input type="text" value="<?= !empty($gym['gym_name']) ? htmlspecialchars($gym['gym_name']) : '---' ?>" disabled
                                                     class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Registered Business Name</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">corporate_fare</span>
+                                                </span>
+                                                <input type="text" value="<?= !empty($gym['business_name']) ? htmlspecialchars($gym['business_name']) : '---' ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Contact & Credentials -->
+                                <div class="space-y-6">
+                                    <h3 class="profile-section-title">Contact & Credentials</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Gym Official Email</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">mail</span>
+                                                </span>
+                                                <input type="text" value="<?= !empty($gym['email']) ? htmlspecialchars($gym['email']) : '---' ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Gym Contact Number</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">smartphone</span>
+                                                </span>
+                                                <input type="text" value="<?= !empty($gym['contact_number']) ? htmlspecialchars($gym['contact_number']) : '---' ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2 md:col-span-2">
                                             <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">System Code</label>
                                             <div class="relative">
                                                 <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
                                                     <span class="material-symbols-rounded text-lg">fingerprint</span>
                                                 </span>
-                                                <input type="text" value="<?= htmlspecialchars($gym['tenant_code'] ?? '') ?>" disabled
+                                                <input type="text" value="<?= !empty($gym['tenant_code']) ? htmlspecialchars($gym['tenant_code']) : '---' ?>" disabled
                                                     class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold uppercase italic tracking-widest text-primary">
                                             </div>
-                                        </div>
-                                        <div class="space-y-2">
-                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Theme Color</label>
-                                            <input type="color" value="<?= htmlspecialchars($configs['theme_color'] ?? '#8c2bee') ?>" disabled
-                                                class="w-full h-12 rounded-xl cursor-not-allowed opacity-50">
-                                        </div>
-                                        <div class="space-y-2">
-                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Gym Logo</label>
-                                            <input type="file" accept="image/*" disabled
-                                                class="w-full text-sm text-[--text-main] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-primary/20 file:text-primary disabled:opacity-50">
                                         </div>
                                     </div>
                                 </div>
@@ -1051,7 +1084,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
                                                     <span class="material-symbols-rounded text-lg">description</span>
                                                 </span>
-                                                <input type="text" value="<?= $app_data['bir_number'] ?? 'N/A' ?>" disabled
+                                                <input type="text" value="<?= !empty($app_data['bir_number']) ? htmlspecialchars($app_data['bir_number']) : '---' ?>" disabled
                                                     class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
@@ -1061,55 +1094,78 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                 <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
                                                     <span class="material-symbols-rounded text-lg">verified</span>
                                                 </span>
-                                                <input type="text" value="<?= $app_data['business_permit_no'] ?? 'N/A' ?>" disabled
+                                                <input type="text" value="<?= !empty($app_data['business_permit_no']) ? htmlspecialchars($app_data['business_permit_no']) : '---' ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Valid ID Type</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">badge</span>
+                                                </span>
+                                                <input type="text" value="<?= !empty($app_data['owner_valid_id_type']) ? htmlspecialchars(ucwords(str_replace('_', ' ', $app_data['owner_valid_id_type']))) : '---' ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold capitalize">
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Valid ID Number</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">tag</span>
+                                                </span>
+                                                <input type="text" value="<?= !empty($app_data['owner_valid_id_number']) ? htmlspecialchars($app_data['owner_valid_id_number']) : '---' ?>" disabled
                                                     class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2 md:col-span-2">
-                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Gym Address</label>
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Street Address</label>
                                             <div class="relative">
                                                 <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
                                                     <span class="material-symbols-rounded text-lg">location_on</span>
                                                 </span>
-                                                <input type="text" value="<?= htmlspecialchars(implode(', ', array_filter([$gym['address_line'], $gym['barangay'], $gym['city'], $gym['province'], $gym['region']]))) ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Financial Payout -->
-                                <div class="space-y-6">
-                                    <h3 class="profile-section-title">Financial Payout</h3>
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                        <div class="space-y-2 md:col-span-2">
-                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Bank / E-Wallet</label>
-                                            <div class="relative">
-                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
-                                                    <span class="material-symbols-rounded text-lg">account_balance</span>
-                                                </span>
-                                                <input type="text" value="<?= $payout_info['bank'] ?>" disabled
+                                                <input type="text" value="<?= !empty($gym['address_line']) ? htmlspecialchars($gym['address_line']) : '---' ?>" disabled
                                                     class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
-                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Account Holder</label>
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Barangay</label>
                                             <div class="relative">
                                                 <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
-                                                    <span class="material-symbols-rounded text-lg">person</span>
+                                                    <span class="material-symbols-rounded text-lg">location_on</span>
                                                 </span>
-                                                <input type="text" value="<?= $payout_info['acc_name'] ?>" disabled
+                                                <input type="text" value="<?= !empty($gym['barangay']) ? htmlspecialchars($gym['barangay']) : '---' ?>" disabled
                                                     class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
-                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Account Number</label>
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">City / Municipality</label>
                                             <div class="relative">
                                                 <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
-                                                    <span class="material-symbols-rounded text-lg">lock</span>
+                                                    <span class="material-symbols-rounded text-lg">location_on</span>
                                                 </span>
-                                                <input type="text" value="<?= $payout_info['acc_no'] ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-black italic tracking-[0.15em] text-primary">
+                                                <input type="text" value="<?= !empty($gym['city']) ? htmlspecialchars($gym['city']) : '---' ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Province</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">location_on</span>
+                                                </span>
+                                                <input type="text" value="<?= !empty($gym['province']) ? htmlspecialchars($gym['province']) : '---' ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Region</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">location_on</span>
+                                                </span>
+                                                <input type="text" value="<?= !empty($gym['region']) ? htmlspecialchars($gym['region']) : '---' ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                     </div>
