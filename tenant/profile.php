@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if (preg_match('/[0-9]/', $last_name)) throw new Exception("Last name cannot contain numbers.");
 
         $raw_contact = str_replace('-', '', $contact_number);
-        if (!ctype_digit($raw_contact) || strlen($raw_contact) !== 11) throw new Exception("Contact number must be exactly 11 digits.");
+        if (!ctype_digit($raw_contact) || strlen($raw_contact) !== 11) throw new Exception("Contact number must be exactly 11 digits (e.g., 0912-345-6789).");
 
         if ($birth_date > $today) throw new Exception("Birth date cannot be a future date.");
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !str_ends_with(strtolower($email), '@gmail.com')) throw new Exception("Email must be a valid @gmail.com address.");
@@ -79,7 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmt->execute([$user_id]);
         $userData = $stmt->fetch();
 
-        if (empty($current_password) || !password_verify($current_password, $userData['password_hash'])) throw new Exception("Incorrect current password.");
+        if (empty($current_password) || !password_verify($current_password, $userData['password_hash'])) {
+            throw new Exception("Incorrect current password. Verification failed.");
+        }
 
         $pdo->beginTransaction();
 
@@ -120,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }
             }
             if (!is_writable($target_dir)) {
-                throw new Exception("Upload directory is not writable.");
+                throw new Exception("Upload directory is not writable. Please check permissions.");
             }
 
             $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
@@ -152,7 +154,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if ($remove_profile) {
             $updates[] = "profile_picture = NULL";
             $new_values['profile_picture'] = 'REMOVED';
-            
             if (!empty($old_values['profile_picture']) && strpos($old_values['profile_picture'], 'data:') !== 0) {
                 $old_file = '../' . ltrim($old_values['profile_picture'], '/');
                 if (file_exists($old_file)) {
@@ -180,15 +181,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $stmtUpdate->execute($params);
 
         log_audit_event($pdo, $user_id, $gym_id, 'Update', 'users', $user_id, $old_values, $new_values);
-        $pdo->commit();
 
+        // --- Gym Business & Branding Update Logic ---
+        if (isset($_POST['business_name'])) {
+            $business_name = trim($_POST['business_name']);
+            $stmtGymUpdate = $pdo->prepare("UPDATE gyms SET business_name = ?, updated_at = ? WHERE owner_user_id = ?");
+            $stmtGymUpdate->execute([$business_name, $now, $user_id]);
+            $_SESSION['tenant_name'] = $business_name;
+        }
+        
+        if (isset($_POST['theme_color'])) {
+            $theme_color = trim($_POST['theme_color']);
+            $stmtTheme = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, user_id) VALUES ('theme_color', ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+            $stmtTheme->execute([$theme_color, $user_id]);
+            $_SESSION['theme_color'] = $theme_color;
+        }
+
+        if (isset($_FILES['gym_logo']) && $_FILES['gym_logo']['error'] === UPLOAD_ERR_OK) {
+            $file = $_FILES['gym_logo'];
+            $target_dir = '../assets/uploads/branding/';
+            if (!is_dir($target_dir)) mkdir($target_dir, 0755, true);
+            $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+            if (empty($ext)) $ext = 'png';
+            $filename = 'logo_' . $user_id . '_' . time() . '.' . $ext;
+            $dest_path = $target_dir . $filename;
+            if (move_uploaded_file($file['tmp_name'], $dest_path)) {
+                $logo_path = ltrim(str_replace('../', '', $dest_path), '/');
+                $stmtLogo = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value, user_id) VALUES ('system_logo', ?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)");
+                $stmtLogo->execute([$logo_path, $user_id]);
+                $_SESSION['tenant_logo'] = $logo_path;
+            }
+        }
+
+        $pdo->commit();
         $_SESSION['success_msg'] = "Profile updated successfully!";
-        header("Location: profile.php?status=success");
+        $_SESSION['first_name'] = $first_name;
+        $_SESSION['last_name'] = $last_name;
+        header("Location: profile.php?status=success&msg=" . urlencode("Profile updated successfully!"));
         exit;
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $_SESSION['error_msg'] = $e->getMessage();
-        header("Location: profile.php?status=error");
+        header("Location: profile.php?status=error&msg=" . urlencode($e->getMessage()));
         exit;
     }
 }
@@ -228,8 +262,7 @@ if ($gym) {
 $page_title = "My Profile";
 $active_page = "profile";
 
-// ── 4-Color Elite Branding System ─────────────────────────────────────────────
-// Hard defaults
+// ── Branding Config System ─────────────────────────────────────────────
 $configs = [
     'system_name'     => $gym['gym_name'] ?? 'Horizon Gym',
     'system_logo'     => '',
@@ -243,28 +276,17 @@ $configs = [
     'page_slug'       => '',
 ];
 
-// Merge global settings (user_id = 0)
 $stmtGlobal = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
 $stmtGlobal->execute();
 foreach (($stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
     if ($v !== null && $v !== '') $configs[$k] = $v;
 }
 
-// Merge tenant-specific settings (user_id = ?)
 $stmtTenant = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
 $stmtTenant->execute([$user_id]);
 foreach (($stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
     if ($v !== null && $v !== '') $configs[$k] = $v;
 }
-
-// Map common keys for convenience
-$page = [
-    'logo_path'   => $configs['system_logo'] ?? '',
-    'theme_color' => $configs['theme_color'],
-    'bg_color'    => $configs['bg_color'],
-    'page_slug'   => $configs['page_slug'] ?? '',
-    'system_name' => $configs['system_name'] ?? ($gym['gym_name'] ?? 'Owner Portal'),
-];
 
 $joined = isset($user['created_at']) ? date("F Y", strtotime($user['created_at'])) : 'N/A';
 $status = "Active";
@@ -280,6 +302,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title><?= $page_title ?> | Horizon System</title>
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -289,10 +312,11 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                 extend: {
                     colors: {
                         "primary": "var(--primary)",
-                        "background-dark": "var(--background)",
-                        "surface-dark": "var(--card-bg)",
-                        "text-main": "var(--text-main)",
+                        "background": "var(--background)",
                         "highlight": "var(--highlight)",
+                        "text-main": "var(--text-main)",
+                        "surface-dark": "#14121a",
+                        "border-subtle": "rgba(255,255,255,0.05)"
                     }
                 }
             }
@@ -323,7 +347,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             transition: all 0.3s ease;
         }
 
-        /* Sidebar Layout Synchronization */
+        /* Sidebar Layout */
         .side-nav {
             width: 110px;
             transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -367,7 +391,6 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             margin-bottom: 8px !important; pointer-events: auto;
         }
 
-        /* Premium Nav items (Synced with Dashboard) */
         .nav-item {
             display: flex; align-items: center; gap: 16px;
             padding: 10px 38px;
@@ -392,93 +415,240 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             background: var(--primary); border-radius: 4px 0 0 4px;
         }
 
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* Invisible Scroll System */
-        *::-webkit-scrollbar {
+        /* ============================================================
+           PROFILE INPUT STYLES — Exact match to superadmin
+        ============================================================ */
+        .profile-input {
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            transition: all 0.3s ease;
+        }
+
+        .profile-input:disabled {
+            background-color: transparent;
+            border-color: transparent;
+            color: #9ca3af;
+            cursor: default;
+            padding-left: 0;
+        }
+
+        body.edit-mode .profile-input.read-only-box {
+            background-color: rgba(255, 255, 255, 0.03) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: #6b7280 !important;
+            padding-left: 1rem !important;
+            cursor: not-allowed;
+        }
+
+        .profile-input:not(:disabled):focus {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 140, 43, 238), 0.1);
+        }
+
+        .profile-input.has-icon:not(:disabled),
+        body.edit-mode .profile-input.has-icon:disabled {
+            padding-left: 2.5rem !important;
+        }
+
+        body:not(.edit-mode) .profile-input.has-icon {
+            padding-left: 0 !important;
+        }
+
+        body:not(.edit-mode) .input-icon,
+        body:not(.edit-mode) .input-chevron {
             display: none !important;
         }
 
-        * {
-            -ms-overflow-style: none !important;
-            scrollbar-width: none !important;
+        /* edit-reveal: hidden until edit-mode on body */
+        .edit-reveal {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .profile-input { background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-main); transition: all 0.3s ease; }
-        .profile-input:disabled { background-color: transparent !important; border-color: transparent !important; color: #9ca3af !important; cursor: default !important; }
-        .profile-input.has-icon { padding-left: 3.5rem !important; }
-        .tab-content:not(.edit-mode) .profile-input.has-icon { padding-left: 0 !important; }
-        .profile-input:not(:disabled):focus { background-color: rgba(255, 255, 255, 0.05); border-color: var(--primary); outline: none; box-shadow: 0 0 0 1px rgba(var(--primary-rgb, 140, 43, 238), 0.1); }
-        
-        .material-symbols-outlined { font-family: 'Material Symbols Outlined' !important; font-display: block; }
-        
-        .input-icon-container { position: absolute; top: 50%; left: 0; padding-left: 1.25rem; transform: translateY(-50%); display: flex; align-items: center; color: rgba(255, 255, 255, 0.4); pointer-events: none; transition: all 0.3s ease; }
-        .input-icon-container span { font-size: 1.1rem; margin-top: 2px; }
-        
-        /* Hide icons strictly and align text flush (nakasagad) in view mode */
-        .tab-content:not(.edit-mode) .input-icon-container { display: none !important; }
-        .tab-content:not(.edit-mode) .profile-input.has-icon { padding-left: 0 !important; }
-        .group:focus-within .input-icon-container { color: var(--primary); }
+        body.edit-mode .edit-reveal {
+            max-height: 1000px;
+            opacity: 1;
+            margin-top: 1.5rem;
+        }
 
-        .pill-save-bar { background: rgba(20, 18, 22, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); border-radius: 999px; padding: 12px 12px 12px 24px; display: flex; align-items: center; justify-content: space-between; gap: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
-        .save-bar-icon-circle { width: 56px; height: 56px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary); flex-shrink: 0; }
-        .pill-save-input { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 48px 12px 20px; font-size: 11px; font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: 0.1em; color: white; width: 180px; transition: all 0.3s ease; }
-        .pill-save-input:focus { border-color: var(--primary); outline: none; background: rgba(255, 255, 255, 0.05); }
-        .pill-save-btn { color: var(--primary); font-size: 11px; font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: 0.2em; padding: 0 16px; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
-        .pill-save-btn:hover { opacity: 0.8; transform: translateX(4px); }
+        /* Profile picture interaction restriction */
+        body:not(.edit-mode) #profile-label {
+            pointer-events: none !important;
+            opacity: 0 !important;
+            cursor: default !important;
+        }
 
-        .profile-section-title { font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--primary); margin-bottom: 1.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
-        .edit-reveal { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-        .tab-content.edit-mode .edit-reveal { max-height: 1000px; opacity: 1; margin-top: 1.5rem; }
-        
-        #main-wrapper { max-width: 1000px; transition: max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-        body.has-editing-tab #main-wrapper { max-width: 1200px; }
+        body.edit-mode #profile-label {
+            cursor: pointer !important;
+        }
 
-        .tab-btn { position: relative; padding: 12px 24px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.2em; color: #6b7280; transition: all 0.3s ease; }
+        select.profile-input option {
+            background-color: #14121a;
+            color: white;
+        }
+
+        /* Dynamic Main Wrapper */
+        #main-wrapper {
+            max-width: 1000px;
+            transition: max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.edit-mode #main-wrapper {
+            max-width: 1200px;
+        }
+
+        .profile-section-title {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--primary);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Tab System */
+        .tab-btn {
+            position: relative;
+            padding: 12px 24px;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: #6b7280;
+            transition: all 0.3s ease;
+        }
         .tab-btn.active { color: var(--primary); }
-        .tab-btn.active::after { content: ''; position: absolute; bottom: 0; left: 24px; right: 24px; height: 2px; background: var(--primary); border-radius: 2px; }
-        .tab-content { display: none; animation: fadeIn 0.4s ease-out; }
-        .tab-content.active { display: block; }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 24px; right: 24px;
+            height: 2px;
+            background: var(--primary);
+            border-radius: 2px;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease-out; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        #custom-modal { position: fixed; top: 0; right: 0; bottom: 0; left: 110px; z-index: 200; display: none; align-items: center; justify-content: center; background: rgba(10, 9, 13, 0.8); backdrop-filter: blur(8px); padding: 20px; transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .side-nav:hover~#custom-modal { left: 300px; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+        }
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+            border-color: rgba(244, 63, 94, 0.4) !important;
+        }
+
+        /* Modal offset with sidebar */
+        #custom-modal {
+            position: fixed;
+            top: 0; right: 0; bottom: 0;
+            left: 110px;
+            z-index: 200;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 9, 13, 0.8);
+            backdrop-filter: blur(8px);
+            padding: 20px;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .side-nav:hover ~ #custom-modal { left: 300px; }
+        #custom-modal.flex { display: flex !important; }
+
+        /* Profile pic img size fix */
+        #profilePreviewImg {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            object-position: center !important;
+            aspect-ratio: 1 / 1 !important;
+        }
+
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 1000px #141216 inset !important;
+            -webkit-text-fill-color: var(--text-main) !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
     </style>
 </head>
 
-<body class="antialiased flex h-screen overflow-hidden no-scrollbar">
+<body class="antialiased flex h-screen overflow-hidden">
+
     <?php include '../includes/tenant_sidebar.php'; ?>
 
     <div class="main-content flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
         <main id="main-wrapper" class="flex-1 p-6 md:p-8 lg:p-10 w-full mx-auto pb-32 animate-fade-in">
+
             <header class="mb-8 flex flex-row justify-between items-end gap-6">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none"><span class="text-[--text-main]">Profile</span> <span class="text-primary">Center</span></h2>
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none">
+                        <span class="text-[--text-main]">Profile</span>
+                        <span class="text-primary">Center</span>
+                    </h2>
                     <p class="text-gray-500 text-[10px] font-bold uppercase tracking-widest mt-2 px-1">Security & Identity Management</p>
                 </div>
                 <div class="flex flex-col items-end justify-center">
-                    <p id="headerClock" class="text-white font-black italic text-2xl leading-none hover:text-primary uppercase tracking-tighter">00:00:00 AM</p>
+                    <p id="headerClock" class="text-white font-black italic text-2xl leading-none transition-colors hover:text-primary uppercase tracking-tighter">00:00:00 AM</p>
                     <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
                 </div>
             </header>
 
+            <!-- Tab Nav -->
             <div class="flex items-center gap-4 mb-10 border-b border-white/5 no-scrollbar overflow-x-auto">
                 <button onclick="switchTab('personal')" id="btn-personal" class="tab-btn active">My Profile</button>
                 <button onclick="switchTab('business')" id="btn-business" class="tab-btn">Business Information</button>
             </div>
 
-            <?php if ($success_msg): ?><div id="statusAlert" class="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-500 text-[11px] font-black uppercase mb-8 flex items-center justify-between"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-base">check_circle</span><span>Profile updated!</span></div><button onclick="document.getElementById('statusAlert').style.display='none'" class="material-symbols-outlined text-sm">close</button></div><?php endif; ?>
-            <?php if ($error_msg): ?><div id="statusAlert" class="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-rose-500 text-[11px] font-black uppercase mb-8 flex items-center justify-between"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-base">warning</span><span><?= $error_msg ?></span></div><button onclick="document.getElementById('statusAlert').style.display='none'" class="material-symbols-outlined text-sm">close</button></div><?php endif; ?>
+            <?php if ($success_msg): ?>
+                <div id="statusAlert" class="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-500 text-[11px] font-black uppercase italic mb-8 flex items-center justify-between group animate-fade-in">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-base">check_circle</span>
+                        <span><?= $success_msg ?></span>
+                    </div>
+                    <button onclick="document.getElementById('statusAlert').style.display='none'" class="size-6 flex items-center justify-center rounded-lg hover:bg-emerald-500/20 transition-all text-emerald-500/50 hover:text-emerald-500">
+                        <span class="material-symbols-outlined text-sm">close</span>
+                    </button>
+                </div>
+            <?php elseif ($error_msg): ?>
+                <div id="statusAlert" class="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-rose-500 text-[11px] font-black uppercase italic mb-8 flex items-center justify-between group animate-fade-in">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-base">warning</span>
+                        <span><?= $error_msg ?></span>
+                    </div>
+                    <button onclick="document.getElementById('statusAlert').style.display='none'" class="size-6 flex items-center justify-center rounded-lg hover:bg-rose-500/20 transition-all text-rose-500/50 hover:text-rose-500">
+                        <span class="material-symbols-outlined text-sm">close</span>
+                    </button>
+                </div>
+            <?php endif; ?>
 
             <div class="flex flex-col xl:flex-row gap-8 items-start justify-center">
-                <!-- Left Panel -->
+
+                <!-- ── LEFT PANEL ── -->
                 <div class="w-full xl:w-72 shrink-0 flex flex-col gap-6">
                     <div class="relative overflow-hidden rounded-3xl bg-[--card-bg] backdrop-blur-[--card-blur] border border-white/5 shadow-2xl p-8 text-center group">
-                        <div class="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none group-hover:scale-110"></div>
-                        
+                        <div class="absolute top-0 right-0 w-40 h-40 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none transition-transform group-hover:scale-110"></div>
+
                         <!-- User Profile Content -->
-                        <div id="sidebar-user-content" class="relative z-10 transition-all duration-300">
+                        <div id="sidebar-user-content" class="relative z-10">
                             <div class="w-32 h-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden group">
                                 <div id="profile-container" class="w-full h-full rounded-[30px] bg-black/20 flex items-center justify-center overflow-hidden relative">
                                     <?php if (!empty($user['profile_picture'])): 
@@ -486,442 +656,680 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                     ?>
                                         <img id="profilePreviewImg" src="<?= $display_pic ?>" class="size-full aspect-square object-cover object-center transition-transform duration-700 group-hover:scale-110">
                                     <?php else: ?>
-                                        <div id="profilePlaceholder" class="size-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-transparent text-primary text-4xl font-black italic">
+                                        <div id="profilePlaceholder" class="size-full flex items-center justify-center bg-gradient-to-br from-primary/20 via-primary/10 to-transparent text-primary text-4xl font-black italic">
                                             <?= strtoupper($user['first_name'][0] . ($user['last_name'][0] ?? '')) ?>
                                         </div>
                                     <?php endif; ?>
-                                    <label id="profile-label" for="profile-input-file" class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px] hidden">
+
+                                    <!-- Edit Overlay -->
+                                    <label id="profile-label" for="profile-input-file"
+                                        class="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-md cursor-pointer border-4 border-dashed border-white/10 rounded-[30px] hidden">
                                         <div class="size-12 rounded-full bg-white/5 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300">
-                                            <span class="material-symbols-outlined text-2xl">add_a_photo</span>
+                                            <span class="material-symbols-rounded text-2xl">add_a_photo</span>
                                         </div>
                                     </label>
-                                    <button type="button" id="remove-photo-btn" onclick="removeProfilePhoto()" class="absolute top-2.5 right-2.5 size-7 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center opacity-0 hover:bg-rose-500 hover:text-white z-20 hidden backdrop-blur-md"><span class="material-symbols-outlined text-base">delete</span></button>
+
+                                    <!-- Remove Photo Button -->
+                                    <button type="button" id="remove-photo-btn" onclick="removeProfilePhoto()"
+                                        class="absolute top-2.5 right-2.5 size-7 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center opacity-0 transition-all duration-300 hover:bg-rose-500 hover:text-white z-20 hidden backdrop-blur-md">
+                                        <span class="material-symbols-rounded text-base">delete</span>
+                                    </button>
                                 </div>
                             </div>
-                            <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-1"><?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?></h2>
+                            <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">
+                                <?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?>
+                            </h2>
                             <p class="text-[10px] text-primary mb-5 font-bold uppercase tracking-widest"><?= $role ?></p>
-                            <div class="flex justify-center gap-2 mb-8"><span class="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"><?= $status ?></span></div>
-                            <div class="pt-6 border-t border-white/5"><p class="text-[9px] uppercase tracking-[0.2em] text-gray-600 font-black mb-1">Joined Since</p><p class="text-sm font-bold text-gray-300 italic"><?= $joined ?></p></div>
+                            <div class="flex justify-center gap-2 mb-8">
+                                <span class="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"><?= $status ?></span>
+                            </div>
+                            <div class="pt-6 border-t border-white/5">
+                                <p class="text-[9px] uppercase tracking-[0.2em] text-gray-600 font-black mb-1">Joined Since</p>
+                                <p class="text-sm font-bold text-gray-300 italic"><?= $joined ?></p>
+                            </div>
                         </div>
 
-                        <!-- Gym Profile Content -->
-                        <div id="sidebar-gym-content" class="hidden relative z-10 transition-all duration-300">
+                        <!-- Gym Sidebar Content (shown on Business tab) -->
+                        <div id="sidebar-gym-content" class="hidden relative z-10">
                             <div class="w-32 h-32 mx-auto rounded-[32px] p-1 bg-gradient-to-br from-white/10 to-white/5 border border-white/10 mb-6 shadow-2xl overflow-hidden">
                                 <div class="w-full h-full rounded-[30px] bg-black/20 flex items-center justify-center overflow-hidden relative">
-                                    <img src="<?= htmlspecialchars($configs['system_logo'] ?? '../assests/horizon logo.png') ?>" class="size-full object-contain transition-transform duration-700 hover:scale-110">
+                                    <img src="<?= htmlspecialchars(!empty($configs['system_logo']) ? '../' . $configs['system_logo'] : '../assets/horizon logo.png') ?>" class="size-full object-contain transition-transform duration-700 hover:scale-110">
                                 </div>
                             </div>
-                            <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-1"><?= htmlspecialchars($gym['gym_name'] ?? 'Horizon System') ?></h2>
+                            <h2 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-1">
+                                <?= htmlspecialchars($gym['gym_name'] ?? 'Horizon System') ?>
+                            </h2>
                             <p class="text-[10px] text-primary mb-5 font-bold uppercase tracking-widest">Gym Establishment</p>
-                            <div class="flex justify-center gap-2 mb-8"><span class="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">Verified Facility</span></div>
-                            <div class="pt-6 border-t border-white/5"><p class="text-[9px] uppercase tracking-[0.2em] text-gray-600 font-black mb-1">Business Status</p><p class="text-sm font-bold text-gray-300 italic uppercase">Operational</p></div>
+                            <div class="flex justify-center gap-2 mb-8">
+                                <span class="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">Verified Facility</span>
+                            </div>
+                            <div class="pt-6 border-t border-white/5">
+                                <p class="text-[9px] uppercase tracking-[0.2em] text-gray-600 font-black mb-1">Business Status</p>
+                                <p class="text-sm font-bold text-gray-300 italic uppercase">Operational</p>
+                            </div>
                         </div>
                     </div>
-                    <button id="edit-btn" onclick="toggleEdit()" class="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 text-[--text-main] text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 group transition-all"><span class="material-symbols-outlined group-hover:text-primary transition-colors">edit_square</span><span>Edit Account</span></button>
-                    <button id="discard-btn" onclick="cancelEdit()" class="hidden w-full py-4 bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 transition-all"><span class="material-symbols-outlined">close</span><span>Discard</span></button>
+
+                    <button id="edit-btn" onclick="toggleEdit()"
+                        class="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 hover:border-primary/30 text-[--text-main] text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group">
+                        <span class="material-symbols-rounded group-hover:text-primary transition-colors">edit_square</span>
+                        <span>Edit Account</span>
+                    </button>
+
+                    <button id="discard-btn" onclick="cancelEdit()"
+                        class="hidden w-full py-4 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 text-rose-500 text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group">
+                        <span class="material-symbols-rounded group-hover:scale-110 transition-transform">close</span>
+                        <span>Discard Changes</span>
+                    </button>
+
+                    <div class="mt-4 px-2 opacity-80">
+                        <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-relaxed text-center">
+                            Security Notice: Ensure your password is unique and not used elsewhere.
+                        </p>
+                    </div>
                 </div>
 
-                <div class="flex-1 glass-card rounded-[40px] p-8 no-scrollbar relative overflow-hidden group">
-                    <!-- Tab Personal Info -->
+                <!-- ── RIGHT PANEL ── -->
+                <div class="flex-1 glass-card rounded-[40px] p-8 relative overflow-hidden group">
+
+                    <!-- ── TAB: PERSONAL PROFILE ── -->
                     <div id="tab-personal" class="tab-content active">
-                        <div class="flex items-center justify-between mb-10"><h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Security & Account</h1><div id="edit-indicator" class="hidden px-4 py-1.5 rounded-lg bg-primary/20 text-primary text-[9px] font-black italic uppercase animate-pulse">Editing Account</div></div>
-                        <form id="profile-form" action="" method="POST" enctype="multipart/form-data" class="flex flex-col gap-10" onsubmit="validateAndSubmit(event)">
+                        <div class="flex items-center justify-between mb-8">
+                            <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Profile Details</h1>
+                            <div id="edit-indicator"
+                                class="hidden px-4 py-1.5 rounded-lg bg-primary/20 text-primary text-[9px] font-black italic uppercase tracking-[0.2em] animate-pulse">
+                                Editing Mode
+                            </div>
+                        </div>
+
+                        <form id="profile-form" action="" method="POST" enctype="multipart/form-data"
+                            class="flex flex-col gap-10" onsubmit="validateAndSubmit(event)">
                             <input type="hidden" name="action" value="update_profile">
+
+                            <!-- Account Details -->
                             <div class="space-y-6">
                                 <h3 class="profile-section-title">Account Details</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                     <div class="space-y-2">
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Username</label>
                                         <div class="relative group">
-                                            <span class="input-icon-container">
-                                                <span class="material-symbols-outlined text-lg">alternate_email</span>
+                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                                <span class="material-symbols-rounded text-lg">alternate_email</span>
                                             </span>
-                                            <input type="text" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" autocomplete="username">
+                                            <input type="text" name="username" value="<?= htmlspecialchars($user['username'] ?? '') ?>"
+                                                disabled required
+                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
                                     </div>
+
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Administrator Role</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Role</label>
                                         <div class="relative group">
-                                            <span class="input-icon-container">
-                                                <span class="material-symbols-outlined text-lg">badge</span>
+                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none transition-colors">
+                                                <span class="material-symbols-rounded text-lg">badge</span>
                                             </span>
-                                            <input type="text" name="staff_role" value="<?= $role ?>" disabled class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            <input type="text" name="staff_role" value="<?= $role ?>" disabled
+                                                class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                        </div>
+                                    </div>
+
+                                    <!-- Password Section (Edit Reveal) -->
+                                    <div class="edit-reveal md:col-span-2 mt-0">
+                                        <div class="p-8 rounded-3xl bg-primary/[0.03] border border-primary/10">
+                                            <h4 class="text-[10px] font-black italic text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                                                <span class="material-symbols-rounded text-primary text-xl">lock_reset</span>
+                                                Update Password
+                                            </h4>
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                                <div class="space-y-2">
+                                                    <div class="flex items-center justify-between ml-1">
+                                                        <label class="text-[9px] uppercase font-bold text-[--text-main]/60 tracking-widest">New Password</label>
+                                                        <p id="strength-text" class="text-[9px] font-black uppercase tracking-widest min-h-[15px]"></p>
+                                                    </div>
+                                                    <div class="relative">
+                                                        <input type="password" name="new_password" id="new_pass"
+                                                            onkeyup="checkStrength(this.value)"
+                                                            placeholder="Leave blank to keep current"
+                                                            autocomplete="new-password"
+                                                            class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/30"
+                                                            disabled>
+                                                        <button type="button" onclick="togglePassword('new_pass', 'icon_new')"
+                                                            class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white flex items-center justify-center">
+                                                            <span class="material-symbols-rounded text-lg" id="icon_new">visibility_off</span>
+                                                        </button>
+                                                    </div>
+                                                    <div class="h-1.5 w-full bg-white/5 rounded-full mt-3 overflow-hidden">
+                                                        <div id="strength-bar" class="h-full w-0 transition-all duration-500 bg-rose-500"></div>
+                                                    </div>
+                                                    <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
+                                                        <div id="req-length" class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
+                                                            <span class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
+                                                            <span class="text-[9px] font-black uppercase tracking-widest">8+ Characters</span>
+                                                        </div>
+                                                        <div id="req-upper" class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
+                                                            <span class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
+                                                            <span class="text-[9px] font-black uppercase tracking-widest">Uppercase</span>
+                                                        </div>
+                                                        <div id="req-number" class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
+                                                            <span class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
+                                                            <span class="text-[9px] font-black uppercase tracking-widest">Number</span>
+                                                        </div>
+                                                        <div id="req-special" class="flex items-center gap-2 text-[--text-main]/70 transition-all duration-300">
+                                                            <span class="material-symbols-rounded text-xs shrink-0">radio_button_unchecked</span>
+                                                            <span class="text-[9px] font-black uppercase tracking-widest">Special Char</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div class="space-y-2">
+                                                    <div class="flex items-center justify-between ml-1">
+                                                        <label class="text-[9px] uppercase font-bold text-[--text-main]/60 tracking-widest">Confirm New Password</label>
+                                                        <p class="text-[9px] min-h-[15px]"></p>
+                                                    </div>
+                                                    <div class="relative">
+                                                        <input type="password" name="confirm_password" id="confirm_pass"
+                                                            placeholder="Re-enter new password"
+                                                            autocomplete="new-password"
+                                                            class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/30"
+                                                            disabled>
+                                                        <button type="button" onclick="togglePassword('confirm_pass', 'icon_confirm')"
+                                                            class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white flex items-center justify-center">
+                                                            <span class="material-symbols-rounded text-lg" id="icon_confirm">visibility_off</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- Personal Information -->
                             <div class="space-y-6">
                                 <h3 class="profile-section-title">Personal Information</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                     <div class="space-y-2">
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">First Name</label>
                                         <div class="relative group">
-                                            <span class="input-icon-container">
-                                                <span class="material-symbols-outlined text-lg">badge</span>
+                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                                <span class="material-symbols-rounded text-lg">badge</span>
                                             </span>
-                                            <input type="text" name="first_name" value="<?= htmlspecialchars($user['first_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" autocomplete="given-name">
+                                            <input type="text" name="first_name" value="<?= htmlspecialchars($user['first_name'] ?? '') ?>"
+                                                disabled required
+                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
                                     </div>
+
                                     <div class="space-y-2">
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Middle Name</label>
                                         <div class="relative group">
-                                            <span class="input-icon-container">
-                                                <span class="material-symbols-outlined text-lg">badge</span>
+                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                                <span class="material-symbols-rounded text-lg">badge</span>
                                             </span>
-                                            <input type="text" name="middle_name" value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" autocomplete="additional-name">
+                                            <input type="text" name="middle_name" value="<?= htmlspecialchars($user['middle_name'] ?? '') ?>"
+                                                disabled
+                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
                                     </div>
+
                                     <div class="space-y-2">
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Last Name</label>
                                         <div class="relative group">
-                                            <span class="input-icon-container">
-                                                <span class="material-symbols-outlined text-lg">badge</span>
+                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                                <span class="material-symbols-rounded text-lg">badge</span>
                                             </span>
-                                            <input type="text" name="last_name" value="<?= htmlspecialchars($user['last_name'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold" autocomplete="family-name">
+                                            <input type="text" name="last_name" value="<?= htmlspecialchars($user['last_name'] ?? '') ?>"
+                                                disabled required
+                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
                                     </div>
+
+                                    <div class="space-y-2"><!-- Grid Spacer --></div>
+
                                     <div class="space-y-2">
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Date of Birth</label>
                                         <div class="relative group">
-                                            <span class="input-icon-container">
-                                                <span class="material-symbols-outlined text-lg">cake</span>
+                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                                <span class="material-symbols-rounded text-lg">cake</span>
                                             </span>
-                                            <input type="date" name="birth_date" id="birth_date" value="<?= $birthDate ?>" disabled required max="<?= date('Y-m-d') ?>" class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold [color-scheme:dark]" autocomplete="bday">
+                                            <input type="date" name="birth_date" id="birth_date" value="<?= $birthDate ?>"
+                                                disabled required max="<?= date('Y-m-d') ?>"
+                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold [color-scheme:dark]">
                                         </div>
                                     </div>
+
                                     <div class="space-y-2">
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Sex</label>
                                         <div class="relative group">
-                                            <span class="input-icon-container">
-                                                <span class="material-symbols-outlined text-lg">wc</span>
+                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                                <span class="material-symbols-rounded text-lg">wc</span>
                                             </span>
-                                            <select name="sex" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none cursor-pointer">
+                                            <select name="sex" disabled required
+                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none cursor-pointer">
+                                                <option value="" disabled <?= empty($sex) ? 'selected' : '' ?>>Select Sex</option>
                                                 <option value="Male" <?= $sex === 'Male' ? 'selected' : '' ?>>Male</option>
                                                 <option value="Female" <?= $sex === 'Female' ? 'selected' : '' ?>>Female</option>
                                                 <option value="Other" <?= $sex === 'Other' ? 'selected' : '' ?>>Other</option>
                                             </select>
+                                            <span class="input-chevron absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 pointer-events-none">
+                                                <span class="material-symbols-rounded text-lg">expand_more</span>
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- Contact & Details -->
                             <div class="space-y-6">
                                 <h3 class="profile-section-title">Contact & Details</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                     <div class="space-y-2">
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Contact No.</label>
                                         <div class="relative group">
-                                            <span class="input-icon-container">
-                                                <span class="material-symbols-outlined text-lg">smartphone</span>
+                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                                <span class="material-symbols-rounded text-lg">smartphone</span>
                                             </span>
-                                            <input type="text" name="contact_number" value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>" disabled required oninput="formatContactNumber(this)" class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            <input type="text" name="contact_number" id="contact_number"
+                                                value="<?= htmlspecialchars($user['contact_number'] ?? '') ?>"
+                                                disabled required maxlength="13" oninput="formatContactNumber(this)"
+                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
                                     </div>
+
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Email Address</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Email</label>
                                         <div class="relative group">
-                                            <span class="input-icon-container">
-                                                <span class="material-symbols-outlined text-lg">mail</span>
+                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                                <span class="material-symbols-rounded text-lg">mail</span>
                                             </span>
-                                            <input type="email" name="email" value="<?= htmlspecialchars($user['email'] ?? '') ?>" disabled required class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            <input type="email" name="email"
+                                                value="<?= htmlspecialchars($user['email'] ?? '') ?>"
+                                                disabled required
+                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- ── SAVE SECTION (same structure as superadmin) ── -->
+                            <div id="save-section" class="hidden border-t border-white/5 pt-10 mt-6 animate-fade-in">
+                                <div class="bg-[--card-bg] border border-primary/20 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save">
+                                    <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover/save:opacity-100 transition-opacity"></div>
 
-
-                            <!-- Password Update Section (Reveal on Edit) -->
-                            <div class="edit-reveal w-full">
-                                <div class="p-8 rounded-[32px] bg-primary/[0.03] border border-primary/10 relative overflow-hidden group/sec">
-                                    <h4 class="text-[10px] font-black italic text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
-                                        <span class="material-symbols-outlined text-primary text-xl">lock_reset</span>Update Password
-                                    </h4>
-                                    <!-- Prevent Autofill -->
-                                    <input type="text" style="display:none" autocomplete="username">
-                                    <input type="password" style="display:none" autocomplete="current-password">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                        <div class="space-y-2">
-                                            <div class="flex items-center justify-between ml-1">
-                                                <label class="text-[9px] uppercase font-bold text-[--text-main]/60 tracking-widest">New Password</label>
-                                                <p id="strength-text" class="text-[9px] font-black uppercase tracking-widest min-h-[15px]"></p>
-                                            </div>
-                                            <div class="relative">
-                                                <input type="password" name="new_password" id="new_pass" onkeyup="checkStrength(this.value)" placeholder="Leave blank to keep current" autocomplete="new-password" class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary placeholder:text-[--text-main]/30" disabled>
-                                                <button type="button" onclick="togglePassword('new_pass', 'icon_new')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white"><span class="material-symbols-outlined text-lg" id="icon_new">visibility_off</span></button>
-                                            </div>
-                                            <div class="h-1.5 w-full bg-white/5 rounded-full mt-3 overflow-hidden"><div id="strength-bar" class="h-full w-0 transition-all duration-500 bg-rose-500"></div></div>
-                                        </div>
-                                        <div class="space-y-2">
-                                            <label class="text-[9px] uppercase font-bold text-[--text-main]/60 tracking-widest ml-1">Confirm New Password</label>
-                                            <div class="relative">
-                                                <input type="password" name="confirm_password" id="confirm_pass" placeholder="Re-enter new password" autocomplete="new-password" class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary placeholder:text-[--text-main]/30" disabled>
-                                                <button type="button" onclick="togglePassword('confirm_pass', 'icon_confirm')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white"><span class="material-symbols-outlined text-lg" id="icon_confirm">visibility_off</span></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Bottom Save Section Redesigned -->
-                            <div id="save-section" class="hidden border-t border-white/5 pt-12 mt-8 animate-fade-in">
-                                <div class="pill-save-bar">
-                                    <div class="flex items-center gap-6">
-                                        <div class="save-bar-icon-circle">
-                                            <span class="material-symbols-outlined text-2xl">shield_locked</span>
+                                    <div class="flex items-center gap-5 shrink-0 relative z-10">
+                                        <div class="size-14 rounded-full bg-primary/10 flex items-center justify-center text-primary border border-primary/30 shadow-inner group-hover/save:scale-110 transition-transform duration-500">
+                                            <span class="material-symbols-rounded text-2xl">shield_locked</span>
                                         </div>
                                         <div>
-                                            <h4 class="text-xs font-black italic uppercase tracking-widest text-white">Confirm Changes</h4>
-                                            <p class="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">Enter current password to save changes.</p>
+                                            <h4 class="text-sm font-black italic uppercase tracking-tighter text-white">Confirm Changes</h4>
+                                            <p class="text-[9px] font-bold text-[--text-main]/50 uppercase tracking-widest mt-1 opacity-80">Enter current password to save changes.</p>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-4">
-                                        <div class="relative group/input">
-                                            <input type="password" name="current_password" id="current_pass" placeholder="Password" autocomplete="current-password" disabled class="pill-save-input">
-                                            <button type="button" onclick="togglePassword('current_pass', 'icon_curr')" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white transition-colors flex items-center justify-center">
-                                                <span class="material-symbols-outlined text-lg" id="icon_curr">visibility_off</span>
+                                    <div class="flex flex-col sm:flex-row items-center gap-5 w-full md:w-auto relative z-10 shrink-0">
+                                        <div class="relative w-full sm:w-44 group/input">
+                                            <input type="password" name="current_password" id="current_pass" required
+                                                placeholder="Password" disabled
+                                                autocomplete="current-password"
+                                                class="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-xs font-black italic text-[--text-main] focus:border-primary/50 focus:outline-none transition-all pr-12 placeholder:text-[--text-main]/30 tracking-widest">
+                                            <button type="button" onclick="togglePassword('current_pass', 'icon_curr')"
+                                                class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white transition-colors flex items-center justify-center">
+                                                <span class="material-symbols-rounded text-lg" id="icon_curr">visibility_off</span>
                                             </button>
                                         </div>
-                                        <button type="submit" class="pill-save-btn">
+
+                                        <button type="submit"
+                                            class="shrink-0 text-primary hover:text-white text-[11px] font-black italic uppercase tracking-[0.2em] transition-all hover:scale-110 active:scale-95 py-2">
                                             SAVE CHANGES
                                         </button>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Hidden inputs for profile picture management -->
                             <input type="hidden" name="remove_profile_picture" id="remove-profile-input" value="0">
-                            <input type="file" name="profile_picture" id="profile-input-file" class="hidden" accept="image/*" onchange="previewProfileImage(this)">
+                            <input type="file" name="profile_picture" class="hidden" id="profile-input-file"
+                                accept=".jpg,.jpeg,.png" onchange="previewProfileImage(this)">
+
                         </form>
                     </div>
+                    <!-- ── END TAB: PERSONAL ── -->
 
-                    <!-- Tab Business Info -->
+                    <!-- ── TAB: BUSINESS INFO ── -->
                     <div id="tab-business" class="tab-content">
                         <?php if ($gym): ?>
-                            <div class="flex items-center justify-between mb-10">
+                            <div class="flex items-center justify-between mb-8">
                                 <h1 class="text-xl font-black italic uppercase tracking-tighter text-white">Business Information</h1>
                                 <div class="px-4 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-[9px] font-black italic uppercase tracking-[0.2em] border border-emerald-500/20">Verified Partner</div>
                             </div>
-                            
+
                             <div class="space-y-10">
-                                <div class="space-y-8">
-                                    <div class="space-y-6">
-                                        <h3 class="profile-section-title">Brand Identity</h3>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                            <div class="space-y-2">
-                                                <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Official Business Name</label>
-                                                <div class="relative group">
-                                                    <span class="input-icon-container">
-                                                        <span class="material-symbols-outlined text-lg">corporate_fare</span>
-                                                    </span>
-                                                    <input type="text" value="<?= htmlspecialchars($gym['business_name']) ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
-                                                </div>
+                                <!-- Brand Identity -->
+                                <div class="space-y-6">
+                                    <h3 class="profile-section-title">Brand Identity</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Official Business Name</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">corporate_fare</span>
+                                                </span>
+                                                <input type="text" value="<?= htmlspecialchars($gym['business_name'] ?? '') ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
-                                            <div class="space-y-2">
-                                                <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">System Code</label>
-                                                <div class="relative group">
-                                                    <span class="input-icon-container">
-                                                        <span class="material-symbols-outlined text-lg">fingerprint</span>
-                                                    </span>
-                                                    <input type="text" value="<?= htmlspecialchars($gym['tenant_code']) ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold uppercase italic tracking-widest text-primary">
-                                                </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">System Code</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">fingerprint</span>
+                                                </span>
+                                                <input type="text" value="<?= htmlspecialchars($gym['tenant_code'] ?? '') ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold uppercase italic tracking-widest text-primary">
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Theme Color</label>
+                                            <input type="color" value="<?= htmlspecialchars($configs['theme_color'] ?? '#8c2bee') ?>" disabled
+                                                class="w-full h-12 rounded-xl cursor-not-allowed opacity-50">
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Gym Logo</label>
+                                            <input type="file" accept="image/*" disabled
+                                                class="w-full text-sm text-[--text-main] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-primary/20 file:text-primary disabled:opacity-50">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Legal & Location -->
+                                <div class="space-y-6">
+                                    <h3 class="profile-section-title">Legal & Location</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">BIR / TIN Number</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">description</span>
+                                                </span>
+                                                <input type="text" value="<?= $app_data['bir_number'] ?? 'N/A' ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Business Permit No.</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">verified</span>
+                                                </span>
+                                                <input type="text" value="<?= $app_data['business_permit_no'] ?? 'N/A' ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            </div>
+                                        </div>
+                                        <div class="space-y-2 md:col-span-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Gym Address</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">location_on</span>
+                                                </span>
+                                                <input type="text" value="<?= htmlspecialchars(implode(', ', array_filter([$gym['address_line'], $gym['barangay'], $gym['city'], $gym['province'], $gym['region']]))) ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                     </div>
+                                </div>
 
-                                    <div class="space-y-6">
-                                        <h3 class="profile-section-title">Legal & Location</h3>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                            <div class="space-y-2">
-                                                <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">BIR / TIN Number</label>
-                                                <div class="relative group">
-                                                    <span class="input-icon-container">
-                                                        <span class="material-symbols-outlined text-lg">description</span>
-                                                    </span>
-                                                    <input type="text" value="<?= $app_data['bir_number'] ?? 'N/A' ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
-                                                </div>
-                                            </div>
-                                            <div class="space-y-2">
-                                                <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Business Permit No.</label>
-                                                <div class="relative group">
-                                                    <span class="input-icon-container">
-                                                        <span class="material-symbols-outlined text-lg">verified</span>
-                                                    </span>
-                                                    <input type="text" value="<?= $app_data['business_permit_no'] ?? 'N/A' ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
-                                                </div>
-                                            </div>
-                                            <div class="space-y-2 md:col-span-2">
-                                                <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Gym Address</label>
-                                                <div class="relative group">
-                                                    <span class="input-icon-container">
-                                                        <span class="material-symbols-outlined text-lg">location_on</span>
-                                                    </span>
-                                                    <input type="text" value="<?= htmlspecialchars($gym['address_line'] . ', ' . $gym['barangay'] . ', ' . $gym['city'] . ', ' . $gym['province'] . ', ' . $gym['region']) ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
-                                                </div>
+                                <!-- Financial Payout -->
+                                <div class="space-y-6">
+                                    <h3 class="profile-section-title">Financial Payout</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                        <div class="space-y-2 md:col-span-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Bank / E-Wallet</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">account_balance</span>
+                                                </span>
+                                                <input type="text" value="<?= $payout_info['bank'] ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div class="space-y-6">
-                                        <h3 class="profile-section-title">Financial Payout</h3>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                            <div class="space-y-2 md:col-span-2">
-                                                <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Bank / E-Wallet</label>
-                                                <div class="relative group">
-                                                    <span class="input-icon-container">
-                                                        <span class="material-symbols-outlined text-lg">account_balance</span>
-                                                    </span>
-                                                    <input type="text" value="<?= $payout_info['bank'] ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
-                                                </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Account Holder</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">person</span>
+                                                </span>
+                                                <input type="text" value="<?= $payout_info['acc_name'] ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
-                                            <div class="space-y-2">
-                                                <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Account Holder</label>
-                                                <div class="relative group">
-                                                    <span class="input-icon-container">
-                                                        <span class="material-symbols-outlined text-lg">person</span>
-                                                    </span>
-                                                    <input type="text" value="<?= $payout_info['acc_name'] ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
-                                                </div>
-                                            </div>
-                                            <div class="space-y-2">
-                                                <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Account Number</label>
-                                                <div class="relative group">
-                                                    <span class="input-icon-container">
-                                                        <span class="material-symbols-outlined text-lg">lock</span>
-                                                    </span>
-                                                    <input type="text" value="<?= $payout_info['acc_no'] ?>" disabled class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-black italic tracking-[0.15em] text-primary">
-                                                </div>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Account Number</label>
+                                            <div class="relative">
+                                                <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">lock</span>
+                                                </span>
+                                                <input type="text" value="<?= $payout_info['acc_no'] ?>" disabled
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-black italic tracking-[0.15em] text-primary">
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            </div>
+
                         <?php else: ?>
                             <div class="flex flex-col items-center justify-center py-20 text-center">
-                                <div class="size-20 rounded-3xl bg-white/5 flex items-center justify-center border border-white/10 mb-6"><span class="material-symbols-outlined text-4xl text-gray-600">business_center</span></div>
+                                <div class="size-20 rounded-3xl bg-white/5 flex items-center justify-center border border-white/10 mb-6">
+                                    <span class="material-symbols-outlined text-4xl text-gray-600">business_center</span>
+                                </div>
                                 <h3 class="text-lg font-black uppercase italic tracking-tighter text-white">No Gym Connected</h3>
                                 <p class="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-2">Finish your application to enable business info.</p>
                             </div>
                         <?php endif; ?>
                     </div>
+                    <!-- ── END TAB: BUSINESS ── -->
+
                 </div>
+                <!-- ── END RIGHT PANEL ── -->
+
             </div>
         </main>
     </div>
 
-    <!-- Custom Modal -->
+    <!-- ── CUSTOM MODAL (exact replica of superadmin) ── -->
     <div id="custom-modal" class="hidden">
-        <div class="absolute inset-0 bg-[#0a090d]/80 transition-opacity" id="modal-backdrop" onclick="closeModal()"></div>
-        <div class="relative z-10 bg-[--background] w-full max-w-sm rounded-[32px] border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0 px-4 py-8 text-center" id="modal-content">
-            <div class="w-20 h-20 rounded-[24px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10" id="modal-icon-bg"><span class="material-symbols-outlined text-4xl text-primary" id="modal-icon">info</span></div>
-            <h3 class="text-xl font-black italic text-white uppercase tracking-tighter mb-3" id="modal-title">Confirm Update</h3>
-            <p class="text-gray-400 text-[11px] font-bold tracking-wider mb-8" id="modal-message"></p>
-            <div class="flex gap-3 justify-center" id="modal-actions"></div>
+        <div class="absolute inset-0 transition-opacity duration-300 opacity-0 bg-[#0a090d]/80" id="modal-backdrop" onclick="closeModal()"></div>
+        <div class="relative z-10 bg-[--background] w-full max-w-sm rounded-[32px] shadow-2xl border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0" id="modal-content">
+            <div class="p-8 text-center">
+                <div class="w-20 h-20 rounded-[24px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10" id="modal-icon-bg">
+                    <span class="material-symbols-rounded text-4xl text-primary" id="modal-icon">info</span>
+                </div>
+                <h3 class="text-xl font-black italic text-white uppercase tracking-tighter mb-3" id="modal-title">Notification</h3>
+                <p class="text-gray-400 text-[11px] font-bold tracking-wider mb-8 leading-relaxed px-2" id="modal-message">Message goes here...</p>
+                <div class="flex gap-3 justify-center" id="modal-actions"></div>
+            </div>
         </div>
     </div>
 
     <script>
+        // ─────────────────────────────────────────────────────────────
+        // MODAL LOGIC (exact replica of superadmin)
+        // ─────────────────────────────────────────────────────────────
+        function showModal(title, message, type, callback = null) {
+            const modal = document.getElementById('custom-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const content = document.getElementById('modal-content');
+
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+
+            const actionsDiv = document.getElementById('modal-actions');
+            actionsDiv.innerHTML = '';
+
+            if (type === 'confirm') {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = "px-6 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-black italic uppercase tracking-[0.2em] transition-colors";
+                cancelBtn.innerText = "Cancel";
+                cancelBtn.onclick = closeModal;
+                actionsDiv.appendChild(cancelBtn);
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = "px-8 py-3.5 rounded-2xl bg-primary hover:opacity-80 text-white text-[10px] font-black italic uppercase tracking-[0.2em] shadow-lg shadow-primary/20 transition-all flex items-center gap-2";
+                confirmBtn.innerHTML = '<span class="material-symbols-rounded text-base">check</span> Confirm';
+                confirmBtn.onclick = function () { if (callback) callback(); closeModal(); };
+                actionsDiv.appendChild(confirmBtn);
+
+                document.getElementById('modal-icon').innerText = 'security';
+                document.getElementById('modal-icon').className = 'material-symbols-rounded text-4xl text-primary';
+                document.getElementById('modal-icon-bg').className = 'w-20 h-20 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto mb-6 border border-primary/20';
+            } else {
+                const okBtn = document.createElement('button');
+                okBtn.className = "w-full py-4 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-[10px] font-black italic uppercase tracking-[0.2em] transition-colors";
+                okBtn.innerText = "Okay, Got it";
+                okBtn.onclick = closeModal;
+                actionsDiv.appendChild(okBtn);
+
+                if (type === 'success') {
+                    document.getElementById('modal-icon').innerText = 'check_circle';
+                    document.getElementById('modal-icon').className = 'material-symbols-rounded text-4xl text-emerald-400';
+                    document.getElementById('modal-icon-bg').className = 'w-20 h-20 rounded-[24px] bg-emerald-400/10 flex items-center justify-center mx-auto mb-6 border border-emerald-400/20';
+                } else {
+                    document.getElementById('modal-icon').innerText = 'warning';
+                    document.getElementById('modal-icon').className = 'material-symbols-rounded text-4xl text-rose-500';
+                    document.getElementById('modal-icon-bg').className = 'w-20 h-20 rounded-[24px] bg-rose-500/10 flex items-center justify-center mx-auto mb-6 border border-rose-500/20';
+                }
+            }
+
+            modal.classList.add('flex');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                content.classList.remove('scale-90', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const content = document.getElementById('modal-content');
+
+            backdrop.classList.add('opacity-0');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-90', 'opacity-0');
+
+            setTimeout(() => {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // TAB SWITCHING
+        // ─────────────────────────────────────────────────────────────
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById('tab-' + tabId).classList.add('active');
             document.getElementById('btn-' + tabId).classList.add('active');
 
-            // Sidebar Swapping Logic
             const sidebarUser = document.getElementById('sidebar-user-content');
-            const sidebarGym = document.getElementById('sidebar-gym-content');
-            const editBtn = document.getElementById('edit-btn');
+            const sidebarGym  = document.getElementById('sidebar-gym-content');
+            const editBtn     = document.getElementById('edit-btn');
+            const discardBtn  = document.getElementById('discard-btn');
 
             if (tabId === 'business') {
                 sidebarUser.classList.add('hidden');
                 sidebarGym.classList.remove('hidden');
                 editBtn.classList.add('hidden');
+                discardBtn.classList.add('hidden');
             } else {
                 sidebarUser.classList.remove('hidden');
                 sidebarGym.classList.add('hidden');
-                // Only show edit btn if not currently in edit mode
-                if (!document.querySelector('.tab-content.edit-mode')) {
+                if (!document.body.classList.contains('edit-mode')) {
                     editBtn.classList.remove('hidden');
+                } else {
+                    discardBtn.classList.remove('hidden');
                 }
             }
         }
 
+        // ─────────────────────────────────────────────────────────────
+        // EDIT MODE — exact replica of superadmin logic
+        // ─────────────────────────────────────────────────────────────
+        let initialValues = {};
+
         function toggleEdit() {
-            const activeTab = document.querySelector('.tab-content.active');
-            if (activeTab.id === 'tab-business') {
-                // Since Business Info is read-only, we don't do anything here
-                // or we could show a message. For now, following "individual worlds" logic
-                return; 
-            }
-            
-            activeTab.classList.add('edit-mode');
-            document.body.classList.add('has-editing-tab');
-            
-            // Only enable inputs within the active tab
-            activeTab.querySelectorAll('input, select').forEach(i => i.disabled = false);
-            
-            // Special handling for the save section if it's inside the active tab's form
-            const saveSection = activeTab.querySelector('#save-section');
-            if (saveSection) {
-                saveSection.classList.remove('hidden');
-                saveSection.querySelectorAll('input').forEach(i => i.disabled = false);
-            }
+            const form     = document.getElementById('profile-form');
+            const inputs   = form.querySelectorAll('input, select, textarea');
+            const saveSection = document.getElementById('save-section');
+            const editBtn  = document.getElementById('edit-btn');
+            const discardBtn = document.getElementById('discard-btn');
+            const indicator  = document.getElementById('edit-indicator');
+            const profileLabel = document.getElementById('profile-label');
+            const removeBtn    = document.getElementById('remove-photo-btn');
+            const hasPhoto = !!document.getElementById('profilePreviewImg');
 
-            document.getElementById('edit-btn').classList.add('hidden');
-            document.getElementById('discard-btn').classList.remove('hidden');
+            document.body.classList.add('edit-mode');
 
-            // Prevent autofill from keeping old values
-            setTimeout(() => {
-                const np = document.getElementById('new_pass');
-                const cp = document.getElementById('confirm_pass');
-                const currp = document.getElementById('current_pass');
-                if(np) np.value = '';
-                if(cp) cp.value = '';
-                if(currp) currp.value = '';
-            }, 50);
-            
-            const editIndicator = activeTab.querySelector('[id$="-edit-indicator"]');
-            if (editIndicator) editIndicator.classList.remove('hidden');
-            
-            document.getElementById('profile-label').classList.remove('hidden');
-            if (document.getElementById('profilePreviewImg')) document.getElementById('remove-photo-btn').classList.remove('hidden');
-        }
+            inputs.forEach(input => {
+                if (input.name !== 'staff_role') {
+                    input.disabled = false;
+                    initialValues[input.name] = input.value;
+                }
+            });
 
-        function cancelEdit() { window.location.reload(); }
+            editBtn.classList.add('hidden');
+            discardBtn.classList.remove('hidden');
+            saveSection.classList.remove('hidden');
+            indicator.classList.remove('hidden');
+            profileLabel.classList.remove('hidden');
 
-        function showModal(title, message, type, callback = null) {
-            const modal = document.getElementById('custom-modal');
-            const backdrop = document.getElementById('modal-backdrop');
-            const content = document.getElementById('modal-content');
-            document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-message').innerText = message;
-            const actionsDiv = document.getElementById('modal-actions');
-            actionsDiv.innerHTML = '';
-
-            if (type === 'confirm') {
-                const cB = document.createElement('button'); cB.className = "px-6 py-3.5 rounded-2xl bg-white/5 text-gray-300 text-[10px] font-black italic uppercase tracking-widest";
-                cB.innerText = "Cancel"; cB.onclick = closeModal;
-                const fB = document.createElement('button'); fB.className = "px-8 py-3.5 rounded-2xl bg-primary text-white text-[10px] font-black italic uppercase tracking-widest flex items-center gap-2";
-                fB.innerHTML = '<span class="material-symbols-outlined text-base">check</span> Confirm';
-                fB.onclick = () => { if (callback) callback(); closeModal(); };
-                actionsDiv.append(cB, fB);
-            } else {
-                const oB = document.createElement('button'); oB.className = "w-full py-4 rounded-2xl bg-white/10 text-white text-[10px] font-black italic uppercase tracking-widest";
-                oB.innerText = "Got it"; oB.onclick = closeModal;
-                actionsDiv.appendChild(oB);
+            if (hasPhoto) {
+                removeBtn.classList.remove('hidden');
+                setTimeout(() => removeBtn.classList.add('opacity-100'), 100);
             }
 
-            modal.classList.add('flex'); modal.classList.remove('hidden');
-            setTimeout(() => { backdrop.classList.remove('opacity-0'); content.classList.remove('scale-90', 'opacity-0'); content.classList.add('scale-100', 'opacity-100'); }, 10);
+            const firstInput = form.querySelector('input:not([disabled])');
+            if (firstInput && firstInput.type !== 'hidden') firstInput.focus();
         }
 
-        function closeModal() {
-            const modal = document.getElementById('custom-modal');
-            const content = document.getElementById('modal-content');
-            content.classList.add('scale-90', 'opacity-0');
-            setTimeout(() => { modal.classList.remove('flex'); modal.classList.add('hidden'); }, 300);
+        function cancelEdit() {
+            const form     = document.getElementById('profile-form');
+            const inputs   = form.querySelectorAll('input, select, textarea');
+            const saveSection = document.getElementById('save-section');
+            const editBtn  = document.getElementById('edit-btn');
+            const discardBtn = document.getElementById('discard-btn');
+            const indicator  = document.getElementById('edit-indicator');
+            const removeInput = document.getElementById('remove-profile-input');
+
+            document.body.classList.remove('edit-mode');
+
+            removeInput.value = "0";
+            restoreOriginalProfileUI();
+
+            inputs.forEach(input => {
+                input.disabled = true;
+                if (initialValues[input.name] !== undefined && input.type !== 'file' && input.type !== 'password') {
+                    input.value = initialValues[input.name];
+                }
+            });
+
+            document.getElementById('new_pass').value    = '';
+            document.getElementById('confirm_pass').value = '';
+            document.getElementById('current_pass').value = '';
+            document.getElementById('strength-bar').style.width = '0';
+            document.getElementById('strength-text').innerText  = '';
+
+            editBtn.classList.remove('hidden');
+            discardBtn.classList.add('hidden');
+            saveSection.classList.add('hidden');
+            indicator.classList.add('hidden');
         }
+
+        // ─────────────────────────────────────────────────────────────
+        // PROFILE PICTURE
+        // ─────────────────────────────────────────────────────────────
+        const originalProfileHTML = document.getElementById('profile-container').innerHTML;
 
         function previewProfileImage(input) {
             if (input.files && input.files[0]) {
@@ -930,16 +1338,16 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
 
                 if (!allowedTypes.includes(file.type)) {
                     showModal('Invalid File Type', 'Only PNG and JPG images are allowed. Please pick a different file.', 'error');
-                    input.value = ''; // Reset the input
+                    input.value = '';
                     return;
                 }
 
                 const reader = new FileReader();
                 reader.onload = function (e) {
-                    let container = document.getElementById('profile-container');
-                    let img = document.getElementById('profilePreviewImg');
+                    let container   = document.getElementById('profile-container');
+                    let img         = document.getElementById('profilePreviewImg');
                     let placeholder = document.getElementById('profilePlaceholder');
-                    let removeBtn = document.getElementById('remove-photo-btn');
+                    let removeBtn   = document.getElementById('remove-photo-btn');
 
                     if (!img) {
                         img = document.createElement('img');
@@ -955,23 +1363,42 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                     removeBtn.classList.remove('hidden');
                     setTimeout(() => removeBtn.classList.add('opacity-100'), 100);
                     document.getElementById('remove-profile-input').value = "0";
-                }
+                };
                 reader.readAsDataURL(file);
             }
         }
 
-        function removeProfilePhoto() {
-            const img = document.getElementById('profilePreviewImg');
-            const placeholder = document.getElementById('profilePlaceholder');
-            const removeBtn = document.getElementById('remove-photo-btn');
-            const removeInput = document.getElementById('remove-profile-input');
-            const fileInput = document.getElementById('profile-input-file');
+        function restoreOriginalProfileUI() {
+            const container = document.getElementById('profile-container');
+            container.innerHTML = originalProfileHTML;
 
+            const removeBtn    = document.getElementById('remove-photo-btn');
+            const profileLabel = document.getElementById('profile-label');
+
+            if (!document.body.classList.contains('edit-mode')) {
+                removeBtn.classList.add('hidden');
+                profileLabel.classList.add('hidden');
+            } else {
+                profileLabel.classList.remove('hidden');
+                if (document.getElementById('profilePreviewImg')) {
+                    removeBtn.classList.remove('hidden');
+                    removeBtn.classList.add('opacity-100');
+                }
+            }
+        }
+
+        function removeProfilePhoto() {
             showModal(
                 "Remove Photo",
                 "Are you sure you want to remove your profile picture? This will revert to your initials placeholder.",
                 "confirm",
                 () => {
+                    const img         = document.getElementById('profilePreviewImg');
+                    const placeholder = document.getElementById('profilePlaceholder');
+                    const removeBtn   = document.getElementById('remove-photo-btn');
+                    const removeInput = document.getElementById('remove-profile-input');
+                    const fileInput   = document.getElementById('profile-input-file');
+
                     if (img) img.classList.add('hidden');
 
                     if (!placeholder) {
@@ -987,53 +1414,216 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                     removeBtn.classList.add('hidden');
                     removeBtn.classList.remove('opacity-100');
                     removeInput.value = "1";
-                    if (fileInput) fileInput.value = ""; // Clear any staged upload
+                    if (fileInput) fileInput.value = "";
                 }
             );
         }
 
-        function checkStrength(p) {
-            const bar = document.getElementById('strength-bar');
-            const text = document.getElementById('strength-text');
-            let s = 0;
-            if (p.length >= 8) s += 25; if (/[A-Z]/.test(p)) s += 25; if (/[0-9]/.test(p)) s += 25; if (/[^A-Za-z0-9]/.test(p)) s += 25;
-            bar.style.width = s + '%';
-            if (s <= 25) { bar.className = 'h-full bg-rose-500'; text.innerText = 'WEAK'; text.className = 'text-[9px] font-black text-rose-500'; }
-            else if (s <= 75) { bar.className = 'h-full bg-amber-500'; text.innerText = 'GOOD'; text.className = 'text-[9px] font-black text-amber-500'; }
-            else { bar.className = 'h-full bg-emerald-400'; text.innerText = 'STRONG'; text.className = 'text-[9px] font-black text-emerald-400'; }
-        }
-
-        function formatContactNumber(i) {
-            let v = i.value.replace(/\D/g, ''); if (v.length > 11) v = v.substring(0, 11);
-            let f = ''; if (v.length > 0) { f += v.substring(0, 4); if (v.length > 4) f += '-' + v.substring(4, 7); if (v.length > 7) f += '-' + v.substring(7, 11); }
-            i.value = f;
-        }
-
-        function togglePassword(id, i) {
-            const e = document.getElementById(id); const ix = document.getElementById(i);
-            e.type = e.type === "password" ? "text" : "password";
-            ix.innerText = e.type === "password" ? "visibility_off" : "visibility";
-        }
-
-        function validateAndSubmit(e) {
-            e.preventDefault();
-            const cp = document.getElementById('current_pass');
-            if (!cp || cp.value.trim() === "") { 
-                showModal("Password Required", "Please enter your current password to save changes.", "error");
-                if (cp) cp.focus(); 
-                return false; 
+        // ─────────────────────────────────────────────────────────────
+        // PASSWORD TOGGLE
+        // ─────────────────────────────────────────────────────────────
+        function togglePassword(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon  = document.getElementById(iconId);
+            if (input.type === "password") {
+                input.type = "text";
+                icon.innerText = "visibility";
+            } else {
+                input.type = "password";
+                icon.innerText = "visibility_off";
             }
-            showModal("Confirm Update", "Are you sure you want to save these profile changes?", "confirm", () => { 
-                const form = document.getElementById('profile-form');
-                if (form) {
-                    form.submit();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // PASSWORD STRENGTH (exact replica of superadmin)
+        // ─────────────────────────────────────────────────────────────
+        function checkStrength(password) {
+            const bar  = document.getElementById('strength-bar');
+            const text = document.getElementById('strength-text');
+            const requirements = {
+                length:  { el: document.getElementById('req-length'),  met: password.length >= 8 },
+                upper:   { el: document.getElementById('req-upper'),   met: /[A-Z]/.test(password) },
+                number:  { el: document.getElementById('req-number'),  met: /[0-9]/.test(password) },
+                special: { el: document.getElementById('req-special'), met: /[^A-Za-z0-9]/.test(password) }
+            };
+
+            let strength = 0;
+            Object.values(requirements).forEach(req => {
+                const icon = req.el.querySelector('.material-symbols-rounded');
+                if (req.met) {
+                    strength += 25;
+                    req.el.classList.remove('text-[--text-main]/70');
+                    req.el.classList.add('text-emerald-400');
+                    icon.innerText = 'check_circle';
+                } else {
+                    req.el.classList.add('text-[--text-main]/70');
+                    req.el.classList.remove('text-emerald-400');
+                    icon.innerText = 'radio_button_unchecked';
                 }
             });
+
+            bar.style.width = strength + '%';
+            if (password.length === 0) {
+                bar.className = 'h-full transition-all duration-300';
+                text.innerText = '';
+                bar.style.width = '0%';
+            } else if (strength <= 25) {
+                bar.className = 'h-full transition-all duration-500 bg-rose-500';
+                text.innerText = 'WEAK';
+                text.className = 'text-[9px] font-black uppercase tracking-widest text-rose-500 min-h-[15px]';
+            } else if (strength <= 75) {
+                bar.className = 'h-full transition-all duration-500 bg-amber-500';
+                text.innerText = (strength <= 50) ? 'FAIR' : 'GOOD';
+                text.className = 'text-[9px] font-black uppercase tracking-widest text-amber-500 min-h-[15px]';
+            } else {
+                bar.className = 'h-full transition-all duration-500 bg-emerald-400';
+                text.innerText = 'STRONG';
+                text.className = 'text-[9px] font-black uppercase tracking-widest text-emerald-400 min-h-[15px]';
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // CONTACT NUMBER FORMAT
+        // ─────────────────────────────────────────────────────────────
+        function formatContactNumber(input) {
+            let val = input.value.replace(/\D/g, '');
+            if (val.length > 11) val = val.substring(0, 11);
+            let formatted = '';
+            if (val.length > 0) {
+                formatted += val.substring(0, 4);
+                if (val.length > 4) formatted += '-' + val.substring(4, 7);
+                if (val.length > 7) formatted += '-' + val.substring(7, 11);
+            }
+            input.value = formatted;
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // FORM VALIDATION & SUBMIT (exact replica of superadmin)
+        // ─────────────────────────────────────────────────────────────
+        function validateAndSubmit(event) {
+            event.preventDefault();
+
+            const form          = document.getElementById('profile-form');
+            const firstName     = form.querySelector('[name="first_name"]').value.trim();
+            const middleName    = form.querySelector('[name="middle_name"]').value.trim();
+            const lastName      = form.querySelector('[name="last_name"]').value.trim();
+            const birthDate     = form.querySelector('[name="birth_date"]').value;
+            const contactNumber = document.getElementById('contact_number').value.trim();
+            const email         = form.querySelector('[name="email"]').value.trim().toLowerCase();
+            const currentPassField = document.getElementById('current_pass');
+
+            // 1. Name Validation
+            const nameRegex = /^[a-zA-Z\s]*$/;
+            if (!nameRegex.test(firstName)) {
+                showModal("Invalid Name", "First name cannot contain numbers or special characters.", "error");
+                return false;
+            }
+            if (middleName && !nameRegex.test(middleName)) {
+                showModal("Invalid Name", "Middle name cannot contain numbers or special characters.", "error");
+                return false;
+            }
+            if (!nameRegex.test(lastName)) {
+                showModal("Invalid Name", "Last name cannot contain numbers or special characters.", "error");
+                return false;
+            }
+
+            // 2. Contact Number
+            const rawContact = contactNumber.replace(/\D/g, '');
+            if (rawContact.length !== 11) {
+                showModal("Invalid Contact", "Phone number must be exactly 11 digits.", "error");
+                document.getElementById('contact_number').focus();
+                return false;
+            }
+
+            // 3. Date of Birth
+            const today = new Date().toISOString().split('T')[0];
+            if (birthDate > today) {
+                showModal("Invalid Date", "Date of birth cannot be in the future.", "error");
+                return false;
+            }
+
+            // 4. Email
+            if (!email.endsWith('@gmail.com')) {
+                showModal("Invalid Email", "Please use a valid @gmail.com email address.", "error");
+                return false;
+            }
+
+            // 5. Current password required
+            if (currentPassField.value.trim() === "") {
+                currentPassField.focus();
+                currentPassField.classList.add('border-rose-500/50');
+                currentPassField.classList.add('animate-shake');
+                setTimeout(() => {
+                    currentPassField.classList.remove('border-rose-500/50');
+                    currentPassField.classList.remove('animate-shake');
+                }, 2000);
+                return false;
+            }
+
+            // 6. Confirm modal before submitting
+            showModal(
+                "Confirm Changes",
+                "Are you sure you want to save these profile changes?",
+                "confirm",
+                () => {
+                    document.getElementById('profile-form').submit();
+                }
+            );
             return false;
         }
 
-        setInterval(() => { const c = document.getElementById('headerClock'); if (c) c.innerText = new Date().toLocaleTimeString('en-US'); }, 1000);
-    </script>
-</body>
+        // ─────────────────────────────────────────────────────────────
+        // CLOCK
+        // ─────────────────────────────────────────────────────────────
+        setInterval(() => {
+            const el = document.getElementById('headerClock');
+            if (el) el.innerText = new Date().toLocaleTimeString('en-US');
+        }, 1000);
 
+        // ─────────────────────────────────────────────────────────────
+        // DOM READY
+        // ─────────────────────────────────────────────────────────────
+        window.addEventListener('DOMContentLoaded', () => {
+            // Auto-dismiss alert
+            const alertEl = document.getElementById('statusAlert');
+            if (alertEl) {
+                setTimeout(() => {
+                    alertEl.style.opacity = '0';
+                    alertEl.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
+                    alertEl.style.transform = 'translateY(-10px)';
+                    setTimeout(() => alertEl.style.display = 'none', 800);
+                }, 15000);
+            }
+
+            // Re-open edit mode on error redirect
+            const urlParams = new URLSearchParams(window.location.search);
+            const status = urlParams.get('status');
+            const msg    = urlParams.get('msg');
+
+            if (status === 'error') {
+                toggleEdit();
+                if (msg && msg.toLowerCase().includes('password')) {
+                    const passField = document.getElementById('current_pass');
+                    if (passField) {
+                        passField.classList.add('animate-shake');
+                        passField.focus();
+                        const saveGroup = document.querySelector('.group\\/save');
+                        if (saveGroup) saveGroup.classList.add('animate-shake');
+                    }
+                }
+            }
+
+            // Clean URL
+            if (history.replaceState) {
+                const newurl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({ path: newurl }, '', newurl);
+            }
+
+            // Format contact number on load
+            const contactInput = document.getElementById('contact_number');
+            if (contactInput) formatContactNumber(contactInput);
+        });
+    </script>
+
+</body>
 </html>
