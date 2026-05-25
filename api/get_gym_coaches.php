@@ -18,6 +18,7 @@ try {
             c.coach_id, 
             u.first_name, 
             u.last_name, 
+            u.profile_picture as image_url,
             ca.coach_type as specialization,
             COALESCE(c.session_rate, 0) as session_rates
         FROM coaches c
