@@ -29,14 +29,50 @@ if (isset($_GET['check_field']) && isset($_GET['value'])) {
 $form_data = $_SESSION['application_data'] ?? [];
 unset($_SESSION['application_data']);
 
-// Fetch Global Theme Preference
-$stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'theme_preference'");
-$stmtTheme->execute();
-$currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
+// Fetch Theme Preference
+$currentTheme = 'dark';
+if (isset($_SESSION['user_id'])) {
+    $stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = ? AND setting_key = 'theme_preference'");
+    $stmtTheme->execute([$_SESSION['user_id']]);
+    $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
+} elseif (isset($_COOKIE['theme_preference'])) {
+    $currentTheme = $_COOKIE['theme_preference'];
+} else {
+    $stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'theme_preference'");
+    $stmtTheme->execute();
+    $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
+}
 ?>
 <!DOCTYPE html>
-<html class="<?= htmlspecialchars($currentTheme) ?>" lang="en">
+<html lang="en">
 <head>
+    <script>
+        // Synchronously apply theme settings to prevent flash of incorrect theme
+        (function() {
+            const savedTheme = <?= json_encode($currentTheme) ?>;
+            const html = document.documentElement;
+            if (savedTheme === 'system') {
+                const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (systemDark) {
+                    html.classList.add('dark');
+                    html.classList.remove('light');
+                } else {
+                    html.classList.add('light');
+                    html.classList.remove('dark');
+                }
+                html.setAttribute('data-theme-preference', 'system');
+            } else {
+                if (savedTheme === 'dark') {
+                    html.classList.add('dark');
+                    html.classList.remove('light');
+                } else {
+                    html.classList.add('light');
+                    html.classList.remove('dark');
+                }
+                html.setAttribute('data-theme-preference', savedTheme);
+            }
+        })();
+    </script>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Gym Onboarding | Horizon Systems</title>

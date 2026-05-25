@@ -260,6 +260,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $is_auto_approved = true;
             } else {
                 $success = 'Email successfully verified!';
+                
+                require_once '../includes/mailer.php';
+                
+                $first_name = $_SESSION['staged_registration']['user']['first_name'] ?? '';
+                $last_name = $_SESSION['staged_registration']['user']['last_name'] ?? '';
+                $full_name = trim($first_name . ' ' . $last_name);
+                if (empty($full_name)) {
+                    $full_name = 'Valued Partner';
+                }
+
+                $emailBody = "
+                <div style='background-color:#f8fafc; padding: 50px 0; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;'>
+                    <div style='max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;'>
+                        <div style='background: #0f172a; padding: 40px; text-align: center;'>
+                            <h1 style='color: #ffffff; margin: 0; font-size: 22px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;'>Horizon Systems</h1>
+                            <p style='color: #64748b; margin: 8px 0 0; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 3px;'>Corporate Administration</p>
+                        </div>
+                        <div style='padding: 50px; color: #1e293b;'>
+                            <div style='display: inline-block; padding: 6px 16px; border-radius: 50px; background-color: #f3e8ff; border: 1px solid #e9d5ff; color: #7f13ec; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 25px;'>
+                                Verification in Progress
+                            </div>
+                            <h2 style='font-size: 22px; font-weight: 800; margin-bottom: 20px; color: #0f172a;'>Thank you, " . htmlspecialchars($full_name) . "</h2>
+                            <div style='font-size: 14px; line-height: 1.7; color: #475569;'>
+                                <p>We have successfully received your business details and supporting documents for <strong>" . htmlspecialchars($app['gym_name']) . "</strong>. Our team is now reviewing your submission.</p>
+                                
+                                <div style='background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 25px; margin: 30px 0;'>
+                                    <p style='margin: 0 0 5px 0; color: #64748b; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;'>Expected Review Time</p>
+                                    <p style='margin: 0 0 15px 0; color: #7f13ec; font-weight: 900; font-size: 22px;'>Within 5 business days</p>
+                                    <p style='margin: 0; font-size: 13px; color: #64748b; line-height: 1.6;'>You will receive another email once your account review is complete. If anything is missing, we will contact you at this address.</p>
+                                </div>
+
+                                <p>If you have any questions or need to submit additional information in the meantime, please feel free to contact us.</p>
+                            </div>
+                            <div style='margin-top: 50px; padding-top: 30px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #94a3b8;'>
+                                <p style='margin: 0; line-height: 1.5;'>This is an automated system notification from <strong>Horizon Systems Administration</strong>. To ensure account security, please do not share your credentials with unauthorized personnel.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div style='text-align: center; margin-top: 30px; font-size: 11px; color: #94a3b8;'>
+                        <p>&copy; " . date('Y') . " Horizon Systems Corp. Corporate Blvd, HQ. All rights reserved.</p>
+                    </div>
+                </div>";
+                
+                $errorString = '';
+                sendSystemEmail($app['email'], 'Application Verification In Progress - Horizon Systems', $emailBody, $errorString);
             }
 
             if ($pdo->inTransaction()) $pdo->commit();
