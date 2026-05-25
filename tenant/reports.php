@@ -119,17 +119,31 @@ $stmtSub = $pdo->prepare("
 $stmtSub->execute([$gym_id]);
 $plan_name = $stmtSub->fetchColumn() ?: 'Standard Plan';
 
+// Fetch Members for Filter Dropdown
+$stmtMembers = $pdo->prepare("SELECT m.member_id, u.first_name, u.last_name FROM members m JOIN users u ON m.user_id = u.user_id WHERE m.gym_id = ? AND u.is_active = 1 ORDER BY u.first_name ASC");
+$stmtMembers->execute([$gym_id]);
+$members_list = $stmtMembers->fetchAll(PDO::FETCH_ASSOC);
+
+$member_filter = $_GET['member_id'] ?? 'all';
+$member_condition_p = ($member_filter !== 'all') ? " AND p.member_id = " . (int)$member_filter : "";
+$member_condition_a = ($member_filter !== 'all') ? " AND a.member_id = " . (int)$member_filter : "";
+$member_condition_ms = ($member_filter !== 'all') ? " AND ms.member_id = " . (int)$member_filter : "";
+
 // Fetch Financial Transactions (Money Reports)
 $stmtFinancials = $pdo->prepare("
     SELECT p.payment_id, p.amount, p.payment_method, p.created_at, p.reference_number, p.payment_status,
            COALESCE(u_member.first_name, u_owner.first_name) as first_name, 
-           COALESCE(u_member.last_name, u_owner.last_name) as last_name 
+           COALESCE(u_member.last_name, u_owner.last_name) as last_name,
+           m.member_id,
+           mp.plan_name 
     FROM payments p
+    LEFT JOIN member_subscriptions ms ON p.subscription_id = ms.subscription_id
+    LEFT JOIN membership_plans mp ON ms.membership_plan_id = mp.membership_plan_id
     LEFT JOIN members m ON p.member_id = m.member_id
     LEFT JOIN users u_member ON m.user_id = u_member.user_id
     LEFT JOIN client_subscriptions cs ON p.client_subscription_id = cs.client_subscription_id
     LEFT JOIN users u_owner ON cs.owner_user_id = u_owner.user_id
-    WHERE p.gym_id = :gid AND p.payment_status IN ('Verified', 'Completed', 'Paid') AND p.client_subscription_id IS NULL AND p.created_at BETWEEN :start AND :end
+    WHERE p.gym_id = :gid AND p.client_subscription_id IS NULL AND p.created_at BETWEEN :start AND :end $member_condition_p
     ORDER BY p.created_at DESC
 ");
 $stmtFinancials->execute($date_params);
@@ -137,11 +151,11 @@ $financials = $stmtFinancials->fetchAll();
 
 // Fetch Attendance (Entry Logs)
 $stmtAttendance = $pdo->prepare("
-    SELECT u.first_name, u.last_name, a.check_in_time, a.check_out_time, a.attendance_status, a.recorded_by
+    SELECT u.first_name, u.last_name, a.check_in_time, a.check_out_time, a.attendance_status, a.recorded_by, m.member_id
     FROM attendance a
     JOIN members m ON a.member_id = m.member_id
     JOIN users u ON m.user_id = u.user_id
-    WHERE a.gym_id = :gid AND a.created_at BETWEEN :start AND :end
+    WHERE a.gym_id = :gid AND a.created_at BETWEEN :start AND :end $member_condition_a
     ORDER BY a.created_at DESC
 ");
 $stmtAttendance->execute($date_params);
@@ -149,12 +163,12 @@ $attendance_logs = $stmtAttendance->fetchAll();
 
 // Fetch Member Subscriptions (Memberships)
 $stmtSubscriptions = $pdo->prepare("
-    SELECT u.first_name, u.last_name, mp.plan_name, ms.start_date, ms.end_date, ms.subscription_status
+    SELECT u.first_name, u.last_name, mp.plan_name, ms.created_at as payment_date, ms.start_date, ms.end_date, ms.subscription_status, m.member_id
     FROM member_subscriptions ms
     JOIN members m ON ms.member_id = m.member_id
     JOIN users u ON m.user_id = u.user_id
     JOIN membership_plans mp ON ms.membership_plan_id = mp.membership_plan_id
-    WHERE m.gym_id = :gid AND ms.created_at BETWEEN :start AND :end
+    WHERE m.gym_id = :gid AND ms.created_at BETWEEN :start AND :end $member_condition_ms
     ORDER BY ms.created_at DESC
 ");
 $stmtSubscriptions->execute($date_params);
@@ -201,6 +215,109 @@ $is_restricted = (!$is_sub_active);
                 }
             }
         }
+    </script>
+    <?php
+    $members_js = array_map(function ($m) {
+        return ['id' => $m['member_id'], 'name' => trim($m['first_name'] . ' ' . $m['last_name'])];
+    }, $members_list);
+    ?>
+    <script>
+        const availableMembers = <?= json_encode($members_js) ?>;
+        const currentMemberFilter = "<?= $member_filter ?>";
+    </script>
+    <style>
+        .searchable-dropdown-overlay {
+            background: var(--background);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(40px);
+            z-index: 100;
+            scrollbar-width: none;
+            margin-top: 0;
+        }
+
+        .searchable-dropdown-overlay::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tenant-option {
+            transition: background 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .tenant-option:hover {
+            background: rgba(var(--primary-rgb), 0.08);
+            border-color: rgba(var(--primary-rgb), 0.1);
+            color: var(--primary);
+        }
+
+        .tenant-option.selected {
+            background: var(--primary);
+            color: white;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            function initSearchableDropdown(containerId, inputId, dropdownId, listId, hiddenInputId, currentFilter) {
+                const container = document.getElementById(containerId);
+                const input = document.getElementById(inputId);
+                const dropdown = document.getElementById(dropdownId);
+                const list = document.getElementById(listId);
+                const hiddenInput = document.getElementById(hiddenInputId);
+
+                if (!container || !input || !dropdown || !list || !hiddenInput) return;
+
+                function renderOptions(filter = "") {
+                    const isAllLabel = filter === "All Members";
+                    const searchFilter = isAllLabel ? "" : filter.toLowerCase().trim();
+
+                    const filtered = availableMembers.filter(m =>
+                        m.name.toLowerCase().includes(searchFilter)
+                    );
+
+                    list.innerHTML = filtered.map(m => `
+                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${currentFilter == m.id ? 'selected' : 'text-white/60'}" 
+                             data-id="${m.id}" data-name="${m.name}">
+                            ${m.name}
+                        </div>
+                    `).join('') || `<div class="px-4 py-3 text-[9px] text-white/20 italic uppercase font-black">No member found...</div>`;
+                }
+
+                input.addEventListener('focus', () => {
+                    dropdown.classList.remove('hidden');
+                    const isAllLabel = input.value === "All Members";
+                    renderOptions(isAllLabel ? "" : input.value);
+                });
+
+                input.addEventListener('input', (e) => {
+                    dropdown.classList.remove('hidden');
+                    renderOptions(e.target.value);
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!container.contains(e.target)) {
+                        dropdown.classList.add('hidden');
+                    }
+                });
+
+                container.addEventListener('click', (e) => {
+                    const option = e.target.closest('.tenant-option');
+                    if (option) {
+                        const id = option.dataset.id;
+                        const name = option.dataset.name || "All Members";
+
+                        hiddenInput.value = id;
+                        input.value = name;
+                        dropdown.classList.add('hidden');
+
+                        container.closest('form').submit();
+                    }
+                });
+            }
+
+            initSearchableDropdown('memberSearchContainer', 'memberSearchInput', 'memberDropdown', 'memberOptionsList', 'hidden_member_id', currentMemberFilter);
+        });
     </script>
     <style>
         :root {
@@ -326,11 +443,7 @@ $is_restricted = (!$is_sub_active);
         }
         .filter-input:focus { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.08); box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1); }
 
-        .table-header-alt {
-            font-size: 10px; font-weight: 900;
-            text-transform: uppercase; letter-spacing: 0.25em;
-            color: var(--text-main); opacity: 0.5;
-        }
+        /* Removed table-header-alt style rule */
 
         /* Elite Pagination Component Styling */
         .pagination-btn {
@@ -571,133 +684,158 @@ $is_restricted = (!$is_sub_active);
             <!-- Superadmin Style Underline Tabs (Outside the Table Card) -->
             <div class="flex items-center gap-12 mb-10 border-b border-white/5 px-2">
                 <button onclick="switchReport('financial')" id="btn-financial" class="pb-5 relative transition-all duration-300 group outline-none">
-                    <span id="tab-label-financial" class="text-[10px] font-black uppercase tracking-[0.3em] text-primary">
-                        Money
+                    <span id="tab-label-financial" class="text-xs font-black uppercase tracking-widest text-primary">
+                        Financial
                     </span>
                     <div id="line-financial" class="absolute bottom-0 left-0 w-full h-[2px] bg-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.3)]"></div>
                 </button>
                 <button onclick="switchReport('attendance')" id="btn-attendance" class="pb-5 relative transition-all duration-300 group outline-none">
-                    <span id="tab-label-attendance" class="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 group-hover:text-white/50">
-                        Entry Log
+                    <span id="tab-label-attendance" class="text-xs font-black uppercase tracking-widest text-white/30 group-hover:text-white/50">
+                        Attendance
                     </span>
                     <div id="line-attendance" class="hidden absolute bottom-0 left-0 w-full h-[2px] bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]"></div>
                 </button>
                 <button onclick="switchReport('membership')" id="btn-membership" class="pb-5 relative transition-all duration-300 group outline-none">
-                    <span id="tab-label-membership" class="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 group-hover:text-white/50">
+                    <span id="tab-label-membership" class="text-xs font-black uppercase tracking-widest text-white/30 group-hover:text-white/50">
                         Memberships
-                    </span>
                     <div id="line-membership" class="hidden absolute bottom-0 left-0 w-full h-[2px] bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]"></div>
                 </button>
             </div>
 
-            <div class="glass-card overflow-hidden shadow-2xl min-h-[500px] border border-white/5">
+            <div class="glass-card overflow-hidden shadow-2xl border border-white/5 flex flex-col">
 
                 <!-- Elite Filter Bar (Inside the Card) -->
-                <div class="p-8 border-b border-white/5 bg-white/[0.01]">
-                    <div class="flex flex-wrap items-center gap-4">
-                        <!-- Search -->
-                        <div class="relative group min-w-[240px]">
-                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/30 text-base transition-transform group-focus-within:scale-110">search</span>
-                            <input type="text" id="reportSearchInput" onkeyup="filterTableRows()"
-                                placeholder="Search records..."
-                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 focus:border-white/30 transition-all">
+                <div class="px-8 py-4 border-b border-white/5 relative z-[60]">
+                    <form method="GET" class="flex flex-wrap items-center gap-4">
+                        <!-- Date Range -->
+                        <div class="flex gap-2 shrink-0">
+                            <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>"
+                                max="<?= !empty($date_to) ? htmlspecialchars($date_to) : date('Y-m-d') ?>"
+                                oninput="syncDateBounds('from')"
+                                onchange="this.form.submit()"
+                                class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                            <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>"
+                                min="<?= !empty($date_from) ? htmlspecialchars($date_from) : '' ?>"
+                                max="<?= date('Y-m-d') ?>"
+                                oninput="syncDateBounds('to')"
+                                onchange="this.form.submit()"
+                                class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
                         </div>
 
-                        <form method="GET" class="flex flex-wrap items-center gap-4">
-                            <!-- From Date -->
-                            <div class="flex items-center gap-3">
-                                <span class="text-[10px] font-black uppercase tracking-widest text-white/40">From:</span>
-                                <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>"
-                                    max="<?= !empty($date_to) ? htmlspecialchars($date_to) : date('Y-m-d') ?>"
-                                    oninput="syncDateBounds('from')"
-                                    onchange="this.form.submit()"
-                                    class="h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
+                        <!-- Searchable Member Selector -->
+                        <div class="w-[240px] relative group shrink-0" id="memberSearchContainer">
+                            <input type="hidden" name="member_id" id="hidden_member_id" value="<?= htmlspecialchars($member_filter) ?>">
+                            <div class="relative">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">group</span>
+                                <input type="text" id="memberSearchInput" placeholder="Search Member..." value="<?= $member_filter === 'all' ? 'All Members' : htmlspecialchars(array_column($members_list, 'name', 'id')[$member_filter] ?? 'All Members') ?>" autocomplete="off"
+                                    class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl pl-11 pr-10 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary/50 cursor-pointer">
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                             </div>
 
-                            <!-- To Date -->
-                            <div class="flex items-center gap-3">
-                                <span class="text-[10px] font-black uppercase tracking-widest text-white/40">To:</span>
-                                <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>"
-                                    min="<?= !empty($date_from) ? htmlspecialchars($date_from) : '' ?>"
-                                    max="<?= date('Y-m-d') ?>"
-                                    oninput="syncDateBounds('to')"
-                                    onchange="this.form.submit()"
-                                    class="h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
+                            <!-- Dropdown Overlay -->
+                            <div id="memberDropdown" class="absolute left-0 right-0 top-full z-[100] rounded-b-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                <div class="p-1.5 space-y-0.5">
+                                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $member_filter === 'all' ? 'selected' : 'text-white/60' ?>"
+                                        data-id="all" data-name="All Members">
+                                        All Members
+                                    </div>
+                                    <div id="memberOptionsList">
+                                        <!-- Filtered members injected here -->
+                                    </div>
+                                </div>
                             </div>
+                        </div>
 
-                            <!-- Clear Filter -->
-                            <a href="reports.php"
-                                class="h-[52px] w-[52px] flex items-center justify-center rounded-2xl bg-white/[0.03] border border-white/10 text-white/40 hover:text-white transition-all active:scale-95"
-                                title="Clear Filters">
-                                <span class="material-symbols-outlined text-xl">restart_alt</span>
-                            </a>
-                        </form>
+                        <div class="h-8 w-px bg-white/5 mx-2 shrink-0"></div>
 
-                        <!-- Action Buttons (Right-aligned next to filters) -->
-                        <div class="flex items-center gap-2 ml-auto">
+                        <!-- Search -->
+                        <div class="flex-1 min-w-[200px] relative group">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50 transition-transform group-hover:scale-110">search</span>
+                            <input type="text" id="reportSearchInput" onkeyup="filterTableRows()" placeholder="Search records..."
+                                class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 text-xs font-black transition-all focus:border-primary outline-none text-[--text-main]">
+                        </div>
+
+                        <!-- Clear Filter Button -->
+                        <a href="reports.php" class="h-[48px] w-[48px] rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-primary hover:bg-white/5 transition-all shadow-lg active:scale-95 group" title="Clear Filters">
+                            <span class="material-symbols-outlined text-xl transition-transform group-hover:rotate-180 duration-500">refresh</span>
+                        </a>
+
+                        <!-- Action Buttons (Right-aligned) -->
+                        <div class="flex items-center gap-2 ml-auto shrink-0">
                             <button type="button" onclick="exportActiveReport(true)"
-                                class="h-[52px] px-6 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all flex items-center gap-2.5 active:scale-95">
+                                class="h-[48px] px-6 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
                                 <span class="material-symbols-outlined text-sm">visibility</span>
-                                View Report
+                                Preview
                             </button>
                             <button type="button" id="pdfExportBtn" onclick="exportActiveReport(false)"
-                                class="h-[52px] px-6 rounded-2xl border border-primary/20 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all flex items-center gap-2.5 active:scale-95">
+                                class="h-[48px] px-6 rounded-xl bg-transparent border border-primary text-primary outline-none focus:outline-none focus:ring-0 text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20 flex items-center gap-2">
                                 <span class="material-symbols-outlined text-sm">picture_as_pdf</span>
-                                Get PDF
+                                Export PDF
                             </button>
                         </div>
-                    </div>
+                    </form>
                 </div>
 
-                <div id="section-financial" class="report-section">
-                    <div class="overflow-x-auto">
+                <div id="section-financial" class="report-section flex-1 flex flex-col justify-between">
+                    <div class="overflow-x-auto flex-1">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
-                                    <th class="px-8 py-5 table-header-alt">Ref ID</th>
-                                    <th class="px-8 py-5 table-header-alt">Payer Name</th>
-                                    <th class="px-8 py-5 table-header-alt">Amount</th>
-                                    <th class="px-8 py-5 table-header-alt">Method</th>
-                                    <th class="px-8 py-5 table-header-alt text-right">Date</th>
+                                <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
+                                    <th class="px-8 py-4">Member ID</th>
+                                    <th class="px-8 py-4">Name</th>
+                                    <th class="px-8 py-4 text-center">Type</th>
+                                    <th class="px-8 py-4 text-center">Date of Payment</th>
+                                    <th class="px-8 py-4 text-center">Ref Number</th>
+                                    <th class="px-8 py-4 text-right">Amount</th>
                                 </tr>
                             </thead>
-                            <tbody id="financialTableBody" class="divide-y divide-white/5">
+                            <tbody id="financialTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($financials)): ?>
                                     <tr class="no-pagination">
-                                        <td colspan="5" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                        <td colspan="6" class="px-8 py-8 text-center text-xs font-bold text-[--text-main]/40 italic uppercase">
                                             No financial records found for this period.
                                         </td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($financials as $f): ?>
-                                        <tr class="hover:bg-white/5 transition-all text-[--text-main]">
-                                            <td class="px-8 py-5 font-mono text-[10px] opacity-40">
-                                                <?= !empty($f['reference_number']) ? htmlspecialchars($f['reference_number']) : '#' . str_pad($f['payment_id'], 5, '0', STR_PAD_LEFT) ?>
+                                        <tr class="hover:bg-white/[0.05] transition-all duration-300 group">
+                                            <td class="px-8 py-5 text-[11px] font-black text-[--text-main]/60 tracking-widest italic">
+                                                <?= $f['member_id'] ? 'ID-' . str_pad($f['member_id'], 5, '0', STR_PAD_LEFT) : '---' ?>
                                             </td>
                                             <td class="px-8 py-5">
-                                                <div class="flex items-center gap-3">
-                                                    <div class="size-2 rounded-full bg-primary/20"></div>
-                                                    <p class="font-black italic uppercase tracking-tighter text-xs" style="color: var(--text-main)">
-                                                        <?= $f['first_name'] ? htmlspecialchars($f['first_name'] . ' ' . $f['last_name']) : 'Manual Entry' ?>
-                                                    </p>
-                                                </div>
+                                                <p class="text-sm font-bold text-[--text-main] group-hover:text-white transition-colors">
+                                                    <?php if ($f['first_name']): ?>
+                                                        <?= htmlspecialchars($f['first_name'] . ' ' . $f['last_name']) ?>
+                                                    <?php else: ?>
+                                                        Walk-in Guest
+                                                    <?php endif; ?>
+                                                </p>
                                             </td>
-                                            <td class="px-8 py-5 font-black italic text-primary">
+                                            <td class="px-8 py-5 text-center text-[11px] font-black text-[--text-main] italic">
+                                                <?php 
+                                                    $type = !empty($f['plan_name']) ? htmlspecialchars($f['plan_name']) . ' Membership' : 'N/A';
+                                                    if (strpos($f['reference_number'] ?? '', 'PAYB') === 0) {
+                                                        $type = 'BOOKING';
+                                                    }
+                                                    echo $type;
+                                                ?>
+                                            </td>
+                                            <td class="px-8 py-5 text-center text-[11px] text-[--text-main]/40 font-bold">
+                                                <?= date('M d, Y', strtotime($f['created_at'])) ?>
+                                            </td>
+                                            <td class="px-8 py-5 text-center text-[11px] text-[--text-main]/60 font-black tracking-wider">
+                                                <?= !empty($f['reference_number']) ? htmlspecialchars($f['reference_number']) : '#' . str_pad($f['payment_id'], 5, '0', STR_PAD_LEFT) ?>
+                                            </td>
+                                            <td class="px-8 py-5 text-right text-sm font-black text-primary" data-amount="<?= $f['amount'] ?>">
                                                 ₱<?= number_format($f['amount'], 2) ?></td>
-                                            <td class="px-8 py-5 uppercase text-[10px] font-bold opacity-30">
-                                                <?= $f['payment_method'] ?></td>
-                                            <td class="px-8 py-5 text-right text-[11px] opacity-40">
-                                                <?= date('M d, Y', strtotime($f['created_at'])) ?></td>
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
-                            <tfoot class="border-t-2 border-white/10 bg-white/[0.02]">
-                                <tr>
-                                    <td colspan="2" class="px-8 py-6 text-xs font-black uppercase italic tracking-widest text-primary">Total amount</td>
-                                    <td colspan="3" class="px-8 py-6 text-right text-xl font-black italic" style="color: var(--text-main)">
-                                        ₱<?= number_format($total_money, 2) ?>
-                                    </td>
+                            <tfoot>
+                                <tr class="bg-white/[0.02] border-t border-white/5 font-black uppercase tracking-widest">
+                                    <td colspan="5" class="px-8 py-6 text-left text-[--text-main]/40 italic text-sm">Total amount</td>
+                                    <td class="px-8 py-6 text-right text-primary text-sm font-black">₱<?= number_format($total_money, 2) ?></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -710,39 +848,69 @@ $is_restricted = (!$is_sub_active);
                     </div>
                 </div>
 
-                <div id="section-attendance" class="report-section hidden">
-                    <div class="overflow-x-auto">
+                <div id="section-attendance" class="report-section flex-1 flex flex-col justify-between hidden">
+                    <div class="overflow-x-auto flex-1">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
-                                    <th class="px-8 py-5 table-header-alt">Member</th>
-                                    <th class="px-8 py-5 table-header-alt">Check In</th>
-                                    <th class="px-8 py-5 table-header-alt">Check Out</th>
-                                    <th class="px-8 py-5 table-header-alt text-right">Status</th>
+                                <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
+                                    <th class="px-8 py-4">Member ID</th>
+                                    <th class="px-8 py-4">Name</th>
+                                    <th class="px-8 py-4 text-center">Session Date</th>
+                                    <th class="px-8 py-4 text-center">Time In / Out</th>
+                                    <th class="px-8 py-4 text-center">Status</th>
                                 </tr>
                             </thead>
-                            <tbody id="attendanceTableBody" class="divide-y divide-white/5">
+                            <tbody id="attendanceTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($attendance_logs)): ?>
                                     <tr class="no-pagination">
-                                        <td colspan="4" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                        <td colspan="5" class="px-8 py-8 text-center text-xs font-bold text-[--text-main]/40 italic uppercase">
                                             No attendance entries found for this period.
                                         </td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($attendance_logs as $a): ?>
-                                        <tr class="hover:bg-white/5 transition-all text-[--text-main]">
-                                            <td class="px-8 py-5 font-black italic uppercase tracking-tighter text-white" style="color: var(--text-main)">
-                                                <?= htmlspecialchars($a['first_name'] . ' ' . $a['last_name']) ?></td>
-                                            <td class="px-8 py-5 text-emerald-400 font-bold">
-                                                <?= date('h:i A', strtotime($a['check_in_time'])) ?></td>
-                                            <td class="px-8 py-5 opacity-40" style="color: var(--text-main)">
-                                                <?= $a['check_out_time'] ? date('h:i A', strtotime($a['check_out_time'])) : '---' ?>
+                                        <tr class="hover:bg-white/[0.04] transition-all duration-300 group">
+                                            <td class="px-8 py-5 text-[11px] font-black text-[--text-main]/60 tracking-widest italic">
+                                                ID-<?= str_pad($a['member_id'], 5, '0', STR_PAD_LEFT) ?>
                                             </td>
-                                            <td class="px-8 py-5 text-right">
-                                                <span
-                                                    class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-wider italic">
-                                                    <?= htmlspecialchars($a['attendance_status']) ?>
+                                            <td class="px-8 py-5">
+                                                <p class="text-sm font-bold text-[--text-main] group-hover:text-white transition-colors">
+                                                    <?= htmlspecialchars($a['first_name'] . ' ' . $a['last_name']) ?>
+                                                </p>
+                                            </td>
+                                            <td class="px-8 py-5 text-center text-[11px] font-black text-[--text-main] italic">
+                                                <?= date('M d, Y', strtotime($a['check_in_time'])) ?>
+                                            </td>
+                                            <?php 
+                                                $statusRaw = strtolower($a['attendance_status'] ?? '');
+                                                $isNoTimeOut = ($statusRaw === 'no time out' || $statusRaw === 'no timeout');
+                                                $isTimedOut = ($statusRaw === 'timed out' || $statusRaw === 'timeout' || !empty($a['check_out_time']));
+                                                $displayStatus = $isNoTimeOut ? 'No Time Out' : ($isTimedOut ? 'Timed Out' : 'In Gym');
+                                            ?>
+                                            <td class="px-8 py-5 text-center text-[11px] font-black text-emerald-400">
+                                                <?= date('h:i A', strtotime($a['check_in_time'])) ?>
+                                                <span class="mx-1 text-[--text-main]/40">-</span>
+                                                <span style="color:<?= $a['check_out_time'] ? 'var(--text-main)' : 'rgba(var(--primary-rgb), 0.3)' ?>; opacity:<?= $a['check_out_time'] ? '0.6' : '1' ?>">
+                                                    <?php 
+                                                        if ($displayStatus === 'No Time Out' || !$a['check_out_time']) {
+                                                            echo '---';
+                                                        } else {
+                                                            echo date('h:i A', strtotime($a['check_out_time']));
+                                                        }
+                                                    ?>
                                                 </span>
+                                            </td>
+                                            <td class="px-8 py-5 text-center">
+                                                <?php if($displayStatus === 'Timed Out'): ?>
+                                                    <span class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[--text-main] opacity-40 text-[9px] font-black uppercase tracking-widest italic flex items-center gap-2 justify-center mx-auto w-fit">Timed Out</span>
+                                                <?php elseif($displayStatus === 'No Time Out'): ?>
+                                                    <span class="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[9px] font-black uppercase tracking-widest italic flex items-center gap-2 justify-center mx-auto w-fit">No Time Out</span>
+                                                <?php else: ?>
+                                                    <span class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-[0.1em] italic flex items-center gap-2 justify-center mx-auto w-fit shadow-lg shadow-emerald-500/5">
+                                                        <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                                        In Gym
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -758,39 +926,49 @@ $is_restricted = (!$is_sub_active);
                     </div>
                 </div>
 
-                <div id="section-membership" class="report-section hidden">
-                    <div class="overflow-x-auto">
+                <div id="section-membership" class="report-section flex-1 flex flex-col justify-between hidden">
+                    <div class="overflow-x-auto flex-1">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
-                                    <th class="px-8 py-5 table-header-alt">Member</th>
-                                    <th class="px-8 py-5 table-header-alt">Tier</th>
-                                    <th class="px-8 py-5 table-header-alt">Renewal Date</th>
-                                    <th class="px-8 py-5 table-header-alt text-right">Status</th>
+                                <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
+                                    <th class="px-8 py-4">Member ID</th>
+                                    <th class="px-8 py-4">Name</th>
+                                    <th class="px-8 py-4 text-center">Tier Type</th>
+                                    <th class="px-8 py-4 text-center">Payment Date</th>
+                                    <th class="px-8 py-4 text-center">Renewal Date</th>
+                                    <th class="px-8 py-4 text-center">Status</th>
                                 </tr>
                             </thead>
-                            <tbody id="membershipTableBody" class="divide-y divide-white/5">
+                            <tbody id="membershipTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($subscriptions)): ?>
                                     <tr class="no-pagination">
-                                        <td colspan="4" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                        <td colspan="6" class="px-8 py-8 text-center text-xs font-bold text-[--text-main]/40 italic uppercase">
                                             No active membership records found.
                                         </td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($subscriptions as $s): ?>
-                                        <tr class="hover:bg-white/5 transition-all text-[--text-main]">
-                                            <td class="px-8 py-5 font-black italic uppercase tracking-tighter text-white" style="color: var(--text-main)">
-                                                <?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?></td>
-                                            <td class="px-8 py-5 text-[10px] font-black uppercase italic opacity-30" style="color: var(--text-main)">
-                                                <?= htmlspecialchars($s['plan_name']) ?></td>
-                                            <td class="px-8 py-5 font-bold opacity-40" style="color: var(--text-main)">
-                                                <?= date('M d, Y', strtotime($s['end_date'])) ?></td>
-                                            <td class="px-8 py-5 text-right">
-                                                <?php
-                                                $sub_color = strtolower($s['subscription_status']) === 'active' ? 'emerald-500' : 'amber-500';
-                                                ?>
-                                                <span
-                                                    class="px-2.5 py-1 rounded-lg bg-<?= $sub_color ?>/10 border border-<?= $sub_color ?>/20 text-[9px] text-<?= $sub_color ?> font-black uppercase tracking-wider italic">
+                                        <tr class="hover:bg-white/[0.05] transition-all duration-300 group">
+                                            <td class="px-8 py-5 text-[11px] font-black text-[--text-main]/60 tracking-widest italic">
+                                                ID-<?= str_pad($s['member_id'], 5, '0', STR_PAD_LEFT) ?>
+                                            </td>
+                                            <td class="px-8 py-5">
+                                                <p class="text-sm font-bold text-[--text-main] group-hover:text-white transition-colors">
+                                                    <?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?>
+                                                </p>
+                                            </td>
+                                            <td class="px-8 py-5 text-center text-[11px] font-black text-[--text-main] italic">
+                                                <?= htmlspecialchars($s['plan_name']) ?> Membership
+                                            </td>
+                                            <td class="px-8 py-5 text-center text-[11px] text-[--text-main]/40 font-bold">
+                                                <?= date('M d, Y', strtotime($s['payment_date'])) ?>
+                                            </td>
+                                            <td class="px-8 py-5 text-center text-[11px] text-[--text-main]/40 font-bold">
+                                                <?= date('M d, Y', strtotime($s['end_date'])) ?>
+                                            </td>
+                                            <td class="px-8 py-5 text-center">
+                                                <?php $sub_color = strtolower($s['subscription_status']) === 'active' ? 'emerald-500' : 'amber-500'; ?>
+                                                <span class="px-3 py-1.5 rounded-xl bg-<?= $sub_color ?>/10 border border-<?= $sub_color ?>/20 text-[9px] text-<?= $sub_color ?> font-black uppercase tracking-wider italic mx-auto inline-block">
                                                     <?= htmlspecialchars($s['subscription_status']) ?>
                                                 </span>
                                             </td>
@@ -898,7 +1076,8 @@ $is_restricted = (!$is_sub_active);
             const tbody = document.getElementById(tbodyId);
             if (!tbody) return;
 
-            const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination)'));
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination):not([id^="search-empty-state"])'));
+            let hasVisibleRow = false;
             
             rows.forEach(row => {
                 const cells = row.querySelectorAll('td');
@@ -911,10 +1090,26 @@ $is_restricted = (!$is_sub_active);
 
                 if (query === '' || match) {
                     row.classList.remove('hidden-search');
+                    hasVisibleRow = true;
                 } else {
                     row.classList.add('hidden-search');
                 }
             });
+
+            let emptyStateRow = tbody.querySelector('#search-empty-state-' + tbodyId);
+            if (!hasVisibleRow && rows.length > 0) {
+                if (!emptyStateRow) {
+                    emptyStateRow = document.createElement('tr');
+                    emptyStateRow.id = 'search-empty-state-' + tbodyId;
+                    emptyStateRow.className = 'no-pagination';
+                    const colCount = tbody.closest('table').querySelectorAll('thead th').length;
+                    emptyStateRow.innerHTML = `<td colspan="${colCount}" class="px-8 py-8 text-center text-xs font-bold text-[--text-main]/40 italic">No records found matching your search.</td>`;
+                    tbody.appendChild(emptyStateRow);
+                }
+                emptyStateRow.style.display = '';
+            } else if (emptyStateRow) {
+                emptyStateRow.style.display = 'none';
+            }
 
             // Refresh pagination to account for hidden search results
             if (paginationRegistry[tbodyId]) {
@@ -925,9 +1120,9 @@ $is_restricted = (!$is_sub_active);
         function exportActiveReport(preview) {
             const activeTab = localStorage.getItem('reports_active_tab') || 'financial';
             if (activeTab === 'financial') {
-                exportReportToPDF('section-financial', 'Money Report', preview);
+                exportReportToPDF('section-financial', 'Financial Report', preview);
             } else if (activeTab === 'attendance') {
-                exportReportToPDF('section-attendance', 'Entry Report', preview);
+                exportReportToPDF('section-attendance', 'Attendance Report', preview);
             } else if (activeTab === 'membership') {
                 exportReportToPDF('section-membership', 'Membership Report', preview);
             }
@@ -975,7 +1170,7 @@ $is_restricted = (!$is_sub_active);
 
             const wrapper = document.createElement('div');
             wrapper.style.padding = '50px';
-            wrapper.style.color = '#111';
+            wrapper.style.color = '#333';
             wrapper.style.backgroundColor = '#fff';
             wrapper.style.fontFamily = "'Inter', 'Helvetica Neue', Arial, sans-serif";
 
@@ -999,20 +1194,17 @@ $is_restricted = (!$is_sub_active);
 
             // 2. SURGICAL CLEANING
             const contentClone = element.cloneNode(true);
-            // Protect table hierarchy while removing UI clutter
-            contentClone.querySelectorAll('button, form, span.material-symbols-outlined, header, .flex-wrap').forEach(el => el.remove());
-
-            // Remove specific spacing containers that aren't tables
-            contentClone.querySelectorAll('div.px-8.py-6').forEach(el => {
-                if (!el.closest('table')) el.remove();
-            });
+            
+            // Remove UI clutter (buttons, forms, icons, headers, pagination, etc.)
+            contentClone.querySelectorAll('button, form, span.material-symbols-outlined, header, [id^="pagination-"], .pagination-status, .controls-container, .flex-wrap, .screen-only-total').forEach(el => el.remove());
 
             [contentClone, ...contentClone.querySelectorAll('*')].forEach(el => {
-                // Capture alignment BEFORE stripping classes
                 const isRightAligned = el.classList.contains('text-right');
-                const isTableData = el.tagName === 'TD' || el.tagName === 'TH';
+                const isCentered = el.classList.contains('text-center');
 
                 el.removeAttribute('class');
+                el.removeAttribute('style'); // Clear any conflicting inline styles like style="color: var(--text-main)"
+                
                 el.style.setProperty('color', '#000000', 'important');
                 el.style.setProperty('background-color', 'transparent', 'important');
                 el.style.setProperty('border-radius', '0', 'important');
@@ -1021,10 +1213,15 @@ $is_restricted = (!$is_sub_active);
                 el.style.setProperty('filter', 'none', 'important');
                 el.style.setProperty('opacity', '1', 'important');
                 el.style.setProperty('visibility', 'visible', 'important');
-                el.style.setProperty('font-family', "'Inter', sans-serif", 'important');
-                
+                el.style.setProperty('-webkit-font-smoothing', 'antialiased', 'important');
+                el.style.setProperty('-moz-osx-font-smoothing', 'grayscale', 'important');
+
                 if (isRightAligned) {
                     el.style.setProperty('text-align', 'right', 'important');
+                } else if (isCentered) {
+                    el.style.setProperty('text-align', 'center', 'important');
+                } else {
+                    el.style.setProperty('text-align', 'left', 'important');
                 }
             });
 
@@ -1034,15 +1231,24 @@ $is_restricted = (!$is_sub_active);
                 table.style.setProperty('width', '100%', 'important');
                 table.style.setProperty('border-collapse', 'collapse', 'important');
                 table.style.setProperty('font-size', '10px', 'important');
+                table.style.setProperty('color', '#333333', 'important');
+                table.style.setProperty('border', 'none', 'important');
+                table.style.setProperty('font-family', "'Inter', 'Helvetica Neue', Arial, sans-serif", 'important');
                 table.style.setProperty('margin-top', '20px', 'important');
 
                 table.querySelectorAll('th').forEach(th => {
                     th.style.setProperty('background-color', '#f8f9fa', 'important');
-                    th.style.setProperty('color', '#111', 'important');
-                    th.style.setProperty('border-bottom', '2px solid #000', 'important');
+                    th.style.setProperty('color', '#111111', 'important');
+                    th.style.setProperty('border-bottom', '2px solid #222222', 'important');
+                    th.style.setProperty('border-top', '1px solid #dddddd', 'important');
+                    th.style.setProperty('border-left', 'none', 'important');
+                    th.style.setProperty('border-right', 'none', 'important');
                     th.style.setProperty('padding', '12px 14px', 'important');
                     th.style.setProperty('text-transform', 'uppercase', 'important');
                     th.style.setProperty('font-weight', '700', 'important');
+                    if (!th.style.textAlign) {
+                        th.style.setProperty('text-align', 'left', 'important');
+                    }
                 });
 
                 table.querySelectorAll('tr').forEach(tr => {
@@ -1051,19 +1257,31 @@ $is_restricted = (!$is_sub_active);
 
                 table.querySelectorAll('td').forEach(td => {
                     td.style.setProperty('border-bottom', '1px solid #eeeeee', 'important');
-                    td.style.setProperty('padding', '10px 14px', 'important');
-                    td.style.setProperty('color', '#333', 'important');
+                    td.style.setProperty('border-top', 'none', 'important');
+                    td.style.setProperty('border-left', 'none', 'important');
+                    td.style.setProperty('border-right', 'none', 'important');
+                    td.style.setProperty('padding', '12px 14px', 'important');
+                    td.style.setProperty('color', '#444444', 'important');
+                    td.style.setProperty('background-color', '#ffffff', 'important');
+                    td.querySelectorAll('*').forEach(ch => {
+                        ch.style.setProperty('font-size', '10px', 'important');
+                    });
                 });
 
-                // Bold Footer if exists (e.g., Total Inflow)
                 const tfoot = table.querySelector('tfoot');
                 if (tfoot) {
-                    tfoot.querySelectorAll('td').forEach(td => {
-                        td.style.setProperty('background-color', '#fafafa', 'important');
-                        td.style.setProperty('font-weight', '900', 'important');
-                        td.style.setProperty('font-size', '12px', 'important');
-                        td.style.setProperty('border-top', '2px solid #000', 'important');
-                    });
+                    const tfootRow = tfoot.querySelector('tr');
+                    if (tfootRow) {
+                        tfootRow.style.setProperty('background-color', '#fdfdfd', 'important');
+                        tfootRow.style.setProperty('border-top', '2px solid #222222', 'important');
+                        tfootRow.querySelectorAll('td').forEach(td => {
+                            td.style.setProperty('font-weight', '900', 'important');
+                            td.style.setProperty('color', '#000', 'important');
+                            td.style.setProperty('font-size', '12px', 'important');
+                            td.style.setProperty('border', 'none', 'important');
+                            td.style.setProperty('padding', '14px 14px', 'important');
+                        });
+                    }
                 }
             }
 
@@ -1071,17 +1289,20 @@ $is_restricted = (!$is_sub_active);
             footer.style.marginTop = '60px';
             footer.style.textAlign = 'center';
             footer.style.fontSize = '9px';
-            footer.style.color = '#777';
-            footer.style.borderTop = '1px solid #eee';
+            footer.style.color = '#000';
+            footer.style.borderTop = '1px solid #000';
             footer.style.paddingTop = '15px';
-            footer.innerHTML = `<p>&copy; ${new Date().getFullYear()} Horizon System • Secured Internal Data</p>`;
+            footer.innerHTML = `
+                <p style="margin: 0; font-weight: bold;">CONFIDENTIAL DOCUMENT - FOR INTERNAL USE ONLY</p>
+                <p style="margin: 0;">&copy; ${new Date().getFullYear()} Horizon System • Secured Internal Data</p>
+            `;
 
             wrapper.innerHTML = header;
             wrapper.appendChild(contentClone);
             wrapper.appendChild(footer);
 
             const opt = {
-                margin: [0.4, 0.4],
+                margin: [0.3, 0.3],
                 filename: `${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`,
                 image: { type: 'jpeg', quality: 1.0 },
                 html2canvas: { scale: 3, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
@@ -1106,9 +1327,6 @@ $is_restricted = (!$is_sub_active);
             const footer = document.getElementById(paginationId);
             if (!tbody || !footer) return;
 
-            // Make sure the footer is always visible (as requested by user)
-            footer.classList.remove('hidden');
-
             let currentPage = 1;
 
             const status = footer.querySelector('.status-text');
@@ -1118,6 +1336,12 @@ $is_restricted = (!$is_sub_active);
                 // Select only rows that are NOT marked as hidden-search
                 const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination):not(.hidden-search)'));
                 const totalRows = rows.length;
+
+                if (totalRows <= rowsPerPage) {
+                    footer.classList.add('hidden');
+                } else {
+                    footer.classList.remove('hidden');
+                }
 
                 const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
                 if (currentPage > totalPages) currentPage = totalPages;
