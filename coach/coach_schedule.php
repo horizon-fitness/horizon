@@ -468,16 +468,16 @@ if ($coach_id > 0) {
 
     <div class="main-content flex-1 overflow-y-auto no-scrollbar">
         <div class="p-10">
-            <header class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <header class="mb-10 flex justify-between items-end">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter" style="color:var(--text-main)">
+                    <h2 class="text-3xl font-black uppercase tracking-tighter italic" style="color:var(--text-main)">
                         My <span style="color:var(--primary)" class="italic">Schedule</span>
                     </h2>
                     <p class="label-muted mt-1 italic">Capacity & Slot Management • Live Updates</p>
                 </div>
-                <div class="flex flex-col items-end">
-                    <p id="headerClock" class="font-black italic text-2xl leading-none tracking-tighter" style="color:var(--text-main)">00:00:00 AM</p>
-                    <p class="text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2" style="color:var(--primary)">
+                <div class="text-right">
+                    <p id="headerClock" class="font-black italic text-2xl leading-none tracking-tighter pr-2" style="color:var(--text-main)">00:00:00 AM</p>
+                    <p class="text-[10px] font-bold uppercase tracking-widest mt-2 pr-2 opacity-80" style="color:var(--primary)">
                         <?= date('l, M d, Y') ?>
                     </p>
                 </div>

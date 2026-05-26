@@ -98,6 +98,7 @@ $today = date('Y-m-d');
 $total_members_coached = 0;
 $upcoming_sessions = 0;
 $done_count = 0;
+$todays_sessions_count = 0;
 $history_bookings = [];
 $schedule_result = [];
 
@@ -117,7 +118,12 @@ if ($coach_id > 0) {
     $stmtDone->execute([$coach_id, $today]);
     $done_count = $stmtDone->fetchColumn();
 
-    // 4. Fetch Session History (Past or Completed) - Ensure multiple bookings for same client show up
+    // 4. Today's Sessions Count
+    $stmtTodaySessions = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE coach_id = ? AND booking_date = ? AND booking_status != 'Rejected'");
+    $stmtTodaySessions->execute([$coach_id, $today]);
+    $todays_sessions_count = $stmtTodaySessions->fetchColumn();
+
+    // 5. Fetch Session History (Past or Completed) - Ensure multiple bookings for same client show up
     $stmtHistory = $pdo->prepare("
         SELECT b.*, u.first_name, u.last_name, sc.service_name as service_name 
         FROM bookings b 
@@ -126,12 +132,12 @@ if ($coach_id > 0) {
         LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id 
         WHERE b.coach_id = ? AND (b.booking_date < ? OR b.booking_status = 'Completed')
         ORDER BY b.booking_date DESC, b.start_time DESC
-        LIMIT 10
+        LIMIT 4
     ");
     $stmtHistory->execute([$coach_id, $today]);
     $history_bookings = $stmtHistory->fetchAll();
 
-    // 5. Today's Schedule (Show ALL for today including Pending to fix visibility issue)
+    // 6. Today's Schedule (Show ALL for today including Pending to fix visibility issue)
     $stmtSched = $pdo->prepare("
         SELECT b.*, u.first_name, u.last_name, u.username, sc.service_name as service_name 
         FROM bookings b
@@ -140,10 +146,12 @@ if ($coach_id > 0) {
         LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
         WHERE b.coach_id = ? AND b.booking_date = ? AND b.booking_status != 'Rejected'
         ORDER BY b.start_time ASC
+        LIMIT 4
     ");
     $stmtSched->execute([$coach_id, $today]);
     $schedule_result = $stmtSched->fetchAll();
 }
+
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -175,17 +183,29 @@ if ($coach_id > 0) {
             --text-main:     <?= $text_color ?>;
             --background:    <?= $bg_color ?>;
             --card-bg:       <?= $card_bg_css ?>;
-            --card-blur:     20px;
         }
 
         body { font-family: '<?= $font_family ?>', sans-serif; background-color: var(--background); color: var(--text-main); overflow: hidden; }
 
         .glass-card {
             background: var(--card-bg);
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 32px;
-            backdrop-filter: blur(var(--card-blur));
-            transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 24px;
+            transition: box-shadow 0.4s ease, border-color 0.4s ease;
+            position: relative;
+            box-shadow:
+                0 0 0 0.5px rgba(255,255,255,0.04) inset,
+                0 4px 6px -1px rgba(0,0,0,0.4),
+                0 20px 60px -10px rgba(0,0,0,0.5),
+                0 1px 0 rgba(255,255,255,0.06) inset;
+        }
+        .glass-card:hover {
+            border-color: rgba(255,255,255,0.11);
+            box-shadow:
+                0 0 0 0.5px rgba(255,255,255,0.06) inset,
+                0 8px 20px -4px rgba(0,0,0,0.5),
+                0 30px 80px -10px rgba(0,0,0,0.6),
+                0 1px 0 rgba(255,255,255,0.08) inset;
         }
 
         .side-nav {
@@ -253,16 +273,22 @@ if ($coach_id > 0) {
             display: inline-block; line-height: 1;
         }
 
-        .status-card-primary { border: 1px solid rgba(var(--primary-rgb), 0.2); background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1) 0%, rgba(20, 18, 26, 0) 100%); }
-        .status-card-green   { border: 1px solid rgba(16, 185, 129, 0.2); background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(20, 18, 26, 0) 100%); }
-        .status-card-yellow  { border: 1px solid rgba(245, 158, 11, 0.2);  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05)  0%, rgba(20, 18, 26, 0) 100%); }
-        .status-card-blue    { border: 1px solid rgba(59, 130, 246, 0.2);  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05)  0%, rgba(20, 18, 26, 0) 100%); }
+        .status-card-primary { border: 1px solid rgba(var(--primary-rgb), 0.3); background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, transparent 100%); }
+        .status-card-green   { border: 1px solid rgba(16, 185, 129, 0.3); background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%); }
+        .status-card-yellow  { border: 1px solid rgba(245, 158, 11, 0.3);  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05)  0%, transparent 100%); }
+        .status-card-blue    { border: 1px solid rgba(59, 130, 246, 0.3);  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05)  0%, transparent 100%); }
 
         .no-scrollbar::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        .label-muted {
+            color: var(--text-main); opacity: 0.5;
+            font-size: 10px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.15em;
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -280,40 +306,50 @@ if ($coach_id > 0) {
 
     <div class="main-content flex-1 overflow-y-auto no-scrollbar">
         <div class="p-10 max-w-[1500px] mx-auto animate-fade-in">
-            <header class="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <header class="mb-10 flex justify-between items-end">
                 <div>
-                    <h2 class="text-4xl font-black italic uppercase tracking-tighter leading-none" style="color:var(--text-main)">
-                        Welcome Back, <span style="color:var(--primary)"><?= htmlspecialchars($coach_name ?: 'Coach') ?></span>
+                    <h2 class="text-3xl font-black uppercase tracking-tighter italic" style="color:var(--text-main)">
+                        Welcome Back, <span style="color:var(--primary)" class="italic"><?= htmlspecialchars($coach_name ?: 'Coach') ?></span>
                     </h2>
-                    <p class="text-[--text-main]/30 text-[11px] font-black uppercase tracking-[0.2em] mt-2 px-1 italic">Coach Overview & Performance Tracker</p>
+                    <p class="label-muted mt-1 italic">Coach Overview & Performance Tracker</p>
                 </div>
-                <div class="flex flex-col items-end">
-                    <p id="headerClock" class="font-black italic text-2xl leading-none tracking-tighter" style="color:var(--text-main)">00:00:00 AM</p>
-                    <p class="text-primary text-[11px] font-black uppercase tracking-[0.2em] leading-none mt-2">
+                <div class="text-right">
+                    <p id="headerClock" class="font-black italic text-2xl leading-none tracking-tighter pr-2" style="color:var(--text-main)">00:00:00 AM</p>
+                    <p class="text-[10px] font-bold uppercase tracking-widest mt-2 pr-2 opacity-80" style="color:var(--primary)">
                         <?= date('l, M d, Y') ?>
                     </p>
                 </div>
             </header>
 
-            <!-- 3 Stat Cards Only -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                <div class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02]">
-                    <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-emerald-500">groups</span>
-                    <p class="text-[11px] font-black uppercase text-[--text-main]/40 mb-2 tracking-[0.15em]">Total Clients</p>
-                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $total_members_coached ?></h3>
-                </div>
+            <!-- 4 Stat Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                <a href="#" class="glass-card p-8 status-card-green relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">groups</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total Clients</p>
+                    <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= $total_members_coached ?></h3>
+                    <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Active Members</p>
+                </a>
 
-                <div class="glass-card p-8 status-card-blue relative overflow-hidden group hover:scale-[1.02]">
-                    <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-blue-500">schedule</span>
-                    <p class="text-[11px] font-black uppercase text-[--text-main]/40 mb-2 tracking-[0.15em]">Upcoming sessions</p>
-                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $upcoming_sessions ?></h3>
-                </div>
+                <a href="coach_schedule.php" class="glass-card p-8 status-card-blue relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">schedule</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Upcoming Sessions</p>
+                    <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= $upcoming_sessions ?></h3>
+                    <p class="text-blue-500 text-[10px] font-black uppercase mt-2">Pending / Scheduled</p>
+                </a>
 
-                <div class="glass-card p-8 status-card-primary relative overflow-hidden group hover:scale-[1.02]">
-                    <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-primary">verified</span>
-                    <p class="text-[11px] font-black uppercase text-[--text-main]/40 mb-2 tracking-[0.15em]">Done sessions</p>
-                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $done_count ?></h3>
-                </div>
+                <a href="coach_schedule.php" class="glass-card p-8 status-card-primary relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">verified</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Done Sessions</p>
+                    <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= $done_count ?></h3>
+                    <p class="text-[10px] font-black uppercase mt-2" style="color:var(--primary)">Completed</p>
+                </a>
+
+                <a href="coach_schedule.php" class="glass-card p-8 status-card-yellow relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">calendar_today</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Today's Sessions</p>
+                    <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= $todays_sessions_count ?></h3>
+                    <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Active Today</p>
+                </a>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -321,7 +357,7 @@ if ($coach_id > 0) {
                 <div class="glass-card flex flex-col overflow-hidden shadow-2xl shadow-primary/5">
                     <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
                         <h4 class="text-sm font-black italic uppercase tracking-tighter flex items-center gap-2" style="color:var(--text-main)">
-                            <span class="material-symbols-rounded text-primary text-xl">history</span> Recent History
+                            <span class="material-symbols-outlined text-primary text-xl">history</span> Recent History
                         </h4>
                         <div class="flex items-center gap-2">
                             <span class="size-2 rounded-full bg-[--highlight] opacity-40"></span>
@@ -331,41 +367,46 @@ if ($coach_id > 0) {
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="text-[10px] font-black uppercase tracking-widest opacity-40 border-b border-white/5">
-                                    <th class="px-8 py-5">Member</th>
-                                    <th class="px-8 py-5 text-center">Date</th>
-                                    <th class="px-8 py-5 text-right">Result</th>
+                                <tr class="text-[12px] uppercase tracking-widest border-b border-white/5 bg-white/[0.05] text-[#a1a1aa]">
+                                    <th class="px-8 py-5 font-black">NAME</th>
+                                    <th class="px-8 py-5 font-black">TYPE</th>
+                                    <th class="px-8 py-5 text-center font-black">DATE</th>
+                                    <th class="px-8 py-5 text-center font-black">STATUS</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5">
-                                <?php if (empty($history_bookings)): ?>
-                                    <tr>
-                                        <td colspan="3" class="px-8 py-20 text-center text-xs font-bold uppercase tracking-widest opacity-20 italic">No past sessions found</td>
-                                    </tr>
-                                <?php else: foreach ($history_bookings as $hb): ?>
-                                    <tr class="hover:bg-white/[0.01] group transition-colors">
-                                        <td class="px-8 py-6">
-                                            <p class="text-sm font-bold uppercase group-hover:text-primary transition-colors italic text-white leading-none">
-                                                <?= htmlspecialchars($hb['first_name'] . ' ' . $hb['last_name']) ?>
-                                            </p>
-                                            <p class="text-[10px] font-black uppercase tracking-widest opacity-30 mt-2">
-                                                <?= strtoupper($hb['service_name'] ?: 'PT Session') ?>
-                                            </p>
+                                <?php 
+                                $history_rows = is_array($history_bookings) ? $history_bookings : [];
+                                for ($i = 0; $i < 4; $i++): 
+                                    if (isset($history_rows[$i])): 
+                                        $hb = $history_rows[$i];
+                                ?>
+                                    <tr class="hover:bg-white/[0.01] transition-colors h-[72px]">
+                                        <td class="px-8 py-6 text-sm font-semibold" style="color:var(--text-main)">
+                                            <?= htmlspecialchars($hb['first_name'] . ' ' . $hb['last_name']) ?>
+                                        </td>
+                                        <td class="px-8 py-6 text-sm font-semibold opacity-80" style="color:var(--text-main)">
+                                            <?= htmlspecialchars($hb['service_name'] ?: 'PT Session') ?>
+                                        </td>
+                                        <td class="px-8 py-6 text-center text-sm font-semibold opacity-70" style="color:var(--text-main)">
+                                            <?= date('M d, Y', strtotime($hb['booking_date'])) ?>
                                         </td>
                                         <td class="px-8 py-6 text-center">
-                                            <p class="text-xs font-black italic opacity-60">
-                                                <?= date('M d, Y', strtotime($hb['booking_date'])) ?>
-                                            </p>
-                                        </td>
-                                        <td class="px-8 py-6 text-right">
                                             <?php 
                                             $st = $hb['booking_status'];
-                                            $color = ($st == 'Completed') ? 'text-emerald-500' : 'text-[--text-main]/40';
+                                            $color = ($st == 'Completed') ? 'text-emerald-500' : 'text-rose-500/80';
                                             ?>
-                                            <span class="text-[10px] font-black uppercase italic tracking-widest <?= $color ?>"><?= $st ?></span>
+                                            <span class="text-xs font-bold uppercase tracking-wider <?= $color ?>"><?= $st ?></span>
                                         </td>
                                     </tr>
-                                <?php endforeach; endif; ?>
+                                <?php else: ?>
+                                    <tr class="h-[72px]">
+                                        <td class="px-8 py-6">&nbsp;</td>
+                                        <td class="px-8 py-6">&nbsp;</td>
+                                        <td class="px-8 py-6">&nbsp;</td>
+                                        <td class="px-8 py-6">&nbsp;</td>
+                                    </tr>
+                                <?php endif; endfor; ?>
                             </tbody>
                         </table>
                     </div>
@@ -375,7 +416,7 @@ if ($coach_id > 0) {
                 <div class="glass-card flex flex-col overflow-hidden shadow-2xl">
                     <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
                         <h4 class="text-sm font-black italic uppercase tracking-tighter flex items-center gap-2" style="color:var(--text-main)">
-                            <span class="material-symbols-rounded text-primary text-xl">history_toggle_off</span> Today's Schedule
+                            <span class="material-symbols-outlined text-primary text-xl">history_toggle_off</span> Today's Schedule
                         </h4>
                         <div class="flex items-center gap-2">
                             <span class="size-2 rounded-full bg-primary animate-pulse"></span>
@@ -385,37 +426,37 @@ if ($coach_id > 0) {
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="text-[10px] font-black uppercase tracking-widest opacity-40 border-b border-white/5">
-                                    <th class="px-8 py-5">Member</th>
-                                    <th class="px-8 py-5 text-center">Type / Status</th>
-                                    <th class="px-8 py-5 text-right">Time</th>
+                                <tr class="text-[12px] uppercase tracking-widest border-b border-white/5 bg-white/[0.05] text-[#a1a1aa]">
+                                    <th class="px-8 py-5 font-black">NAME</th>
+                                    <th class="px-8 py-5 font-black">TYPE</th>
+                                    <th class="px-8 py-5 text-center font-black">TIME</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5">
-                                <?php if (empty($schedule_result)): ?>
-                                    <tr>
-                                        <td colspan="3" class="px-8 py-20 text-center text-xs font-bold uppercase tracking-widest opacity-20 italic">No sessions today</td>
-                                    </tr>
-                                <?php else: foreach ($schedule_result as $row): ?>
-                                    <tr class="hover:bg-white/[0.01] group transition-colors cursor-pointer" onclick="location.href='coach_members.php?search=<?= urlencode($row['first_name'] . ' ' . $row['last_name']) ?>'">
-                                        <td class="px-8 py-6">
-                                            <p class="text-sm font-bold uppercase group-hover:text-primary transition-colors italic text-white leading-none">
-                                                <?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?>
-                                            </p>
+                                <?php 
+                                $sched_rows = is_array($schedule_result) ? $schedule_result : [];
+                                for ($i = 0; $i < 4; $i++): 
+                                    if (isset($sched_rows[$i])): 
+                                        $row = $sched_rows[$i];
+                                ?>
+                                    <tr class="hover:bg-white/[0.01] transition-colors cursor-pointer h-[72px]" onclick="location.href='coach_members.php?search=<?= urlencode($row['first_name'] . ' ' . $row['last_name']) ?>'">
+                                        <td class="px-8 py-6 text-sm font-semibold" style="color:var(--text-main)">
+                                            <?= htmlspecialchars($row['first_name'] . ' ' . $row['last_name']) ?>
                                         </td>
-                                        <td class="px-8 py-6 text-center">
-                                            <p class="text-[11px] font-black italic text-white uppercase tracking-wide">
-                                                <?= htmlspecialchars($row['service_name'] ?: 'PT Session') ?>
-                                            </p>
-                                            <p class="text-[9px] font-black uppercase tracking-[0.15em] mt-1 <?= $row['booking_status'] == 'Pending' ? 'text-amber-500' : 'text-emerald-500' ?>">
-                                                <?= $row['booking_status'] ?>
-                                            </p>
+                                        <td class="px-8 py-6 text-sm font-semibold opacity-80" style="color:var(--text-main)">
+                                            <?= htmlspecialchars($row['service_name'] ?: 'PT Session') ?>
                                         </td>
-                                        <td class="px-8 py-6 text-right">
-                                            <span class="text-xs font-black group-hover:text-primary transition-colors italic text-white"><?= date('h:i A', strtotime($row['start_time'])) ?></span>
+                                        <td class="px-8 py-6 text-center text-sm font-semibold italic" style="color:var(--text-main)">
+                                            <?= date('h:i A', strtotime($row['start_time'])) ?>
                                         </td>
                                     </tr>
-                                <?php endforeach; endif; ?>
+                                <?php else: ?>
+                                    <tr class="h-[72px]">
+                                        <td class="px-8 py-6">&nbsp;</td>
+                                        <td class="px-8 py-6">&nbsp;</td>
+                                        <td class="px-8 py-6">&nbsp;</td>
+                                    </tr>
+                                <?php endif; endfor; ?>
                             </tbody>
                         </table>
                     </div>
