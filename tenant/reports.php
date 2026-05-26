@@ -705,7 +705,7 @@ $is_restricted = (!$is_sub_active);
             <div class="glass-card overflow-hidden shadow-2xl border border-white/5 flex flex-col">
 
                 <!-- Elite Filter Bar (Inside the Card) -->
-                <div class="px-8 py-4 border-b border-white/5 relative z-[60]">
+                <div class="p-8 border-b border-white/5 relative z-[60] bg-white/[0.01]">
                     <form method="GET" class="flex flex-wrap items-center gap-4">
                         <!-- Date Range -->
                         <div class="flex gap-2 shrink-0">
@@ -713,13 +713,13 @@ $is_restricted = (!$is_sub_active);
                                 max="<?= !empty($date_to) ? htmlspecialchars($date_to) : date('Y-m-d') ?>"
                                 oninput="syncDateBounds('from')"
                                 onchange="this.form.submit()"
-                                class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
                             <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>"
                                 min="<?= !empty($date_from) ? htmlspecialchars($date_from) : '' ?>"
                                 max="<?= date('Y-m-d') ?>"
                                 oninput="syncDateBounds('to')"
                                 onchange="this.form.submit()"
-                                class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
                         </div>
 
                         <!-- Searchable Member Selector -->
@@ -728,7 +728,7 @@ $is_restricted = (!$is_sub_active);
                             <div class="relative">
                                 <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">group</span>
                                 <input type="text" id="memberSearchInput" placeholder="Search Member..." value="<?= $member_filter === 'all' ? 'All Members' : htmlspecialchars(array_column($members_list, 'name', 'id')[$member_filter] ?? 'All Members') ?>" autocomplete="off"
-                                    class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl pl-11 pr-10 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary/50 cursor-pointer">
+                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 text-[10px] font-black uppercase tracking-widest outline-none text-white hover:border-white/20 transition-all focus:border-primary/50 cursor-pointer">
                                 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                             </div>
 
@@ -752,23 +752,23 @@ $is_restricted = (!$is_sub_active);
                         <div class="flex-1 min-w-[200px] relative group">
                             <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50 transition-transform group-hover:scale-110">search</span>
                             <input type="text" id="reportSearchInput" onkeyup="filterTableRows()" placeholder="Search records..."
-                                class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 text-xs font-black transition-all focus:border-primary outline-none text-[--text-main]">
+                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest text-white outline-none focus:border-primary/50 transition-all">
                         </div>
 
                         <!-- Clear Filter Button -->
-                        <a href="reports.php" class="h-[48px] w-[48px] rounded-xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-primary hover:bg-white/5 transition-all shadow-lg active:scale-95 group" title="Clear Filters">
+                        <a href="reports.php" class="h-[52px] w-[52px] rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center text-primary hover:bg-white/5 transition-all shadow-lg active:scale-95 group" title="Clear Filters">
                             <span class="material-symbols-outlined text-xl transition-transform group-hover:rotate-180 duration-500">refresh</span>
                         </a>
 
                         <!-- Action Buttons (Right-aligned) -->
                         <div class="flex items-center gap-2 ml-auto shrink-0">
                             <button type="button" onclick="exportActiveReport(true)"
-                                class="h-[48px] px-6 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
+                                class="h-[52px] px-6 rounded-2xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
                                 <span class="material-symbols-outlined text-sm">visibility</span>
                                 Preview
                             </button>
                             <button type="button" id="pdfExportBtn" onclick="exportActiveReport(false)"
-                                class="h-[48px] px-6 rounded-xl bg-transparent border border-primary text-primary outline-none focus:outline-none focus:ring-0 text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-primary/20 flex items-center gap-2">
+                                class="h-[52px] px-6 rounded-2xl border border-primary/20 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all flex items-center gap-2.5 active:scale-95 shadow-lg shadow-primary/20">
                                 <span class="material-symbols-outlined text-sm">picture_as_pdf</span>
                                 Export PDF
                             </button>
@@ -781,28 +781,27 @@ $is_restricted = (!$is_sub_active);
                         <table class="w-full text-left">
                             <thead>
                                 <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
-                                    <th class="px-8 py-4">Member ID</th>
-                                    <th class="px-8 py-4">Name</th>
-                                    <th class="px-8 py-4 text-center">Type</th>
-                                    <th class="px-8 py-4 text-center">Date of Payment</th>
-                                    <th class="px-8 py-4 text-center">Ref Number</th>
-                                    <th class="px-8 py-4 text-right">Amount</th>
+                                    <th class="px-8 py-5">Member ID</th>
+                                    <th class="px-8 py-5">Name</th>
+                                    <th class="px-8 py-5 text-center">Type</th>
+                                    <th class="px-8 py-5 text-center">Date of Payment</th>
+                                    <th class="px-8 py-5 text-center">Ref Number</th>
+                                    <th class="px-8 py-5 text-right">Amount</th>
                                 </tr>
                             </thead>
                             <tbody id="financialTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($financials)): ?>
                                     <tr class="no-pagination">
-                                        <td colspan="6" class="px-8 py-8 text-center text-xs font-bold text-[--text-main]/40 italic uppercase">
-                                            No financial records found for this period.
-                                        </td>
+                                        <td colspan="6" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                            No financial records found for this period.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($financials as $f): ?>
                                         <tr class="hover:bg-white/[0.05] transition-all duration-300 group">
-                                            <td class="px-8 py-5 text-[11px] font-black text-[--text-main]/60 tracking-widest italic">
+                                            <td class="px-8 py-7 text-[11px] font-black text-[--text-main]/60 tracking-widest">
                                                 <?= $f['member_id'] ? 'ID-' . str_pad($f['member_id'], 5, '0', STR_PAD_LEFT) : '---' ?>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-7">
                                                 <p class="text-sm font-bold text-[--text-main] group-hover:text-white transition-colors">
                                                     <?php if ($f['first_name']): ?>
                                                         <?= htmlspecialchars($f['first_name'] . ' ' . $f['last_name']) ?>
@@ -811,7 +810,7 @@ $is_restricted = (!$is_sub_active);
                                                     <?php endif; ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-5 text-center text-[11px] font-black text-[--text-main] italic">
+                                            <td class="px-8 py-7 text-center text-[11px] font-black text-[--text-main]">
                                                 <?php 
                                                     $type = !empty($f['plan_name']) ? htmlspecialchars($f['plan_name']) . ' Membership' : 'N/A';
                                                     if (strpos($f['reference_number'] ?? '', 'PAYB') === 0) {
@@ -820,13 +819,13 @@ $is_restricted = (!$is_sub_active);
                                                     echo $type;
                                                 ?>
                                             </td>
-                                            <td class="px-8 py-5 text-center text-[11px] text-[--text-main]/40 font-bold">
+                                            <td class="px-8 py-7 text-center text-[11px] text-[--text-main]/40 font-bold">
                                                 <?= date('M d, Y', strtotime($f['created_at'])) ?>
                                             </td>
-                                            <td class="px-8 py-5 text-center text-[11px] text-[--text-main]/60 font-black tracking-wider">
+                                            <td class="px-8 py-7 text-center text-[11px] text-[--text-main]/60 font-black tracking-wider">
                                                 <?= !empty($f['reference_number']) ? htmlspecialchars($f['reference_number']) : '#' . str_pad($f['payment_id'], 5, '0', STR_PAD_LEFT) ?>
                                             </td>
-                                            <td class="px-8 py-5 text-right text-sm font-black text-primary" data-amount="<?= $f['amount'] ?>">
+                                            <td class="px-8 py-7 text-right text-sm font-black text-primary" data-amount="<?= $f['amount'] ?>">
                                                 ₱<?= number_format($f['amount'], 2) ?></td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -853,32 +852,31 @@ $is_restricted = (!$is_sub_active);
                         <table class="w-full text-left">
                             <thead>
                                 <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
-                                    <th class="px-8 py-4">Member ID</th>
-                                    <th class="px-8 py-4">Name</th>
-                                    <th class="px-8 py-4 text-center">Session Date</th>
-                                    <th class="px-8 py-4 text-center">Time In / Out</th>
-                                    <th class="px-8 py-4 text-center">Status</th>
+                                    <th class="px-8 py-5">Member ID</th>
+                                    <th class="px-8 py-5">Name</th>
+                                    <th class="px-8 py-5 text-center">Session Date</th>
+                                    <th class="px-8 py-5 text-center">Time In / Out</th>
+                                    <th class="px-8 py-5 text-center">Status</th>
                                 </tr>
                             </thead>
                             <tbody id="attendanceTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($attendance_logs)): ?>
                                     <tr class="no-pagination">
-                                        <td colspan="5" class="px-8 py-8 text-center text-xs font-bold text-[--text-main]/40 italic uppercase">
-                                            No attendance entries found for this period.
-                                        </td>
+                                        <td colspan="5" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                            No attendance entries found for this period.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($attendance_logs as $a): ?>
                                         <tr class="hover:bg-white/[0.04] transition-all duration-300 group">
-                                            <td class="px-8 py-5 text-[11px] font-black text-[--text-main]/60 tracking-widest italic">
+                                            <td class="px-8 py-7 text-[11px] font-black text-[--text-main]/60 tracking-widest">
                                                 ID-<?= str_pad($a['member_id'], 5, '0', STR_PAD_LEFT) ?>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-7">
                                                 <p class="text-sm font-bold text-[--text-main] group-hover:text-white transition-colors">
                                                     <?= htmlspecialchars($a['first_name'] . ' ' . $a['last_name']) ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-5 text-center text-[11px] font-black text-[--text-main] italic">
+                                            <td class="px-8 py-7 text-center text-[11px] font-black text-[--text-main] italic">
                                                 <?= date('M d, Y', strtotime($a['check_in_time'])) ?>
                                             </td>
                                             <?php 
@@ -887,7 +885,7 @@ $is_restricted = (!$is_sub_active);
                                                 $isTimedOut = ($statusRaw === 'timed out' || $statusRaw === 'timeout' || !empty($a['check_out_time']));
                                                 $displayStatus = $isNoTimeOut ? 'No Time Out' : ($isTimedOut ? 'Timed Out' : 'In Gym');
                                             ?>
-                                            <td class="px-8 py-5 text-center text-[11px] font-black text-emerald-400">
+                                            <td class="px-8 py-7 text-center text-[11px] font-black text-emerald-400">
                                                 <?= date('h:i A', strtotime($a['check_in_time'])) ?>
                                                 <span class="mx-1 text-[--text-main]/40">-</span>
                                                 <span style="color:<?= $a['check_out_time'] ? 'var(--text-main)' : 'rgba(var(--primary-rgb), 0.3)' ?>; opacity:<?= $a['check_out_time'] ? '0.6' : '1' ?>">
@@ -900,7 +898,7 @@ $is_restricted = (!$is_sub_active);
                                                     ?>
                                                 </span>
                                             </td>
-                                            <td class="px-8 py-5 text-center">
+                                            <td class="px-8 py-7 text-center">
                                                 <?php if($displayStatus === 'Timed Out'): ?>
                                                     <span class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[--text-main] opacity-40 text-[9px] font-black uppercase tracking-widest italic flex items-center gap-2 justify-center mx-auto w-fit">Timed Out</span>
                                                 <?php elseif($displayStatus === 'No Time Out'): ?>
@@ -931,42 +929,41 @@ $is_restricted = (!$is_sub_active);
                         <table class="w-full text-left">
                             <thead>
                                 <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
-                                    <th class="px-8 py-4">Member ID</th>
-                                    <th class="px-8 py-4">Name</th>
-                                    <th class="px-8 py-4 text-center">Tier Type</th>
-                                    <th class="px-8 py-4 text-center">Payment Date</th>
-                                    <th class="px-8 py-4 text-center">Renewal Date</th>
-                                    <th class="px-8 py-4 text-center">Status</th>
+                                    <th class="px-8 py-5">Member ID</th>
+                                    <th class="px-8 py-5">Name</th>
+                                    <th class="px-8 py-5 text-center">Tier Type</th>
+                                    <th class="px-8 py-5 text-center">Payment Date</th>
+                                    <th class="px-8 py-5 text-center">Renewal Date</th>
+                                    <th class="px-8 py-5 text-center">Status</th>
                                 </tr>
                             </thead>
                             <tbody id="membershipTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($subscriptions)): ?>
                                     <tr class="no-pagination">
-                                        <td colspan="6" class="px-8 py-8 text-center text-xs font-bold text-[--text-main]/40 italic uppercase">
-                                            No active membership records found.
-                                        </td>
+                                        <td colspan="6" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                            No active membership records found.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($subscriptions as $s): ?>
                                         <tr class="hover:bg-white/[0.05] transition-all duration-300 group">
-                                            <td class="px-8 py-5 text-[11px] font-black text-[--text-main]/60 tracking-widest italic">
+                                            <td class="px-8 py-7 text-[11px] font-black text-[--text-main]/60 tracking-widest">
                                                 ID-<?= str_pad($s['member_id'], 5, '0', STR_PAD_LEFT) ?>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-7">
                                                 <p class="text-sm font-bold text-[--text-main] group-hover:text-white transition-colors">
                                                     <?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name']) ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-5 text-center text-[11px] font-black text-[--text-main] italic">
+                                            <td class="px-8 py-7 text-center text-[11px] font-black text-[--text-main]">
                                                 <?= htmlspecialchars($s['plan_name']) ?> Membership
                                             </td>
-                                            <td class="px-8 py-5 text-center text-[11px] text-[--text-main]/40 font-bold">
+                                            <td class="px-8 py-7 text-center text-[11px] text-[--text-main]/40 font-bold">
                                                 <?= date('M d, Y', strtotime($s['payment_date'])) ?>
                                             </td>
-                                            <td class="px-8 py-5 text-center text-[11px] text-[--text-main]/40 font-bold">
+                                            <td class="px-8 py-7 text-center text-[11px] text-[--text-main]/40 font-bold">
                                                 <?= date('M d, Y', strtotime($s['end_date'])) ?>
                                             </td>
-                                            <td class="px-8 py-5 text-center">
+                                            <td class="px-8 py-7 text-center">
                                                 <?php $sub_color = strtolower($s['subscription_status']) === 'active' ? 'emerald-500' : 'amber-500'; ?>
                                                 <span class="px-3 py-1.5 rounded-xl bg-<?= $sub_color ?>/10 border border-<?= $sub_color ?>/20 text-[9px] text-<?= $sub_color ?> font-black uppercase tracking-wider italic mx-auto inline-block">
                                                     <?= htmlspecialchars($s['subscription_status']) ?>
@@ -1103,7 +1100,7 @@ $is_restricted = (!$is_sub_active);
                     emptyStateRow.id = 'search-empty-state-' + tbodyId;
                     emptyStateRow.className = 'no-pagination';
                     const colCount = tbody.closest('table').querySelectorAll('thead th').length;
-                    emptyStateRow.innerHTML = `<td colspan="${colCount}" class="px-8 py-8 text-center text-xs font-bold text-[--text-main]/40 italic">No records found matching your search.</td>`;
+                    emptyStateRow.innerHTML = `<td colspan="${colCount}" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">No records found matching your search.</td>`;
                     tbody.appendChild(emptyStateRow);
                 }
                 emptyStateRow.style.display = '';
@@ -1337,11 +1334,8 @@ $is_restricted = (!$is_sub_active);
                 const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination):not(.hidden-search)'));
                 const totalRows = rows.length;
 
-                if (totalRows <= rowsPerPage) {
-                    footer.classList.add('hidden');
-                } else {
-                    footer.classList.remove('hidden');
-                }
+                // Make sure the footer is always visible
+                footer.classList.remove('hidden');
 
                 const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
                 if (currentPage > totalPages) currentPage = totalPages;

@@ -527,11 +527,17 @@ $active_personnel = (int) $stmtActive->fetchColumn();
 $search = $_GET['search'] ?? '';
 $f_role = $_GET['f_role'] ?? '';
 $f_status = $_GET['f_status'] ?? '';
+$f_user_id = $_GET['f_user_id'] ?? 'all';
 $from_date = $_GET['from_date'] ?? '';
 $to_date = $_GET['to_date'] ?? '';
 
 $where = "s.gym_id = :gym_id";
 $params = [':gym_id' => $gym_id];
+
+if ($f_user_id !== 'all' && !empty($f_user_id)) {
+    $where .= " AND u.user_id = :uid";
+    $params[':uid'] = $f_user_id;
+}
 
 if (!empty($search)) {
     $where .= " AND (u.first_name LIKE :s1 OR u.last_name LIKE :s2 OR s.staff_role LIKE :s3)";
@@ -564,6 +570,18 @@ $staff_list = $stmtStaff->fetchAll();
 $stmtRoles = $pdo->prepare("SELECT DISTINCT staff_role FROM staff WHERE gym_id = ?");
 $stmtRoles->execute([$gym_id]);
 $roles = $stmtRoles->fetchAll(PDO::FETCH_COLUMN);
+
+// Fetch all staff for the JS filter dropdown
+$stmtAllStaff = $pdo->prepare("SELECT s.user_id, u.first_name, u.last_name FROM staff s JOIN users u ON s.user_id = u.user_id WHERE s.gym_id = ?");
+$stmtAllStaff->execute([$gym_id]);
+$all_staff_raw = $stmtAllStaff->fetchAll();
+$staff_js = [];
+foreach ($all_staff_raw as $st) {
+    $staff_js[] = [
+        'id' => $st['user_id'],
+        'name' => htmlspecialchars($st['first_name'] . ' ' . $st['last_name'])
+    ];
+}
 
 // --- PENDING APPLICATIONS ---
 $stmtPendingBadge = $pdo->prepare("SELECT COUNT(*) FROM coach_applications WHERE gym_id = ? AND application_status = 'Pending'");
@@ -1064,8 +1082,42 @@ $pending_apps = $stmtPending->fetchAll();
             opacity: 0.6;
             line-height: 1.5;
         }
+
+        .selected-option {
+            background-color: var(--primary) !important;
+            color: #ffffff !important;
+        }
+
+        .searchable-dropdown-overlay {
+            background: #141216;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(40px);
+            z-index: 100;
+            scrollbar-width: none;
+            margin-top: 0;
+        }
+        .searchable-dropdown-overlay::-webkit-scrollbar { display: none; }
+        
+        .tenant-option {
+            transition: background 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .tenant-option:hover {
+            background: rgba(var(--primary-rgb), 0.08);
+            border-color: rgba(var(--primary-rgb), 0.1);
+            color: var(--primary);
+        }
+        .tenant-option.selected {
+            background: var(--primary);
+            color: white;
+        }
     </style>
     <script>
+        const availableStaff = <?= json_encode($staff_js) ?>;
+        const currentStaffFilter = "<?= htmlspecialchars($f_user_id) ?>";
+
         function showSubWarning() { document.getElementById('subModal').classList.add('active'); }
         function closeSubModal() { document.getElementById('subModal').classList.remove('active'); }
 
@@ -1073,7 +1125,122 @@ $pending_apps = $stmtPending->fetchAll();
             <?php if ($is_restricted): ?>
                 showSubWarning();
             <?php endif; ?>
+            
+            initSearchableDropdown('userSearchContainer', 'userSearchInput', 'userDropdown', 'userOptionsList', 'hidden_user_id', currentStaffFilter);
         });
+
+        // Custom Dropdown Logic
+        function toggleCustomDropdown(trigger, event) {
+            event.stopPropagation();
+            const dropdown = trigger.nextElementSibling;
+            
+            // Close all other dropdowns
+            document.querySelectorAll('.custom-select-dropdown').forEach(d => {
+                if (d !== dropdown) d.classList.add('hidden');
+            });
+
+            // Close the Search Name dropdown
+            const userDropdown = document.getElementById('userDropdown');
+            if (userDropdown) userDropdown.classList.add('hidden');
+            
+            dropdown.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.custom-select-container')) {
+                document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.add('hidden'));
+            }
+            if (!e.target.closest('#userSearchContainer')) {
+                const ud = document.getElementById('userDropdown');
+                if (ud) ud.classList.add('hidden');
+            }
+
+            const customOption = e.target.closest('.custom-option');
+            if (customOption) {
+                e.stopPropagation();
+                const container = customOption.closest('.custom-select-container');
+                const hiddenInput = container.querySelector('input[type="hidden"]');
+                const displayInput = container.querySelector('input[type="text"]');
+                const dropdown = container.querySelector('.custom-select-dropdown');
+                
+                hiddenInput.value = customOption.dataset.value;
+                displayInput.value = customOption.textContent.trim();
+                
+                container.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.classList.remove('selected-option');
+                    opt.classList.add('text-white/60');
+                });
+                customOption.classList.add('selected-option');
+                customOption.classList.remove('text-white/60');
+                
+                dropdown.classList.add('hidden');
+                
+                container.closest('form').submit();
+            }
+
+            const tenantOption = e.target.closest('.tenant-option');
+            if (tenantOption) {
+                const container = tenantOption.closest('#userSearchContainer');
+                if (container) {
+                    const hiddenInput = container.querySelector('#hidden_user_id');
+                    const input = container.querySelector('#userSearchInput');
+                    const dropdown = container.querySelector('#userDropdown');
+                    
+                    const id = tenantOption.dataset.id;
+                    const name = tenantOption.dataset.name || "All Staff";
+
+                    hiddenInput.value = id;
+                    input.value = name;
+                    dropdown.classList.add('hidden');
+
+                    container.closest('form').submit();
+                }
+            }
+        });
+
+        // Searchable User Dropdown Logic
+        function initSearchableDropdown(containerId, inputId, dropdownId, listId, hiddenInputId, currentFilter) {
+            const container = document.getElementById(containerId);
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            const list = document.getElementById(listId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+
+            if (!container || !input || !dropdown || !list || !hiddenInput) return;
+
+            function renderOptions(filter = "") {
+                const isAllLabel = filter === "All Staff";
+                const searchFilter = isAllLabel ? "" : filter.toLowerCase().trim();
+
+                const filtered = availableStaff.filter(u =>
+                    u.name.toLowerCase().includes(searchFilter)
+                );
+
+                list.innerHTML = filtered.map(u => `
+                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${currentFilter == u.id ? 'selected' : 'text-white/60'}" 
+                         data-id="${u.id}" data-name="${u.name}">
+                        ${u.name}
+                    </div>
+                `).join('') || `<div class="px-4 py-3 text-[9px] text-white/20 italic uppercase font-black">No staff found...</div>`;
+            }
+
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+
+            newInput.addEventListener('focus', () => {
+                document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.add('hidden'));
+                dropdown.classList.remove('hidden');
+                const isAllLabel = newInput.value === "All Staff";
+                renderOptions(isAllLabel ? "" : newInput.value);
+            });
+
+            newInput.addEventListener('input', (e) => {
+                dropdown.classList.remove('hidden');
+                renderOptions(e.target.value);
+            });
+            
+            renderOptions("");
+        }
     </script>
 </head>
 
@@ -1237,34 +1404,76 @@ $pending_apps = $stmtPending->fetchAll();
                                     class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
                             </div>
                         <?php else: ?>
+                            <!-- Searchable User Selector (Search Name) -->
+                            <div class="w-[240px] relative group shrink-0" id="userSearchContainer">
+                                <input type="hidden" name="f_user_id" id="hidden_user_id" value="<?= htmlspecialchars($f_user_id) ?>">
+                                <div class="relative">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">person_search</span>
+                                    <?php 
+                                        $displayValue = 'All Staff';
+                                        if ($f_user_id !== 'all') {
+                                            $col = array_column($staff_js, 'name', 'id');
+                                            if (isset($col[$f_user_id])) {
+                                                $displayValue = $col[$f_user_id];
+                                            }
+                                        }
+                                    ?>
+                                    <input type="text" id="userSearchInput" placeholder="Search Name..." value="<?= htmlspecialchars($displayValue) ?>" autocomplete="off"
+                                        class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 text-[10px] font-black uppercase tracking-widest outline-none text-white hover:border-white/20 transition-all focus:border-primary/50 cursor-pointer">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+
+                                <!-- Dropdown Overlay -->
+                                <div id="userDropdown" class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                    <div class="p-1.5 space-y-0.5">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $f_user_id === 'all' ? 'selected' : 'text-white/60' ?>"
+                                            data-id="all" data-name="All Staff">
+                                            All Staff
+                                        </div>
+                                        <div id="userOptionsList">
+                                            <!-- Filtered users injected here -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <!-- Role Filter -->
-                            <div class="w-40 shrink-0 relative">
-                                <select name="f_role" onchange="this.form.submit()"
-                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white/60 outline-none hover:border-white/20 transition-all appearance-none">
-                                    <option value="" class="bg-[#1e1e1e] text-[10px]">All Roles</option>
+                            <div class="w-40 shrink-0 relative group custom-select-container">
+                                <input type="hidden" name="f_role" value="<?= htmlspecialchars($f_role) ?>">
+                                <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                    <?php
+                                        $roleDisplay = 'All Roles';
+                                        if (!empty($f_role)) $roleDisplay = htmlspecialchars($f_role);
+                                    ?>
+                                    <input type="text" readonly value="<?= $roleDisplay ?>" 
+                                        class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white/60 outline-none hover:border-white/20 transition-all cursor-pointer pointer-events-none">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                                    <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= empty($f_role) ? 'selected-option' : 'text-white/60' ?>" data-value="">All Roles</div>
                                     <?php foreach ($roles as $r): ?>
-                                        <option value="<?= htmlspecialchars($r) ?>" <?= $f_role === $r ? 'selected' : '' ?>
-                                            class="bg-[#1e1e1e] text-[10px]">
-                                            <?= htmlspecialchars($r) ?>
-                                        </option>
+                                        <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($f_role === $r) ? 'selected-option' : 'text-white/60' ?>" data-value="<?= htmlspecialchars($r) ?>"><?= htmlspecialchars($r) ?></div>
                                     <?php endforeach; ?>
-                                </select>
-                                <span
-                                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none">expand_more</span>
+                                </div>
                             </div>
 
                             <!-- Status Filter -->
-                            <div class="w-60 shrink-0 relative">
-                                <select name="f_status" onchange="this.form.submit()"
-                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white/60 outline-none hover:border-white/20 transition-all appearance-none">
-                                    <option value="" class="bg-[#1e1e1e] text-[10px]">All Status</option>
-                                    <option value="Active" <?= $f_status === 'Active' ? 'selected' : '' ?>
-                                        class="bg-[#1e1e1e] text-[10px]">Active Members</option>
-                                    <option value="Inactive" <?= $f_status === 'Inactive' ? 'selected' : '' ?>
-                                        class="bg-[#1e1e1e] text-[10px]">Inactive Members</option>
-                                </select>
-                                <span
-                                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none">expand_more</span>
+                            <div class="w-60 shrink-0 relative group custom-select-container">
+                                <input type="hidden" name="f_status" value="<?= htmlspecialchars($f_status) ?>">
+                                <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                    <?php
+                                        $statusDisplay = 'All Status';
+                                        if ($f_status === 'Active') $statusDisplay = 'Active Members';
+                                        if ($f_status === 'Inactive') $statusDisplay = 'Inactive Members';
+                                    ?>
+                                    <input type="text" readonly value="<?= $statusDisplay ?>" 
+                                        class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white/60 outline-none hover:border-white/20 transition-all cursor-pointer pointer-events-none">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                                    <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= empty($f_status) ? 'selected-option' : 'text-white/60' ?>" data-value="">All Status</div>
+                                    <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($f_status === 'Active') ? 'selected-option' : 'text-white/60' ?>" data-value="Active">Active Members</div>
+                                    <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($f_status === 'Inactive') ? 'selected-option' : 'text-white/60' ?>" data-value="Inactive">Inactive Members</div>
+                                </div>
                             </div>
                         <?php endif; ?>
 

@@ -143,11 +143,11 @@ if (isset($_GET['ajax_user_id'])) {
     // 2. Fetch full user data based on role
     $sql = "SELECT u.*, r.role_name as role, ur.role_status ";
     if ($role_name_lc === 'member') {
-        $sql .= ", m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.medical_history, m.emergency_contact_name, m.emergency_contact_number, ";
+        $sql .= ", COALESCE(m.profile_picture, u.profile_picture) as profile_picture, m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.medical_history, m.emergency_contact_name, m.emergency_contact_number, m.parent_name, m.parent_contact, m.registration_source, m.member_status, ";
         $sql .= " (SELECT height_cm FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as height_cm, ";
         $sql .= " (SELECT weight_kg FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as weight_kg, ";
         $sql .= " (SELECT ROUND(weight_kg / POWER(height_cm / 100, 2), 1) FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as bmi ";
-        $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id LEFT JOIN addresses a ON m.address_id = a.address_id ";
+        $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id AND m.gym_id = ur.gym_id LEFT JOIN addresses a ON m.address_id = a.address_id ";
     } elseif ($role_name_lc === 'staff') {
         $sql .= ", s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN staff s ON u.user_id = s.user_id AND s.gym_id = ur.gym_id ";
@@ -288,6 +288,36 @@ if (isset($_GET['ajax_user_id'])) {
                             </div>
                         </div>
                     <?php endif; ?>
+
+                    <?php if (!empty($u['parent_name'])): ?>
+                        <div class="bg-sky-500/5 p-6 rounded-2xl border border-sky-500/10 grid grid-cols-2 gap-6">
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-bold uppercase tracking-widest text-sky-500/60">Parent / Guardian</p>
+                                <p class="text-base font-bold text-sky-500"><?= htmlspecialchars($u['parent_name']) ?></p>
+                            </div>
+                            <div class="space-y-1">
+                                <p class="text-[10px] font-bold uppercase tracking-widest text-sky-500/60">Parent Phone</p>
+                                <p class="text-base font-bold text-sky-500"><?= htmlspecialchars($u['parent_contact']) ?></p>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($u['registration_source']) || !empty($u['member_status'])): ?>
+                        <div class="bg-white/[0.02] p-6 rounded-2xl border border-white/5 grid grid-cols-2 gap-6">
+                            <?php if (!empty($u['registration_source'])): ?>
+                                <div class="space-y-1">
+                                    <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Registration Source</p>
+                                    <p class="text-base font-bold text-white"><?= htmlspecialchars($u['registration_source']) ?></p>
+                                </div>
+                            <?php endif; ?>
+                            <?php if (!empty($u['member_status'])): ?>
+                                <div class="space-y-1">
+                                    <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Member Status</p>
+                                    <p class="text-base font-bold text-white"><?= htmlspecialchars($u['member_status']) ?></p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                 </section>
 
                 <footer class="flex justify-between items-center pt-4 opacity-40">
@@ -308,11 +338,13 @@ if (isset($_GET['ajax_search'])) {
     if (empty($search)) {
         // Show "Recent Activity" (Top 5 newest users)
         $stmt = $pdo->prepare("
-            SELECT u.user_id, u.first_name, u.last_name, u.email, u.profile_picture, r.role_name as role
+            SELECT u.user_id, u.first_name, u.last_name, u.email, COALESCE(m.profile_picture, u.profile_picture) as profile_picture, r.role_name as role, m.member_code
             FROM users u
             JOIN user_roles ur ON u.user_id = ur.user_id
             JOIN roles r ON ur.role_id = r.role_id
+            LEFT JOIN members m ON u.user_id = m.user_id AND m.gym_id = ur.gym_id
             WHERE ur.gym_id = ?
+            GROUP BY u.user_id
             ORDER BY u.created_at DESC
             LIMIT 5
         ");
@@ -321,15 +353,17 @@ if (isset($_GET['ajax_search'])) {
         $is_recent = true;
     } else {
         $stmt = $pdo->prepare("
-            SELECT u.user_id, u.first_name, u.last_name, u.email, u.profile_picture, r.role_name as role
+            SELECT u.user_id, u.first_name, u.last_name, u.email, COALESCE(m.profile_picture, u.profile_picture) as profile_picture, r.role_name as role, m.member_code
             FROM users u
             JOIN user_roles ur ON u.user_id = ur.user_id
             JOIN roles r ON ur.role_id = r.role_id
+            LEFT JOIN members m ON u.user_id = m.user_id AND m.gym_id = ur.gym_id
             WHERE ur.gym_id = ? 
-            AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ?)
+            AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ? OR m.member_code LIKE ?)
+            GROUP BY u.user_id
             LIMIT 6
         ");
-        $stmt->execute([$gym_id, "%$search%", "%$search%", "%$search%"]);
+        $stmt->execute([$gym_id, "%$search%", "%$search%", "%$search%", "%$search%"]);
         $matches = $stmt->fetchAll();
         $is_recent = false;
     }
@@ -358,7 +392,12 @@ if (isset($_GET['ajax_search'])) {
                             <?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?>
                         </p>
                         <p class="text-[10px] opacity-40 font-medium truncate uppercase tracking-widest">
-                            <?= htmlspecialchars($m['role']) ?> • <?= htmlspecialchars($m['email']) ?>
+                            <?= htmlspecialchars($m['role']) ?> 
+                            <?php if (!empty($m['member_code'])): ?>
+                                • <?= htmlspecialchars($m['member_code']) ?>
+                            <?php else: ?>
+                                • <?= htmlspecialchars($m['email']) ?>
+                            <?php endif; ?>
                         </p>
                     </div>
                     <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-all text-primary">arrow_forward</span>
@@ -383,11 +422,14 @@ $sort_by = $_GET['sort'] ?? 'newest';
 $where = ["ur.gym_id = :gym_id"];
 $params = [':gym_id' => $gym_id];
 
-if (!empty($search)) {
-    $where[] = "(u.first_name LIKE :s1 OR u.last_name LIKE :s2 OR u.email LIKE :s3)";
-    $params[':s1'] = "%$search%";
-    $params[':s2'] = "%$search%";
-    $params[':s3'] = "%$search%";
+if ($search !== '') {
+    $where[] = "(u.first_name LIKE :search1 OR u.last_name LIKE :search2 OR u.email LIKE :search3 OR u.contact_number LIKE :search4 OR m.member_code LIKE :search5)";
+    $search_val = "%$search%";
+    $params[':search1'] = $search_val;
+    $params[':search2'] = $search_val;
+    $params[':search3'] = $search_val;
+    $params[':search4'] = $search_val;
+    $params[':search5'] = $search_val;
 }
 
 if (!empty($filter_role)) {
@@ -403,6 +445,24 @@ if ($filter_status !== '') {
     $params[':status'] = (int) $filter_status;
 }
 
+$user_filter = $_GET['user_id'] ?? 'all';
+if ($user_filter !== 'all') {
+    $where[] = "u.user_id = :user_id";
+    $params[':user_id'] = (int) $user_filter;
+}
+
+// Fetch All Users for Filter Dropdown (Unfiltered)
+$stmtAllUsers = $pdo->prepare("
+    SELECT u.user_id, u.first_name, u.last_name 
+    FROM users u 
+    JOIN user_roles ur ON u.user_id = ur.user_id 
+    JOIN roles r ON ur.role_id = r.role_id
+    WHERE ur.gym_id = ? AND r.role_name IN ('Member', 'Coach', 'Staff')
+    ORDER BY u.first_name ASC
+");
+$stmtAllUsers->execute([$gym_id]);
+$all_users_list = $stmtAllUsers->fetchAll(PDO::FETCH_ASSOC);
+
 $order = "ORDER BY u.created_at DESC";
 if ($sort_by === 'oldest')
     $order = "ORDER BY u.created_at ASC";
@@ -416,7 +476,7 @@ $where_sql = "WHERE " . implode(" AND ", $where);
 // Fetch Filtered Users
 $stmtUsers = $pdo->prepare("
     SELECT u.user_id, u.first_name, u.last_name, u.email, u.contact_number, 
-           u.profile_picture, 
+           COALESCE(m.profile_picture, u.profile_picture) as profile_picture, 
            r.role_name as role, u.is_active, u.created_at,
            CASE 
                WHEN r.role_name = 'Member' THEN m.member_status 
@@ -431,13 +491,14 @@ $stmtUsers = $pdo->prepare("
     FROM users u
     JOIN user_roles ur ON u.user_id = ur.user_id
     JOIN roles r ON ur.role_id = r.role_id
-    LEFT JOIN members m ON u.user_id = m.user_id
+    LEFT JOIN members m ON u.user_id = m.user_id AND m.gym_id = ur.gym_id
     LEFT JOIN staff s ON u.user_id = s.user_id AND s.gym_id = ur.gym_id
     LEFT JOIN coaches c ON u.user_id = c.user_id AND c.gym_id = ur.gym_id
     LEFT JOIN coach_applications ca ON c.coach_application_id = ca.coach_application_id
     LEFT JOIN member_subscriptions ms ON m.member_id = ms.member_id AND ms.subscription_status = 'Active'
     LEFT JOIN membership_plans mp ON ms.membership_plan_id = mp.membership_plan_id
     $where_sql
+    GROUP BY u.user_id, r.role_name
     $order
 ");
 $stmtUsers->execute($params);
@@ -466,6 +527,16 @@ $page_title = "User Database";
     <link href="https://fonts.googleapis.com/css2?family=<?= urlencode($font_family) ?>:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <?php
+    $users_js = array_map(function ($u) {
+        return ['id' => $u['user_id'], 'name' => trim($u['first_name'] . ' ' . $u['last_name'])];
+    }, $all_users_list);
+    ?>
+    <script>
+        const availableUsers = <?= json_encode($users_js) ?>;
+        const currentUserFilter = "<?= $user_filter ?>";
+    </script>
 
     <script>
         tailwind.config = {
@@ -593,7 +664,6 @@ $page_title = "User Database";
             text-transform: uppercase; letter-spacing: 0.15em;
         }
 
-        /* Inputs */
         .input-box {
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -610,6 +680,37 @@ $page_title = "User Database";
             background-color: rgba(255, 255, 255, 0.08);
             box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1);
         }
+
+        .selected-option {
+            background-color: var(--primary) !important;
+            color: #ffffff !important;
+        }
+
+        .searchable-dropdown-overlay {
+            background: #141216;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(40px);
+            z-index: 100;
+            scrollbar-width: none;
+            margin-top: 0;
+        }
+        .searchable-dropdown-overlay::-webkit-scrollbar { display: none; }
+        .tenant-option {
+            transition: background 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .tenant-option:hover {
+            background: rgba(var(--primary-rgb), 0.08);
+            border-color: rgba(var(--primary-rgb), 0.1);
+            color: var(--primary);
+        }
+        .tenant-option.selected {
+            background: var(--primary);
+            color: white;
+        }
+
         .input-box option { background: #14121a; color: white; }
         select.input-box {
             cursor: pointer; 
@@ -846,83 +947,149 @@ $page_title = "User Database";
             </div>
         </div>
 
-        <!-- SEARCH AND FILTERS -->
-        <div class="mb-10">
-            <form id="filterForm" onsubmit="event.preventDefault(); reactiveFilter();"
-                class="glass-card px-8 py-5 flex flex-wrap items-center gap-5 relative">
-                
-                <!-- Search Input -->
-                <div class="flex-1 min-w-[280px] relative group">
-                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm opacity-30 group-focus-within:opacity-100 group-focus-within:text-primary transition-all">search</span>
-                    <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
-                        placeholder="Search users by name or email..." oninput="reactiveFilter()"
-                        autocomplete="off"
-                        class="input-box pl-12 w-full">
+        <div id="tableContainer" class="glass-card overflow-hidden flex flex-col">
+            <!-- SEARCH AND FILTERS -->
+            <div class="p-8 border-b border-white/5 bg-white/[0.01]">
+                <form id="filterForm" onsubmit="event.preventDefault(); reactiveFilter();"
+                    class="flex flex-wrap items-center gap-5 relative">
                     
-                    <!-- Result Dropdown -->
-                    <div id="searchResults" class="absolute top-[calc(100%+8px)] left-0 right-0 glass-card z-[100] hidden overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-white/10">
-                        <!-- Content via AJAX -->
+                    <!-- Search Input -->
+                    <div class="flex-1 min-w-[280px] relative group">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50 transition-transform group-hover:scale-110">search</span>
+                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
+                            placeholder="Search records..." oninput="reactiveFilter()"
+                            autocomplete="off"
+                            class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest outline-none text-white hover:border-white/20 transition-all focus:border-primary">
+                        
+                        <!-- Result Dropdown -->
+                        <div id="searchResults" class="absolute top-[calc(100%+8px)] left-0 right-0 glass-card z-[100] hidden overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-white/10">
+                            <!-- Content via AJAX -->
+                        </div>
                     </div>
-                </div>
 
-                <!-- Role Filter -->
-                <div class="w-[180px] relative">
-                    <select name="role" onchange="reactiveFilter()" class="input-box w-full">
-                        <option value="">All Roles</option>
-                        <option value="Member" <?= ($filter_role == 'Member') ? 'selected' : '' ?>>Members</option>
-                        <option value="Staff" <?= ($filter_role == 'Staff') ? 'selected' : '' ?>>Staff</option>
-                        <option value="Coach" <?= ($filter_role == 'Coach') ? 'selected' : '' ?>>Coach</option>
-                    </select>
-                </div>
+                    <!-- Searchable User Selector (Search Name) -->
+                    <div class="w-[240px] relative group shrink-0" id="userSearchContainer">
+                        <input type="hidden" name="user_id" id="hidden_user_id" value="<?= htmlspecialchars($user_filter) ?>">
+                        <div class="relative">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">person_search</span>
+                            <input type="text" id="userSearchInput" placeholder="Search Name..." value="<?= $user_filter === 'all' ? 'All Users' : htmlspecialchars(array_column($users_js, 'name', 'id')[$user_filter] ?? 'All Users') ?>" autocomplete="off"
+                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 text-[10px] font-black uppercase tracking-widest outline-none text-white hover:border-white/20 transition-all focus:border-primary/50 cursor-pointer">
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                        </div>
 
-                <!-- Status Filter -->
-                <div class="w-[160px] relative">
-                    <select name="status" onchange="reactiveFilter()" class="input-box w-full">
-                        <option value="">All Status</option>
-                        <option value="1" <?= ($filter_status == '1') ? 'selected' : '' ?>>Active</option>
-                        <option value="0" <?= ($filter_status == '0') ? 'selected' : '' ?>>Restricted</option>
-                    </select>
-                </div>
+                        <!-- Dropdown Overlay -->
+                        <div id="userDropdown" class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                            <div class="p-1.5 space-y-0.5">
+                                <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $user_filter === 'all' ? 'selected' : 'text-white/60' ?>"
+                                    data-id="all" data-name="All Users">
+                                    All Users
+                                </div>
+                                <div id="userOptionsList">
+                                    <!-- Filtered users injected here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                <!-- Sort Filter -->
-                <div class="w-[160px] relative">
-                    <select name="sort" onchange="reactiveFilter()" class="input-box w-full">
-                        <option value="newest" <?= ($sort_by == 'newest') ? 'selected' : '' ?>>Newest</option>
-                        <option value="oldest" <?= ($sort_by == 'oldest') ? 'selected' : '' ?>>Oldest</option>
-                        <option value="name_asc" <?= ($sort_by == 'name_asc') ? 'selected' : '' ?>>Name A-Z</option>
-                        <option value="name_desc" <?= ($sort_by == 'name_desc') ? 'selected' : '' ?>>Name Z-A</option>
-                    </select>
-                </div>
+                    <!-- Role Filter -->
+                    <div class="w-[180px] relative group shrink-0 custom-select-container">
+                        <input type="hidden" name="role" value="<?= htmlspecialchars($filter_role) ?>">
+                        <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">group</span>
+                            <?php
+                                $roleDisplay = 'All Roles';
+                                if ($filter_role == 'Member') $roleDisplay = 'Members';
+                                if ($filter_role == 'Staff') $roleDisplay = 'Staff';
+                                if ($filter_role == 'Coach') $roleDisplay = 'Coach';
+                            ?>
+                            <input type="text" readonly value="<?= $roleDisplay ?>" 
+                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 text-[10px] font-black uppercase tracking-widest outline-none text-white hover:border-white/20 transition-all cursor-pointer pointer-events-none">
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                        </div>
+                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= empty($filter_role) ? 'selected-option' : 'text-white/60' ?>" data-value="">All Roles</div>
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($filter_role == 'Member') ? 'selected-option' : 'text-white/60' ?>" data-value="Member">Members</div>
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($filter_role == 'Staff') ? 'selected-option' : 'text-white/60' ?>" data-value="Staff">Staff</div>
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($filter_role == 'Coach') ? 'selected-option' : 'text-white/60' ?>" data-value="Coach">Coach</div>
+                        </div>
+                    </div>
 
-                <!-- Reset Button -->
-                <a href="my_users.php" class="size-11 rounded-[14px] bg-white/5 border border-white/5 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 transition-all">
-                    <span class="material-symbols-outlined text-lg">refresh</span>
-                </a>
-            </form>
-        </div>
+                    <!-- Status Filter -->
+                    <div class="w-[160px] relative group shrink-0 custom-select-container">
+                        <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
+                        <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">toggle_on</span>
+                            <?php
+                                $statusDisplay = 'All Status';
+                                if ($filter_status === '1') $statusDisplay = 'Active';
+                                if ($filter_status === '0') $statusDisplay = 'Restricted';
+                            ?>
+                            <input type="text" readonly value="<?= $statusDisplay ?>" 
+                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 text-[10px] font-black uppercase tracking-widest outline-none text-white hover:border-white/20 transition-all cursor-pointer pointer-events-none">
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                        </div>
+                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($filter_status === '') ? 'selected-option' : 'text-white/60' ?>" data-value="">All Status</div>
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($filter_status === '1') ? 'selected-option' : 'text-white/60' ?>" data-value="1">Active</div>
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($filter_status === '0') ? 'selected-option' : 'text-white/60' ?>" data-value="0">Restricted</div>
+                        </div>
+                    </div>
 
-        <div id="tableContainer" class="glass-card overflow-hidden">
+                    <!-- Sort Filter -->
+                    <div class="w-[180px] relative group shrink-0 custom-select-container">
+                        <input type="hidden" name="sort" value="<?= htmlspecialchars($sort_by) ?>">
+                        <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">sort</span>
+                            <?php
+                                $sortDisplay = 'Newest';
+                                if ($sort_by === 'oldest') $sortDisplay = 'Oldest';
+                                if ($sort_by === 'name_asc') $sortDisplay = 'Name A-Z';
+                                if ($sort_by === 'name_desc') $sortDisplay = 'Name Z-A';
+                            ?>
+                            <input type="text" readonly value="<?= $sortDisplay ?>" 
+                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 text-[10px] font-black uppercase tracking-widest outline-none text-white hover:border-white/20 transition-all cursor-pointer pointer-events-none">
+                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                        </div>
+                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($sort_by === 'newest') ? 'selected-option' : 'text-white/60' ?>" data-value="newest">Newest</div>
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($sort_by === 'oldest') ? 'selected-option' : 'text-white/60' ?>" data-value="oldest">Oldest</div>
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($sort_by === 'name_asc') ? 'selected-option' : 'text-white/60' ?>" data-value="name_asc">Name A-Z</div>
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= ($sort_by === 'name_desc') ? 'selected-option' : 'text-white/60' ?>" data-value="name_desc">Name Z-A</div>
+                        </div>
+                    </div>
+
+                    <!-- Reset Button -->
+                    <a href="my_users.php" class="h-[52px] w-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 transition-all">
+                        <span class="material-symbols-outlined text-lg">refresh</span>
+                    </a>
+                </form>
+            </div>
             <table class="w-full text-left">
                 <thead>
-                    <tr class="bg-black/20 border-b border-white/5">
-                        <th class="px-8 py-5 label-muted">Name</th>
-                        <th class="px-8 py-5 label-muted">Role</th>
-                        <th class="px-8 py-5 label-muted">Email</th>
-                        <th class="px-8 py-5 label-muted">Phone Number</th>
-                        <th class="px-8 py-5 label-muted">Joined Date</th>
-                        <th class="px-8 py-5 label-muted text-center">Action</th>
+                    <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
+                        <th class="px-8 py-4">ID</th>
+                        <th class="px-8 py-4">Name</th>
+                        <th class="px-8 py-4">Role</th>
+                        <th class="px-8 py-4">Email</th>
+                        <th class="px-8 py-4">Phone Number</th>
+                        <th class="px-8 py-4">Joined Date</th>
+                        <th class="px-8 py-4 text-center">Action</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-white/5">
+                <tbody class="divide-y divide-white/5 text-sm font-medium">
                     <?php if (empty($users_list)): ?>
-                        <tr>
-                            <td colspan="5" class="px-8 py-10 text-center label-muted italic">
-                                No users found
-                            </td>
+                        <tr class="no-pagination">
+                            <td colspan="7" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                No users found.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($users_list as $u): ?>
                             <tr class="group hover:bg-white/[0.02] transition-colors">
+                                <td class="px-8 py-6 align-middle">
+                                    <p class="text-[11px] font-black text-[--text-main]/60 tracking-widest italic">
+                                        ID-<?= str_pad($u['user_id'], 5, '0', STR_PAD_LEFT) ?>
+                                    </p>
+                                </td>
                                 <td class="px-8 py-6 align-middle">
                                     <div class="flex items-center gap-4">
                                         <?php $hasPic = !empty($u['profile_picture']); ?>
@@ -1004,6 +1171,10 @@ $page_title = "User Database";
                     const newTable = doc.getElementById('tableContainer').innerHTML;
                     document.getElementById('tableContainer').innerHTML = newTable;
                     document.getElementById('tableContainer').style.opacity = '1';
+                    
+                    // Re-initialize searchable dropdown
+                    const currentUFilter = document.getElementById('hidden_user_id').value;
+                    initSearchableDropdown('userSearchContainer', 'userSearchInput', 'userDropdown', 'userOptionsList', 'hidden_user_id', currentUFilter);
                 });
         }
 
@@ -1033,6 +1204,133 @@ $page_title = "User Database";
             document.getElementById('subModal').classList.add('active');
         });
         <?php endif; ?>
+
+        // Custom Dropdown Logic
+        function toggleCustomDropdown(trigger, event) {
+            event.stopPropagation();
+            const dropdown = trigger.nextElementSibling;
+            
+            // Close all other dropdowns
+            document.querySelectorAll('.custom-select-dropdown').forEach(d => {
+                if (d !== dropdown) d.classList.add('hidden');
+            });
+            
+            // Close the Search Name dropdown
+            const userDropdown = document.getElementById('userDropdown');
+            if (userDropdown) userDropdown.classList.add('hidden');
+            
+            dropdown.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.custom-select-container')) {
+                document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.add('hidden'));
+            }
+            if (!e.target.closest('#userSearchContainer')) {
+                const ud = document.getElementById('userDropdown');
+                if (ud) ud.classList.add('hidden');
+            }
+
+            const option = e.target.closest('.custom-option');
+            if (option) {
+                e.stopPropagation();
+                const container = option.closest('.custom-select-container');
+                const hiddenInput = container.querySelector('input[type="hidden"]');
+                const displayInput = container.querySelector('input[type="text"]');
+                const dropdown = container.querySelector('.custom-select-dropdown');
+                
+                hiddenInput.value = option.dataset.value;
+                displayInput.value = option.textContent.trim();
+                
+                // Immediately update visual selection to prevent lag before AJAX finishes
+                container.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.classList.remove('selected-option');
+                    opt.classList.add('text-white/60');
+                });
+                option.classList.add('selected-option');
+                option.classList.remove('text-white/60');
+                
+                dropdown.classList.add('hidden');
+                
+                // Trigger the filter logic
+                reactiveFilter();
+            }
+        });
+
+        // Searchable User Dropdown Logic
+        function initSearchableDropdown(containerId, inputId, dropdownId, listId, hiddenInputId, currentFilter) {
+            const container = document.getElementById(containerId);
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            const list = document.getElementById(listId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+
+            if (!container || !input || !dropdown || !list || !hiddenInput) return;
+
+            function renderOptions(filter = "") {
+                const isAllLabel = filter === "All Users";
+                const searchFilter = isAllLabel ? "" : filter.toLowerCase().trim();
+
+                const filtered = availableUsers.filter(u =>
+                    u.name.toLowerCase().includes(searchFilter)
+                );
+
+                list.innerHTML = filtered.map(u => `
+                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${currentFilter == u.id ? 'selected' : 'text-white/60'}" 
+                         data-id="${u.id}" data-name="${u.name}">
+                        ${u.name}
+                    </div>
+                `).join('') || `<div class="px-4 py-3 text-[9px] text-white/20 italic uppercase font-black">No user found...</div>`;
+            }
+
+            // Remove old listeners to prevent duplicates if re-initialized
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+
+            newInput.addEventListener('focus', () => {
+                // Close all custom dropdowns
+                document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.add('hidden'));
+
+                dropdown.classList.remove('hidden');
+                const isAllLabel = newInput.value === "All Users";
+                renderOptions(isAllLabel ? "" : newInput.value);
+            });
+
+            newInput.addEventListener('input', (e) => {
+                dropdown.classList.remove('hidden');
+                renderOptions(e.target.value);
+            });
+            
+            // Initial render
+            renderOptions("");
+        }
+
+        // Global click for tenant-options
+        document.addEventListener('click', (e) => {
+            const option = e.target.closest('.tenant-option');
+            if (option) {
+                const container = option.closest('#userSearchContainer');
+                if (container) {
+                    const hiddenInput = container.querySelector('#hidden_user_id');
+                    const input = container.querySelector('#userSearchInput');
+                    const dropdown = container.querySelector('#userDropdown');
+                    
+                    const id = option.dataset.id;
+                    const name = option.dataset.name || "All Users";
+
+                    hiddenInput.value = id;
+                    input.value = name;
+                    dropdown.classList.add('hidden');
+
+                    reactiveFilter();
+                }
+            }
+        });
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            initSearchableDropdown('userSearchContainer', 'userSearchInput', 'userDropdown', 'userOptionsList', 'hidden_user_id', currentUserFilter);
+        });
     </script>
 
     <!-- USER PROFILE MODAL -->

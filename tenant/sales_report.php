@@ -573,7 +573,7 @@ $active_page = "sales";
             </div>
         </div>
 
-        <div class="px-8 py-4 border-b border-white/5 relative z-[60]">
+        <div class="p-8 border-b border-white/5 relative z-[60] bg-white/[0.01]">
             <form method="GET" class="flex flex-wrap items-center gap-4">
                 <!-- Date Range -->
                 <div class="flex gap-2 shrink-0">
@@ -581,13 +581,13 @@ $active_page = "sales";
                         max="<?= !empty($date_to) ? htmlspecialchars($date_to) : date('Y-m-d') ?>"
                         oninput="syncDateBounds('from')"
                         onchange="this.form.submit()"
-                        class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                        class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
                     <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>"
                         min="<?= !empty($date_from) ? htmlspecialchars($date_from) : '' ?>"
                         max="<?= date('Y-m-d') ?>"
                         oninput="syncDateBounds('to')"
                         onchange="this.form.submit()"
-                        class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all [color-scheme:dark]">
+                        class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest text-white outline-none hover:border-white/20 transition-all [color-scheme:dark]">
                 </div>
 
                 <!-- Searchable Member Selector -->
@@ -596,7 +596,7 @@ $active_page = "sales";
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">group</span>
                         <input type="text" id="memberSearchInput" placeholder="Search Member..." value="<?= $member_filter === 'all' ? 'All Members' : htmlspecialchars(array_column($members_list, 'name', 'id')[$member_filter] ?? 'All Members') ?>" autocomplete="off"
-                            class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl pl-11 pr-10 text-xs font-black outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary/50 cursor-pointer">
+                            class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-11 pr-10 text-[10px] font-black uppercase tracking-widest outline-none text-white hover:border-white/20 transition-all focus:border-primary/50 cursor-pointer">
                         <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                     </div>
 
@@ -620,11 +620,11 @@ $active_page = "sales";
                 <div class="flex-1 min-w-[200px] relative group">
                     <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50 transition-transform group-hover:scale-110">search</span>
                     <input type="text" id="salesSearchInput" onkeyup="filterSalesRows()" placeholder="Search records..."
-                        class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-black transition-all focus:border-primary outline-none text-[--text-main]">
+                        class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest text-white outline-none focus:border-primary/50 transition-all">
                 </div>
 
                 <!-- Clear Filter Button -->
-                <a href="sales_report.php" class="h-[48px] w-[48px] flex items-center justify-center rounded-xl bg-white/[0.02] border border-white/5 text-primary hover:bg-white/5 transition-all shadow-lg active:scale-95 group" title="Clear Filters">
+                <a href="sales_report.php" class="h-[52px] w-[52px] flex items-center justify-center rounded-2xl bg-white/[0.02] border border-white/5 text-primary hover:bg-white/5 transition-all shadow-lg active:scale-95 group" title="Clear Filters">
                     <span class="material-symbols-outlined text-xl transition-transform group-hover:rotate-180 duration-500">refresh</span>
                 </a>
             </form>
@@ -634,27 +634,27 @@ $active_page = "sales";
             <table class="w-full text-left">
                 <thead>
                     <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
-                        <th class="px-8 py-4">Member ID</th>
-                        <th class="px-8 py-4">Name</th>
-                        <th class="px-8 py-4 text-center">Type</th>
-                        <th class="px-8 py-4 text-center">Date of Payment</th>
-                        <th class="px-8 py-4 text-center">Ref Number</th>
-                        <th class="px-8 py-4 text-right">Amount</th>
+                        <th class="px-8 py-5">Member ID</th>
+                        <th class="px-8 py-5">Name</th>
+                        <th class="px-8 py-5 text-center">Type</th>
+                        <th class="px-8 py-5 text-center">Date of Payment</th>
+                        <th class="px-8 py-5 text-center">Ref Number</th>
+                        <th class="px-8 py-5 text-right">Amount</th>
                     </tr>
                 </thead>
                 <tbody id="salesTableBody" class="divide-y divide-white/5 text-sm font-medium">
                     <?php if (empty($transactions)): ?>
-                        <tr>
-                            <td colspan="6" class="px-8 py-8 text-center text-xs font-bold text-[--text-main]/40 italic uppercase">
-                                No recent transactions found</td>
+                        <tr class="no-pagination">
+                            <td colspan="6" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                No recent transactions found.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($transactions as $t): ?>
                             <tr class="hover:bg-white/[0.05] transition-all duration-300 group">
-                                <td class="px-8 py-5 text-[11px] font-black text-[--text-main]/60 tracking-widest italic">
+                                <td class="px-8 py-7 text-[11px] font-black text-[--text-main]/60 tracking-widest">
                                     <?= $t['member_id'] ? 'ID-' . str_pad($t['member_id'], 5, '0', STR_PAD_LEFT) : '---' ?>
                                 </td>
-                                <td class="px-8 py-5">
+                                <td class="px-8 py-7">
                                     <p class="text-sm font-bold text-[--text-main] group-hover:text-white transition-colors">
                                         <?php if ($t['first_name']): ?>
                                             <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?>
@@ -663,7 +663,7 @@ $active_page = "sales";
                                         <?php endif; ?>
                                     </p>
                                 </td>
-                                <td class="px-8 py-5 text-center text-[11px] font-black text-[--text-main] italic">
+                                <td class="px-8 py-7 text-center text-[11px] font-black text-[--text-main]">
                                     <?php 
                                         $type = !empty($t['plan_name']) ? htmlspecialchars($t['plan_name']) . ' Membership' : 'N/A';
                                         if (strpos($t['reference_number'] ?? '', 'PAYB') === 0) {
@@ -672,13 +672,13 @@ $active_page = "sales";
                                         echo $type;
                                     ?>
                                 </td>
-                                <td class="px-8 py-5 text-center text-[11px] text-[--text-main]/40 font-bold">
+                                <td class="px-8 py-7 text-center text-[11px] text-[--text-main]/40 font-bold">
                                     <?= date('M d, Y', strtotime($t['created_at'])) ?>
                                 </td>
-                                <td class="px-8 py-5 text-center text-[11px] text-[--text-main]/60 font-black tracking-wider">
+                                <td class="px-8 py-7 text-center text-[11px] text-[--text-main]/60 font-black tracking-wider">
                                     <?= !empty($t['reference_number']) ? htmlspecialchars($t['reference_number']) : '#' . str_pad($t['payment_id'], 5, '0', STR_PAD_LEFT) ?>
                                 </td>
-                                <td class="px-8 py-5 text-right text-sm font-black text-primary" data-amount="<?= $t['amount'] ?>">
+                                <td class="px-8 py-7 text-right text-sm font-black text-primary" data-amount="<?= $t['amount'] ?>">
                                     ₱<?= number_format($t['amount'], 2) ?></td>
                             </tr>
                         <?php endforeach; ?>
@@ -730,11 +730,8 @@ $active_page = "sales";
             const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination):not(.hidden-search)'));
             const totalRows = rows.length;
 
-            if (totalRows <= rowsPerPage) {
-                footer.classList.add('hidden');
-            } else {
-                footer.classList.remove('hidden');
-            }
+            // Make sure the footer is always visible
+            footer.classList.remove('hidden');
 
             const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
             if (currentPage > totalPages) currentPage = totalPages;
@@ -839,7 +836,7 @@ $active_page = "sales";
                 emptyStateRow.id = 'search-empty-state-sales';
                 emptyStateRow.className = 'no-pagination';
                 const colCount = tbody.closest('table').querySelectorAll('thead th').length;
-                emptyStateRow.innerHTML = `<td colspan="${colCount}" class="px-8 py-8 text-center text-xs font-bold text-[--text-main]/40 italic">No records found matching your search.</td>`;
+                emptyStateRow.innerHTML = `<td colspan="${colCount}" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">No records found matching your search.</td>`;
                 tbody.appendChild(emptyStateRow);
             }
             emptyStateRow.style.display = '';
