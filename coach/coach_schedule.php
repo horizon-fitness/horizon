@@ -224,12 +224,33 @@ if ($coach_id > 0) {
             overflow: hidden;
         }
 
+        ::selection {
+            background: var(--primary);
+            color: white;
+        }
+        ::-moz-selection {
+            background: var(--primary);
+            color: white;
+        }
+
         .glass-card {
-            background: var(--card-bg);
             border: 1px solid rgba(255,255,255,0.05);
             border-radius: 24px;
-            backdrop-filter: blur(var(--card-blur));
             transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+            overflow: hidden;
+            isolation: isolate;
+            position: relative;
+        }
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--card-bg);
+            backdrop-filter: blur(var(--card-blur));
+            -webkit-backdrop-filter: blur(var(--card-blur));
+            z-index: -1;
+            border-radius: inherit;
+            pointer-events: none;
         }
 
         .side-nav {
@@ -332,22 +353,22 @@ if ($coach_id > 0) {
                 if (timeline) timeline.classList.add('is-day-off-view');
                 if (statusLabel) {
                     statusLabel.textContent = 'DAY OFF';
-                    statusLabel.className = 'px-5 py-2 bg-rose-500/10 text-rose-500 rounded-xl text-[8px] font-black uppercase tracking-widest border border-rose-500/10 animate-pulse';
+                    statusLabel.className = 'px-5 py-2 bg-rose-500/10 text-rose-500 rounded-xl text-[12px] font-black uppercase tracking-widest border border-rose-500/10 animate-pulse';
                 }
                 if (miniLabel) {
                     miniLabel.textContent = 'DAY OFF';
-                    miniLabel.className = 'text-[9px] font-black uppercase tracking-widest text-rose-500';
+                    miniLabel.className = 'text-xs font-black uppercase tracking-widest text-rose-500';
                 }
             } else {
                 card.classList.remove('is-off');
                 if (timeline) timeline.classList.remove('is-day-off-view');
                 if (statusLabel) {
                     statusLabel.textContent = 'WORKING DAY';
-                    statusLabel.className = 'px-5 py-2 bg-emerald-500/10 text-emerald-500 rounded-xl text-[8px] font-black uppercase tracking-widest border border-emerald-500/10';
+                    statusLabel.className = 'px-5 py-2 bg-emerald-500/10 text-emerald-500 rounded-xl text-[12px] font-black uppercase tracking-widest border border-emerald-500/10';
                 }
                 if (miniLabel) {
                     miniLabel.textContent = 'WORKING';
-                    miniLabel.className = 'text-[9px] font-black uppercase tracking-widest text-gray-500';
+                    miniLabel.className = 'text-xs font-black uppercase tracking-widest text-gray-500';
                 }
             }
         }
@@ -412,14 +433,14 @@ if ($coach_id > 0) {
             <div class="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-slide-up">
                 <!-- SETTINGS PANEL -->
                 <div class="xl:col-span-4">
-                    <div class="glass-card p-8 shadow-2xl">
+                    <div class="glass-card p-8 shadow-2xl relative overflow-hidden">
                         <div class="flex items-center gap-3 mb-8">
-                            <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                            <div class="size-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary shadow-inner">
                                 <span class="material-symbols-outlined text-xl">settings_suggest</span>
                             </div>
                             <div>
-                                <h3 class="text-xs font-black italic uppercase tracking-widest" style="color:var(--text-main)">Availability Settings</h3>
-                                <p class="label-muted" style="font-size: 8px;">Shift Parameters</p>
+                                <h3 class="text-lg font-black uppercase tracking-widest text-primary">Availability Settings</h3>
+                                <p class="label-muted" style="font-size: 10px;">Shift Parameters</p>
                             </div>
                         </div>
 
@@ -430,8 +451,8 @@ if ($coach_id > 0) {
                                 <div id="card-<?= $day ?>" class="day-card p-5 rounded-2xl <?= $off ? 'is-off' : '' ?>">
                                     <div class="flex justify-between items-center mb-5">
                                         <div class="flex flex-col">
-                                            <span class="font-black italic uppercase text-[11px] tracking-widest" style="color:var(--text-main)"><?= $day ?></span>
-                                            <p class="label-muted mt-0.5" style="font-size: 7px;" id="label-<?= $day ?>">
+                                            <span class="font-black italic uppercase text-sm tracking-widest" style="color:var(--text-main)"><?= $day ?></span>
+                                            <p class="label-muted mt-0.5 text-[10px]" id="label-<?= $day ?>">
                                                 <?= $off ? 'DAY OFF' : 'WORKING' ?>
                                             </p>
                                         </div>
@@ -444,26 +465,26 @@ if ($coach_id > 0) {
                                     <div class="shift-inputs space-y-4">
                                         <div class="grid grid-cols-2 gap-3">
                                             <div>
-                                                <p class="label-muted mb-2" style="font-size: 8px;">Shift 1 Start</p>
+                                                <p class="label-muted mb-2 text-xs">Shift 1 Start</p>
                                                 <input type="time" name="start_<?= $day ?>" value="<?= $avail_map[$day]['start_time'] ?>"
-                                                    class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-xs text-white outline-none focus:border-primary transition-all">
+                                                    class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-sm text-white outline-none focus:border-primary transition-all">
                                             </div>
                                             <div>
-                                                <p class="label-muted mb-2" style="font-size: 8px;">Shift 1 End</p>
+                                                <p class="label-muted mb-2 text-xs">Shift 1 End</p>
                                                 <input type="time" name="end_<?= $day ?>" value="<?= $avail_map[$day]['end_time'] ?>"
-                                                    class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-xs text-white outline-none focus:border-primary transition-all">
+                                                    class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-sm text-white outline-none focus:border-primary transition-all">
                                             </div>
                                         </div>
                                         <div class="grid grid-cols-2 gap-3">
                                             <div>
-                                                <p class="label-muted mb-2" style="font-size: 8px;">Shift 2 Start</p>
+                                                <p class="label-muted mb-2 text-xs">Shift 2 Start</p>
                                                 <input type="time" name="start2_<?= $day ?>" value="<?= $avail_map[$day]['start_time_2'] ?>"
-                                                    class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-xs text-white outline-none focus:border-primary transition-all">
+                                                    class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-sm text-white outline-none focus:border-primary transition-all">
                                             </div>
                                             <div>
-                                                <p class="label-muted mb-2" style="font-size: 8px;">Shift 2 End</p>
+                                                <p class="label-muted mb-2 text-xs">Shift 2 End</p>
                                                 <input type="time" name="end2_<?= $day ?>" value="<?= $avail_map[$day]['end_time_2'] ?>"
-                                                    class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-xs text-white outline-none focus:border-primary transition-all">
+                                                    class="w-full bg-white/[0.03] border border-white/5 rounded-xl p-2.5 text-sm text-white outline-none focus:border-primary transition-all">
                                             </div>
                                         </div>
                                     </div>
@@ -472,7 +493,7 @@ if ($coach_id > 0) {
 
                             <div class="pt-4">
                                 <button type="submit" name="save_availability"
-                                    class="w-full bg-primary hover:opacity-90 text-[white] py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-primary/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3">
+                                    class="w-full bg-primary hover:opacity-90 text-[white] py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-[0.98] flex items-center justify-center gap-3">
                                     <span class="material-symbols-outlined text-lg">save_as</span> Update Availability
                                 </button>
                             </div>
@@ -484,12 +505,12 @@ if ($coach_id > 0) {
                 <div class="xl:col-span-8">
                     <div class="glass-card p-10 flex flex-col h-full min-h-[800px] shadow-2xl relative overflow-hidden">
                         <div class="flex items-center gap-3 mb-8 border-b border-white/5 pb-8">
-                            <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                            <div class="size-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-primary shadow-inner">
                                 <span class="material-symbols-outlined text-xl">calendar_month</span>
                             </div>
                             <div>
-                                <h3 class="text-xs font-black italic uppercase tracking-widest" style="color:var(--text-main)">Daily Schedule View</h3>
-                                <p class="label-muted" style="font-size: 8px;">Coaching Timeline • Booked & Available Slots</p>
+                                <h3 class="text-lg font-black uppercase tracking-widest text-primary">Daily Schedule View</h3>
+                                <p class="label-muted" style="font-size: 10px;">Coaching Timeline • Booked & Available Slots</p>
                             </div>
                         </div>
 
@@ -497,7 +518,7 @@ if ($coach_id > 0) {
                             <?php foreach ($week_days as $day): ?>
                                 <button id="btn-<?= $day ?>" onclick="openTab('<?= $day ?>')"
                                     class="tab-btn px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all glass-card border-none">
-                                    <?= substr($day, 0, 3) ?>
+                                    <?= $day ?>
                                 </button>
                             <?php endforeach; ?>
                         </div>
@@ -513,12 +534,13 @@ if ($coach_id > 0) {
                                 $e2_ts = strtotime($loop_date . ' ' . ($day_data['end_time_2'] ?? '17:00'));
                                 ?>
                                 <div id="<?= $day_name ?>" class="tab-content transition-all">
-                                    <div class="flex justify-between items-center mb-8 pb-4">
-                                        <div>
-                                            <h4 class="text-xl font-black italic uppercase italic tracking-tighter" style="color:var(--text-main)"><?= $day_name ?></h4>
-                                            <p class="label-muted mt-1" style="font-size: 8px;"><?= date('F d, Y', strtotime($loop_date)) ?></p>
+                                    <div class="flex justify-between items-center mb-6">
+                                        <div class="flex items-center">
+                                            <h4 class="text-sm font-black uppercase tracking-widest" style="color:var(--text-main)">
+                                                <?= $day_name ?> <span class="opacity-30 mx-2">|</span> <span class="opacity-50"><?= date('F d, Y', strtotime($loop_date)) ?></span>
+                                            </h4>
                                         </div>
-                                        <span id="status-<?= $day_name ?>" class="<?= $is_off ? 'bg-rose-500/10 text-rose-500 border-rose-500/10 animate-pulse' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/10' ?> px-5 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest border">
+                                        <span id="status-<?= $day_name ?>" class="<?= $is_off ? 'bg-rose-500/10 text-rose-500 border-rose-500/10 animate-pulse' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/10' ?> px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border">
                                             <?= $is_off ? 'DAY OFF' : 'WORKING DAY' ?>
                                         </span>
                                     </div>
@@ -542,7 +564,7 @@ if ($coach_id > 0) {
                                                 $cls = $is_pending ? 'amber' : 'emerald';
                                             ?>
                                                 <div class="booked-slot-box flex items-center bg-<?= $cls ?>-500/10 border border-<?= $cls ?>-500/20 p-6 rounded-3xl group animate-slide-up">
-                                                    <div class="w-40 text-[10px] font-black italic text-<?= $cls ?>-500 border-r border-<?= $cls ?>-500/20 pr-6 mr-6 shrink-0">
+                                                    <div class="w-40 text-[12px] font-black italic text-<?= $cls ?>-500 border-r border-<?= $cls ?>-500/20 pr-6 mr-6 shrink-0">
                                                         <?= date('h:i A', $start_st) ?> - <?= date('h:i A', $slot_end) ?>
                                                     </div>
                                                     <div class="flex-1">
@@ -553,7 +575,7 @@ if ($coach_id > 0) {
                                                 </div>
                                             <?php elseif ($is_working): ?>
                                                 <div class="available-slot-box flex items-center bg-white/[0.02] border border-white/5 p-5 rounded-3xl hover:bg-emerald-500/5 hover:border-emerald-500/20 transition-all group animate-slide-up">
-                                                    <div class="w-40 text-[10px] font-black italic text-gray-500 group-hover:text-emerald-500 border-r border-white/10 pr-6 mr-6 shrink-0 transition-colors">
+                                                    <div class="w-40 text-[12px] font-black italic text-gray-500 group-hover:text-emerald-500 group-hover:border-emerald-500/20 border-r border-white/10 pr-6 mr-6 shrink-0 transition-colors">
                                                         <?= date('h:i A', $start_st) ?> - <?= date('h:i A', $slot_end) ?>
                                                     </div>
                                                     <div class="flex-1">
@@ -565,7 +587,7 @@ if ($coach_id > 0) {
                                             
                                             <!-- Blank Slot (Visible when off or non-working) -->
                                             <div class="blank-slot-row <?= ($is_off || (!$found_booking && !$is_working)) ? 'flex' : 'hidden' ?> items-center py-6 px-6 opacity-40 hover:opacity-60 transition-all group">
-                                                <div class="w-40 text-[10px] font-black italic text-gray-500 border-r border-white/10 pr-6 mr-6 shrink-0">
+                                                <div class="w-40 text-[12px] font-black italic text-gray-500 border-r border-white/10 pr-6 mr-6 shrink-0">
                                                     <?= date('h:i A', $start_st) ?> - <?= date('h:i A', $slot_end) ?>
                                                 </div>
                                                 <div class="h-px flex-1 bg-white/10"></div>
