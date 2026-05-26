@@ -663,8 +663,6 @@ $active_page = "settings";
             right: 0;
             bottom: 0;
             left: 110px;
-            background: rgba(10, 9, 13, 0.85);
-            backdrop-filter: blur(12px);
             z-index: 200;
             align-items: center;
             justify-content: center;
@@ -687,10 +685,10 @@ $active_page = "settings";
             left: 300px;
         }
 
-        #superadminModal .glass-card,
-        #superadminReviewModal .glass-card,
-        #confirmActionModal .glass-card,
-        #planViewModal .glass-card {
+        #superadminModal > div,
+        #superadminReviewModal > div,
+        #confirmActionModal > div,
+        #planViewModal > div {
             max-height: 80vh;
             display: flex;
             flex-direction: column;
@@ -741,6 +739,11 @@ $active_page = "settings";
             align-items: flex-start;
             line-height: 1.6;
             min-height: 100px;
+        }
+
+        .selected-option {
+            background-color: var(--primary) !important;
+            color: #ffffff !important;
         }
     </style>
     <script>
@@ -807,6 +810,13 @@ $active_page = "settings";
 
                 .tab-content.active {
                     display: block;
+                }
+
+                .table-header-alt {
+                    font-size: 10px;
+                    font-weight: 900;
+                    letter-spacing: 0.2em;
+                    opacity: 0.4;
                 }
             </style>
 
@@ -1051,10 +1061,17 @@ $active_page = "settings";
                                     <label
                                         class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Account
                                         Status</label>
-                                    <select name="default_status" class="input-field cursor-pointer">
-                                        <option value="Pending" <?= ($configs['default_status'] ?? '') === 'Pending' ? 'selected' : '' ?>>Pending Approval</option>
-                                        <option value="Active" <?= ($configs['default_status'] ?? '') === 'Active' ? 'selected' : '' ?>>Auto-Approved</option>
-                                    </select>
+                                    <div class="relative group custom-select-container mt-1">
+                                        <input type="hidden" name="default_status" value="<?= htmlspecialchars($configs['default_status'] ?? 'Pending') ?>">
+                                        <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                            <input type="text" readonly value="<?= ($configs['default_status'] ?? '') === 'Active' ? 'Auto-Approved' : 'Pending Approval' ?>" class="input-field w-full cursor-pointer pointer-events-none" autocomplete="off">
+                                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                        </div>
+                                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                            <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($configs['default_status'] ?? 'Pending') === 'Pending' ? 'selected-option' : 'text-white/60' ?>" data-value="Pending">Pending Approval</div>
+                                            <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($configs['default_status'] ?? '') === 'Active' ? 'selected-option' : 'text-white/60' ?>" data-value="Active">Auto-Approved</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -1108,7 +1125,64 @@ $active_page = "settings";
                     </div>
 
                     <!-- Active Plans Container -->
-                    <div id="activePlansContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <div id="activePlansContainer" class="block">
+                        <div id="activePlansTableWrapper" class="flex flex-col relative z-50">
+                            <!-- Filter Bar for Active Plans -->
+                            <div id="activeFilterBar" class="px-8 py-6 border-b border-white/5 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01] mb-8 rounded-t-3xl rounded-b-xl border border-white/10 glass-card relative z-[60]">
+                            <div class="relative flex-1 group custom-select-container">
+                                <div class="relative custom-select-trigger bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all focus-within:border-primary/50">
+                                    <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110">search</span>
+                                    <input type="text" id="activePlanSearch" placeholder="Search by plan name..." oninput="filterActivePlans()" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest placeholder:text-white/40 pl-11 pr-4 focus:outline-none focus:ring-0 h-full">
+                                </div>
+                            </div>
+                            
+                            <div class="w-full lg:w-fit flex items-center gap-2">
+                                <div class="relative group custom-select-container w-full lg:w-72">
+                                    <input type="hidden" id="activeIDSort" value="none" onchange="filterActivePlans('id')">
+                                    <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="Sort by Date" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pointer-events-none pl-11 pr-10 focus:outline-none focus:ring-0 h-full" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all selected-option" data-value="none">Sort by Date</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="newest">Newest to Oldest</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="oldest">Oldest to Newest</div>
+                                    </div>
+                                </div>
+
+                                <div class="relative group custom-select-container w-full lg:w-72">
+                                    <input type="hidden" id="activePriceSort" value="none" onchange="filterActivePlans('price')">
+                                    <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="Sort by Price" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pointer-events-none pl-11 pr-10 focus:outline-none focus:ring-0 h-full" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all selected-option" data-value="none">Sort by Price</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="price_low">Price (Lowest to Highest)</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="price_high">Price (Highest to Lowest)</div>
+                                    </div>
+                                </div>
+
+                                <button type="button" onclick="resetActiveFilters()"
+                                    class="size-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all group active:scale-95 shrink-0"
+                                    title="Reset Filters">
+                                    <span class="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform duration-500">restart_alt</span>
+                                </button>
+
+                                <div class="h-8 w-px bg-white/10 mx-1 hidden lg:block"></div>
+
+                                <div class="flex bg-[#141216] border border-white/10 p-1 rounded-xl shadow-2xl h-[44px] shrink-0 items-center gap-1 w-full lg:w-auto">
+                                    <button type="button" id="activeViewGridBtn" onclick="setActiveView('grid')" class="flex-1 lg:size-9 rounded-lg bg-primary text-white flex items-center justify-center transition-all h-full" title="Grid View">
+                                        <span class="material-symbols-outlined text-sm">grid_view</span>
+                                    </button>
+                                    <button type="button" id="activeViewTableBtn" onclick="setActiveView('table')" class="flex-1 lg:size-9 rounded-lg text-white/40 hover:bg-white/5 hover:text-white flex items-center justify-center transition-all h-full" title="Table View">
+                                        <span class="material-symbols-outlined text-sm">table_rows</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="activePlansGridContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         <?php if (empty($active_website_plans)): ?>
                             <div class="col-span-full py-20 text-center opacity-30 animate-in fade-in duration-500">
                                 <span class="text-[10px] font-black uppercase tracking-[0.2em]">No active website plans
@@ -1117,7 +1191,7 @@ $active_page = "settings";
                         <?php else: ?>
                             <?php foreach ($active_website_plans as $plan): ?>
                                 <div class="glass-card p-8 flex flex-col gap-6 relative group/plan transition-all duration-300"
-                                    id="plan-card-<?= $plan['website_plan_id'] ?>" data-id="<?= $plan['website_plan_id'] ?>">
+                                    id="plan-card-<?= $plan['website_plan_id'] ?>" data-id="<?= $plan['website_plan_id'] ?>" data-price="<?= $plan['price'] ?>" data-name="<?= htmlspecialchars(strtolower($plan['plan_name'])) ?>">
                                     <!-- Drag Handle -->
                                     <div class="absolute top-2 right-1/2 translate-x-1/2 opacity-0 group-hover/plan:opacity-30 hover:!opacity-100 transition-all cursor-grab active:cursor-grabbing drag-handle py-1 px-4 rounded-full bg-white/5 active:bg-primary/20"
                                         title="Drag to reorder">
@@ -1257,112 +1331,169 @@ $active_page = "settings";
                                 </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
+                        </div> <!-- end activePlansGridContainer -->
+                        
+                        <!-- Active Plans Table Container -->
+                        <div id="activePlansTableContainer" class="hidden overflow-hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                            <th class="px-8 py-5 opacity-40 w-16 text-center">Order</th>
+                                            <th class="px-8 py-5 opacity-40">Plan Name</th>
+                                            <th class="px-8 py-5 opacity-40 text-center">Price (₱)</th>
+                                            <th class="px-8 py-5 opacity-40 text-center">Duration</th>
+                                            <th class="px-8 py-5 opacity-40 text-center">Billing Cycle</th>
+                                            <th class="px-8 py-5 opacity-40 text-center">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-white/5" id="activePlansTableBody">
+                                        <tr class="no-results-row <?= empty($active_website_plans) ? '' : 'hidden' ?> animate-in fade-in duration-500 no-pagination">
+                                            <td colspan="6" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20 no-results-text">
+                                                <?= empty($active_website_plans) ? 'No active plans found.' : 'No matching active plans found.' ?>
+                                            </td>
+                                        </tr>
+                                        <?php if (!empty($active_website_plans)): ?>
+                                            <?php foreach ($active_website_plans as $plan): ?>
+                                                <tr class="hover:bg-white/5 transition-all group/row active-plan-row"
+                                                    data-id="<?= $plan['website_plan_id'] ?>" data-price="<?= $plan['price'] ?>"
+                                                    data-name="<?= htmlspecialchars(strtolower($plan['plan_name'])) ?>">
+                                                    <td class="px-8 py-5">
+                                                        <div class="opacity-30 group-hover/row:opacity-100 transition-all cursor-grab active:cursor-grabbing text-center drag-handle" title="Drag to reorder">
+                                                            <span class="material-symbols-outlined text-sm">drag_handle</span>
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-8 py-5">
+                                                        <span class="text-[12px] font-black italic uppercase text-white plan-name-text"><?= htmlspecialchars($plan['plan_name']) ?></span>
+                                                    </td>
+                                                    <td class="px-8 py-5 text-center">
+                                                        <span class="text-[12px] font-black text-white">₱<?= number_format($plan['price']) ?></span>
+                                                    </td>
+                                                    <td class="px-8 py-5 text-center">
+                                                        <span class="text-[11px] font-black text-gray-400 uppercase"><?= $plan['duration_months'] ?> Months</span>
+                                                    </td>
+                                                    <td class="px-8 py-5 text-center">
+                                                        <span class="text-[11px] font-black text-primary uppercase bg-primary/10 px-2 py-1 rounded-md"><?= htmlspecialchars($plan['billing_cycle']) ?></span>
+                                                    </td>
+                                                    <td class="px-8 py-5">
+                                                        <div class="flex items-center justify-center gap-2">
+                                                            <button type="button" onclick='viewPlanDetails(<?= htmlspecialchars(json_encode($plan), ENT_QUOTES, "UTF-8") ?>)' class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-primary transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="View Details">
+                                                                <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
+                                                            </button>
+                                                            <button type="button" onclick="toggleEditPlan(<?= $plan['website_plan_id'] ?>); setActiveView('grid');" class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-amber-500 hover:border-amber-500/20 transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="Edit Plan">
+                                                                <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">edit</span>
+                                                            </button>
+                                                            <button type="button" onclick="markPlanForArchival(<?= $plan['website_plan_id'] ?>)" class="size-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center active:scale-95 shadow-lg" title="Archive Plan">
+                                                                <span class="material-symbols-outlined text-sm">archive</span>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        </div> <!-- end activePlansTableWrapper -->
                     </div>
 
                     <!-- Archived Plans Container -->
-                    <div id="archivedPlansContainer" class="hidden overflow-hidden glass-card">
+                    <div id="archivedPlansContainer" class="hidden glass-card overflow-visible">
                         <!-- Filter Bar Guide (Inspired by system_reports.php) -->
                         <div
-                            class="px-8 py-6 border-b border-white/5 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01]">
-                            <div class="relative flex-1">
-                                <span
-                                    class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
-                                <input type="text" id="archivedPlanSearch" placeholder="Search by plan name..."
-                                    oninput="filterArchivedPlans()" class="input-field w-full pl-12 !min-h-[44px]">
+                            class="px-8 py-6 border-b border-white/5 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01] relative z-50">
+                            <div class="relative flex-1 group custom-select-container">
+                                <div class="relative custom-select-trigger bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all focus-within:border-primary/50">
+                                    <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110">search</span>
+                                    <input type="text" id="archivedPlanSearch" placeholder="Search by plan name..." oninput="filterArchivedPlans()" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest placeholder:text-white/40 pl-11 pr-4 focus:outline-none focus:ring-0 h-full">
+                                </div>
                             </div>
                             <div class="w-full lg:w-fit flex items-center gap-2">
-                                <select id="archivedIDSort" onchange="filterArchivedPlans('id')"
-                                    class="input-field w-full lg:w-72 !min-h-[44px] cursor-pointer">
-                                    <option value="newest">Newest to Oldest</option>
-                                    <option value="oldest">Oldest to Newest</option>
-                                </select>
+                                <div class="relative group custom-select-container w-full lg:w-72">
+                                    <input type="hidden" id="archivedIDSort" value="none" onchange="filterArchivedPlans('id')">
+                                    <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="Sort by Date" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pointer-events-none pl-11 pr-10 focus:outline-none focus:ring-0 h-full" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all selected-option" data-value="none">Sort by Date</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="newest">Newest to Oldest</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="oldest">Oldest to Newest</div>
+                                    </div>
+                                </div>
 
-                                <select id="archivedPriceSort" onchange="filterArchivedPlans('price')"
-                                    class="input-field w-full lg:w-72 !min-h-[44px] cursor-pointer">
-                                    <option value="none">Sort by Price</option>
-                                    <option value="price_low">Price (Lowest to Highest)</option>
-                                    <option value="price_high">Price (Highest to Lowest)</option>
-                                </select>
+                                <div class="relative group custom-select-container w-full lg:w-72">
+                                    <input type="hidden" id="archivedPriceSort" value="none" onchange="filterArchivedPlans('price')">
+                                    <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="Sort by Price" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pointer-events-none pl-11 pr-10 focus:outline-none focus:ring-0 h-full" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all selected-option" data-value="none">Sort by Price</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="price_low">Price (Lowest to Highest)</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="price_high">Price (Highest to Lowest)</div>
+                                    </div>
+                                </div>
 
                                 <button type="button" onclick="resetArchivedFilters()"
-                                    class="size-[44px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white transition-all group active:scale-95"
+                                    class="size-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all group active:scale-95 shrink-0"
                                     title="Reset Filters">
-                                    <span
-                                        class="material-symbols-outlined text-sm group-hover:rotate-180 transition-transform duration-500">restart_alt</span>
+                                    <span class="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform duration-500">restart_alt</span>
                                 </button>
                             </div>
                         </div>
 
-                        <div class="overflow-x-auto">
+                        <div class="overflow-x-auto relative z-40">
                             <table class="w-full text-left border-collapse">
                                 <thead>
-                                    <tr class="border-b border-white/5 bg-white/[0.02]">
-                                        <th
-                                            class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500/80">
-                                            Plan Name</th>
-                                        <th
-                                            class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500/80 text-center">
-                                            Price (₱)</th>
-                                        <th
-                                            class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500/80 text-center">
-                                            Duration</th>
-                                        <th
-                                            class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500/80 text-center">
-                                            Billing Cycle</th>
-                                        <th
-                                            class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500/80 text-center">
-                                            Actions</th>
+                                    <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                        <th class="px-8 py-5 opacity-40">Plan Name</th>
+                                        <th class="px-8 py-5 opacity-40 text-center">Price (₱)</th>
+                                        <th class="px-8 py-5 opacity-40 text-center">Duration</th>
+                                        <th class="px-8 py-5 opacity-40 text-center">Billing Cycle</th>
+                                        <th class="px-8 py-5 opacity-40 text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-white/5" id="archivedPlansTableBody">
                                     <tr
-                                        class="no-results-row <?= empty($archived_website_plans) ? '' : 'hidden' ?> animate-in fade-in duration-500">
-                                        <td colspan="5" class="px-8 py-10 text-center opacity-30">
-                                            <span
-                                                class="text-[10px] font-black uppercase tracking-[0.2em] no-results-text">
-                                                <?= empty($archived_website_plans) ? 'No archived plans found' : 'No matching archived plans found' ?>
-                                            </span>
+                                        class="no-results-row <?= empty($archived_website_plans) ? '' : 'hidden' ?> animate-in fade-in duration-500 no-pagination">
+                                        <td colspan="5" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20 no-results-text">
+                                            <?= empty($archived_website_plans) ? 'No archived plans found.' : 'No matching archived plans found.' ?>
                                         </td>
                                     </tr>
                                     <?php if (!empty($archived_website_plans)): ?>
                                         <?php foreach ($archived_website_plans as $plan): ?>
-                                            <tr class="hover:bg-white/[0.02] transition-colors group"
+                                            <tr class="hover:bg-white/5 transition-all group"
                                                 data-id="<?= $plan['website_plan_id'] ?>" data-price="<?= $plan['price'] ?>"
                                                 data-name="<?= htmlspecialchars(strtolower($plan['plan_name'])) ?>">
-                                                <td class="px-8 py-4">
+                                                <td class="px-8 py-5">
                                                     <div class="flex flex-col">
                                                         <span
                                                             class="text-[12px] font-black italic uppercase text-white plan-name-text"><?= htmlspecialchars($plan['plan_name']) ?></span>
                                                     </div>
                                                 </td>
-                                                <td class="px-8 py-4 text-center">
+                                                <td class="px-8 py-5 text-center">
                                                     <span
                                                         class="text-[12px] font-black text-white">₱<?= number_format($plan['price']) ?></span>
                                                 </td>
-                                                <td class="px-8 py-4 text-center">
+                                                <td class="px-8 py-5 text-center">
                                                     <span
                                                         class="text-[11px] font-black text-gray-400 uppercase"><?= $plan['duration_months'] ?>
                                                         Months</span>
                                                 </td>
-                                                <td class="px-8 py-4 text-center">
+                                                <td class="px-8 py-5 text-center">
                                                     <span
                                                         class="text-[10px] font-black text-gray-500 uppercase tracking-widest plan-billing-text"
                                                         data-billing="<?= htmlspecialchars($plan['billing_cycle']) ?>"><?= htmlspecialchars($plan['billing_cycle']) ?></span>
                                                 </td>
-                                                <td class="px-8 py-4 text-center">
+                                                <td class="px-8 py-5 text-center">
                                                     <div class="flex items-center justify-center gap-2">
-                                                        <button type="button"
-                                                            onclick="viewPlanDetails(<?= htmlspecialchars(json_encode($plan)) ?>)"
-                                                            class="size-8 rounded-lg bg-white/5 text-[--highlight] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center active:scale-95"
-                                                            title="View Details">
-                                                            <span class="material-symbols-outlined text-sm">visibility</span>
+                                                        <button type="button" onclick='viewPlanDetails(<?= htmlspecialchars(json_encode($plan), ENT_QUOTES, "UTF-8") ?>)' class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-primary transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="View Details">
+                                                            <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
                                                         </button>
-                                                        <button type="button"
-                                                            onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)"
-                                                            class="size-8 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center active:scale-95"
-                                                            title="Restore Plan">
-                                                            <span
-                                                                class="material-symbols-outlined text-sm">settings_backup_restore</span>
+                                                        <button type="button" onclick="unarchivePlan(<?= $plan['website_plan_id'] ?>)" class="size-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all flex items-center justify-center active:scale-95 shadow-lg" title="Restore Plan">
+                                                            <span class="material-symbols-outlined text-sm">settings_backup_restore</span>
                                                         </button>
                                                     </div>
                                                 </td>
@@ -1381,122 +1512,103 @@ $active_page = "settings";
     </div>
 
     <!-- START OF MODALS -->
-    <div id="superadminModal" class="modal-overlay" onclick="if(event.target === this) toggleSuperadminModal(false)">
-        <div class="glass-card w-full max-w-xl p-0 relative overflow-hidden backdrop-blur-2xl">
+    <div id="superadminModal" class="modal-overlay p-4 bg-background/40 backdrop-blur-xl transition-all duration-300" onclick="if(event.target === this) toggleSuperadminModal(false)">
+        <div class="bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] w-full max-w-lg p-0 relative overflow-hidden backdrop-blur-2xl">
             <button onclick="toggleSuperadminModal(false)"
                 class="absolute top-8 right-8 size-10 rounded-xl bg-white/5 flex items-center justify-center text-[--secondary] hover:text-white transition-all z-20 hover:scale-110 active:scale-95">
                 <span class="material-symbols-outlined text-xl">close</span>
             </button>
 
             <div class="modal-content-scroll p-8">
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="size-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                        <span class="material-symbols-outlined text-[--highlight] text-2xl">person_add</span>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-black italic uppercase tracking-tighter">New <span
-                                class="text-primary">Superadmin</span></h3>
-                        <p class="text-[10px] text-[--secondary] opacity-70 font-bold uppercase tracking-widest">Give
-                            admin access to
-                            the system</p>
+                <div class="flex items-center gap-3 mb-8">
+                    <span class="material-symbols-outlined text-primary text-2xl">person_add</span>
+                    <div class="flex flex-col justify-center">
+                        <h3 class="text-xl font-black italic uppercase tracking-tighter text-primary leading-none">NEW SUPERADMIN</h3>
+                        <p class="text-[9px] font-black uppercase tracking-[0.15em] text-gray-400 mt-1 leading-none">Give admin access to the system</p>
                     </div>
                 </div>
 
                 <form action="" method="POST" id="superadminCreationForm" enctype="multipart/form-data">
                     <input type="hidden" name="add_superadmin" value="1">
                     
-                    <!-- Profile Picture Upload -->
-                    <div class="flex justify-center mb-8">
-                        <div class="relative group">
-                            <label for="profile_picture_input" class="cursor-pointer block relative group">
-                                <div class="size-28 rounded-[38px] bg-primary/5 border-2 border-dashed border-primary/20 flex items-center justify-center overflow-hidden hover:border-primary/50 transition-all shadow-2xl relative">
-                                    <img id="profilePreviewImg" src="" class="size-full object-cover hidden">
-                                    <div id="profilePlaceholder" class="flex flex-col items-center gap-1.5 opacity-40">
-                                        <span class="material-symbols-outlined text-4xl text-[--highlight]">account_circle</span>
-                                        <span class="text-[9px] font-black uppercase tracking-widest italic">Set Photo</span>
-                                    </div>
-                                    <!-- Hover Overlay -->
-                                    <div class="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-                                        <span class="material-symbols-outlined text-white text-2xl">add_a_photo</span>
+                    <div class="space-y-10">
+                        <!-- Identity Group -->
+                        <section class="space-y-6">
+                            <!-- Identity Details Divider -->
+                            <div class="flex items-center gap-4 text-white/40 mb-6">
+                                <span class="material-symbols-outlined text-lg text-gray-500">badge</span>
+                                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 whitespace-nowrap">IDENTITY DETAILS</span>
+                                <div class="flex-1 h-px bg-white/5"></div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-x-8 gap-y-6">
+                                <div class="space-y-2.5">
+                                    <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">First Name <span class="text-rose-500 ml-1">*</span></label>
+                                    <input type="text" name="new_first_name" id="new_first_name" required class="input-field w-full" placeholder="Ex. John">
+                                </div>
+                                <div class="space-y-2.5">
+                                    <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Middle Name</label>
+                                    <input type="text" name="new_middle_name" id="new_middle_name" class="input-field w-full" placeholder="Ex. Quincey">
+                                </div>
+                                <div class="space-y-2.5">
+                                    <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Last Name <span class="text-rose-500 ml-1">*</span></label>
+                                    <input type="text" name="new_last_name" id="new_last_name" required class="input-field w-full" placeholder="Ex. Doe">
+                                </div>
+                                <div class="space-y-2.5">
+                                    <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Sex <span class="text-rose-500 ml-1">*</span></label>
+                                    <div class="relative group custom-select-container">
+                                        <input type="hidden" name="new_sex" id="new_sex" value="Male" required>
+                                        <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                            <input type="text" readonly value="Male" class="input-field w-full cursor-pointer pointer-events-none" autocomplete="off">
+                                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                        </div>
+                                        <div class="absolute left-0 right-0 top-full mt-2 z-[200] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                            <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all selected-option" data-value="Male">Male</div>
+                                            <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="Female">Female</div>
+                                        </div>
                                     </div>
                                 </div>
-                            </label>
-                            <input type="file" name="profile_picture" id="profile_picture_input" class="hidden" accept="image/*" onchange="previewImage(this, 'profilePreviewImg', 'profilePlaceholder')">
-                        </div>
-                    </div>
+                                <div class="space-y-2.5">
+                                    <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Birthdate <span class="text-rose-500 ml-1">*</span></label>
+                                    <input type="date" name="new_birth_date" id="new_birth_date" required class="input-field w-full" max="<?= date('Y-m-d', strtotime('-18 years')) ?>">
+                                </div>
+                                <div class="space-y-2.5">
+                                    <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Contact No. <span class="text-rose-500 ml-1">*</span></label>
+                                    <input type="text" name="new_contact_number" id="new_contact_number" required class="input-field w-full" placeholder="09XX-XXX-XXXX" oninput="formatContactNumber(this)">
+                                    <p class="text-[9px] font-[800] uppercase tracking-widest text-primary/70 ml-1 mt-1">STARTS WITH 09 AUTOMATICALLY</p>
+                                </div>
+                            </div>
+                        </section>
 
-                    <div class="space-y-5">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">First
-                                    Name <span class="text-rose-500 ml-1">*</span></label>
-                                <input type="text" name="new_first_name" id="new_first_name" required
-                                    class="input-field" placeholder="John">
+                        <!-- Account & Role Group -->
+                        <section class="space-y-6">
+                            <!-- Account & Role Divider -->
+                            <div class="flex items-center gap-4 text-white/40 mb-6">
+                                <span class="material-symbols-outlined text-lg text-gray-500">shield_person</span>
+                                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 whitespace-nowrap">ACCOUNT & ROLE</span>
+                                <div class="flex-1 h-px bg-white/5"></div>
                             </div>
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Middle
-                                    Name</label>
-                                <input type="text" name="new_middle_name" id="new_middle_name" class="input-field"
-                                    placeholder="Optional">
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Last
-                                    Name <span class="text-rose-500 ml-1">*</span></label>
-                                <input type="text" name="new_last_name" id="new_last_name" required class="input-field"
-                                    placeholder="Doe">
-                            </div>
-                        </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Email
-                                    Address <span class="text-rose-500 ml-1">*</span></label>
-                                <input type="email" name="new_email" id="new_email" required class="input-field"
-                                    placeholder="example@gmail.com" autocomplete="off">
+                            <div class="grid grid-cols-2 gap-x-8 gap-y-6">
+                                <div class="space-y-2.5 col-span-2">
+                                    <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Email Address (Gmail Only) <span class="text-rose-500 ml-1">*</span></label>
+                                    <input type="email" name="new_email" id="new_email" required class="input-field w-full" placeholder="official@gmail.com" autocomplete="off">
+                                </div>
                             </div>
-                            <div class="flex flex-col gap-1">
-                                <label
-                                    class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Contact
-                                    Number <span class="text-rose-500 ml-1">*</span></label>
-                                <input type="text" name="new_contact_number" id="new_contact_number" required
-                                    class="input-field" placeholder="09XX-XXX-XXXX" oninput="formatContactNumber(this)">
-                            </div>
-                        </div>
+                        </section>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Birth
-                                    Date <span class="text-rose-500 ml-1">*</span></label>
-                                <input type="date" name="new_birth_date" id="new_birth_date" required
-                                    class="input-field" max="<?= date('Y-m-d', strtotime('-18 years')) ?>">
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Sex
-                                    <span class="text-rose-500 ml-1">*</span></label>
-                                <select name="new_sex" id="new_sex" required class="input-field cursor-pointer">
-                                    <option value="">Select Sex</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="p-8 rounded-3xl bg-primary/5 border border-primary/10 space-y-4 mt-4">
-                            <h4
-                                class="text-[12px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
-                                <span class="material-symbols-outlined text-base">mail</span>
-                                Password Protocol
+                        <div class="p-6 rounded-2xl bg-white/[0.02] border-l-2 border-white/40 flex flex-col gap-3 mb-6">
+                            <h4 class="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                                <span class="material-symbols-outlined text-sm">mail</span>
+                                PASSWORD PROTOCOL
                             </h4>
-                            <p class="text-[13px] text-gray-400 font-medium leading-relaxed">
-                                For security, the account <span class="text-primary font-bold">username and password</span> will be automatically generated and securely delivered
-                                to the recipient's email address upon confirmation.
+                            <p class="text-[11px] text-gray-400 font-medium leading-relaxed">
+                                For security, the account <span class="text-primary font-bold">username and password</span> will be automatically generated and securely delivered to the recipient's email address upon confirmation.
                             </p>
                         </div>
 
-                        <div class="flex justify-end pt-6">
-                            <button type="button" onclick="validateSuperadminForm(event)"
-                                class="w-full py-4 rounded-xl bg-primary text-[--tab-active-text] text-[11px] font-black tracking-tight hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95">Create
-                                Account</button>
+                        <div class="flex justify-end pt-2">
+                            <button type="button" onclick="validateSuperadminForm(event)" class="w-full py-4 rounded-xl bg-primary text-[--tab-active-text] text-[11px] font-black tracking-tight hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95">Create Account</button>
                         </div>
                     </div>
                 </form>
@@ -1505,8 +1617,8 @@ $active_page = "settings";
     </div>
 
     <!-- Review Confirmation Modal -->
-    <div id="superadminReviewModal" class="modal-overlay" onclick="if(event.target === this) toggleReviewModal(false)">
-        <div class="glass-card w-full max-w-md p-0 relative overflow-hidden backdrop-blur-2xl">
+    <div id="superadminReviewModal" class="modal-overlay p-4 bg-background/40 backdrop-blur-xl transition-all duration-300" onclick="if(event.target === this) toggleReviewModal(false)">
+        <div class="bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] w-full max-w-md p-0 relative overflow-hidden backdrop-blur-2xl">
             <div class="p-8 pb-4">
                 <div class="flex items-center gap-4 mb-2">
                     <div class="size-12 rounded-2xl bg-amber-500/10 flex items-center justify-center">
@@ -1540,8 +1652,8 @@ $active_page = "settings";
     </div>
 
     <!-- Configuration Modal -->
-    <div id="confirmActionModal" class="modal-overlay" onclick="if(event.target === this) toggleActionModal(false)">
-        <div class="glass-card w-full max-w-md p-10 relative text-center">
+    <div id="confirmActionModal" class="modal-overlay p-4 bg-background/40 backdrop-blur-xl transition-all duration-300" onclick="if(event.target === this) toggleActionModal(false)">
+        <div class="bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] w-full max-w-md p-10 relative text-center">
             <div class="size-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
                 <span id="confirmIcon" class="material-symbols-outlined text-[--highlight] text-3xl">warning</span>
             </div>
@@ -1562,8 +1674,8 @@ $active_page = "settings";
     </div>
 
     <!-- Plan Details View Modal -->
-    <div id="planViewModal" class="modal-overlay" onclick="if(event.target === this) togglePlanViewModal(false)">
-        <div class="glass-card w-full max-w-2xl p-10 relative animate-in fade-in zoom-in duration-300">
+    <div id="planViewModal" class="modal-overlay p-4 bg-background/40 backdrop-blur-xl transition-all duration-300" onclick="if(event.target === this) togglePlanViewModal(false)">
+        <div class="bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] w-full max-w-lg p-10 relative animate-in fade-in zoom-in duration-300">
             <button type="button" onclick="togglePlanViewModal(false)"
                 class="absolute top-6 right-6 size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-rose-500 hover:text-white transition-all z-10 group">
                 <span class="material-symbols-outlined text-lg group-hover:rotate-90 transition-transform">close</span>
@@ -1894,15 +2006,7 @@ $active_page = "settings";
                 // Only paginate items that match the filters
                 const items = Array.from(this.container.querySelectorAll(`${this.itemSelector}:not(.filtered-out):not(.no-results-row)`));
                 const totalItems = items.length;
-                const totalPages = Math.ceil(totalItems / this.pageSize);
-
-                // If fewer items than page size, hide existing pagination and show all valid items
-                if (totalItems <= this.pageSize) {
-                    items.forEach(item => item.classList.remove('hidden'));
-                    const existing = document.getElementById(this.paginationContainerId);
-                    if (existing) existing.remove();
-                    return;
-                }
+                const totalPages = Math.max(1, Math.ceil(totalItems / this.pageSize));
 
                 // Show only current page items
                 const start = (this.currentPage - 1) * this.pageSize;
@@ -1926,35 +2030,58 @@ $active_page = "settings";
                 if (!controls) {
                     controls = document.createElement('div');
                     controls.id = this.paginationContainerId;
-                    controls.className = 'flex flex-col md:flex-row items-center justify-between gap-6 mt-12 p-6 glass-card border border-white/5 backdrop-blur-3xl';
-                    this.container.after(controls);
+                }
+                
+                let targetWrapper;
+                const isHidden = controls.classList.contains('hidden');
+                
+                if (this.container.id === 'activePlansGridContainer') {
+                    targetWrapper = document.getElementById('activePlansGridContainer');
+                } else if (this.container.tagName === 'TBODY') {
+                    targetWrapper = this.container.closest('.glass-card');
+                    if (!targetWrapper && this.container.id === 'activePlansTableBody') {
+                        targetWrapper = document.getElementById('activePlansContainer');
+                    }
+                }
+                
+                if (this.container.id === 'activePlansGridContainer') {
+                    controls.className = 'col-span-full px-8 py-5 flex justify-between items-center w-full glass-card mt-8 rounded-2xl';
+                } else {
+                    controls.className = 'px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center w-full';
+                }
+                
+                if (isHidden) controls.classList.add('hidden');
+                
+                if (targetWrapper) {
+                    targetWrapper.appendChild(controls);
+                } else {
+                    this.container.appendChild(controls);
                 }
 
                 const end = Math.min(endReached, totalItems);
 
                 controls.innerHTML = `
-                    <div class="flex flex-col gap-1">
-                        <span class="text-[11px] font-black uppercase text-gray-500 tracking-widest">Navigation Status</span>
-                        <p class="text-[12px] font-black uppercase tracking-tight text-white">
-                            Showing <span class="text-primary">${start + 1}</span> to <span class="text-primary">${end}</span> of <span class="opacity-50">${totalItems} entries</span>
-                        </p>
+                    <div class="flex items-center">
+                        <span class="text-[10px] font-black uppercase text-gray-500 tracking-widest">
+                            Showing ${totalItems === 0 ? 0 : start + 1} to ${end} of ${totalItems} entries
+                        </span>
                     </div>
                     
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-6">
                         <button type="button" onclick="horizonPaginators['${this.container.id}'].setPage(${this.currentPage - 1})" 
                             ${this.currentPage === 1 ? 'disabled' : ''}
-                            class="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white disabled:opacity-20 disabled:cursor-not-allowed hover:bg-primary hover:text-black transition-all group">
-                            <span class="material-symbols-outlined text-base group-hover:scale-110 transition-transform">chevron_left</span>
+                            class="text-[10px] font-black uppercase tracking-widest text-[--secondary] disabled:opacity-30 disabled:cursor-not-allowed hover:text-white transition-all">
+                            PREV
                         </button>
                         
-                        <div class="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/5 rounded-2xl">
+                        <div class="flex items-center gap-2">
                             ${this.renderPageNumbers(totalPages)}
                         </div>
                         
                         <button type="button" onclick="horizonPaginators['${this.container.id}'].setPage(${this.currentPage + 1})" 
                             ${this.currentPage === totalPages ? 'disabled' : ''}
-                            class="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white disabled:opacity-20 disabled:cursor-not-allowed hover:bg-primary hover:text-black transition-all group">
-                            <span class="material-symbols-outlined text-base group-hover:scale-110 transition-transform">chevron_right</span>
+                            class="text-[10px] font-black uppercase tracking-widest text-[--secondary] disabled:opacity-30 disabled:cursor-not-allowed hover:text-white transition-all">
+                            NEXT
                         </button>
                     </div>
                 `;
@@ -1966,7 +2093,7 @@ $active_page = "settings";
                     const isActive = i === this.currentPage;
                     html += `
                         <button type="button" onclick="horizonPaginators['${this.container.id}'].setPage(${i})"
-                            class="size-8 rounded-lg text-[12px] font-black uppercase tracking-widest transition-all ${isActive ? 'bg-primary text-[--tab-active-text]' : 'text-gray-500 hover:text-white'}">
+                            class="size-8 rounded-lg text-[11px] font-black tracking-widest transition-all ${isActive ? 'bg-primary text-[--tab-active-text]' : 'text-gray-500 hover:text-white'}">
                             ${i}
                         </button>
                     `;
@@ -1986,15 +2113,25 @@ $active_page = "settings";
 
         function initPagination() {
             // Paginate Active Plans Grid (6 per page)
-            const activeGrid = document.getElementById('activePlansContainer');
+            const activeGrid = document.getElementById('activePlansGridContainer');
             if (activeGrid) {
-                horizonPaginators['activePlansContainer'] = new ElitePaginator('activePlansContainer', 6, '.glass-card');
+                horizonPaginators['activePlansGridContainer'] = new ElitePaginator('activePlansGridContainer', 6, '.glass-card');
+            }
+            
+            // Paginate Active Table (10 per page)
+            const activeTable = document.getElementById('activePlansTableBody');
+            if (activeTable) {
+                horizonPaginators['activePlansTableBody'] = new ElitePaginator('activePlansTableBody', 10, 'tr:not(.no-pagination)');
+                const tablePaginator = document.getElementById('pagination-activePlansTableBody');
+                if (tablePaginator) {
+                    tablePaginator.classList.add('hidden');
+                }
             }
 
             // Paginate Archived Table (10 per page)
             const archivedTable = document.getElementById('archivedPlansTableBody');
             if (archivedTable) {
-                horizonPaginators['archivedPlansTableBody'] = new ElitePaginator('archivedPlansTableBody', 10, 'tr');
+                horizonPaginators['archivedPlansTableBody'] = new ElitePaginator('archivedPlansTableBody', 10, 'tr:not(.no-pagination)');
             }
         }
 
@@ -2099,13 +2236,13 @@ $active_page = "settings";
             const isAutoCardInput = document.getElementById('auto_card_theme_input');
             const cardColorInput = document.getElementById('card_color_input');
 
-            if (!themeInput || !secondaryInput || !textColorInput || !bgInput || !tabActiveTextInput) return;
+            if (!themeInput || !secondaryInput || !textColorInput || !bgInput) return;
 
             root.style.setProperty('--primary', themeInput.value);
             root.style.setProperty('--highlight', secondaryInput.value);
             root.style.setProperty('--text-main', textColorInput.value);
             root.style.setProperty('--background', bgInput.value);
-            root.style.setProperty('--tab-active-text', tabActiveTextInput.value);
+            if (tabActiveTextInput) root.style.setProperty('--tab-active-text', tabActiveTextInput.value);
 
             const sidebarName = document.getElementById('sidebarSystemName');
             if (sidebarName && nameInput) sidebarName.textContent = nameInput.value;
@@ -2151,7 +2288,7 @@ $active_page = "settings";
             if (secondaryHex) secondaryHex.innerText = secondaryInput.value.toUpperCase();
             if (textHex) textHex.innerText = textColorInput.value.toUpperCase();
             if (bgHex) bgHex.innerText = bgInput.value.toUpperCase();
-            if (tabActiveTextHex) tabActiveTextHex.innerText = tabActiveTextInput.value.toUpperCase();
+            if (tabActiveTextHex && tabActiveTextInput) tabActiveTextHex.innerText = tabActiveTextInput.value.toUpperCase();
         }
         // --- Initialization & Lifecycle ---
         document.addEventListener('DOMContentLoaded', () => {
@@ -2192,7 +2329,8 @@ $active_page = "settings";
                     document.getElementById('theme_color_input').value = '#8c2bee';
                     document.getElementById('secondary_color_input').value = '#a1a1aa';
                     document.getElementById('text_color_input').value = '#d1d5db';
-                    document.getElementById('tab_active_text_input').value = '#ffffff';
+                    const tabInput = document.getElementById('tab_active_text_input');
+                    if (tabInput) tabInput.value = '#ffffff';
                     document.getElementById('bg_color_input').value = '#0a090d';
 
                     const isAutoInput = document.getElementById('auto_card_theme_input');
@@ -2388,10 +2526,30 @@ $active_page = "settings";
             togglePlanViewModal(true);
         }
 
+        function setCustomDropdownValue(inputId, value) {
+            const hiddenInput = document.getElementById(inputId);
+            if (!hiddenInput) return;
+            hiddenInput.value = value;
+            const container = hiddenInput.closest('.custom-select-container');
+            if (container) {
+                const option = container.querySelector(`.custom-option[data-value="${value}"]`);
+                if (option) {
+                    const visibleInput = container.querySelector('.custom-select-trigger input');
+                    visibleInput.value = option.textContent.trim();
+                    container.querySelectorAll('.custom-option').forEach(opt => {
+                        opt.classList.remove('selected-option');
+                        opt.classList.add('text-white/60');
+                    });
+                    option.classList.remove('text-white/60');
+                    option.classList.add('selected-option');
+                }
+            }
+        }
+
         function resetArchivedFilters() {
             document.getElementById('archivedPlanSearch').value = '';
-            document.getElementById('archivedIDSort').value = 'newest';
-            document.getElementById('archivedPriceSort').value = 'none';
+            setCustomDropdownValue('archivedIDSort', 'newest');
+            setCustomDropdownValue('archivedPriceSort', 'none');
             filterArchivedPlans();
         }
 
@@ -2400,14 +2558,16 @@ $active_page = "settings";
             const idSort = document.getElementById('archivedIDSort');
             const priceSort = document.getElementById('archivedPriceSort');
 
-            // Sync logic: If one is used, the other resets to its neutral state to avoid conflict
-            if (source === 'id') {
-                priceSort.value = 'none';
+            // Sync logic: If one is used, the other resets to its neutral state
+            if (source === 'id' && idSort.value !== 'none') {
+                setCustomDropdownValue('archivedPriceSort', 'none');
             } else if (source === 'price' && priceSort.value !== 'none') {
-                // No specific neutral state for ID, but we know price takes priority now
+                setCustomDropdownValue('archivedIDSort', 'none');
             }
 
-            let sortValue = priceSort.value !== 'none' ? priceSort.value : idSort.value;
+            let sortValue = 'newest'; // default fallback
+            if (priceSort.value !== 'none') sortValue = priceSort.value;
+            else if (idSort.value !== 'none') sortValue = idSort.value;
 
             const tbody = document.getElementById('archivedPlansTableBody');
             const rows = Array.from(tbody.querySelectorAll('tr:not(.no-results-row)'));
@@ -2449,16 +2609,18 @@ $active_page = "settings";
             });
 
             // Handle "No Results" row
-            const noResultsRow = document.querySelector('.no-results-row');
+            const noResultsRow = tbody.querySelector('.no-results-row');
             const noResultsText = noResultsRow.querySelector('.no-results-text');
 
-            if (visibleCount === 0) {
-                noResultsRow.classList.remove('hidden');
-                noResultsText.innerText = (query === '')
-                    ? 'No archived plans found'
-                    : 'No matching archived plans found';
-            } else {
-                noResultsRow.classList.add('hidden');
+            if (noResultsRow && noResultsText) {
+                if (visibleCount === 0) {
+                    noResultsRow.classList.remove('hidden');
+                    noResultsText.innerText = (query === '')
+                        ? 'No archived plans found.'
+                        : 'No matching archived plans found.';
+                } else {
+                    noResultsRow.classList.add('hidden');
+                }
             }
 
             // Sync with pagination engine
@@ -2468,19 +2630,27 @@ $active_page = "settings";
             }
         }
         // Initialize Sortable for Plans
-        const activePlansContainer = document.getElementById('activePlansContainer');
-        if (activePlansContainer) {
-            new Sortable(activePlansContainer, {
-                animation: 150,
-                handle: '.drag-handle',
-                ghostClass: 'opacity-20',
-                chosenClass: 'scale-95',
-                dragClass: 'opacity-100',
-                onEnd: function () {
-                    const order = Array.from(activePlansContainer.children).map(child => child.getAttribute('data-id'));
-                    savePlanOrder(order);
-                }
-            });
+        const sortableOptions = {
+            animation: 150,
+            handle: '.drag-handle',
+            ghostClass: 'opacity-20',
+            chosenClass: 'scale-95',
+            dragClass: 'opacity-100',
+            onEnd: function (evt) {
+                const container = evt.to;
+                const order = Array.from(container.querySelectorAll('tr:not(.no-results-row), .glass-card')).map(child => child.getAttribute('data-id')).filter(id => id);
+                savePlanOrder(order);
+            }
+        };
+
+        const activePlansGridContainer = document.getElementById('activePlansGridContainer');
+        if (activePlansGridContainer) {
+            new Sortable(activePlansGridContainer, sortableOptions);
+        }
+
+        const activePlansTableBody = document.getElementById('activePlansTableBody');
+        if (activePlansTableBody) {
+            new Sortable(activePlansTableBody, sortableOptions);
         }
 
         async function savePlanOrder(order) {
@@ -2518,6 +2688,204 @@ $active_page = "settings";
                     }
                 }
                 reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // Custom Select Logic
+        function toggleCustomDropdown(trigger, event) {
+            event.stopPropagation();
+            const dropdown = trigger.nextElementSibling;
+            
+            document.querySelectorAll('.custom-select-dropdown').forEach(d => {
+                if (d !== dropdown) d.classList.add('hidden');
+            });
+            
+            dropdown.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            // Close dropdowns when clicking outside
+            if (!e.target.closest('.custom-select-container')) {
+                document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.add('hidden'));
+            }
+
+            // Handle Option Selection
+            if (e.target.closest('.custom-option')) {
+                const option = e.target.closest('.custom-option');
+                const container = option.closest('.custom-select-container');
+                const hiddenInput = container.querySelector('input[type="hidden"]');
+                const visibleInput = container.querySelector('.custom-select-trigger input');
+                
+                hiddenInput.value = option.dataset.value;
+                visibleInput.value = option.textContent.trim();
+                
+                // Update selected state
+                container.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.classList.remove('selected-option');
+                    opt.classList.add('text-white/60');
+                });
+                
+                option.classList.remove('text-white/60');
+                option.classList.add('selected-option');
+                
+                container.querySelector('.custom-select-dropdown').classList.add('hidden');
+                
+                // Dispatch change event
+                hiddenInput.dispatchEvent(new Event('change'));
+            }
+        });
+
+        function setActiveView(view) {
+            const gridContainer = document.getElementById('activePlansGridContainer');
+            const tableContainer = document.getElementById('activePlansTableContainer');
+            const gridBtn = document.getElementById('activeViewGridBtn');
+            const tableBtn = document.getElementById('activeViewTableBtn');
+            const tableWrapper = document.getElementById('activePlansTableWrapper');
+            const filterBar = document.getElementById('activeFilterBar');
+            
+            if (view === 'grid') {
+                document.getElementById('activePlansContainer').classList.remove('glass-card');
+                
+                gridContainer.classList.remove('hidden');
+                gridContainer.classList.add('grid');
+                tableContainer.classList.add('hidden');
+                
+                tableWrapper.className = 'flex flex-col relative z-50';
+                filterBar.className = 'px-8 py-6 border-b border-white/5 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01] mb-8 rounded-t-3xl rounded-b-xl border border-white/10 glass-card relative z-[60]';
+                
+                gridBtn.className = 'flex-1 lg:size-9 rounded-lg bg-primary text-white flex items-center justify-center transition-all h-full';
+                tableBtn.className = 'flex-1 lg:size-9 rounded-lg text-white/40 hover:bg-white/5 hover:text-white flex items-center justify-center transition-all h-full';
+                
+                const activePaginator = document.getElementById('pagination-activePlansGridContainer');
+                if (activePaginator) {
+                    activePaginator.className = 'col-span-full px-8 py-5 flex justify-between items-center w-full glass-card mt-8 rounded-2xl';
+                    activePaginator.classList.remove('hidden');
+                }
+                
+                const activeTablePaginator = document.getElementById('pagination-activePlansTableBody');
+                if (activeTablePaginator) {
+                    activeTablePaginator.classList.add('hidden');
+                }
+            } else {
+                document.getElementById('activePlansContainer').classList.add('glass-card');
+                
+                gridContainer.classList.add('hidden');
+                gridContainer.classList.remove('grid');
+                tableContainer.classList.remove('hidden');
+                
+                tableWrapper.className = 'flex flex-col relative z-50';
+                filterBar.className = 'px-8 py-6 border-b border-white/5 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01] relative z-[60]';
+                
+                tableBtn.className = 'flex-1 lg:size-9 rounded-lg bg-primary text-white flex items-center justify-center transition-all h-full';
+                gridBtn.className = 'flex-1 lg:size-9 rounded-lg text-white/40 hover:bg-white/5 hover:text-white flex items-center justify-center transition-all h-full';
+                
+                const activePaginator = document.getElementById('pagination-activePlansGridContainer');
+                if (activePaginator) {
+                    activePaginator.classList.add('hidden');
+                }
+                
+                const activeTablePaginator = document.getElementById('pagination-activePlansTableBody');
+                if (activeTablePaginator) {
+                    activeTablePaginator.className = 'px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center w-full';
+                    activeTablePaginator.classList.remove('hidden');
+                }
+            }
+        }
+
+        function resetActiveFilters() {
+            document.getElementById('activePlanSearch').value = '';
+            setCustomDropdownValue('activeIDSort', 'newest');
+            setCustomDropdownValue('activePriceSort', 'none');
+            filterActivePlans();
+        }
+
+        function filterActivePlans(source = 'all') {
+            const query = document.getElementById('activePlanSearch').value.toLowerCase();
+            const idSort = document.getElementById('activeIDSort');
+            const priceSort = document.getElementById('activePriceSort');
+
+            if (source === 'id' && idSort.value !== 'none') {
+                setCustomDropdownValue('activePriceSort', 'none');
+            } else if (source === 'price' && priceSort.value !== 'none') {
+                setCustomDropdownValue('activeIDSort', 'none');
+            }
+
+            let sortValue = 'newest'; // default fallback
+            if (priceSort.value !== 'none') sortValue = priceSort.value;
+            else if (idSort.value !== 'none') sortValue = idSort.value;
+
+            // Apply to Grid
+            const gridContainer = document.getElementById('activePlansGridContainer');
+            const gridCards = Array.from(gridContainer.querySelectorAll('.glass-card'));
+            
+            // Apply to Table
+            const tbody = document.getElementById('activePlansTableBody');
+            const tableRows = Array.from(tbody.querySelectorAll('tr:not(.no-results-row)'));
+
+            const sorter = (a, b) => {
+                const idA = parseInt(a.getAttribute('data-id'));
+                const idB = parseInt(b.getAttribute('data-id'));
+                const priceA = parseFloat(a.getAttribute('data-price') || a.querySelector('input[name*="[price]"]').value);
+                const priceB = parseFloat(b.getAttribute('data-price') || b.querySelector('input[name*="[price]"]').value);
+
+                switch (sortValue) {
+                    case 'newest': return idB - idA;
+                    case 'oldest': return idA - idB;
+                    case 'price_low': return priceA - priceB;
+                    case 'price_high': return priceB - priceA;
+                    default: return idB - idA;
+                }
+            };
+
+            gridCards.sort(sorter);
+            tableRows.sort(sorter);
+
+            gridCards.forEach(card => gridContainer.appendChild(card));
+            tableRows.forEach(row => tbody.appendChild(row));
+
+            let visibleCount = 0;
+            const filterItem = (item, nameSelector) => {
+                let name = item.getAttribute('data-name');
+                if (!name) {
+                    name = item.querySelector(nameSelector).innerText.toLowerCase();
+                }
+                
+                if (name.includes(query)) {
+                    item.classList.remove('filtered-out');
+                    visibleCount++;
+                } else {
+                    item.classList.add('filtered-out');
+                }
+            };
+
+            gridCards.forEach(card => filterItem(card, '.plan-title-preview'));
+            
+            visibleCount = 0; // reset for table
+            tableRows.forEach(row => filterItem(row, '.plan-name-text'));
+
+            // No results handling for Grid
+            // Assuming no grid specific 'no results' row currently exists, but table has one
+            const tableNoResults = tbody.querySelector('.no-results-row');
+            if (tableNoResults) {
+                const noResultsText = tableNoResults.querySelector('.no-results-text');
+                if (visibleCount === 0) {
+                    tableNoResults.classList.remove('hidden');
+                    if (noResultsText) {
+                        noResultsText.innerText = 'No matching active plans found.';
+                    }
+                } else {
+                    tableNoResults.classList.add('hidden');
+                }
+            }
+            
+            // Sync with pagination engines
+            if (horizonPaginators['activePlansGridContainer']) {
+                horizonPaginators['activePlansGridContainer'].currentPage = 1;
+                horizonPaginators['activePlansGridContainer'].update();
+            }
+            if (horizonPaginators['activePlansTableBody']) {
+                horizonPaginators['activePlansTableBody'].currentPage = 1;
+                horizonPaginators['activePlansTableBody'].update();
             }
         }
     </script>
