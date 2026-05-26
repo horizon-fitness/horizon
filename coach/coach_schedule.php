@@ -188,7 +188,6 @@ if ($coach_id > 0) {
     }
 }
 
-
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -634,11 +633,11 @@ if ($coach_id > 0) {
                                                             <span><?= date('h:i A', $slot_end) ?></span>
                                                         </div>
                                                         <div class="flex-1 overflow-hidden">
-                                                            <div class="relative h-[14px] mb-0.5 overflow-hidden">
-                                                                <p class="text-[8px] font-black text-<?= $cls ?>-500/60 uppercase tracking-widest absolute inset-0 transition-transform duration-300 group-hover:-translate-y-full"><?= strtoupper($found_booking['status']) ?> • <?= strtoupper($found_booking['service']) ?></p>
-                                                                <p class="text-[9px] font-black uppercase tracking-[0.2em] text-<?= $cls ?>-500 absolute inset-0 translate-y-full transition-transform duration-300 group-hover:translate-y-0">View Details &rarr;</p>
+                                                            <div class="relative h-[18px] mb-0.5 overflow-hidden">
+                                                                <p class="text-[11px] font-black text-<?= $cls ?>-500/80 uppercase tracking-widest absolute inset-0 transition-transform duration-300 group-hover:-translate-y-full"><?= strtoupper($found_booking['status']) ?> • <?= strtoupper($found_booking['service']) ?></p>
+                                                                <p class="text-[11px] font-black uppercase tracking-[0.2em] text-<?= $cls ?>-500 absolute inset-0 translate-y-full transition-transform duration-300 group-hover:translate-y-0">View Details &rarr;</p>
                                                             </div>
-                                                            <h5 class="text-xs font-black italic uppercase tracking-tight text-white truncate"><?= htmlspecialchars($found_booking['fullname']) ?></h5>
+                                                            <h5 class="text-sm font-black italic tracking-tight text-zinc-200 truncate"><?= htmlspecialchars($found_booking['fullname']) ?></h5>
                                                         </div>
                                                         <span class="material-symbols-outlined text-<?= $cls ?>-500 group-hover:scale-110 transition-transform"><?= $is_pending ? 'timer' : 'verified' ?></span>
                                                     </div>
@@ -691,11 +690,11 @@ if ($coach_id > 0) {
                                                             <span><?= date('h:i A', $slot_end) ?></span>
                                                         </div>
                                                         <div class="flex-1 overflow-hidden">
-                                                            <div class="relative h-[14px] mb-0.5 overflow-hidden">
-                                                                <p class="text-[8px] font-black text-<?= $cls ?>-500/60 uppercase tracking-widest absolute inset-0 transition-transform duration-300 group-hover:-translate-y-full"><?= strtoupper($found_booking['status']) ?> • <?= strtoupper($found_booking['service']) ?></p>
-                                                                <p class="text-[9px] font-black uppercase tracking-[0.2em] text-<?= $cls ?>-500 absolute inset-0 translate-y-full transition-transform duration-300 group-hover:translate-y-0">View Details &rarr;</p>
+                                                            <div class="relative h-[18px] mb-0.5 overflow-hidden">
+                                                                <p class="text-[11px] font-black text-<?= $cls ?>-500/80 uppercase tracking-widest absolute inset-0 transition-transform duration-300 group-hover:-translate-y-full"><?= strtoupper($found_booking['status']) ?> • <?= strtoupper($found_booking['service']) ?></p>
+                                                                <p class="text-[11px] font-black uppercase tracking-[0.2em] text-<?= $cls ?>-500 absolute inset-0 translate-y-full transition-transform duration-300 group-hover:translate-y-0">View Details &rarr;</p>
                                                             </div>
-                                                            <h5 class="text-xs font-black italic uppercase tracking-tight text-white truncate"><?= htmlspecialchars($found_booking['fullname']) ?></h5>
+                                                            <h5 class="text-sm font-black italic tracking-tight text-zinc-200 truncate"><?= htmlspecialchars($found_booking['fullname']) ?></h5>
                                                         </div>
                                                         <span class="material-symbols-outlined text-<?= $cls ?>-500 group-hover:scale-110 transition-transform"><?= $is_pending ? 'timer' : 'verified' ?></span>
                                                     </div>
@@ -729,7 +728,7 @@ if ($coach_id > 0) {
                 </div>
 
                 <div id="main-tab-monthly" class="main-tab-content w-full flex-1 animate-slide-up" style="display: none;">
-                    <div class="flex flex-col xl:flex-row gap-10 items-start h-full">
+                    <div class="flex flex-col xl:flex-row gap-10 items-start h-full w-full max-w-[1300px]">
                         <!-- Left Side: Title and Controls -->
                         <div class="w-full xl:w-48 shrink-0 flex flex-col justify-center xl:sticky top-10 xl:mt-32">
                             <h2 id="monthly-title" class="text-[32px] font-black uppercase tracking-tighter leading-tight mb-6">
@@ -772,29 +771,7 @@ if ($coach_id > 0) {
                     let currentCalMonth = new Date().getMonth(); // 0-11
                     const allBookingsJson = <?= json_encode($all_bookings) ?>;
 
-                    function generateMockBookings(year, month) {
-                        const mocks = [];
-                        const daysInMonth = new Date(year, month + 1, 0).getDate();
-                        for (let i = 1; i <= 10; i++) {
-                            const mockDay = Math.floor(Math.random() * daysInMonth) + 1;
-                            const ts_start = new Date(year, month, mockDay, 10, 0, 0).getTime() / 1000;
-                            const ts_end = new Date(year, month, mockDay, 11, 0, 0).getTime() / 1000;
-                            
-                            mocks.push({
-                                booking_id: 9000 + i,
-                                fullname: 'Test User ' + i,
-                                email: 'test' + i + '@example.com',
-                                number: '0912-345-6789',
-                                service: 'Mock Session',
-                                status: Math.random() > 0.5 ? 'Approved' : 'Pending',
-                                ts_start: ts_start,
-                                ts_end: ts_end,
-                                date_str: new Date(ts_start * 1000).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}),
-                                time_str: '10:00 AM - 11:00 AM'
-                            });
-                        }
-                        return mocks;
-                    }
+                    // Mock bookings generator removed to only show actual bookings
 
                     function changeMonth(offset) {
                         currentCalMonth += offset;
@@ -850,8 +827,7 @@ if ($coach_id > 0) {
                             grid.innerHTML += `<div class='min-h-[140px] p-3 border-r border-b border-white/5 bg-black/20'></div>`;
                         }
                         
-                        const mockBookings = generateMockBookings(year, month);
-                        const combinedBookings = allBookingsJson.concat(mockBookings);
+                        const combinedBookings = allBookingsJson;
                         
                         const today = new Date();
                         const isCurrentMonthYear = today.getFullYear() === year && today.getMonth() === month;
@@ -1102,12 +1078,12 @@ if ($coach_id > 0) {
                         </div>
                         <div class='flex items-center gap-4 mt-2'>
                             <div class='flex items-center gap-1.5 text-gray-400'>
-                                <span class='material-symbols-outlined text-[14px]'>schedule</span>
-                                <span class='text-[10px] font-bold tracking-wider'>${formatTimeAMPM(b.ts_start)} - ${formatTimeAMPM(b.ts_end)}</span>
+                                <span class='material-symbols-outlined text-[16px]'>schedule</span>
+                                <span class='text-xs font-bold tracking-wider'>${formatTimeAMPM(b.ts_start)} - ${formatTimeAMPM(b.ts_end)}</span>
                             </div>
                             <div class='flex items-center gap-1.5 text-gray-400'>
-                                <span class='material-symbols-outlined text-[14px]'>fitness_center</span>
-                                <span class='text-[10px] font-bold tracking-wider truncate max-w-[120px]'>${escapeHtml(b.service)}</span>
+                                <span class='material-symbols-outlined text-[16px]'>fitness_center</span>
+                                <span class='text-xs font-bold tracking-wider truncate max-w-[120px]'>${escapeHtml(b.service)}</span>
                             </div>
                         </div>
                     </div>
