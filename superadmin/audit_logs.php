@@ -215,6 +215,30 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
             color: white;
         }
 
+        .dropbox-dropdown-overlay {
+            background-color: var(--background);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.8);
+            z-index: 100;
+            padding: 8px;
+        }
+        
+        .dropbox-option {
+            transition: all 0.2s;
+            cursor: pointer;
+            border-radius: 8px;
+            color: rgba(255,255,255,0.7);
+        }
+        .dropbox-option:hover {
+            background: rgba(255,255,255,0.05);
+            color: white;
+        }
+        .dropbox-option.selected {
+            background-color: var(--primary);
+            color: white;
+        }
+
         .glass-card {
             background: var(--card-bg);
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -529,17 +553,30 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     t.name.toLowerCase().includes(filter.toLowerCase())
                 );
                 
-                list.innerHTML = filtered.map(t => `
-                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${currentFilter == t.id ? 'selected' : 'text-white/60'}" 
+                let html = '';
+                if ("all tenants".includes(filter.toLowerCase())) {
+                    html += `<div class="dropbox-option px-4 py-3 text-[10px] font-black uppercase tracking-wider ${currentFilter == 'all' ? 'selected' : ''}" data-id="all" data-name="All Tenants">All Tenants</div>`;
+                }
+
+                html += filtered.map(t => `
+                    <div class="dropbox-option px-4 py-3 text-[10px] font-black uppercase tracking-wider ${currentFilter == t.id ? 'selected' : ''}" 
                          data-id="${t.id}" data-name="${t.name}">
                         ${t.name}
                     </div>
-                `).join('') || `<div class="px-4 py-3 text-[9px] text-white/20 italic uppercase font-black">No tenant found...</div>`;
+                `).join('');
+
+                list.innerHTML = html || `<div class="px-4 py-3 text-[9px] text-white/20 italic uppercase font-black">No tenant found...</div>`;
             }
 
             input.addEventListener('focus', () => {
+                // Close Action Type dropdown if open
+                const ad = document.getElementById('actionTypeDropdown');
+                const ai = document.getElementById('actionTypeIcon');
+                if(ad) ad.classList.add('hidden');
+                if(ai) ai.classList.remove('rotate-180');
+
                 dropdown.classList.remove('hidden');
-                renderOptions(input.value === 'All Tenants' ? '' : input.value);
+                renderOptions(''); // Always show all options when opened
             });
 
             input.addEventListener('input', (e) => {
@@ -547,14 +584,8 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 renderOptions(e.target.value);
             });
 
-            document.addEventListener('click', (e) => {
-                if (!container.contains(e.target)) {
-                    dropdown.classList.add('hidden');
-                }
-            });
-
             container.addEventListener('click', (e) => {
-                const option = e.target.closest('.tenant-option');
+                const option = e.target.closest('.dropbox-option');
                 if (option) {
                     const id = option.dataset.id;
                     const name = option.dataset.name || "All Tenants";
@@ -563,14 +594,78 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     input.value = name;
                     dropdown.classList.add('hidden');
                     
-                    reactiveFilter(); // Trigger AJAX update
+                    reactiveFilter(); // Trigger AJAX
+                } else if (e.target !== input) {
+                    // Focus the input if user clicks the arrow or padding
+                    input.focus();
                 }
             });
         }
 
         document.addEventListener('DOMContentLoaded', () => {
             initSearchableDropdown('tenantSearchContainer', 'tenantSearchInput', 'tenantDropdown', 'tenantOptionsList', 'hidden_tenant_id', currentTenantFilter);
+            initDropboxDropdown('actionTypeContainer', 'actionTypeTrigger', 'actionTypeDropdown', 'hidden_action_type', 'actionTypeDisplay', 'actionTypeIcon');
+            
+            // Centralized global click listener to close dropdowns when clicking outside
+            document.addEventListener('click', (e) => {
+                const tenantContainer = document.getElementById('tenantSearchContainer');
+                const actionContainer = document.getElementById('actionTypeContainer');
+                
+                if (tenantContainer && !tenantContainer.contains(e.target)) {
+                    const td = document.getElementById('tenantDropdown');
+                    if(td) td.classList.add('hidden');
+                }
+                if (actionContainer && !actionContainer.contains(e.target)) {
+                    const ad = document.getElementById('actionTypeDropdown');
+                    const ai = document.getElementById('actionTypeIcon');
+                    if(ad) ad.classList.add('hidden');
+                    if(ai) ai.classList.remove('rotate-180');
+                }
+            });
         });
+
+        function initDropboxDropdown(containerId, triggerId, dropdownId, hiddenInputId, displayId, iconId) {
+            const container = document.getElementById(containerId);
+            const trigger = document.getElementById(triggerId);
+            const dropdown = document.getElementById(dropdownId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+            const display = document.getElementById(displayId);
+            const icon = document.getElementById(iconId);
+
+            if (!container || !trigger || !dropdown || !hiddenInput || !display) return;
+
+            trigger.addEventListener('click', () => {
+                const isHidden = dropdown.classList.contains('hidden');
+                
+                // Close Tenant dropdown if open
+                const td = document.getElementById('tenantDropdown');
+                if(td) td.classList.add('hidden');
+
+                if (isHidden) {
+                    dropdown.classList.remove('hidden');
+                    icon.classList.add('rotate-180');
+                } else {
+                    dropdown.classList.add('hidden');
+                    icon.classList.remove('rotate-180');
+                }
+            });
+
+            const options = dropdown.querySelectorAll('.dropbox-option');
+            options.forEach(opt => {
+                opt.addEventListener('click', () => {
+                    options.forEach(o => o.classList.remove('selected'));
+                    opt.classList.add('selected');
+                    
+                    hiddenInput.value = opt.dataset.value;
+                    display.value = opt.textContent.trim();
+                    
+                    dropdown.classList.add('hidden');
+                    icon.classList.remove('rotate-180');
+                    
+                    reactiveFilter(); // Trigger AJAX
+                });
+            });
+        }
 
         function changePage(page) {
             const form = document.getElementById('auditFilterForm');
@@ -591,6 +686,12 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     const newTable = doc.getElementById('auditTableContainer');
                     if (newTable) {
                         document.getElementById('auditTableContainer').innerHTML = newTable.innerHTML;
+                        
+                        // Re-initialize custom dropdowns after AJAX replaces the DOM elements
+                        const newTenantId = document.getElementById('hidden_tenant_id') ? document.getElementById('hidden_tenant_id').value : currentTenantFilter;
+                        initSearchableDropdown('tenantSearchContainer', 'tenantSearchInput', 'tenantDropdown', 'tenantOptionsList', 'hidden_tenant_id', newTenantId);
+                        initDropboxDropdown('actionTypeContainer', 'actionTypeTrigger', 'actionTypeDropdown', 'hidden_action_type', 'actionTypeDisplay', 'actionTypeIcon');
+
                         // Re-initialize Elite Pagination after AJAX update
                         initElitePagination('auditLogTable', 10);
                     }
@@ -789,9 +890,9 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </div>
 
                             <!-- Dropdown Overlay -->
-                            <div id="tenantDropdown" class="absolute left-0 right-0 top-full z-[100] rounded-b-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
-                                <div class="p-1.5 space-y-0.5" id="tenantOptionsList">
-                                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $tenant_filter === 'all' ? 'selected' : 'text-white/60' ?>" data-id="all" data-name="All Tenants">
+                            <div id="tenantDropdown" class="absolute left-0 right-0 top-[calc(100%+8px)] dropbox-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                <div class="flex flex-col gap-1" id="tenantOptionsList">
+                                    <div class="dropbox-option px-4 py-3 text-[10px] font-black uppercase tracking-wider <?= $tenant_filter === 'all' ? 'selected' : '' ?>" data-id="all" data-name="All Tenants">
                                         All Tenants
                                     </div>
                                     <!-- Filtered tenants injected here -->
@@ -799,17 +900,29 @@ $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
                             </div>
                         </div>
 
-                        <!-- Action Type selector -->
-                        <div class="w-[200px] relative group shrink-0">
-                            <select name="action_type" onchange="reactiveFilter()" class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
-                                <option value="all" <?= $action_filter == 'all' ? 'selected' : '' ?>>All Activities</option>
-                                <option value="Login" <?= $action_filter == 'Login' ? 'selected' : '' ?>>Login / Logout</option>
-                                <option value="Applicant" <?= $action_filter == 'Applicant' ? 'selected' : '' ?>>Applicants & Tenants</option>
-                                <option value="Transaction" <?= $action_filter == 'Transaction' ? 'selected' : '' ?>>New Transactions</option>
-                                <option value="Create" <?= $action_filter == 'Create' ? 'selected' : '' ?>>Create Actions</option>
-                                <option value="Update" <?= $action_filter == 'Update' ? 'selected' : '' ?>>Update Actions</option>
-                            </select>
-                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none">expand_more</span>
+                        <!-- Action Type selector (Dropbox look) -->
+                        <div class="w-[230px] relative group shrink-0" id="actionTypeContainer">
+                            <input type="hidden" name="action_type" id="hidden_action_type" value="<?= htmlspecialchars($action_filter) ?>">
+                            
+                            <div class="relative cursor-pointer" id="actionTypeTrigger">
+                                <input type="text" id="actionTypeDisplay" 
+                                       readonly
+                                       value="<?= $action_filter == 'all' ? 'All Activities' : ($action_filter == 'Login' ? 'Login / Logout' : ($action_filter == 'Applicant' ? 'Applicants & Tenants' : ($action_filter == 'Transaction' ? 'New Transactions' : ($action_filter == 'Create' ? 'Create Actions' : 'Update Actions')))) ?>"
+                                       class="w-full h-[48px] bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] cursor-pointer hover:border-white/20 transition-all focus:border-primary/50">
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-40 text-sm pointer-events-none transition-transform duration-300" id="actionTypeIcon">expand_more</span>
+                            </div>
+
+                            <!-- Dropdown Overlay -->
+                            <div id="actionTypeDropdown" class="absolute left-0 right-0 top-[calc(100%+8px)] dropbox-dropdown-overlay hidden">
+                                <div class="flex flex-col gap-1">
+                                    <div class="dropbox-option px-4 py-3 text-[10px] font-black uppercase tracking-wider <?= $action_filter == 'all' ? 'selected' : '' ?>" data-value="all">All Activities</div>
+                                    <div class="dropbox-option px-4 py-3 text-[10px] font-black uppercase tracking-wider <?= $action_filter == 'Login' ? 'selected' : '' ?>" data-value="Login">Login / Logout</div>
+                                    <div class="dropbox-option px-4 py-3 text-[10px] font-black uppercase tracking-wider <?= $action_filter == 'Applicant' ? 'selected' : '' ?>" data-value="Applicant">Applicants & Tenants</div>
+                                    <div class="dropbox-option px-4 py-3 text-[10px] font-black uppercase tracking-wider <?= $action_filter == 'Transaction' ? 'selected' : '' ?>" data-value="Transaction">New Transactions</div>
+                                    <div class="dropbox-option px-4 py-3 text-[10px] font-black uppercase tracking-wider <?= $action_filter == 'Create' ? 'selected' : '' ?>" data-value="Create">Create Actions</div>
+                                    <div class="dropbox-option px-4 py-3 text-[10px] font-black uppercase tracking-wider <?= $action_filter == 'Update' ? 'selected' : '' ?>" data-value="Update">Update Actions</div>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Search -->
