@@ -1175,7 +1175,12 @@ $pending_apps = $stmtPending->fetchAll();
                 
                 dropdown.classList.add('hidden');
                 
-                container.closest('form').submit();
+                const form = container.closest('form');
+                if (form && form.method.toUpperCase() === 'GET') {
+                    form.submit();
+                } else if (hiddenInput.name === 'role') {
+                    if (typeof handleRoleChange === 'function') handleRoleChange();
+                }
             }
 
             const tenantOption = e.target.closest('.tenant-option');
@@ -1777,7 +1782,7 @@ $pending_apps = $stmtPending->fetchAll();
                         </div>
                         <div class="grid grid-cols-2 gap-x-8 gap-y-6">
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">FIRST NAME</label>
+                                <label class="label-muted ml-1">FIRST NAME <span class="text-red-500">*</span></label>
                                 <input type="text" name="first_name" required placeholder="Ex. John"
                                     class="filter-input w-full" autocomplete="off">
                             </div>
@@ -1787,26 +1792,33 @@ $pending_apps = $stmtPending->fetchAll();
                                     class="filter-input w-full" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">LAST NAME</label>
+                                <label class="label-muted ml-1">LAST NAME <span class="text-red-500">*</span></label>
                                 <input type="text" name="last_name" required placeholder="Ex. Doe"
                                     class="filter-input w-full" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">SEX</label>
-                                <select name="sex" class="filter-input w-full">
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                    <option value="Prefer not to say">Prefer not to say</option>
-                                </select>
+                                <label class="label-muted ml-1">SEX <span class="text-red-500">*</span></label>
+                                <div class="relative group custom-select-container">
+                                    <input type="hidden" name="sex" value="Male" required>
+                                    <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="Male" class="filter-input w-full cursor-pointer pointer-events-none" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[200] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all selected-option" data-value="Male">Male</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="Female">Female</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="Prefer not to say">Prefer not to say</div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">BIRTHDATE</label>
+                                <label class="label-muted ml-1">BIRTHDATE <span class="text-red-500">*</span></label>
                                 <input type="date" name="birth_date" id="birth_date" required
                                     max="<?= date('Y-m-d', strtotime('-18 years')) ?>"
                                     class="filter-input w-full [color-scheme:dark]" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">CONTACT NO.</label>
+                                <label class="label-muted ml-1">CONTACT NO. <span class="text-red-500">*</span></label>
                                 <input type="text" name="contact_number" id="contact_number" required
                                     placeholder="09XX-XXX-XXXX" class="filter-input w-full" autocomplete="off">
                                 <p class="text-[9px] font-medium text-emerald-500 tracking-wider ml-1 uppercase mt-1">
@@ -1825,23 +1837,37 @@ $pending_apps = $stmtPending->fetchAll();
                         </div>
                         <div class="grid grid-cols-2 gap-x-8 gap-y-6">
                             <div class="space-y-2.5 col-span-2">
-                                <label class="label-muted ml-1">EMAIL ADDRESS (GMAIL ONLY)</label>
+                                <label class="label-muted ml-1">EMAIL ADDRESS (GMAIL ONLY) <span class="text-red-500">*</span></label>
                                 <input type="email" name="email" id="email" required placeholder="official@gmail.com"
                                     class="filter-input w-full" autocomplete="off">
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">ASSIGNED ROLE</label>
-                                <select name="role" required class="filter-input w-full" onchange="handleRoleChange()">
-                                    <option value="Coach">Coach</option>
-                                    <option value="Staff">Staff</option>
-                                </select>
+                                <label class="label-muted ml-1">ASSIGNED ROLE <span class="text-red-500">*</span></label>
+                                <div class="relative group custom-select-container">
+                                    <input type="hidden" name="role" value="Coach" required>
+                                    <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="Coach" class="filter-input w-full cursor-pointer pointer-events-none" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[200] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all selected-option" data-value="Coach">Coach</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="Staff">Staff</div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="space-y-2.5">
-                                <label class="label-muted ml-1">EMPLOYMENT TYPE</label>
-                                <select name="employment" required class="filter-input w-full">
-                                    <option value="Full-Time">Full-time</option>
-                                    <option value="Part-Time">Part-time</option>
-                                </select>
+                                <label class="label-muted ml-1">EMPLOYMENT TYPE <span class="text-red-500">*</span></label>
+                                <div class="relative group custom-select-container">
+                                    <input type="hidden" name="employment" value="Full-Time" required>
+                                    <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="Full-time" class="filter-input w-full cursor-pointer pointer-events-none" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[200] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all selected-option" data-value="Full-Time">Full-time</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all text-white/60" data-value="Part-Time">Part-time</div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="space-y-2.5 col-span-2" id="session_rate_field">
                                 <label class="label-muted ml-1">SESSION RATE (₱)</label>
@@ -2058,12 +2084,12 @@ $pending_apps = $stmtPending->fetchAll();
         }
 
         function handleRoleChange() {
-            const roleSelect = document.querySelector('select[name="role"]');
+            const roleInput = document.querySelector('input[name="role"]');
             const rateField = document.getElementById('session_rate_field');
             const credentialsSection = document.getElementById('professional_credentials_section');
-            if (!roleSelect) return;
+            if (!roleInput) return;
 
-            const isCoach = roleSelect.value.toLowerCase().includes('coach') || roleSelect.value.toLowerCase().includes('trainer');
+            const isCoach = roleInput.value.toLowerCase().includes('coach') || roleInput.value.toLowerCase().includes('trainer');
             if (isCoach) {
                 if (rateField) rateField.style.display = 'block';
                 if (credentialsSection) credentialsSection.style.display = 'block';
@@ -2072,8 +2098,6 @@ $pending_apps = $stmtPending->fetchAll();
                 if (credentialsSection) credentialsSection.style.display = 'none';
             }
         }
-
-        document.querySelector('select[name="role"]').addEventListener('change', handleRoleChange);
 
         // --- VALIDATION LOGIC ---
         const phoneInput = document.getElementById('contact_number');
