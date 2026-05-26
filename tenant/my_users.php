@@ -584,6 +584,49 @@ $page_title = "User Database";
             border-color: rgba(var(--primary-rgb),0.25);
         }
 
+        /* Elite Pagination Component Styling */
+        .pagination-btn {
+            padding: 8px 16px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.2;
+            cursor: not-allowed;
+        }
+
+        .pagination-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .pagination-status {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-main);
+            opacity: 0.5;
+        }
+
         .table-header-alt {
             font-size: 10px;
             font-weight: 900;
@@ -1076,16 +1119,16 @@ $page_title = "User Database";
             <table class="w-full text-left">
                 <thead>
                     <tr class="bg-white/5 border-b border-white/5">
-                        <th class="px-8 py-4 table-header-alt">ID</th>
-                        <th class="px-8 py-4 table-header-alt">Name</th>
-                        <th class="px-8 py-4 table-header-alt">Role</th>
-                        <th class="px-8 py-4 table-header-alt">Email</th>
-                        <th class="px-8 py-4 table-header-alt">Phone Number</th>
-                        <th class="px-8 py-4 table-header-alt">Joined Date</th>
-                        <th class="px-8 py-4 table-header-alt text-center">Action</th>
+                        <th class="px-8 py-5 table-header-alt">ID</th>
+                        <th class="px-8 py-5 table-header-alt">Name</th>
+                        <th class="px-8 py-5 table-header-alt">Role</th>
+                        <th class="px-8 py-5 table-header-alt">Email</th>
+                        <th class="px-8 py-5 table-header-alt">Phone Number</th>
+                        <th class="px-8 py-5 table-header-alt">Joined Date</th>
+                        <th class="px-8 py-5 table-header-alt text-center">Action</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-white/5 text-sm font-medium">
+                <tbody id="usersTableBody" class="divide-y divide-white/5 text-sm font-medium">
                     <?php if (empty($users_list)): ?>
                         <tr class="no-pagination">
                             <td colspan="7" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
@@ -1147,6 +1190,12 @@ $page_title = "User Database";
                     <?php endif; ?>
                 </tbody>
             </table>
+            <!-- Pagination Container -->
+            <div id="pagination-users"
+                class="px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center hidden">
+                <p class="pagination-status status-text"></p>
+                <div class="flex items-center gap-2 controls-container"></div>
+            </div>
         </div>
 
     </main>
@@ -1163,6 +1212,87 @@ $page_title = "User Database";
         }
         setInterval(updateTopClock, 1000);
         updateTopClock();
+
+        function initTablePagination(tbodyId, paginationId, rowsPerPage = 10) {
+            const tbody = document.getElementById(tbodyId);
+            const footer = document.getElementById(paginationId);
+            if (!tbody || !footer) return;
+
+            const rows = Array.from(tbody.querySelectorAll('tr:not(.no-pagination)'));
+            const totalRows = rows.length;
+
+            footer.classList.remove('hidden');
+
+            const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+            let currentPage = 1;
+
+            const status = footer.querySelector('.status-text');
+            const controls = footer.querySelector('.controls-container');
+
+            function showPage(p) {
+                currentPage = p;
+                const start = (p - 1) * rowsPerPage;
+                const end = start + rowsPerPage;
+
+                rows.forEach((row, i) => {
+                    if (i >= start && i < end) {
+                        row.classList.remove('hidden');
+                        row.classList.add('animate-in', 'fade-in', 'duration-500');
+                    } else {
+                        row.classList.add('hidden');
+                    }
+                });
+
+                renderControls();
+                if (totalRows === 0) {
+                    status.innerHTML = `Showing 0 to 0 of 0 users`;
+                } else {
+                    status.innerHTML = `Showing ${start + 1} to ${Math.min(end, totalRows)} of ${totalRows} users`;
+                }
+            }
+
+            function renderControls() {
+                controls.innerHTML = '';
+
+                const prev = document.createElement('button');
+                prev.type = 'button';
+                prev.className = `pagination-btn ${currentPage === 1 ? 'disabled' : ''}`;
+                prev.disabled = currentPage === 1;
+                prev.textContent = 'Prev';
+                prev.onclick = () => currentPage > 1 && showPage(currentPage - 1);
+                controls.appendChild(prev);
+
+                for (let i = 1; i <= totalPages; i++) {
+                    if (i === 1 || i === totalPages || (i >= currentPage - 2 && i <= currentPage + 2)) {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = `pagination-btn ${i === currentPage ? 'active' : ''}`;
+                        btn.innerText = i;
+                        btn.onclick = () => showPage(i);
+                        controls.appendChild(btn);
+                    } else if (i === currentPage - 3 || i === currentPage + 3) {
+                        const dot = document.createElement('span');
+                        dot.className = 'text-[--text-main]/20 text-[10px] font-black mx-1';
+                        dot.innerText = '...';
+                        controls.appendChild(dot);
+                    }
+                }
+
+                const next = document.createElement('button');
+                next.type = 'button';
+                next.className = `pagination-btn ${currentPage === totalPages ? 'disabled' : ''}`;
+                next.disabled = currentPage === totalPages;
+                next.textContent = 'Next';
+                next.onclick = () => currentPage < totalPages && showPage(currentPage + 1);
+                controls.appendChild(next);
+            }
+
+            showPage(1);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initTablePagination('usersTableBody', 'pagination-users', 10);
+        });
 
         function reactiveFilter() {
             const form = document.getElementById('filterForm');
@@ -1184,6 +1314,9 @@ $page_title = "User Database";
                     // Re-initialize searchable dropdown
                     const currentUFilter = document.getElementById('hidden_user_id').value;
                     initSearchableDropdown('userSearchContainer', 'userSearchInput', 'userDropdown', 'userOptionsList', 'hidden_user_id', currentUFilter);
+                    
+                    // Re-initialize pagination
+                    initTablePagination('usersTableBody', 'pagination-users', 10);
                 });
         }
 
