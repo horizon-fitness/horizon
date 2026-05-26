@@ -419,11 +419,11 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* ============================================================
-           PROFILE INPUT STYLES — Exact match to superadmin
+           PROFILE INPUT STYLES
         ============================================================ */
         .profile-input {
-            background-color: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: rgba(var(--primary-rgb), 0.03);
+            border: 1px solid rgba(var(--primary-rgb), 0.2);
             color: var(--text-main);
             transition: all 0.3s ease;
         }
@@ -437,8 +437,8 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
         }
 
         body.edit-mode .profile-input.read-only-box {
-            background-color: rgba(255, 255, 255, 0.03) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            background-color: rgba(var(--primary-rgb), 0.03) !important;
+            border: 1px solid rgba(var(--primary-rgb), 0.2) !important;
             color: #6b7280 !important;
             padding-left: 1rem !important;
             cursor: not-allowed;
@@ -587,6 +587,32 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             -webkit-box-shadow: 0 0 0 1000px #141216 inset !important;
             -webkit-text-fill-color: var(--text-main) !important;
             transition: background-color 5000s ease-in-out 0s;
+        }
+
+        .searchable-dropdown-overlay {
+            background: var(--background);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(40px);
+            z-index: 100;
+            scrollbar-width: none;
+            margin-top: 0;
+        }
+        .searchable-dropdown-overlay::-webkit-scrollbar { display: none; }
+
+        .custom-option {
+            transition: background 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .custom-option:hover {
+            background: rgba(var(--primary-rgb), 0.08);
+            border-color: rgba(var(--primary-rgb), 0.1);
+            color: var(--primary) !important;
+        }
+        .selected-option {
+            background-color: var(--primary) !important;
+            color: #ffffff !important;
         }
     </style>
 </head>
@@ -781,7 +807,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
 
                                     <!-- Password Section (Edit Reveal) -->
                                     <div class="edit-reveal md:col-span-2 mt-0">
-                                        <div class="p-8 rounded-3xl bg-primary/[0.03] border border-primary/10">
+                                        <div class="p-8 rounded-3xl border" style="background-color: rgba(var(--primary-rgb), 0.03); border-color: rgba(var(--primary-rgb), 0.1);">
                                             <h4 class="text-[10px] font-black italic text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                                                 <span class="material-symbols-rounded text-primary text-xl">lock_reset</span>
                                                 Update Password
@@ -797,7 +823,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                             onkeyup="checkStrength(this.value)"
                                                             placeholder="Leave blank to keep current"
                                                             autocomplete="new-password"
-                                                            class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/30"
+                                                            class="w-full profile-input rounded-2xl px-4 py-3.5 pr-12 text-sm text-[--text-main] transition-all placeholder:text-[--text-main]/30"
                                                             disabled>
                                                         <button type="button" onclick="togglePassword('new_pass', 'icon_new')"
                                                             class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white flex items-center justify-center">
@@ -835,8 +861,8 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <div class="relative">
                                                         <input type="password" name="confirm_password" id="confirm_pass"
                                                             placeholder="Re-enter new password"
-                                                            autocomplete="new-password"
-                                                            class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/30"
+                                                            autocomplete="off"
+                                                            class="w-full profile-input rounded-2xl px-4 py-3.5 pr-12 text-sm text-[--text-main] transition-all placeholder:text-[--text-main]/30"
                                                             disabled>
                                                         <button type="button" onclick="togglePassword('confirm_pass', 'icon_confirm')"
                                                             class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white flex items-center justify-center">
@@ -906,20 +932,25 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
 
                                     <div class="space-y-2">
                                         <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Sex</label>
-                                        <div class="relative group">
-                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                        <div class="relative group custom-select-container">
+                                            <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors z-10">
                                                 <span class="material-symbols-rounded text-lg">wc</span>
                                             </span>
-                                            <select name="sex" disabled required
-                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none cursor-pointer">
-                                                <option value="" disabled <?= empty($sex) ? 'selected' : '' ?>>Select Sex</option>
-                                                <option value="Male" <?= $sex === 'Male' ? 'selected' : '' ?>>Male</option>
-                                                <option value="Female" <?= $sex === 'Female' ? 'selected' : '' ?>>Female</option>
-                                                <option value="Other" <?= $sex === 'Other' ? 'selected' : '' ?>>Other</option>
-                                            </select>
-                                            <span class="input-chevron absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 pointer-events-none">
-                                                <span class="material-symbols-rounded text-lg">expand_more</span>
-                                            </span>
+                                            <input type="hidden" name="sex" value="<?= htmlspecialchars($sex) ?>">
+                                            <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                                <input type="text" name="sex_display" readonly disabled value="<?= empty($sex) ? 'Select Sex' : htmlspecialchars($sex) ?>"
+                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold cursor-pointer pointer-events-none pl-11">
+                                                <span class="input-chevron absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 pointer-events-none">
+                                                    <span class="material-symbols-rounded text-lg">expand_more</span>
+                                                </span>
+                                            </div>
+                                            <div class="absolute left-0 right-0 top-full z-[200] rounded-b-xl searchable-dropdown-overlay custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                                <div class="p-1.5 space-y-0.5">
+                                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $sex === 'Male' ? 'selected-option' : 'text-white/60' ?>" data-value="Male">Male</div>
+                                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $sex === 'Female' ? 'selected-option' : 'text-white/60' ?>" data-value="Female">Female</div>
+                                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $sex === 'Other' ? 'selected-option' : 'text-white/60' ?>" data-value="Other">Other</div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -959,7 +990,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
 
                             <!-- ── SAVE SECTION (same structure as superadmin) ── -->
                             <div id="save-section" class="hidden border-t border-white/5 pt-10 mt-6 animate-fade-in">
-                                <div class="bg-[--card-bg] border border-primary/20 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save">
+                                <div class="bg-[--card-bg] border rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save" style="border-color: rgba(var(--primary-rgb), 0.2);">
                                     <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover/save:opacity-100 transition-opacity"></div>
 
                                     <div class="flex items-center gap-5 shrink-0 relative z-10">
@@ -973,20 +1004,20 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                     </div>
 
                                     <div class="flex flex-col sm:flex-row items-center gap-5 w-full md:w-auto relative z-10 shrink-0">
-                                        <div class="relative w-full sm:w-44 group/input">
+                                        <div class="relative w-full sm:w-64 group/input">
                                             <input type="password" name="current_password" id="current_pass" required
                                                 placeholder="Password" disabled
-                                                autocomplete="current-password"
-                                                class="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-xs font-black italic text-[--text-main] focus:border-primary/50 focus:outline-none transition-all pr-12 placeholder:text-[--text-main]/30 tracking-widest">
+                                                autocomplete="off"
+                                                class="w-full profile-input rounded-2xl px-4 py-3.5 pr-12 text-sm text-[--text-main] transition-all placeholder:text-[--text-main]/30">
                                             <button type="button" onclick="togglePassword('current_pass', 'icon_curr')"
                                                 class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white transition-colors flex items-center justify-center">
                                                 <span class="material-symbols-rounded text-lg" id="icon_curr">visibility_off</span>
                                             </button>
                                         </div>
 
-                                        <button type="submit"
-                                            class="shrink-0 text-primary hover:text-white text-[11px] font-black italic uppercase tracking-[0.2em] transition-all hover:scale-110 active:scale-95 py-2">
-                                            SAVE CHANGES
+                                        <button type="submit" title="Save Changes"
+                                            class="shrink-0 bg-primary text-white hover:bg-primary/90 size-11 flex items-center justify-center rounded-xl transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20">
+                                            <span class="material-symbols-rounded text-xl font-bold">check</span>
                                         </button>
                                     </div>
                                 </div>
@@ -1021,7 +1052,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">fitness_center</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($gym['gym_name']) ? htmlspecialchars($gym['gym_name']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
@@ -1031,7 +1062,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">corporate_fare</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($gym['business_name']) ? htmlspecialchars($gym['business_name']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                     </div>
@@ -1048,7 +1079,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">mail</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($gym['email']) ? htmlspecialchars($gym['email']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
@@ -1058,7 +1089,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">smartphone</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($gym['contact_number']) ? htmlspecialchars($gym['contact_number']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2 md:col-span-2">
@@ -1068,7 +1099,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">fingerprint</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($gym['tenant_code']) ? htmlspecialchars($gym['tenant_code']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold uppercase italic tracking-widest text-primary">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold uppercase italic tracking-widest text-primary">
                                             </div>
                                         </div>
                                     </div>
@@ -1085,7 +1116,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">description</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($app_data['bir_number']) ? htmlspecialchars($app_data['bir_number']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
@@ -1105,7 +1136,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">badge</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($app_data['owner_valid_id_type']) ? htmlspecialchars(ucwords(str_replace('_', ' ', $app_data['owner_valid_id_type']))) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold capitalize">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold capitalize">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
@@ -1115,7 +1146,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">tag</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($app_data['owner_valid_id_number']) ? htmlspecialchars($app_data['owner_valid_id_number']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2 md:col-span-2">
@@ -1125,7 +1156,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">location_on</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($gym['address_line']) ? htmlspecialchars($gym['address_line']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
@@ -1135,7 +1166,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">location_on</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($gym['barangay']) ? htmlspecialchars($gym['barangay']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
@@ -1145,7 +1176,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">location_on</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($gym['city']) ? htmlspecialchars($gym['city']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
@@ -1155,7 +1186,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">location_on</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($gym['province']) ? htmlspecialchars($gym['province']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                         <div class="space-y-2">
@@ -1165,7 +1196,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">location_on</span>
                                                 </span>
                                                 <input type="text" value="<?= !empty($gym['region']) ? htmlspecialchars($gym['region']) : '---' ?>" disabled
-                                                    class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                    class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                             </div>
                                         </div>
                                     </div>
@@ -1309,6 +1340,46 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             }
         }
 
+        function toggleCustomDropdown(trigger, event) {
+            if (!document.body.classList.contains('edit-mode')) return;
+            
+            event.stopPropagation();
+            const dropdown = trigger.nextElementSibling;
+            
+            document.querySelectorAll('.custom-select-dropdown').forEach(d => {
+                if (d !== dropdown) d.classList.add('hidden');
+            });
+            
+            dropdown.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.custom-select-container')) {
+                document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.add('hidden'));
+            }
+
+            const customOption = e.target.closest('.custom-option');
+            if (customOption) {
+                e.stopPropagation();
+                const container = customOption.closest('.custom-select-container');
+                const hiddenInput = container.querySelector('input[type="hidden"]');
+                const displayInput = container.querySelector('input[type="text"]');
+                const dropdown = container.querySelector('.custom-select-dropdown');
+                
+                hiddenInput.value = customOption.dataset.value;
+                displayInput.value = customOption.textContent.trim();
+                
+                container.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.classList.remove('selected-option');
+                    opt.classList.add('text-white/60');
+                });
+                customOption.classList.add('selected-option');
+                customOption.classList.remove('text-white/60');
+                
+                dropdown.classList.add('hidden');
+            }
+        });
+
         // ─────────────────────────────────────────────────────────────
         // EDIT MODE — exact replica of superadmin logic
         // ─────────────────────────────────────────────────────────────
@@ -1331,6 +1402,9 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                 if (input.name !== 'staff_role') {
                     input.disabled = false;
                     initialValues[input.name] = input.value;
+                    if (input.value === '---') {
+                        input.value = '';
+                    }
                 }
             });
 

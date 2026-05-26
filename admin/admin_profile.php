@@ -826,7 +826,7 @@ $page = [
                                 </div>
 
                                 <div class="edit-reveal md:col-span-2 mt-0">
-                                    <div class="p-8 rounded-3xl bg-primary/[0.03] border border-primary/10">
+                                    <div class="p-8 rounded-3xl border" style="background-color: rgba(var(--primary-rgb), 0.03); border-color: rgba(var(--primary-rgb), 0.1);">
                                         <h4
                                             class="text-[10px] font-black italic text-white uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
                                             <span
@@ -848,7 +848,7 @@ $page = [
                                                         onkeyup="checkStrength(this.value)"
                                                         placeholder="Leave blank to keep current"
                                                         autocomplete="new-password"
-                                                        class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/30"
+                                                        class="w-full profile-input rounded-2xl px-4 py-3.5 pr-12 text-sm text-[--text-main] transition-all placeholder:text-[--text-main]/30"
                                                         disabled>
                                                     <button type="button"
                                                         onclick="togglePassword('new_pass', 'icon_new')"
@@ -905,8 +905,8 @@ $page = [
                                                 <div class="relative">
                                                     <input type="password" name="confirm_password" id="confirm_pass"
                                                         placeholder="Re-enter new password"
-                                                        autocomplete="new-password"
-                                                        class="w-full bg-[--background] border border-white/10 rounded-2xl px-4 py-3.5 text-sm text-[--text-main] focus:border-primary focus:outline-none transition-all placeholder:text-[--text-main]/30"
+                                                        autocomplete="off"
+                                                        class="w-full profile-input rounded-2xl px-4 py-3.5 pr-12 text-sm text-[--text-main] transition-all placeholder:text-[--text-main]/30"
                                                         disabled>
                                                     <button type="button"
                                                         onclick="togglePassword('confirm_pass', 'icon_confirm')"
@@ -1055,8 +1055,7 @@ $page = [
 
                         <!-- Bottom Save Section -->
                         <div id="save-section" class="hidden border-t border-white/5 pt-10 mt-6 animate-fade-in">
-                            <div
-                                class="bg-[--card-bg] border border-primary/20 rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save">
+                            <div class="bg-[--card-bg] border rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save" style="border-color: rgba(var(--primary-rgb), 0.2);">
                                 <div
                                     class="absolute inset-0 bg-primary/5 opacity-0 group-hover/save:opacity-100 transition-opacity">
                                 </div>
@@ -1075,23 +1074,21 @@ $page = [
                                     </div>
                                 </div>
 
-                                <div
-                                    class="flex flex-col sm:flex-row items-center gap-5 w-full md:w-auto relative z-10 shrink-0">
-                                    <div class="relative w-full sm:w-44 group/input">
+                                <div class="flex flex-col sm:flex-row items-center gap-5 w-full md:w-auto relative z-10 shrink-0">
+                                    <div class="relative w-full sm:w-64 group/input">
                                         <input type="password" name="current_password" id="current_pass" required
                                             placeholder="Password" disabled
-                                            autocomplete="current-password"
-                                            class="w-full bg-black/40 border border-white/10 rounded-xl px-5 py-3 text-xs font-black italic text-[--text-main] focus:border-primary/50 focus:outline-none transition-all pr-12 placeholder:text-[--text-main]/30 tracking-widest">
+                                            autocomplete="off"
+                                            class="w-full profile-input rounded-2xl px-4 py-3.5 pr-12 text-sm text-[--text-main] transition-all placeholder:text-[--text-main]/30">
                                         <button type="button" onclick="togglePassword('current_pass', 'icon_curr')"
                                             class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-700 hover:text-white transition-colors flex items-center justify-center">
-                                            <span class="material-symbols-rounded text-lg"
-                                                id="icon_curr">visibility_off</span>
+                                            <span class="material-symbols-rounded text-lg" id="icon_curr">visibility_off</span>
                                         </button>
                                     </div>
 
-                                    <button type="submit"
-                                        class="shrink-0 text-primary hover:text-white text-[11px] font-black italic uppercase tracking-[0.2em] transition-all hover:scale-110 active:scale-95 py-2">
-                                        SAVE CHANGES
+                                    <button type="submit" title="Save Changes"
+                                        class="shrink-0 bg-primary text-white hover:bg-primary/90 size-11 flex items-center justify-center rounded-xl transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20">
+                                        <span class="material-symbols-rounded text-xl font-bold">check</span>
                                     </button>
                                 </div>
                             </div>
