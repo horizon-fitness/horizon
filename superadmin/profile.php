@@ -360,7 +360,9 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             left: 0;
             top: 0;
             bottom: 0;
-            z-index: 50;
+            background: var(--background);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            z-index: 250;
         }
 
         .sidebar-nav:hover {
@@ -651,8 +653,6 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
             display: none;
             align-items: center;
             justify-content: center;
-            background: rgba(10, 9, 13, 0.8);
-            backdrop-filter: blur(8px);
             padding: 20px;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -1129,12 +1129,12 @@ $role = "Superadmin"; // Hardcoded role for Superadmin profile
     </div>
 
     <!-- Custom Modal (Themed for Superadmin) -->
-    <div id="custom-modal" class="hidden">
-        <div class="absolute inset-0 transition-opacity duration-300 opacity-0 bg-[#0a090d]/80" id="modal-backdrop"
+    <div id="custom-modal" class="hidden pointer-events-none">
+        <div class="absolute inset-0 transition-opacity duration-300 opacity-0 bg-background/40 backdrop-blur-xl pointer-events-auto" id="modal-backdrop"
             onclick="closeModal()">
         </div>
 
-        <div class="relative z-10 bg-[--background] w-full max-w-sm rounded-[32px] shadow-2xl border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0"
+        <div class="relative z-10 bg-transparent backdrop-blur-3xl w-full max-w-sm rounded-[32px] shadow-2xl border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0 pointer-events-auto"
             id="modal-content">
             <div class="p-8 text-center">
                 <div class="w-20 h-20 rounded-[24px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10"

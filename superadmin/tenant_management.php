@@ -1640,11 +1640,11 @@ $rejected_count = count($rejected_apps);
         }
     </script>
 
-    <div id="confirmModal" class="fixed inset-0 z-[150] hidden items-center justify-center p-4 overflow-hidden">
+    <div id="confirmModal" class="fixed inset-0 z-[150] hidden items-center justify-center p-4 overflow-hidden pointer-events-none">
         <div id="confirmBackdrop" onclick="closeConfirmModal()"
-            class="absolute inset-0 bg-black/40 backdrop-blur-xl transition-opacity duration-300 opacity-0"></div>
+            class="absolute inset-0 bg-background/40 backdrop-blur-xl transition-opacity duration-300 opacity-0 pointer-events-auto"></div>
         <div id="confirmContainer"
-            class="relative w-full max-w-md bg-transparent backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0">
+            class="relative w-full max-w-md bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0 pointer-events-auto">
             <div class="p-8 text-center text-[--text-main]">
                 <div
                     class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">

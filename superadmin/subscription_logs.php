@@ -643,9 +643,8 @@ if (isset($_GET['ajax'])) {
             left: 110px; /* Collapsed Sidebar Width */
             z-index: 200;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            background: rgba(10, 9, 13, 0.8);
-            backdrop-filter: blur(20px);
             display: none;
+            pointer-events: none;
         }
 
         .sidebar-aware-modal.flex-important {
@@ -1390,8 +1389,9 @@ if (isset($_GET['ajax'])) {
 </script>
 
 <!-- 4. Sidebar-Aware Modal UI Skeleton (Targeting Requirement) -->
-<div id="adminActionModal" class="sidebar-aware-modal p-4 overflow-y-auto">
-    <div class="glass-card max-w-md w-full p-8 border-primary/20 shadow-2xl shadow-primary/10 mx-auto">
+<div id="adminActionModal" class="sidebar-aware-modal p-4 overflow-y-auto pointer-events-none">
+    <div class="absolute inset-0 bg-background/40 backdrop-blur-xl pointer-events-auto" onclick="closeModal()"></div>
+    <div class="relative z-10 max-w-md w-full p-8 border border-primary/20 shadow-2xl shadow-primary/10 mx-auto rounded-[32px] bg-transparent backdrop-blur-3xl pointer-events-auto">
         <h3 id="modalTitle" class="text-xl font-black italic uppercase italic text-white mb-2 leading-none">Confirm Action</h3>
         <p id="modalMessage" class="text-[10px] text-[--text-main] opacity-60 font-bold uppercase tracking-widest leading-relaxed mb-10">Are you sure you want to proceed with this administrative task?</p>
         
@@ -1409,8 +1409,9 @@ if (isset($_GET['ajax'])) {
 </div>
 
 <!-- Subscription Details Modal -->
-<div id="subscriptionDetailModal" class="sidebar-aware-modal p-4 overflow-y-auto">
-    <div class="glass-card max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden border-white/10 shadow-2xl">
+<div id="subscriptionDetailModal" class="sidebar-aware-modal p-4 overflow-y-auto pointer-events-none">
+    <div class="absolute inset-0 bg-background/40 backdrop-blur-xl pointer-events-auto" onclick="closeDetailModal()"></div>
+    <div class="relative z-10 max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden border border-white/10 shadow-2xl rounded-[40px] bg-transparent backdrop-blur-3xl mx-auto pointer-events-auto">
         <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/5">
             <h3 class="text-xl font-black italic uppercase text-white flex items-center gap-3">
                 <span class="material-symbols-outlined text-primary">info</span>

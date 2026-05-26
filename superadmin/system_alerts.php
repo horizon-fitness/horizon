@@ -1007,8 +1007,8 @@ if (isset($_GET['ajax'])) {
     </div>
 
     <!-- Alert Details Modal -->
-    <div id="alertModal" class="p-4 bg-black/80 backdrop-blur-sm transition-all duration-300">
-        <div class="glass-card w-full max-w-lg overflow-hidden transform scale-95 transition-all duration-300">
+    <div id="alertModal" class="p-4 bg-background/40 backdrop-blur-xl transition-all duration-300">
+        <div class="bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] w-full max-w-lg overflow-hidden transform scale-95 transition-all duration-300">
             <div class="p-8">
                 <div class="flex justify-between items-start mb-6">
                     <div>
@@ -1052,8 +1052,8 @@ if (isset($_GET['ajax'])) {
     </div>
 
     <!-- Confirmation Modal -->
-    <div id="confirmModal" class="p-4 bg-black/80 backdrop-blur-sm transition-all duration-300">
-        <div class="glass-card w-full max-w-sm overflow-hidden transform scale-95 transition-all duration-300">
+    <div id="confirmModal" class="p-4 bg-background/40 backdrop-blur-xl transition-all duration-300">
+        <div class="bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] w-full max-w-sm overflow-hidden transform scale-95 transition-all duration-300">
             <div class="p-8 text-center">
                 <div class="size-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
                     <span class="material-symbols-outlined text-primary text-3xl">help</span>
@@ -1084,7 +1084,7 @@ if (isset($_GET['ajax'])) {
             currentResolveId = id;
             document.getElementById('confirmResolveId').value = id;
             const modal = document.getElementById('confirmModal');
-            const modalContent = modal.querySelector('.glass-card');
+            const modalContent = modal.querySelector('.bg-transparent');
 
             modal.classList.add('modal-active');
             setTimeout(() => {
@@ -1095,7 +1095,7 @@ if (isset($_GET['ajax'])) {
 
         function confirmSystemAction(form, title, message) {
             const modal = document.getElementById('confirmModal');
-            const modalContent = modal.querySelector('.glass-card');
+            const modalContent = modal.querySelector('.bg-transparent');
             
             modal.querySelector('h3').textContent = title;
             modal.querySelector('p').textContent = message;
@@ -1130,7 +1130,7 @@ if (isset($_GET['ajax'])) {
 
         function closeConfirmModal() {
             const modal = document.getElementById('confirmModal');
-            const modalContent = modal.querySelector('.glass-card');
+            const modalContent = modal.querySelector('.bg-transparent');
 
             modal.classList.remove('modal-active');
             modalContent.classList.remove('scale-100');
@@ -1154,7 +1154,7 @@ if (isset($_GET['ajax'])) {
 
         function openAlertModal(type, message, source, date, priority) {
             const modal = document.getElementById('alertModal');
-            const modalContent = modal.querySelector('.glass-card');
+            const modalContent = modal.querySelector('.bg-transparent');
 
             document.getElementById('modalType').textContent = type;
             // Additional safety: Replace logic in JS as well
@@ -1171,7 +1171,7 @@ if (isset($_GET['ajax'])) {
 
         function closeAlertModal() {
             const modal = document.getElementById('alertModal');
-            const modalContent = modal.querySelector('.glass-card');
+            const modalContent = modal.querySelector('.bg-transparent');
 
             modal.classList.remove('modal-active');
             modalContent.classList.remove('scale-100');
