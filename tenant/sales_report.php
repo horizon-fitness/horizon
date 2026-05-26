@@ -446,6 +446,15 @@ $active_page = "sales";
         }
         .filter-input:focus { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.08); box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1); }
 
+        .table-header-alt {
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            color: var(--text-main);
+            opacity: 0.5;
+        }
+
         /* Muted label utility */
         .label-muted {
             color: var(--text-main); opacity: 0.6;
@@ -633,13 +642,13 @@ $active_page = "sales";
         <div class="overflow-x-auto flex-1">
             <table class="w-full text-left">
                 <thead>
-                    <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
-                        <th class="px-8 py-5">Member ID</th>
-                        <th class="px-8 py-5">Name</th>
-                        <th class="px-8 py-5 text-center">Type</th>
-                        <th class="px-8 py-5 text-center">Date of Payment</th>
-                        <th class="px-8 py-5 text-center">Ref Number</th>
-                        <th class="px-8 py-5 text-right">Amount</th>
+                    <tr class="bg-white/5 border-b border-white/5">
+                        <th class="px-8 py-5 table-header-alt">Member ID</th>
+                        <th class="px-8 py-5 table-header-alt">Name</th>
+                        <th class="px-8 py-5 table-header-alt text-center">Type</th>
+                        <th class="px-8 py-5 table-header-alt text-center">Date of Payment</th>
+                        <th class="px-8 py-5 table-header-alt text-center">Ref Number</th>
+                        <th class="px-8 py-5 table-header-alt text-right">Amount</th>
                     </tr>
                 </thead>
                 <tbody id="salesTableBody" class="divide-y divide-white/5 text-sm font-medium">
@@ -686,7 +695,7 @@ $active_page = "sales";
                 </tbody>
                 <tfoot>
                     <tr class="bg-white/[0.02] border-t border-white/5 font-black uppercase tracking-widest">
-                        <td colspan="5" class="px-8 py-6 text-left text-[--text-main]/40 italic text-sm">Total amount</td>
+                        <td colspan="5" class="px-8 py-6 text-left text-[--text-main]/40 text-sm">Total amount</td>
                         <td class="px-8 py-6 text-right text-primary text-sm font-black">₱<?= number_format($total_revenue, 2) ?></td>
                     </tr>
                 </tfoot>

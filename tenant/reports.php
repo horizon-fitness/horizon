@@ -443,7 +443,14 @@ $is_restricted = (!$is_sub_active);
         }
         .filter-input:focus { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.08); box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1); }
 
-        /* Removed table-header-alt style rule */
+        .table-header-alt {
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            color: var(--text-main);
+            opacity: 0.5;
+        }
 
         /* Elite Pagination Component Styling */
         .pagination-btn {
@@ -780,13 +787,13 @@ $is_restricted = (!$is_sub_active);
                     <div class="overflow-x-auto flex-1">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
-                                    <th class="px-8 py-5">Member ID</th>
-                                    <th class="px-8 py-5">Name</th>
-                                    <th class="px-8 py-5 text-center">Type</th>
-                                    <th class="px-8 py-5 text-center">Date of Payment</th>
-                                    <th class="px-8 py-5 text-center">Ref Number</th>
-                                    <th class="px-8 py-5 text-right">Amount</th>
+                                <tr class="bg-white/5 border-b border-white/5">
+                                    <th class="px-8 py-5 table-header-alt">Member ID</th>
+                                    <th class="px-8 py-5 table-header-alt">Name</th>
+                                    <th class="px-8 py-5 table-header-alt text-center">Type</th>
+                                    <th class="px-8 py-5 table-header-alt text-center">Date of Payment</th>
+                                    <th class="px-8 py-5 table-header-alt text-center">Ref Number</th>
+                                    <th class="px-8 py-5 table-header-alt text-right">Amount</th>
                                 </tr>
                             </thead>
                             <tbody id="financialTableBody" class="divide-y divide-white/5 text-sm font-medium">
@@ -833,7 +840,7 @@ $is_restricted = (!$is_sub_active);
                             </tbody>
                             <tfoot>
                                 <tr class="bg-white/[0.02] border-t border-white/5 font-black uppercase tracking-widest">
-                                    <td colspan="5" class="px-8 py-6 text-left text-[--text-main]/40 italic text-sm">Total amount</td>
+                                    <td colspan="5" class="px-8 py-6 text-left text-[--text-main]/40 text-sm">Total amount</td>
                                     <td class="px-8 py-6 text-right text-primary text-sm font-black">₱<?= number_format($total_money, 2) ?></td>
                                 </tr>
                             </tfoot>
@@ -851,12 +858,12 @@ $is_restricted = (!$is_sub_active);
                     <div class="overflow-x-auto flex-1">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
-                                    <th class="px-8 py-5">Member ID</th>
-                                    <th class="px-8 py-5">Name</th>
-                                    <th class="px-8 py-5 text-center">Session Date</th>
-                                    <th class="px-8 py-5 text-center">Time In / Out</th>
-                                    <th class="px-8 py-5 text-center">Status</th>
+                                <tr class="bg-white/5 border-b border-white/5">
+                                    <th class="px-8 py-5 table-header-alt">Member ID</th>
+                                    <th class="px-8 py-5 table-header-alt">Name</th>
+                                    <th class="px-8 py-5 table-header-alt text-center">Session Date</th>
+                                    <th class="px-8 py-5 table-header-alt text-center">Time In / Out</th>
+                                    <th class="px-8 py-5 table-header-alt text-center">Status</th>
                                 </tr>
                             </thead>
                             <tbody id="attendanceTableBody" class="divide-y divide-white/5 text-sm font-medium">
@@ -876,7 +883,7 @@ $is_restricted = (!$is_sub_active);
                                                     <?= htmlspecialchars($a['first_name'] . ' ' . $a['last_name']) ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-7 text-center text-[11px] font-black text-[--text-main] italic">
+                                            <td class="px-8 py-7 text-center text-[11px] font-black text-[--text-main]">
                                                 <?= date('M d, Y', strtotime($a['check_in_time'])) ?>
                                             </td>
                                             <?php 
@@ -900,11 +907,11 @@ $is_restricted = (!$is_sub_active);
                                             </td>
                                             <td class="px-8 py-7 text-center">
                                                 <?php if($displayStatus === 'Timed Out'): ?>
-                                                    <span class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[--text-main] opacity-40 text-[9px] font-black uppercase tracking-widest italic flex items-center gap-2 justify-center mx-auto w-fit">Timed Out</span>
+                                                    <span class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[--text-main] opacity-40 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 justify-center mx-auto w-fit">Timed Out</span>
                                                 <?php elseif($displayStatus === 'No Time Out'): ?>
-                                                    <span class="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[9px] font-black uppercase tracking-widest italic flex items-center gap-2 justify-center mx-auto w-fit">No Time Out</span>
+                                                    <span class="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 justify-center mx-auto w-fit">No Time Out</span>
                                                 <?php else: ?>
-                                                    <span class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-[0.1em] italic flex items-center gap-2 justify-center mx-auto w-fit shadow-lg shadow-emerald-500/5">
+                                                    <span class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-[0.1em] flex items-center gap-2 justify-center mx-auto w-fit shadow-lg shadow-emerald-500/5">
                                                         <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                                                         In Gym
                                                     </span>
@@ -928,13 +935,13 @@ $is_restricted = (!$is_sub_active);
                     <div class="overflow-x-auto flex-1">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
-                                    <th class="px-8 py-5">Member ID</th>
-                                    <th class="px-8 py-5">Name</th>
-                                    <th class="px-8 py-5 text-center">Tier Type</th>
-                                    <th class="px-8 py-5 text-center">Payment Date</th>
-                                    <th class="px-8 py-5 text-center">Renewal Date</th>
-                                    <th class="px-8 py-5 text-center">Status</th>
+                                <tr class="bg-white/5 border-b border-white/5">
+                                    <th class="px-8 py-5 table-header-alt">Member ID</th>
+                                    <th class="px-8 py-5 table-header-alt">Name</th>
+                                    <th class="px-8 py-5 table-header-alt text-center">Tier Type</th>
+                                    <th class="px-8 py-5 table-header-alt text-center">Payment Date</th>
+                                    <th class="px-8 py-5 table-header-alt text-center">Renewal Date</th>
+                                    <th class="px-8 py-5 table-header-alt text-center">Status</th>
                                 </tr>
                             </thead>
                             <tbody id="membershipTableBody" class="divide-y divide-white/5 text-sm font-medium">
@@ -965,7 +972,7 @@ $is_restricted = (!$is_sub_active);
                                             </td>
                                             <td class="px-8 py-7 text-center">
                                                 <?php $sub_color = strtolower($s['subscription_status']) === 'active' ? 'emerald-500' : 'amber-500'; ?>
-                                                <span class="px-3 py-1.5 rounded-xl bg-<?= $sub_color ?>/10 border border-<?= $sub_color ?>/20 text-[9px] text-<?= $sub_color ?> font-black uppercase tracking-wider italic mx-auto inline-block">
+                                                <span class="px-3 py-1.5 rounded-xl bg-<?= $sub_color ?>/10 border border-<?= $sub_color ?>/20 text-[9px] text-<?= $sub_color ?> font-black uppercase tracking-wider mx-auto inline-block">
                                                     <?= htmlspecialchars($s['subscription_status']) ?>
                                                 </span>
                                             </td>

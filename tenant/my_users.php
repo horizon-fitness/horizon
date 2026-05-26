@@ -584,6 +584,15 @@ $page_title = "User Database";
             border-color: rgba(var(--primary-rgb),0.25);
         }
 
+        .table-header-alt {
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            color: var(--text-main);
+            opacity: 0.5;
+        }
+
         /* Sidebar */
         .side-nav {
             width: 110px;
@@ -1066,14 +1075,14 @@ $page_title = "User Database";
             </div>
             <table class="w-full text-left">
                 <thead>
-                    <tr class="bg-white/[0.03] text-[--text-main]/80 text-[11px] font-black uppercase tracking-widest border-b border-white/10">
-                        <th class="px-8 py-4">ID</th>
-                        <th class="px-8 py-4">Name</th>
-                        <th class="px-8 py-4">Role</th>
-                        <th class="px-8 py-4">Email</th>
-                        <th class="px-8 py-4">Phone Number</th>
-                        <th class="px-8 py-4">Joined Date</th>
-                        <th class="px-8 py-4 text-center">Action</th>
+                    <tr class="bg-white/5 border-b border-white/5">
+                        <th class="px-8 py-4 table-header-alt">ID</th>
+                        <th class="px-8 py-4 table-header-alt">Name</th>
+                        <th class="px-8 py-4 table-header-alt">Role</th>
+                        <th class="px-8 py-4 table-header-alt">Email</th>
+                        <th class="px-8 py-4 table-header-alt">Phone Number</th>
+                        <th class="px-8 py-4 table-header-alt">Joined Date</th>
+                        <th class="px-8 py-4 table-header-alt text-center">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-white/5 text-sm font-medium">
@@ -1086,14 +1095,14 @@ $page_title = "User Database";
                         <?php foreach ($users_list as $u): ?>
                             <tr class="group hover:bg-white/[0.02] transition-colors">
                                 <td class="px-8 py-6 align-middle">
-                                    <p class="text-[11px] font-black text-[--text-main]/60 tracking-widest italic">
+                                    <p class="text-[11px] font-black text-[--text-main]/60 tracking-widest">
                                         ID-<?= str_pad($u['user_id'], 5, '0', STR_PAD_LEFT) ?>
                                     </p>
                                 </td>
                                 <td class="px-8 py-6 align-middle">
                                     <div class="flex items-center gap-4">
                                         <?php $hasPic = !empty($u['profile_picture']); ?>
-                                        <div class="size-11 rounded-full flex items-center justify-center font-black italic text-[11px] border border-white/10 shrink-0 overflow-hidden shadow-inner relative"
+                                        <div class="size-11 rounded-full flex items-center justify-center font-black text-[11px] border border-white/10 shrink-0 overflow-hidden shadow-inner relative"
                                              style="background:rgba(var(--primary-rgb), 0.1); color:var(--primary)">
                                             <img src="<?= $hasPic ? getAvatarPath($u['profile_picture']) : '' ?>" 
                                                  class="size-full object-cover<?= $hasPic ? '' : ' hidden' ?>"

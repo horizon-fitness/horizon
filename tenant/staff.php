@@ -1339,7 +1339,7 @@ $pending_apps = $stmtPending->fetchAll();
             <div class="flex items-center gap-12 mb-10 border-b border-white/5 px-2">
                 <a href="?tab=team" class="pb-5 relative transition-all duration-300 group">
                     <span
-                        class="text-[10px] font-black uppercase tracking-[0.3em] <?= $active_tab === 'team' ? 'text-primary' : 'text-white/30 group-hover:text-white/50' ?>">
+                        class="text-xs font-black uppercase tracking-widest <?= $active_tab === 'team' ? 'text-primary' : 'text-white/30 group-hover:text-white/50' ?>">
                         Staff List
                     </span>
                     <?php if ($active_tab === 'team'): ?>
@@ -1350,7 +1350,7 @@ $pending_apps = $stmtPending->fetchAll();
                 </a>
                 <a href="?tab=requests" class="pb-5 relative transition-all duration-300 group">
                     <span
-                        class="text-[10px] font-black uppercase tracking-[0.3em] <?= $active_tab === 'requests' ? 'text-primary' : 'text-white/30 group-hover:text-white/50' ?>">
+                        class="text-xs font-black uppercase tracking-widest <?= $active_tab === 'requests' ? 'text-primary' : 'text-white/30 group-hover:text-white/50' ?>">
                         Join Requests
                     </span>
                     <?php if ($pending_apps_count > 0): ?>
