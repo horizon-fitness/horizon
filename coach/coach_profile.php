@@ -443,6 +443,7 @@ $page = [
             --background:
                 <?= $configs['bg_color'] ?? '#0a090d' ?>
             ;
+            --background-rgb: <?= hexToRgb($configs['bg_color'] ?? '#0a090d') ?>;
 
             /* Glassmorphism Engine */
             --card-blur: <?= $configs['card_blur'] ?? '20px' ?>;
@@ -683,6 +684,16 @@ $page = [
             border-color: rgba(244, 63, 94, 0.4) !important;
         }
 
+        .req-asterisk {
+            display: none;
+            color: #f43f5e;
+            margin-left: 0.125rem;
+        }
+        
+        .edit-mode .req-asterisk {
+            display: inline;
+        }
+
         /* Modal Overlay Shift with Sidebar (Aligned with tenant/staff.php) */
         #custom-modal {
             position: fixed;
@@ -694,8 +705,6 @@ $page = [
             display: none;
             align-items: center;
             justify-content: center;
-            background: rgba(10, 9, 13, 0.8);
-            backdrop-filter: blur(8px);
             padding: 20px;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -831,7 +840,7 @@ $page = [
                         <span>Edit Profile</span>
                     </button>
 
-                    <button id="discard-btn" onclick="cancelEdit()"
+                    <button id="discard-btn" onclick="confirmDiscard()"
                         class="hidden w-full py-4 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 text-rose-500 text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group">
                         <span class="material-symbols-rounded group-hover:scale-110 transition-transform">close</span>
                         <span>Discard Changes</span>
@@ -866,7 +875,7 @@ $page = [
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Username</label>
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Username<span class="req-asterisk">*</span></label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
@@ -887,22 +896,22 @@ $page = [
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none transition-colors">
                                         <span class="material-symbols-rounded text-lg">badge</span>
                                     </span>
-                                    <input type="text" value="<?= htmlspecialchars($coachType) ?>" disabled
-                                        class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold uppercase italic">
+                                    <input type="text" value="Coach" disabled
+                                        class="w-full profile-input read-only-box has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
                                 </div>
                                 </div>
 
                                 <div class="space-y-2">
                                     <label
                                         class="text-[9px] uppercase font-black text-primary/80 tracking-widest ml-1">Session
-                                        Rate (₱)</label>
+                                        Rate (₱)<span class="req-asterisk">*</span></label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-primary pointer-events-none transition-colors">
                                             <span class="material-symbols-rounded text-lg">payments</span>
                                         </span>
                                         <input type="number" step="0.01" name="session_rate" id="session_rate"
-                                            value="<?= number_format($user['session_rate'] ?? 0, 2, '.', '') ?>" disabled
+                                            value="<?= number_format($user['session_rate'] ?? 0, 2, '.', '') ?>" disabled required
                                             class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-black italic text-primary">
                                     </div>
                                 </div>
@@ -1059,7 +1068,7 @@ $page = [
                                 <div class="space-y-2">
                                     <label
                                         class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">First
-                                        Name</label>
+                                        Name<span class="req-asterisk">*</span></label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
@@ -1089,7 +1098,7 @@ $page = [
                                 <div class="space-y-2">
                                     <label
                                         class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Last
-                                        Name</label>
+                                        Name<span class="req-asterisk">*</span></label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
@@ -1108,7 +1117,7 @@ $page = [
                                 <div class="space-y-2">
                                     <label
                                         class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Date
-                                        of Birth</label>
+                                        of Birth<span class="req-asterisk">*</span></label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
@@ -1121,26 +1130,25 @@ $page = [
                                 </div>
 
                                 <div class="space-y-2">
-                                    <label
-                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Sex</label>
-                                    <div class="relative group">
-                                        <span
-                                            class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
+                                    <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Sex<span class="req-asterisk">*</span></label>
+                                    <div class="relative group custom-select-container">
+                                        <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors z-10">
                                             <span class="material-symbols-rounded text-lg">wc</span>
                                         </span>
-                                        <select name="sex" disabled required
-                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none cursor-pointer">
-                                            <option value="" disabled <?= empty($sex) ? 'selected' : '' ?>>Select Sex
-                                            </option>
-                                            <option value="Male" <?= $sex === 'Male' ? 'selected' : '' ?>>Male</option>
-                                            <option value="Female" <?= $sex === 'Female' ? 'selected' : '' ?>>Female
-                                            </option>
-                                            <option value="Other" <?= $sex === 'Other' ? 'selected' : '' ?>>Other</option>
-                                        </select>
-                                        <span
-                                            class="input-chevron absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 pointer-events-none">
+                                        <input type="hidden" name="sex" id="sex_hidden" value="<?= htmlspecialchars($sex ?? '') ?>" disabled required>
+                                        <input type="text" readonly id="sex_display" disabled
+                                            value="<?= empty($sex) ? 'Select Sex' : ($sex === 'Male' ? 'Male' : ($sex === 'Female' ? 'Female' : 'Other')) ?>" 
+                                            onclick="toggleSexDropdown(this, event)"
+                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold appearance-none cursor-pointer text-ellipsis">
+                                        <span class="input-chevron absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 pointer-events-none transition-transform duration-300 z-10" id="sex_chevron">
                                             <span class="material-symbols-rounded text-lg">expand_more</span>
                                         </span>
+                                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/5 p-1.5 space-y-0.5 hidden transform origin-top transition-all duration-300 scale-95 opacity-0" id="sex_dropdown">
+                                            <div class="px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-gray-500 pointer-events-none select-none">Select Sex</div>
+                                            <div class="custom-option px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $sex === 'Male' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white' ?>" onclick="selectSex(this, 'Male')">Male</div>
+                                            <div class="custom-option px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $sex === 'Female' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white' ?>" onclick="selectSex(this, 'Female')">Female</div>
+                                            <div class="custom-option px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $sex === 'Other' ? 'bg-primary text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white' ?>" onclick="selectSex(this, 'Other')">Other</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1153,7 +1161,7 @@ $page = [
                                 <div class="space-y-2">
                                     <label
                                         class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Contact
-                                        No.</label>
+                                        No.<span class="req-asterisk">*</span></label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
@@ -1162,13 +1170,15 @@ $page = [
                                         <input type="text" name="contact_number" id="contact_number"
                                             value="<?= !empty($user['contact_number']) ? htmlspecialchars($user['contact_number']) : '---' ?>" disabled
                                             required maxlength="13" oninput="formatContactNumber(this)"
-                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                            placeholder="09XX-XXX-XXXX"
+                                            class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold placeholder:text-gray-500/50">
                                     </div>
+                                    <p id="contact-helper" class="hidden text-[9px] font-black uppercase tracking-widest text-primary ml-1 mt-1">Starts with 09 Automatically</p>
                                 </div>
 
                                 <div class="space-y-2">
                                     <label
-                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Email</label>
+                                        class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Email<span class="req-asterisk">*</span></label>
                                     <div class="relative group">
                                         <span
                                             class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
@@ -1184,7 +1194,7 @@ $page = [
                         </div>
 
                         <!-- Bottom Save Section -->
-                        <div id="save-section" class="hidden border-t border-white/5 pt-10 mt-6 animate-fade-in">
+                        <div id="save-section" class="hidden border-t border-white/5 pt-6 mt-2 animate-fade-in">
                             <div class="bg-[--card-bg] border rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save" style="border-color: rgba(var(--primary-rgb), 0.2);">
                                 <div
                                     class="absolute inset-0 bg-primary/5 opacity-0 group-hover/save:opacity-100 transition-opacity">
@@ -1235,12 +1245,12 @@ $page = [
     </div>
 
     <!-- Custom Modal (Themed for Coach) -->
-    <div id="custom-modal" class="hidden">
-        <div class="absolute inset-0 transition-opacity duration-300 opacity-0 bg-[#0a090d]/80" id="modal-backdrop"
+    <div id="custom-modal" class="hidden pointer-events-none">
+        <div class="absolute inset-0 transition-opacity duration-300 opacity-0 bg-background/40 backdrop-blur-xl pointer-events-auto" id="modal-backdrop"
             onclick="closeModal()">
         </div>
 
-        <div class="relative z-10 bg-[--background] w-full max-w-sm rounded-[32px] shadow-2xl border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0"
+        <div class="relative z-10 bg-transparent backdrop-blur-3xl w-full max-w-sm rounded-[32px] shadow-2xl border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0 pointer-events-auto"
             id="modal-content">
             <div class="p-8 text-center">
                 <div class="w-20 h-20 rounded-[24px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10"
@@ -1352,7 +1362,7 @@ $page = [
             document.body.classList.add('edit-mode');
 
             inputs.forEach(input => {
-                if (input.name !== 'staff_role' && input.name !== 'coach_type' && !input.readOnly) {
+                if (input.name !== 'staff_role' && input.name !== 'coach_type') {
                     input.disabled = false;
                     initialValues[input.name] = input.value;
                     if (input.value === '---') {
@@ -1366,6 +1376,9 @@ $page = [
             saveSection.classList.remove('hidden');
             indicator.classList.remove('hidden');
             profileLabel.classList.remove('hidden');
+            
+            const helper = document.getElementById('contact-helper');
+            if(helper) helper.classList.remove('hidden');
 
             if (hasPhoto) {
                 removeBtn.classList.remove('hidden');
@@ -1404,10 +1417,94 @@ $page = [
             document.getElementById('strength-bar').style.width = '0';
             document.getElementById('strength-text').innerText = '';
 
+            const helper = document.getElementById('contact-helper');
+            if(helper) helper.classList.add('hidden');
+
+            const sexHidden = document.getElementById('sex_hidden');
+            if(sexHidden && document.getElementById('sex_display')) {
+                document.getElementById('sex_display').value = sexHidden.value || 'Select Sex';
+                const dropdown = document.getElementById('sex_dropdown');
+                if(dropdown) {
+                    dropdown.classList.add('hidden', 'scale-95', 'opacity-0');
+                    document.getElementById('sex_chevron').classList.remove('rotate-180');
+                    dropdown.querySelectorAll('.custom-option').forEach(opt => {
+                        const optVal = opt.innerText.trim() === 'Select Sex' ? '' : opt.innerText.trim();
+                        if(optVal === sexHidden.value) {
+                            opt.className = 'custom-option px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all bg-primary text-white';
+                        } else {
+                            opt.className = 'custom-option px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all text-gray-400 hover:bg-white/5 hover:text-white';
+                        }
+                    });
+                }
+            }
+
             editBtn.classList.remove('hidden');
             discardBtn.classList.add('hidden');
             saveSection.classList.add('hidden');
             indicator.classList.add('hidden');
+        }
+
+        function toggleSexDropdown(trigger, event) {
+            const hiddenInput = document.getElementById('sex_hidden');
+            if (hiddenInput.disabled) return;
+            
+            const dropdown = document.getElementById('sex_dropdown');
+            const chevron = document.getElementById('sex_chevron');
+            
+            const isOpen = !dropdown.classList.contains('hidden');
+            
+            if (!isOpen) {
+                dropdown.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    dropdown.classList.remove('scale-95', 'opacity-0');
+                    chevron.classList.add('rotate-180');
+                });
+            } else {
+                dropdown.classList.add('hidden', 'scale-95', 'opacity-0');
+                chevron.classList.remove('rotate-180');
+            }
+            
+            event.stopPropagation();
+        }
+
+        function selectSex(optionEl, value) {
+            const hiddenInput = document.getElementById('sex_hidden');
+            if (hiddenInput.disabled) return;
+            
+            hiddenInput.value = value;
+            document.getElementById('sex_display').value = value ? value : 'Select Sex';
+            
+            const dropdown = document.getElementById('sex_dropdown');
+            dropdown.querySelectorAll('.custom-option').forEach(opt => {
+                opt.className = 'custom-option px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all text-gray-400 hover:bg-white/5 hover:text-white';
+            });
+            optionEl.className = 'custom-option px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all bg-primary text-white';
+            
+            dropdown.classList.add('hidden', 'scale-95', 'opacity-0');
+            document.getElementById('sex_chevron').classList.remove('rotate-180');
+            
+            hiddenInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.custom-select-container')) {
+                const dropdown = document.getElementById('sex_dropdown');
+                if (dropdown && !dropdown.classList.contains('hidden')) {
+                    dropdown.classList.add('hidden', 'scale-95', 'opacity-0');
+                    document.getElementById('sex_chevron').classList.remove('rotate-180');
+                }
+            }
+        });
+
+        function confirmDiscard() {
+            showModal(
+                'Discard Changes?',
+                'Are you sure you want to discard your unsaved changes? All modifications will be lost.',
+                'confirm',
+                function() {
+                    cancelEdit();
+                }
+            );
         }
 
         function previewProfileImage(input) {
@@ -1561,17 +1658,15 @@ $page = [
 
         function formatContactNumber(input) {
             let val = input.value.replace(/\D/g, '');
+            if (val.length > 0 && val[0] !== '0') val = '0' + val;
+            if (val.length > 1 && val[1] !== '9') val = '09' + val.substring(2);
             if (val.length > 11) val = val.substring(0, 11);
 
             let formatted = '';
             if (val.length > 0) {
                 formatted += val.substring(0, 4);
-                if (val.length > 4) {
-                    formatted += '-' + val.substring(4, 7);
-                    if (val.length > 7) {
-                        formatted += '-' + val.substring(7, 11);
-                    }
-                }
+                if (val.length > 4) formatted += '-' + val.substring(4, 7);
+                if (val.length > 7) formatted += '-' + val.substring(7, 11);
             }
             input.value = formatted;
         }

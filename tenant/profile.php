@@ -329,6 +329,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             --highlight: <?= $configs['secondary_color'] ?? '#a1a1aa' ?>;
             --text-main: <?= $configs['text_color'] ?? '#d1d5db' ?>;
             --background: <?= $configs['bg_color'] ?? '#0a090d' ?>;
+            --background-rgb: <?= hexToRgb($configs['bg_color'] ?? '#0a090d') ?>;
             --card-blur: <?= $configs['card_blur'] ?? '20px' ?>;
             --card-bg: <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#141216') ?>;
         }
@@ -563,8 +564,6 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             display: none;
             align-items: center;
             justify-content: center;
-            background: rgba(10, 9, 13, 0.8);
-            backdrop-filter: blur(8px);
             padding: 20px;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
