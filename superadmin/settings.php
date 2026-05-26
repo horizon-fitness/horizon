@@ -656,7 +656,9 @@ $active_page = "settings";
         #superadminModal,
         #superadminReviewModal,
         #confirmActionModal,
-        #planViewModal {
+        #planViewModal,
+        #addPlanModal,
+        #editPlanModal {
             display: none;
             position: fixed;
             top: 0;
@@ -674,22 +676,28 @@ $active_page = "settings";
         #superadminModal.flex,
         #superadminReviewModal.flex,
         #confirmActionModal.flex,
-        #planViewModal.flex {
+        #planViewModal.flex,
+        #addPlanModal.flex,
+        #editPlanModal.flex {
             display: flex !important;
         }
 
         .sidebar-nav:hover~#superadminModal,
         .sidebar-nav:hover~#superadminReviewModal,
         .sidebar-nav:hover~#confirmActionModal,
-        .sidebar-nav:hover~#planViewModal {
+        .sidebar-nav:hover~#planViewModal,
+        .sidebar-nav:hover~#addPlanModal,
+        .sidebar-nav:hover~#editPlanModal {
             left: 300px;
         }
 
         #superadminModal > div,
         #superadminReviewModal > div,
         #confirmActionModal > div,
-        #planViewModal > div {
-            max-height: 80vh;
+        #planViewModal > div,
+        #addPlanModal > div,
+        #editPlanModal > div {
+            max-height: calc(100vh - 4rem);
             display: flex;
             flex-direction: column;
         }
@@ -824,28 +832,28 @@ $active_page = "settings";
 
             <?php if (isset($success_msg)): ?>
                 <div id="successAlert"
-                    class="mb-6 px-8 h-[46px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[12px] font-bold rounded-xl flex items-center justify-between transition-all duration-700 select-none">
+                    class="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-500 text-[11px] font-black uppercase italic mb-8 flex items-center justify-between transition-all duration-700 select-none">
                     <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-sm text-emerald-500">check_circle</span>
+                        <span class="material-symbols-outlined text-base">check_circle</span>
                         <span><?= $success_msg ?></span>
                     </div>
                     <button type="button" onclick="this.parentElement.remove()"
-                        class="text-emerald-500/50 hover:text-emerald-500 transition-colors p-2 shrink-0 outline-none">
-                        <span class="material-symbols-outlined text-base">close</span>
+                        class="size-6 flex items-center justify-center rounded-lg hover:bg-emerald-500/20 transition-all text-emerald-500/50 hover:text-emerald-500">
+                        <span class="material-symbols-outlined text-sm">close</span>
                     </button>
                 </div>
             <?php endif; ?>
 
             <?php if (isset($error_msg)): ?>
                 <div id="errorAlert"
-                    class="mb-6 px-8 h-[46px] bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[12px] font-bold rounded-xl flex items-center justify-between transition-all duration-700 select-none">
+                    class="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-rose-500 text-[11px] font-black uppercase italic mb-8 flex items-center justify-between transition-all duration-700 select-none">
                     <div class="flex items-center gap-3">
-                        <span class="material-symbols-outlined text-sm text-rose-500">warning</span>
+                        <span class="material-symbols-outlined text-base">warning</span>
                         <span><?= $error_msg ?></span>
                     </div>
                     <button type="button" onclick="this.parentElement.remove()"
-                        class="text-rose-500/50 hover:text-rose-500 transition-colors p-2 shrink-0 outline-none">
-                        <span class="material-symbols-outlined text-base">close</span>
+                        class="size-6 flex items-center justify-center rounded-lg hover:bg-rose-500/20 transition-all text-rose-500/50 hover:text-rose-500">
+                        <span class="material-symbols-outlined text-sm">close</span>
                     </button>
                 </div>
             <?php endif; ?>
@@ -914,13 +922,12 @@ $active_page = "settings";
                             <div class="space-y-8">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div class="flex flex-col gap-1.5">
-                                        <label
-                                            class="text-[11px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">System
-                                            Name</label>
+                                        <label class="text-[11px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">System Name</label>
                                         <input type="text" id="system_name_input" name="system_name"
                                             class="input-field !bg-white/[0.02] cursor-not-allowed opacity-60"
                                             value="<?= htmlspecialchars($configs['system_name'] ?? 'Horizon System') ?>"
                                             readonly>
+                                        <p class="text-[9px] font-black uppercase tracking-widest text-[--text-main] opacity-70 ml-1 mt-1">Cannot be updated or changed</p>
                                     </div>
                                 </div>
 
@@ -1042,19 +1049,13 @@ $active_page = "settings";
 
                             <div class="space-y-8">
                                 <div class="flex flex-col gap-1.5">
-                                    <label
-                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Max
-                                        Staff
-                                        Count</label>
-                                    <input type="number" name="max_staff" class="input-field"
+                                    <label class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Max Staff Count <span class="text-rose-500 ml-1">*</span></label>
+                                    <input type="number" name="max_staff" required class="input-field"
                                         value="<?= htmlspecialchars($configs['max_staff'] ?? '10') ?>">
                                 </div>
                                 <div class="flex flex-col gap-1.5">
-                                    <label
-                                        class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Wait
-                                        Time
-                                        (Days)</label>
-                                    <input type="number" name="grace_period" class="input-field"
+                                    <label class="text-[9px] font-black uppercase text-[--text-main] opacity-70 tracking-widest ml-1">Wait Time (Days) <span class="text-rose-500 ml-1">*</span></label>
+                                    <input type="number" name="grace_period" required class="input-field"
                                         value="<?= htmlspecialchars($configs['grace_period'] ?? '7') ?>">
                                 </div>
                                 <div class="flex flex-col gap-1.5">
@@ -1075,13 +1076,12 @@ $active_page = "settings";
                                 </div>
                             </div>
 
-                            <div class="mt-12 p-6 rounded-2xl bg-primary/5 border border-primary/10">
+                            <div class="mt-12 p-6 rounded-[24px] border" style="background-color: rgba(var(--primary-rgb), 0.03); border-color: rgba(var(--primary-rgb), 0.1);">
                                 <div class="flex items-center gap-3 mb-3">
-                                    <span class="material-symbols-outlined text-[--highlight] text-lg">info</span>
-                                    <span class="text-[12px] font-black uppercase tracking-widest text-primary">Policy
-                                        info</span>
+                                    <span class="material-symbols-outlined text-primary text-lg opacity-80">info</span>
+                                    <span class="text-[12px] font-black uppercase tracking-widest text-primary italic opacity-80">Policy info</span>
                                 </div>
-                                <p class="text-[12px] text-[--text-main] opacity-70 leading-relaxed font-bold">These
+                                <p class="text-[13px] text-[--text-main] opacity-70 leading-relaxed font-bold">These
                                     rules
                                     apply globally to ALL tenants in the system. Changes here affect account creation
                                     and
@@ -1385,7 +1385,7 @@ $active_page = "settings";
                                                             <button type="button" onclick='viewPlanDetails(<?= htmlspecialchars(json_encode($plan), ENT_QUOTES, "UTF-8") ?>)' class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-primary transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="View Details">
                                                                 <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
                                                             </button>
-                                                            <button type="button" onclick="toggleEditPlan(<?= $plan['website_plan_id'] ?>); setActiveView('grid');" class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-amber-500 hover:border-amber-500/20 transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="Edit Plan">
+                                                            <button type="button" onclick='openEditPlanModal(<?= htmlspecialchars(json_encode($plan), ENT_QUOTES, "UTF-8") ?>)' class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-amber-500 hover:border-amber-500/20 transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="Edit Plan">
                                                                 <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">edit</span>
                                                             </button>
                                                             <button type="button" onclick="markPlanForArchival(<?= $plan['website_plan_id'] ?>)" class="size-9 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center active:scale-95 shadow-lg" title="Archive Plan">
@@ -1608,12 +1608,12 @@ $active_page = "settings";
                             </div>
                         </section>
 
-                        <div class="p-6 rounded-2xl bg-white/[0.02] border-l-2 border-white/40 flex flex-col gap-3 mb-6">
-                            <h4 class="text-[10px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
-                                <span class="material-symbols-outlined text-sm">mail</span>
+                        <div class="p-6 rounded-2xl bg-white/[0.02] flex flex-col gap-3 mb-6">
+                            <h4 class="text-[11px] font-black text-primary uppercase tracking-widest flex items-center gap-2">
+                                <span class="material-symbols-outlined text-base">mail</span>
                                 PASSWORD PROTOCOL
                             </h4>
-                            <p class="text-[11px] text-gray-400 font-medium leading-relaxed">
+                            <p class="text-[13px] text-gray-300 font-medium leading-relaxed">
                                 For security, the account <span class="text-primary font-bold">username and password</span> will be automatically generated and securely delivered to the recipient's email address upon confirmation.
                             </p>
                         </div>
@@ -1697,9 +1697,9 @@ $active_page = "settings";
                     <span class="material-symbols-outlined text-primary text-2xl">visibility</span>
                 </div>
                 <div>
-                    <h3 class="text-xl font-black italic uppercase tracking-tighter text-white">Archived <span
+                    <h3 class="text-xl font-black italic uppercase tracking-tighter text-white"><span id="view_plan_modal_title_prefix">Archived</span> <span
                             class="text-primary italic">PLAN DETAILS</span></h3>
-                    <p class="text-[11px] font-black uppercase tracking-widest text-gray-500 mt-1">Reviewing details for
+                    <p id="view_plan_modal_subtitle" class="text-[11px] font-black uppercase tracking-widest text-gray-500 mt-1">Reviewing details for
                         archived plan</p>
                 </div>
             </div>
@@ -1755,6 +1755,127 @@ $active_page = "settings";
             </div>
         </div>
     </div>
+    <!-- Add Plan Modal (Table View) -->
+    <div id="addPlanModal" class="modal-overlay p-4 bg-background/40 backdrop-blur-xl transition-all duration-300" onclick="if(event.target === this) toggleAddPlanModal(false)">
+        <div class="bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] w-full max-w-lg p-0 relative overflow-hidden">
+            <button type="button" onclick="toggleAddPlanModal(false)"
+                class="absolute top-8 right-8 size-10 rounded-xl bg-white/5 flex items-center justify-center text-[--secondary] hover:text-white transition-all z-20 hover:scale-110 active:scale-95">
+                <span class="material-symbols-outlined text-xl">close</span>
+            </button>
+
+            <div class="modal-content-scroll p-8">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-white">add_reaction</span>
+                    </div>
+                    <div class="flex flex-col justify-center">
+                        <h3 class="text-xl font-black italic uppercase tracking-tighter text-emerald-500 leading-none">NEW PLAN</h3>
+                        <p class="text-[9px] font-black uppercase tracking-[0.15em] text-gray-400 mt-1 leading-none">Add a new subscription plan</p>
+                    </div>
+                </div>
+
+                <form action="" method="POST" id="addPlanModalForm" enctype="multipart/form-data">
+                    <input type="hidden" name="save_settings" value="1">
+                    <input type="hidden" name="active_tab" value="<?= htmlspecialchars($current_tab) ?>">
+                    <div class="space-y-6">
+                        <div class="space-y-2.5">
+                            <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Plan Name <span class="text-rose-500 ml-1">*</span></label>
+                            <input type="text" name="new_plans[new_plan_modal][name]" placeholder="e.g. Starter Pack" required class="input-field w-full">
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-6">
+                            <div class="space-y-2.5">
+                                <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Price (₱) <span class="text-rose-500 ml-1">*</span></label>
+                                <input type="number" step="1" name="new_plans[new_plan_modal][price]" placeholder="e.g. 2999" required class="input-field w-full">
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Duration (Months) <span class="text-rose-500 ml-1">*</span></label>
+                                <input type="number" name="new_plans[new_plan_modal][duration]" placeholder="e.g. 12" required class="input-field w-full">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-6">
+                            <div class="space-y-2.5">
+                                <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Billing Cycle Text <span class="text-rose-500 ml-1">*</span></label>
+                                <input type="text" name="new_plans[new_plan_modal][billing]" placeholder="e.g. Yearly" required class="input-field w-full">
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Featured Badge Text</label>
+                                <input type="text" name="new_plans[new_plan_modal][badge_text]" placeholder="e.g. Most Popular" class="input-field w-full">
+                            </div>
+                        </div>
+                        <div class="space-y-2.5">
+                            <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Features (Comma-separated)</label>
+                            <textarea name="new_plans[new_plan_modal][features]" rows="4" class="input-field w-full no-scrollbar resize-none" placeholder="Feature 1, Feature 2..."></textarea>
+                        </div>
+
+                        <div class="flex justify-end pt-6 border-t border-white/5">
+                            <button type="submit" class="w-full py-4 rounded-xl bg-primary text-[--tab-active-text] text-[11px] font-black tracking-tight hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95">Create Plan</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Plan Modal (Table View) -->
+    <div id="editPlanModal" class="modal-overlay p-4 bg-background/40 backdrop-blur-xl transition-all duration-300" onclick="if(event.target === this) toggleEditPlanModal(false)">
+        <div class="bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] w-full max-w-lg p-0 relative overflow-hidden">
+            <button type="button" onclick="toggleEditPlanModal(false)"
+                class="absolute top-8 right-8 size-10 rounded-xl bg-white/5 flex items-center justify-center text-[--secondary] hover:text-white transition-all z-20 hover:scale-110 active:scale-95">
+                <span class="material-symbols-outlined text-xl">close</span>
+            </button>
+
+            <div class="modal-content-scroll p-8">
+                <div class="flex items-center gap-3 mb-8">
+                    <div class="size-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary">edit</span>
+                    </div>
+                    <div class="flex flex-col justify-center">
+                        <h3 class="text-xl font-black italic uppercase tracking-tighter text-primary leading-none">EDIT PLAN</h3>
+                        <p class="text-[9px] font-black uppercase tracking-[0.15em] text-gray-400 mt-1 leading-none">Update subscription plan</p>
+                    </div>
+                </div>
+
+                <form action="" method="POST" id="editPlanModalForm" enctype="multipart/form-data">
+                    <input type="hidden" name="save_settings" value="1">
+                    <input type="hidden" name="active_tab" value="<?= htmlspecialchars($current_tab) ?>">
+                    <div class="space-y-6">
+                        <div class="space-y-2.5">
+                            <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Plan Name <span class="text-rose-500 ml-1">*</span></label>
+                            <input type="text" id="edit_plan_name" required class="input-field w-full">
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-6">
+                            <div class="space-y-2.5">
+                                <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Price (₱) <span class="text-rose-500 ml-1">*</span></label>
+                                <input type="number" step="1" id="edit_plan_price" placeholder="e.g. 2999" required class="input-field w-full">
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Duration (Months) <span class="text-rose-500 ml-1">*</span></label>
+                                <input type="number" id="edit_plan_duration" placeholder="e.g. 12" required class="input-field w-full">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-8 gap-y-6">
+                            <div class="space-y-2.5">
+                                <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Billing Cycle Text <span class="text-rose-500 ml-1">*</span></label>
+                                <input type="text" id="edit_plan_billing" placeholder="e.g. Yearly" required class="input-field w-full">
+                            </div>
+                            <div class="space-y-2.5">
+                                <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Featured Badge Text</label>
+                                <input type="text" id="edit_plan_badge" placeholder="e.g. Most Popular" class="input-field w-full">
+                            </div>
+                        </div>
+                        <div class="space-y-2.5">
+                            <label class="text-[11px] font-[800] uppercase text-gray-400 tracking-widest ml-1">Features (Comma-separated)</label>
+                            <textarea id="edit_plan_features" rows="4" class="input-field w-full no-scrollbar resize-none" placeholder="Feature 1, Feature 2..."></textarea>
+                        </div>
+
+                        <div class="flex justify-end pt-6 border-t border-white/5">
+                            <button type="submit" class="w-full py-4 rounded-xl bg-primary text-[--tab-active-text] text-[11px] font-black tracking-tight hover:opacity-90 transition-all shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95">Save Changes</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     <!-- END OF MODALS -->
     <script>
         function switchTab(tabId) {
@@ -1769,8 +1890,7 @@ $active_page = "settings";
             if (activeContent) activeContent.classList.add('active');
 
             // Update Hidden Input for Persistence
-            const tabInput = document.getElementById('activeTabInput');
-            if (tabInput) tabInput.value = tabId;
+            document.querySelectorAll('input[name="active_tab"]').forEach(input => input.value = tabId);
         }
 
         function toggleSuperadminModal(show) {
@@ -2147,6 +2267,9 @@ $active_page = "settings";
         }
 
         function confirmSaveConfigurations() {
+            const form = document.getElementById('mainSettingsForm');
+            if (!form.reportValidity()) return;
+            
             showActionModal(
                 'Save Changes',
                 'Update system configurations? This will apply new branding and rules across all platforms immediately.',
@@ -2279,6 +2402,12 @@ $active_page = "settings";
         document.addEventListener('DOMContentLoaded', () => {
             initPagination();
             updateLiveBranding();
+            
+            // Restore View Mode (Grid or Table)
+            const savedView = localStorage.getItem('activePlansView');
+            if (savedView) {
+                setActiveView(savedView);
+            }
 
             const successAlert = document.getElementById('successAlert');
             const errorAlert = document.getElementById('errorAlert');
@@ -2341,6 +2470,12 @@ $active_page = "settings";
         function addNewPlanCard() {
             const gridContainer = document.getElementById('activePlansGridContainer');
             
+            // Check if in Table View
+            if (gridContainer.classList.contains('hidden')) {
+                toggleAddPlanModal(true);
+                return;
+            }
+            
             // Limit to one draft plan at a time
             const existingDraft = gridContainer.querySelector('.draft-plan-card');
             if (existingDraft) {
@@ -2384,11 +2519,11 @@ $active_page = "settings";
                     <div class="grid grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price (₱)</label>
-                            <input type="number" step="1" name="new_plans[${newId}][price]" class="input-field" required>
+                            <input type="number" step="1" name="new_plans[${newId}][price]" placeholder="e.g. 2999" class="input-field" required>
                         </div>
                         <div class="flex flex-col gap-1.5">
                             <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Months)</label>
-                            <input type="number" name="new_plans[${newId}][duration]" class="input-field" required>
+                            <input type="number" name="new_plans[${newId}][duration]" placeholder="e.g. 12" class="input-field" required>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
@@ -2477,6 +2612,10 @@ $active_page = "settings";
         }
 
         function viewPlanDetails(plan) {
+            const statusText = plan.status || 'SYSTEM';
+            document.getElementById('view_plan_modal_title_prefix').innerText = statusText;
+            document.getElementById('view_plan_modal_subtitle').innerText = `Reviewing details for ${statusText.toLowerCase()} plan`;
+
             document.getElementById('view_plan_name').innerText = plan.plan_name;
             document.getElementById('view_plan_price').innerText = '₱' + parseInt(plan.price).toLocaleString();
             document.getElementById('view_plan_duration').innerText = plan.duration_months + (plan.duration_months > 1 ? ' Months' : ' Month');
@@ -2485,6 +2624,43 @@ $active_page = "settings";
             document.getElementById('view_plan_features').innerText = plan.features || 'No features listed';
 
             togglePlanViewModal(true);
+        }
+
+        function toggleAddPlanModal(show) {
+            const modal = document.getElementById('addPlanModal');
+            if (modal) {
+                modal.classList.toggle('flex', show);
+            }
+        }
+
+        function toggleEditPlanModal(show) {
+            const modal = document.getElementById('editPlanModal');
+            if (modal) {
+                modal.classList.toggle('flex', show);
+            }
+        }
+
+        function openEditPlanModal(plan) {
+            const modal = document.getElementById('editPlanModal');
+            if (!modal) return;
+            
+            const id = plan.website_plan_id;
+            
+            document.getElementById('edit_plan_name').value = plan.plan_name || '';
+            document.getElementById('edit_plan_price').value = plan.price || '';
+            document.getElementById('edit_plan_duration').value = plan.duration_months || '';
+            document.getElementById('edit_plan_billing').value = plan.billing_cycle || '';
+            document.getElementById('edit_plan_badge').value = plan.badge_text || '';
+            document.getElementById('edit_plan_features').value = plan.features || '';
+            
+            document.getElementById('edit_plan_name').name = `plans[${id}][name]`;
+            document.getElementById('edit_plan_price').name = `plans[${id}][price]`;
+            document.getElementById('edit_plan_duration').name = `plans[${id}][duration]`;
+            document.getElementById('edit_plan_billing').name = `plans[${id}][billing]`;
+            document.getElementById('edit_plan_badge').name = `plans[${id}][badge_text]`;
+            document.getElementById('edit_plan_features').name = `plans[${id}][features]`;
+
+            toggleEditPlanModal(true);
         }
 
         function setCustomDropdownValue(inputId, value) {
@@ -2707,6 +2883,9 @@ $active_page = "settings";
             
             const gridPaginator = document.getElementById('activePlansPagination');
             const tablePaginator = document.getElementById('activePlansTablePagination');
+            
+            // Save to localStorage
+            localStorage.setItem('activePlansView', view);
             
             // Prevent white border blink from glass-card CSS transition
             if (container) container.style.transition = 'none';

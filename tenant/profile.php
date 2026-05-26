@@ -614,6 +614,15 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             background-color: var(--primary) !important;
             color: #ffffff !important;
         }
+        .req-asterisk {
+            display: none;
+            color: #f43f5e;
+            margin-left: 0.125rem;
+        }
+        
+        .edit-mode .req-asterisk {
+            display: inline;
+        }
     </style>
 </head>
 
@@ -748,7 +757,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                         <span>Edit Account</span>
                     </button>
 
-                    <button id="discard-btn" onclick="cancelEdit()"
+                    <button id="discard-btn" onclick="confirmDiscard()"
                         class="hidden w-full py-4 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 hover:border-rose-500/40 text-rose-500 text-[10px] font-black italic uppercase tracking-[0.2em] rounded-2xl transition-all flex items-center justify-center gap-3 group">
                         <span class="material-symbols-rounded group-hover:scale-110 transition-transform">close</span>
                         <span>Discard Changes</span>
@@ -783,7 +792,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                 <h3 class="profile-section-title">Account Details</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Username</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Username<span class="req-asterisk">*</span></label>
                                         <div class="relative group">
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                                 <span class="material-symbols-rounded text-lg">alternate_email</span>
@@ -881,7 +890,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                 <h3 class="profile-section-title">Personal Information</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">First Name</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">First Name<span class="req-asterisk">*</span></label>
                                         <div class="relative group">
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                                 <span class="material-symbols-rounded text-lg">badge</span>
@@ -905,7 +914,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                     </div>
 
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Last Name</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Last Name<span class="req-asterisk">*</span></label>
                                         <div class="relative group">
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                                 <span class="material-symbols-rounded text-lg">badge</span>
@@ -919,7 +928,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                     <div class="space-y-2"><!-- Grid Spacer --></div>
 
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Date of Birth</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Date of Birth<span class="req-asterisk">*</span></label>
                                         <div class="relative group">
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                                 <span class="material-symbols-rounded text-lg">cake</span>
@@ -931,7 +940,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                     </div>
 
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Sex</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Sex<span class="req-asterisk">*</span></label>
                                         <div class="relative group custom-select-container">
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors z-10">
                                                 <span class="material-symbols-rounded text-lg">wc</span>
@@ -944,12 +953,11 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                                     <span class="material-symbols-rounded text-lg">expand_more</span>
                                                 </span>
                                             </div>
-                                            <div class="absolute left-0 right-0 top-full z-[200] rounded-b-xl searchable-dropdown-overlay custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                                <div class="p-1.5 space-y-0.5">
-                                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $sex === 'Male' ? 'selected-option' : 'text-white/60' ?>" data-value="Male">Male</div>
-                                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $sex === 'Female' ? 'selected-option' : 'text-white/60' ?>" data-value="Female">Female</div>
-                                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $sex === 'Other' ? 'selected-option' : 'text-white/60' ?>" data-value="Other">Other</div>
-                                                </div>
+                                            <div class="absolute left-0 right-0 top-full mt-2 z-[200] rounded-xl bg-[#141216] shadow-2xl border border-white/5 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                                <div class="px-4 py-2 text-[9px] font-black uppercase tracking-widest text-gray-500 pointer-events-none select-none">Select Sex</div>
+                                                <div class="custom-option px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $sex === 'Male' ? 'selected-option' : 'text-white/60' ?>" data-value="Male">Male</div>
+                                                <div class="custom-option px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $sex === 'Female' ? 'selected-option' : 'text-white/60' ?>" data-value="Female">Female</div>
+                                                <div class="custom-option px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $sex === 'Other' ? 'selected-option' : 'text-white/60' ?>" data-value="Other">Other</div>
                                             </div>
                                         </div>
                                     </div>
@@ -961,20 +969,22 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                                 <h3 class="profile-section-title">Contact & Details</h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Contact No.</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Contact No.<span class="req-asterisk">*</span></label>
                                         <div class="relative group">
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                                 <span class="material-symbols-rounded text-lg">smartphone</span>
                                             </span>
                                             <input type="text" name="contact_number" id="contact_number"
-                                                value="<?= !empty($user['contact_number']) ? htmlspecialchars($user['contact_number']) : '---' ?>"
+                                                value="<?= !empty($user['contact_number']) ? htmlspecialchars($user['contact_number']) : '' ?>"
                                                 disabled required maxlength="13" oninput="formatContactNumber(this)"
-                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold">
+                                                placeholder="09XX-XXX-XXXX"
+                                                class="w-full profile-input has-icon rounded-2xl px-4 py-3.5 text-sm font-bold placeholder:text-gray-500/50">
                                         </div>
+                                        <p id="contact-helper" class="hidden text-[9px] font-black uppercase tracking-widest text-primary ml-1 mt-1">Starts with 09 Automatically</p>
                                     </div>
 
                                     <div class="space-y-2">
-                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Email</label>
+                                        <label class="text-[9px] uppercase font-black text-[--text-main]/60 tracking-widest ml-1">Email<span class="req-asterisk">*</span></label>
                                         <div class="relative group">
                                             <span class="input-icon absolute inset-y-0 left-0 pl-4 flex items-center text-gray-500 pointer-events-none group-focus-within:text-primary transition-colors">
                                                 <span class="material-symbols-rounded text-lg">mail</span>
@@ -989,7 +999,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                             </div>
 
                             <!-- ── SAVE SECTION (same structure as superadmin) ── -->
-                            <div id="save-section" class="hidden border-t border-white/5 pt-10 mt-6 animate-fade-in">
+                            <div id="save-section" class="hidden border-t border-white/5 pt-6 mt-2 animate-fade-in">
                                 <div class="bg-[--card-bg] border rounded-3xl p-5 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl backdrop-blur-xl relative overflow-hidden group/save" style="border-color: rgba(var(--primary-rgb), 0.2);">
                                     <div class="absolute inset-0 bg-primary/5 opacity-0 group-hover/save:opacity-100 transition-opacity"></div>
 
@@ -1223,9 +1233,9 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
     </div>
 
     <!-- ── CUSTOM MODAL (exact replica of superadmin) ── -->
-    <div id="custom-modal" class="hidden">
-        <div class="absolute inset-0 transition-opacity duration-300 opacity-0 bg-[#0a090d]/80" id="modal-backdrop" onclick="closeModal()"></div>
-        <div class="relative z-10 bg-[--background] w-full max-w-sm rounded-[32px] shadow-2xl border border-white/10 overflow-hidden transform transition-all duration-300 scale-90 opacity-0" id="modal-content">
+    <div id="custom-modal" class="hidden pointer-events-none">
+        <div class="absolute inset-0 transition-opacity duration-300 opacity-0 bg-[rgba(var(--background-rgb),0.4)] backdrop-blur-[20px] backdrop-saturate-[180%] pointer-events-auto" id="modal-backdrop" onclick="closeModal()"></div>
+        <div class="relative z-10 bg-[--card-bg] w-full max-w-[400px] rounded-[28px] shadow-2xl border border-white/5 overflow-hidden transform transition-all duration-300 scale-90 opacity-0 pointer-events-auto" id="modal-content">
             <div class="p-8 text-center">
                 <div class="w-20 h-20 rounded-[24px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10" id="modal-icon-bg">
                     <span class="material-symbols-rounded text-4xl text-primary" id="modal-icon">info</span>
@@ -1367,7 +1377,7 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
                 const dropdown = container.querySelector('.custom-select-dropdown');
                 
                 hiddenInput.value = customOption.dataset.value;
-                displayInput.value = customOption.textContent.trim();
+                displayInput.value = customOption.dataset.value;
                 
                 container.querySelectorAll('.custom-option').forEach(opt => {
                     opt.classList.remove('selected-option');
@@ -1414,6 +1424,9 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             indicator.classList.remove('hidden');
             profileLabel.classList.remove('hidden');
 
+            const contactHelper = document.getElementById('contact-helper');
+            if(contactHelper) contactHelper.classList.remove('hidden');
+
             if (hasPhoto) {
                 removeBtn.classList.remove('hidden');
                 setTimeout(() => removeBtn.classList.add('opacity-100'), 100);
@@ -1421,6 +1434,17 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
 
             const firstInput = form.querySelector('input:not([disabled])');
             if (firstInput && firstInput.type !== 'hidden') firstInput.focus();
+        }
+
+        function confirmDiscard() {
+            showModal(
+                'Discard Changes?',
+                'Are you sure you want to discard your unsaved changes? All modifications will be lost.',
+                'confirm',
+                function() {
+                    cancelEdit();
+                }
+            );
         }
 
         function cancelEdit() {
@@ -1454,6 +1478,9 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
             discardBtn.classList.add('hidden');
             saveSection.classList.add('hidden');
             indicator.classList.add('hidden');
+            
+            const contactHelper = document.getElementById('contact-helper');
+            if(contactHelper) contactHelper.classList.add('hidden');
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -1617,6 +1644,8 @@ $birthDate = htmlspecialchars($user['birth_date'] ?? '');
         // ─────────────────────────────────────────────────────────────
         function formatContactNumber(input) {
             let val = input.value.replace(/\D/g, '');
+            if (val.length > 0 && val[0] !== '0') val = '0' + val;
+            if (val.length > 1 && val[1] !== '9') val = '09' + val.substring(2);
             if (val.length > 11) val = val.substring(0, 11);
             let formatted = '';
             if (val.length > 0) {
