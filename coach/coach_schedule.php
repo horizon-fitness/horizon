@@ -331,7 +331,7 @@ if ($coach_id > 0) {
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         .day-card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .day-card:hover { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); transform: translateY(-2px); }
+        .day-card:hover { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.1); }
         .day-card.is-off { background: rgba(244, 63, 94, 0.02); border-color: rgba(244, 63, 94, 0.1); }
         .day-card.is-off .shift-inputs { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
 
@@ -627,7 +627,7 @@ if ($coach_id > 0) {
                                                     $is_pending = ($found_booking['status'] === 'Pending');
                                                     $cls = $is_pending ? 'amber' : 'emerald';
                                                 ?>
-                                                    <div onclick="openBookingModal(this)" data-booking="<?= htmlspecialchars(json_encode($found_booking)) ?>" class="booked-slot-box flex items-center bg-<?= $cls ?>-500/10 border border-<?= $cls ?>-500/20 p-5 rounded-3xl group animate-slide-up cursor-pointer hover:bg-<?= $cls ?>-500/20 transition-all hover:scale-[1.01]">
+                                                    <div onclick="openBookingModal(this)" data-booking="<?= htmlspecialchars(json_encode($found_booking)) ?>" class="booked-slot-box flex items-center bg-<?= $cls ?>-500/10 border border-<?= $cls ?>-500/20 p-5 rounded-3xl group animate-slide-up cursor-pointer hover:bg-<?= $cls ?>-500/20 transition-all">
                                                         <div class="w-32 text-xs font-black italic text-<?= $cls ?>-500 border-r border-<?= $cls ?>-500/20 pr-4 mr-4 shrink-0 flex flex-col items-start justify-center text-left">
                                                             <span><?= date('h:i A', $start_st) ?> -</span>
                                                             <span><?= date('h:i A', $slot_end) ?></span>
@@ -684,7 +684,7 @@ if ($coach_id > 0) {
                                                     $is_pending = ($found_booking['status'] === 'Pending');
                                                     $cls = $is_pending ? 'amber' : 'emerald';
                                                 ?>
-                                                    <div onclick="openBookingModal(this)" data-booking="<?= htmlspecialchars(json_encode($found_booking)) ?>" class="booked-slot-box flex items-center bg-<?= $cls ?>-500/10 border border-<?= $cls ?>-500/20 p-5 rounded-3xl group animate-slide-up cursor-pointer hover:bg-<?= $cls ?>-500/20 transition-all hover:scale-[1.01]">
+                                                    <div onclick="openBookingModal(this)" data-booking="<?= htmlspecialchars(json_encode($found_booking)) ?>" class="booked-slot-box flex items-center bg-<?= $cls ?>-500/10 border border-<?= $cls ?>-500/20 p-5 rounded-3xl group animate-slide-up cursor-pointer hover:bg-<?= $cls ?>-500/20 transition-all">
                                                         <div class="w-32 text-xs font-black italic text-<?= $cls ?>-500 border-r border-<?= $cls ?>-500/20 pr-4 mr-4 shrink-0 flex flex-col items-start justify-center text-left">
                                                             <span><?= date('h:i A', $start_st) ?> -</span>
                                                             <span><?= date('h:i A', $slot_end) ?></span>

@@ -193,19 +193,6 @@ if ($coach_id > 0) {
             border-radius: 24px;
             transition: box-shadow 0.4s ease, border-color 0.4s ease;
             position: relative;
-            box-shadow:
-                0 0 0 0.5px rgba(255,255,255,0.04) inset,
-                0 4px 6px -1px rgba(0,0,0,0.4),
-                0 20px 60px -10px rgba(0,0,0,0.5),
-                0 1px 0 rgba(255,255,255,0.06) inset;
-        }
-        .glass-card:hover {
-            border-color: rgba(255,255,255,0.11);
-            box-shadow:
-                0 0 0 0.5px rgba(255,255,255,0.06) inset,
-                0 8px 20px -4px rgba(0,0,0,0.5),
-                0 30px 80px -10px rgba(0,0,0,0.6),
-                0 1px 0 rgba(255,255,255,0.08) inset;
         }
 
         .side-nav {
@@ -275,8 +262,8 @@ if ($coach_id > 0) {
 
         .status-card-primary { border: 1px solid rgba(var(--primary-rgb), 0.3); background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, transparent 100%); }
         .status-card-green   { border: 1px solid rgba(16, 185, 129, 0.3); background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%); }
-        .status-card-yellow  { border: 1px solid rgba(245, 158, 11, 0.3);  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05)  0%, transparent 100%); }
-        .status-card-blue    { border: 1px solid rgba(59, 130, 246, 0.3);  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05)  0%, transparent 100%); }
+        .status-card-yellow  { border: 1px solid rgba(245, 158, 11, 0.3); background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, transparent 100%); }
+        .status-card-blue    { border: 1px solid rgba(59, 130, 246, 0.3); background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, transparent 100%); }
 
         .no-scrollbar::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }

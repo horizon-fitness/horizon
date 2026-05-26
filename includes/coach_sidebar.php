@@ -15,6 +15,29 @@
     .nav-item.logout-item:hover .nav-label {
         color: #ef4444 !important;
     }
+    .nav-item.active,
+    .nav-item.active .nav-label {
+        color: var(--primary) !important;
+        position: relative !important;
+        background: transparent !important;
+    }
+    .nav-item.active .material-symbols-outlined,
+    .nav-item.active .material-symbols-rounded {
+        color: var(--primary) !important;
+        opacity: 1 !important;
+    }
+    .nav-item.active::after {
+        content: '';
+        position: absolute;
+        right: 0px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+        height: 24px;
+        background: var(--primary);
+        border-radius: 4px 0 0 4px;
+        opacity: 1;
+    }
 </style>
 
 <nav class="side-nav bg-background-dark border-r border-white/5 z-50">

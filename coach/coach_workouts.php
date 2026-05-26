@@ -197,10 +197,17 @@ $active_page = "workouts";
         }
     </script>
     <style>
-        body { font-family: 'Lexend', sans-serif; background-color: <?= $page['bg_color'] ?? '#0a090d' ?>; color: white; display: flex; flex-direction: row; min-h-screen: 100vh; overflow: hidden; }
+        :root {
+            --primary: <?= $page['theme_color'] ?? '#8c2bee' ?>;
+            --background: <?= $page['bg_color'] ?? '#0a090d' ?>;
+            --text-main: #ffffff;
+            --highlight: #a1a1aa;
+        }
+
+        body { font-family: 'Lexend', sans-serif; background-color: var(--background); color: white; display: flex; flex-direction: row; min-h-screen: 100vh; overflow: hidden; }
         .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
         
-        .side-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 110; background: <?= $page['bg_color'] ?? '#0a090d' ?>; border-right: 1px solid rgba(255,255,255,0.05); }
+        .side-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 110; background: var(--background); border-right: 1px solid rgba(255,255,255,0.05); }
         .side-nav:hover { width: 300px; }
         .main-content { margin-left: 110px; flex: 1; min-width: 0; transition: margin-left 0.4s cubic-bezier(0.4, 0, 0.2, 1); height: 100vh; overflow-y: auto; }
         .side-nav:hover ~ .main-content { margin-left: 300px; }
@@ -209,11 +216,9 @@ $active_page = "workouts";
         .side-nav:hover .nav-label { opacity: 1; transform: translateX(0); pointer-events: auto; }
         .nav-section-label { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); margin: 0 !important; pointer-events: none; }
         .side-nav:hover .nav-section-label { max-height: 20px; opacity: 1; margin-bottom: 8px !important; pointer-events: auto; }
-
+        
         .nav-item { display: flex; align-items: center; gap: 16px; padding: 12px 38px; transition: all 0.2s ease; text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
         .nav-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .nav-item.active { color: <?= $page['theme_color'] ?? '#8c2bee' ?> !important; position: relative; }
-        .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 20px; background: <?= $page['theme_color'] ?? '#8c2bee' ?>; border-radius: 99px; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

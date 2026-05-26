@@ -303,10 +303,10 @@ if ($coach_id > 0) {
 
         .glass-card {
             background: var(--card-bg);
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 32px;
-            backdrop-filter: blur(var(--card-blur));
-            transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 24px;
+            transition: box-shadow 0.4s ease, border-color 0.4s ease;
+            position: relative;
         }
 
         .side-nav {
@@ -374,11 +374,6 @@ if ($coach_id > 0) {
             display: inline-block; line-height: 1;
         }
 
-        .status-card-primary { border: 1px solid rgba(var(--primary-rgb), 0.2); background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1) 0%, rgba(20, 18, 26, 0) 100%); }
-        .status-card-green   { border: 1px solid rgba(16, 185, 129, 0.2); background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(20, 18, 26, 0) 100%); }
-        .status-card-yellow  { border: 1px solid rgba(245, 158, 11, 0.2);  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05)  0%, rgba(20, 18, 26, 0) 100%); }
-        .status-card-rose    { border: 1px solid rgba(244, 63, 94, 0.2);   background: linear-gradient(135deg, rgba(244, 63, 94, 0.05)   0%, rgba(20, 18, 26, 0) 100%); }
-
         .no-scrollbar::-webkit-scrollbar { display: none !important; }
         * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 
@@ -396,11 +391,19 @@ if ($coach_id > 0) {
         .glass-input:focus { border-color: var(--primary); background: rgba(var(--primary-rgb), 0.05); box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.1); }
         .glass-input option { background: #1a1220; color: white; }
 
-        .glass-table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        .glass-table th { padding: 24px 32px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: var(--text-main); opacity: 0.4; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .glass-table td { padding: 28px 32px; font-size: 13px; color: var(--text-main); border-bottom: 1px solid rgba(255,255,255,0.03); }
-        .glass-table tr:hover td { background: rgba(255, 255, 255, 0.01); }
-
+        .view-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            padding: 0.85rem 1.25rem;
+            color: white;
+            font-size: 0.875rem;
+            font-weight: 600;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+        }
+        
         .view-btn { 
             size: 48px; border-radius: 16px; 
             background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); 
@@ -411,6 +414,11 @@ if ($coach_id > 0) {
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        .status-card-primary { border: 1px solid rgba(var(--primary-rgb), 0.3); background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, transparent 100%); }
+        .status-card-green   { border: 1px solid rgba(16, 185, 129, 0.3); background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%); }
+        .status-card-yellow  { border: 1px solid rgba(245, 158, 11, 0.3); background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, transparent 100%); }
+        .status-card-rose    { border: 1px solid rgba(244, 63, 94, 0.3); background: linear-gradient(135deg, rgba(244, 63, 94, 0.05) 0%, transparent 100%); }
     </style>
     <script>
         function updateHeaderClock() {
@@ -452,12 +460,19 @@ if ($coach_id > 0) {
             const gridBtn = document.getElementById('gridViewBtn');
             const tableBtn = document.getElementById('tableViewBtn');
 
-            if (view === 'grid') {
-                grid.classList.remove('hidden'); table.classList.add('hidden');
-                gridBtn.classList.add('active'); tableBtn.classList.remove('active');
+            const activeClass = "flex-1 lg:size-9 rounded-lg bg-primary text-white flex items-center justify-center transition-all h-full active-view-btn";
+            const inactiveClass = "flex-1 lg:size-9 rounded-lg text-white/40 hover:bg-white/5 hover:text-white flex items-center justify-center transition-all h-full";
+
+            if(view === 'grid') {
+                grid.classList.remove('hidden');
+                table.classList.add('hidden');
+                gridBtn.className = activeClass;
+                tableBtn.className = inactiveClass;
             } else {
-                grid.classList.add('hidden'); table.classList.remove('hidden');
-                gridBtn.classList.remove('active'); tableBtn.classList.add('active');
+                grid.classList.add('hidden');
+                table.classList.remove('hidden');
+                tableBtn.className = activeClass;
+                gridBtn.className = inactiveClass;
             }
         }
     </script>
@@ -468,100 +483,119 @@ if ($coach_id > 0) {
 
     <div class="main-content flex-1 overflow-y-auto no-scrollbar">
         <div class="p-10 max-w-[1500px] mx-auto animate-fade-in">
-            <header class="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <header class="mb-10 flex justify-between items-end">
                 <div>
-                    <h2 class="text-4xl font-black italic uppercase tracking-tighter leading-none">
-                        Coach <span class="text-primary">Dashboard</span>
+                    <h2 class="text-3xl font-black uppercase tracking-tighter italic" style="color:var(--text-main)">
+                        MEMBER <span style="color:var(--primary)" class="italic">MANAGEMENT</span>
                     </h2>
-                    <p class="text-[--text-main]/30 text-[11px] font-black uppercase tracking-[0.2em] mt-2 px-1 italic">Manage your members and track their progress</p>
+                    <p class="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-50 italic" style="color:var(--text-main)">Track and manage your clients</p>
                 </div>
-                <div class="flex flex-col items-end">
-                    <p id="headerClock" class="font-black italic text-2xl leading-none tracking-tighter" style="color:var(--text-main)">00:00:00 AM</p>
-                    <p class="text-primary text-[11px] font-black uppercase tracking-[0.2em] leading-none mt-2">
+                <div class="text-right">
+                    <p id="headerClock" class="font-black italic text-2xl leading-none tracking-tighter pr-2" style="color:var(--text-main)">00:00:00 AM</p>
+                    <p class="text-[10px] font-bold uppercase tracking-widest mt-2 pr-2 opacity-80" style="color:var(--primary)">
                         <?= date('l, M d, Y') ?>
                     </p>
                 </div>
             </header>
 
             <!-- Membership Stat Dashboard -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                <div class="glass-card p-8 status-card-primary relative overflow-hidden group hover:scale-[1.02]">
-                    <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-primary">groups</span>
-                    <p class="text-[11px] font-black uppercase text-[--text-main]/40 mb-2 tracking-[0.15em]">Total Clients</p>
-                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $total_clients ?></h3>
+            <!-- Membership Stat Dashboard -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                <div class="glass-card p-8 status-card-primary relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">groups</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total Clients</p>
+                    <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= $total_clients ?></h3>
+                    <p class="text-[10px] font-black uppercase mt-2" style="color:var(--primary)">All Assigned</p>
                 </div>
 
-                <div class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02]">
-                    <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-emerald-500">verified</span>
-                    <p class="text-[11px] font-black uppercase text-[--text-main]/40 mb-2 tracking-[0.15em]">Active Users</p>
-                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $active_clients_count ?></h3>
+                <div class="glass-card p-8 status-card-green relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">verified</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Active Users</p>
+                    <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= $active_clients_count ?></h3>
+                    <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Currently Active</p>
                 </div>
 
-                <div class="glass-card p-8 status-card-yellow relative overflow-hidden group hover:scale-[1.02]">
-                    <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-amber-500">timer</span>
-                    <p class="text-[11px] font-black uppercase text-[--text-main]/40 mb-2 tracking-[0.15em]">Pending Requests</p>
-                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $pending_sessions_count ?></h3>
+                <div class="glass-card p-8 status-card-yellow relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">timer</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Pending Requests</p>
+                    <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= $pending_sessions_count ?></h3>
+                    <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Awaiting Action</p>
                 </div>
 
-                <div class="glass-card p-8 status-card-rose relative overflow-hidden group hover:scale-[1.02]">
-                    <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-rose-500">monitoring</span>
-                    <p class="text-[11px] font-black uppercase text-[--text-main]/40 mb-2 tracking-[0.15em]">Completed Sessions</p>
-                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $lifetime_sessions ?></h3>
+                <div class="glass-card p-8 status-card-rose relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-rose-500">monitoring</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Completed Sessions</p>
+                    <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= $lifetime_sessions ?></h3>
+                    <p class="text-rose-500 text-[10px] font-black uppercase mt-2">Lifetime Total</p>
                 </div>
             </div>
 
             <!-- Filter Hub -->
-            <section class="glass-card mb-10 overflow-hidden">
-                <div class="px-8 py-6 bg-white/[0.01] border-b border-white/5">
-                    <form id="filterForm" method="GET" class="flex flex-wrap items-center gap-6">
-                        <div class="flex-1 min-w-[320px] relative group">
-                            <span class="material-symbols-rounded absolute left-5 top-1/2 -translate-y-1/2 text-xl text-primary/40 group-focus-within:text-primary transition-colors">search</span>
-                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search by name or member code..." class="w-full glass-input pl-14">
+            <div class="px-8 py-6 border-b border-white/5 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01] mb-8 rounded-t-3xl rounded-b-xl border border-white/10 glass-card relative z-[60]">
+                <form id="filterForm" method="GET" class="w-full flex flex-col md:flex-row items-center gap-4">
+                    <div class="relative flex-1 group">
+                        <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all focus-within:border-primary/50">
+                            <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110">search</span>
+                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search by name or member code..." class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest placeholder:text-white/40 pl-11 pr-4 focus:outline-none focus:ring-0 h-full outline-none shadow-none">
                         </div>
-                        
-                        <div class="w-[200px] relative">
-                            <select name="status" class="w-full glass-input pr-12 appearance-none cursor-pointer" onchange="triggerFilter()">
-                                <option value="">Status filter</option>
-                                <option value="Active" <?= $status_filter === 'Active' ? 'selected' : '' ?>>Active</option>
-                                <option value="Pending" <?= $status_filter === 'Pending' ? 'selected' : '' ?>>Pending</option>
-                                <option value="Expired" <?= $status_filter === 'Expired' ? 'selected' : '' ?>>Expired</option>
-                            </select>
-                            <span class="material-symbols-rounded absolute right-5 top-1/2 -translate-y-1/2 text-lg text-[--text-main]/20 pointer-events-none">expand_more</span>
-                        </div>
-
-                        <div class="w-[200px] relative">
-                            <select name="sort" class="w-full glass-input pr-12 appearance-none cursor-pointer" onchange="triggerFilter()">
-                                <option value="recent" <?= $sort_by === 'recent' ? 'selected' : '' ?>>Sort: Activity</option>
-                                <option value="oldest" <?= $sort_by === 'oldest' ? 'selected' : '' ?>>Sort: Oldest</option>
-                                <option value="name_asc" <?= $sort_by === 'name_asc' ? 'selected' : '' ?>>Sort: Name (A-Z)</option>
-                                <option value="name_desc" <?= $sort_by === 'name_desc' ? 'selected' : '' ?>>Sort: Name (Z-A)</option>
-                            </select>
-                            <span class="material-symbols-rounded absolute right-5 top-1/2 -translate-y-1/2 text-lg text-[--text-main]/20 pointer-events-none">expand_more</span>
+                    </div>
+                    
+                    <div class="w-full lg:w-fit flex items-center gap-2">
+                        <div class="w-full lg:w-48 relative">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all">
+                                <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none">filter_list</span>
+                                <select name="status" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full appearance-none outline-none shadow-none" onchange="document.getElementById('filterForm').submit()">
+                                    <option value="" class="bg-[#141216]">Status filter</option>
+                                    <option value="Active" class="bg-[#141216]" <?= $status_filter === 'Active' ? 'selected' : '' ?>>Active</option>
+                                    <option value="Pending" class="bg-[#141216]" <?= $status_filter === 'Pending' ? 'selected' : '' ?>>Pending</option>
+                                    <option value="Expired" class="bg-[#141216]" <?= $status_filter === 'Expired' ? 'selected' : '' ?>>Expired</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none">expand_more</span>
+                            </div>
                         </div>
 
-                        <div class="flex gap-3">
-                            <button type="button" id="gridViewBtn" onclick="toggleView('grid')" class="view-btn active"><span class="material-symbols-rounded">grid_view</span></button>
-                            <button type="button" id="tableViewBtn" onclick="toggleView('list')" class="view-btn"><span class="material-symbols-rounded">list</span></button>
+                        <div class="w-full lg:w-56 relative">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all">
+                                <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none">sort</span>
+                                <select name="sort" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full appearance-none outline-none shadow-none" onchange="document.getElementById('filterForm').submit()">
+                                    <option value="recent" class="bg-[#141216]" <?= $sort_by === 'recent' ? 'selected' : '' ?>>Sort: Activity</option>
+                                    <option value="oldest" class="bg-[#141216]" <?= $sort_by === 'oldest' ? 'selected' : '' ?>>Sort: Oldest</option>
+                                    <option value="name_asc" class="bg-[#141216]" <?= $sort_by === 'name_asc' ? 'selected' : '' ?>>Sort: Name (A-Z)</option>
+                                    <option value="name_desc" class="bg-[#141216]" <?= $sort_by === 'name_desc' ? 'selected' : '' ?>>Sort: Name (Z-A)</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none">expand_more</span>
+                            </div>
                         </div>
 
-                        <a href="coach_members.php" class="size-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-rose-500/40 hover:text-rose-500 hover:bg-rose-500/10 transition-all group" title="Clear Filters">
-                            <span class="material-symbols-rounded text-xl group-hover:rotate-180 transition-transform">restart_alt</span>
+                        <a href="coach_members.php" class="size-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all group active:scale-95 shrink-0" title="Reset Filters">
+                            <span class="material-symbols-outlined text-lg group-hover:rotate-180 transition-transform duration-500">restart_alt</span>
                         </a>
-                    </form>
-                </div>
-            </section>
+
+                        <div class="h-8 w-px bg-white/10 mx-1 hidden lg:block"></div>
+
+                        <div class="flex bg-[#141216] border border-white/10 p-1 rounded-xl h-[44px] shrink-0 items-center gap-1 w-full lg:w-auto">
+                            <button type="button" id="gridViewBtn" onclick="toggleView('grid')" class="flex-1 lg:size-9 rounded-lg bg-primary text-white flex items-center justify-center transition-all h-full active-view-btn shadow-none" title="Grid View">
+                                <span class="material-symbols-outlined text-sm">grid_view</span>
+                            </button>
+                            <button type="button" id="tableViewBtn" onclick="toggleView('list')" class="flex-1 lg:size-9 rounded-lg text-white/40 hover:bg-white/5 hover:text-white flex items-center justify-center transition-all h-full shadow-none" title="Table View">
+                                <span class="material-symbols-outlined text-sm">table_rows</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
 
             <!-- Member Grid Container -->
             <div id="memberGridContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 <?php if(count($members) > 0): foreach($members as $index => $m): ?>
-                <div class="glass-card p-8 flex flex-col gap-6 group hover:translate-y-[-8px] hover:border-primary/30">
+                <div class="glass-card p-8 flex flex-col gap-6 relative group transition-all duration-300">
                     <div class="flex items-start justify-between">
                         <div class="flex items-center gap-6">
-                            <div class="size-16 rounded-2xl bg-black/40 flex items-center justify-center font-black italic text-2xl border border-white/5 shadow-inner" style="color:var(--primary)">
+                            <div class="size-16 rounded-2xl bg-[--background] flex items-center justify-center font-black italic text-2xl border border-transparent shadow-none" style="color:var(--primary)">
                                 <?= strtoupper(substr($m['first_name'] ?? 'M',0,1)) ?>
                             </div>
                             <div>
-                                <h3 class="text-white font-black uppercase italic tracking-tight text-xl leading-tight group-hover:text-primary transition-colors"><?= htmlspecialchars(($m['first_name'] ?? '') . ' ' . ($m['last_name'] ?? '')) ?></h3>
+                                <h3 class="font-black uppercase italic tracking-tight text-xl leading-tight group-hover:text-[--primary] transition-colors" style="color:var(--text-main)"><?= htmlspecialchars(($m['first_name'] ?? '') . ' ' . ($m['last_name'] ?? '')) ?></h3>
                                 <div class="flex items-center gap-2 mt-1">
                                     <p class="text-[11px] font-black uppercase tracking-[0.2em]" style="color:var(--highlight)"><?= $m['session_count'] ?> SESSIONS</p>
                                 </div>
@@ -569,21 +603,31 @@ if ($coach_id > 0) {
                         </div>
                     </div>
 
+                    <!-- PREVIEW STATE: Structured View -->
                     <div class="space-y-5 py-6 border-y border-white/5">
                         <div class="flex justify-between items-center">
-                            <p class="text-[11px] font-black uppercase tracking-widest text-[--text-main]/20 italic">Workout Plan</p>
-                            <p class="text-[12px] font-bold italic" style="color:var(--primary)"><?= htmlspecialchars(($m['workout_plan'] ?: 'General Plan')) ?></p>
+                            <p class="text-[11px] font-black uppercase tracking-widest text-[--text-main] opacity-40 italic">Status</p>
+                            <?php 
+                                $ws = $m['member_status'] ?? 'Inactive';
+                                $w_color_style = ($ws === 'Active') ? 'color:var(--primary);' : '';
+                                $w_color_class = ($ws === 'Active') ? '' : (($ws === 'Pending') ? 'text-amber-500' : 'text-[--text-main] opacity-50');
+                            ?>
+                            <p class="text-[12px] font-bold italic <?= $w_color_class ?>" style="<?= $w_color_style ?>"><?= $ws ?></p>
                         </div>
                         <div class="flex justify-between items-center">
-                            <p class="text-[11px] font-black uppercase tracking-widest text-[--text-main]/20 italic">Last Visit</p>
-                            <p class="text-[12px] font-bold text-[--text-main]/50 italic"><?= $m['last_visit'] ? date('M d, Y', strtotime($m['last_visit'])) : 'No visits yet' ?></p>
+                            <p class="text-[11px] font-black uppercase tracking-widest text-[--text-main] opacity-40 italic">Workout Plan</p>
+                            <p class="text-[12px] font-bold italic truncate ml-4" style="color:var(--primary)"><?= htmlspecialchars(($m['workout_plan'] ?: 'General Plan')) ?></p>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <p class="text-[11px] font-black uppercase tracking-widest text-[--text-main] opacity-40 italic">Last Visit</p>
+                            <p class="text-[12px] font-bold text-[--text-main] opacity-70 italic"><?= $m['last_visit'] ? date('M d, Y', strtotime($m['last_visit'])) : 'No visits yet' ?></p>
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-4">
-                        <button onclick="viewUserProfile(<?= $m['user_id'] ?>)" class="w-full h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-all group">
-                            <span class="material-symbols-rounded text-[--text-main]/30 group-hover:text-primary group-hover:scale-110 transition-all mr-2">visibility</span>
-                            <span class="text-[11px] font-black uppercase italic tracking-widest text-[--text-main]/30 group-hover:text-primary">View Profile</span>
+                    <div class="flex items-center gap-4 mt-auto pt-2">
+                        <button onclick="viewUserProfile(<?= $m['user_id'] ?>)" class="w-full h-14 rounded-2xl bg-white/5 border border-transparent flex items-center justify-center hover:bg-white/10 transition-all group/btn shadow-none">
+                            <span class="material-symbols-rounded text-[--text-main] opacity-50 group-hover/btn:text-primary group-hover/btn:scale-110 transition-all mr-2">visibility</span>
+                            <span class="text-[11px] font-black uppercase italic tracking-widest text-[--text-main] opacity-80 group-hover/btn:text-primary">View Profile</span>
                         </button>
                     </div>
                 </div>
@@ -599,46 +643,49 @@ if ($coach_id > 0) {
             </div>
 
             <!-- Member Table Container -->
-            <div id="memberTableContainer" class="hidden glass-card overflow-hidden">
-                <div class="overflow-x-auto no-scrollbar">
-                    <table class="glass-table">
+            <div id="memberTableContainer" class="hidden overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-white/[0.01]">
-                                <th class="px-8 py-6">Member Info</th>
-                                <th class="px-8 py-6">Workout Plan</th>
-                                <th class="px-8 py-6">Status</th>
-                                <th class="px-8 py-6">Last Visit</th>
-                                <th class="px-8 py-6 text-right">Actions</th>
+                            <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                <th class="px-8 py-5 opacity-40">Member Info</th>
+                                <th class="px-8 py-5 opacity-40">Workout Plan</th>
+                                <th class="px-8 py-5 opacity-40 text-center">Status</th>
+                                <th class="px-8 py-5 opacity-40 text-center">Last Visit</th>
+                                <th class="px-8 py-5 opacity-40 text-center">Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="divide-y divide-white/5">
                             <?php foreach($members as $m): ?>
-                            <tr>
-                                <td class="px-8 py-6">
-                                    <div class="flex items-center gap-6">
-                                        <div class="size-12 rounded-xl bg-primary/10 flex items-center justify-center font-black italic text-lg border border-primary/20" style="color:var(--primary)">
+                            <tr class="hover:bg-white/5 transition-all group/row">
+                                <td class="px-8 py-5">
+                                    <div class="flex items-center gap-4">
+                                        <div class="size-10 rounded-xl flex items-center justify-center font-black italic text-lg bg-primary/10 text-primary">
                                             <?= strtoupper(substr($m['first_name'] ?? 'M',0,1)) ?>
                                         </div>
                                         <div class="flex flex-col">
-                                            <span class="font-black italic uppercase tracking-tight text-white mb-0.5 text-base"><?= htmlspecialchars(($m['first_name'] ?? '') . ' ' . ($m['last_name'] ?? '')) ?></span>
-                                            <span class="text-[11px] font-black uppercase tracking-[0.2em] opacity-30"><?= $m['session_count'] ?> Total Sessions</span>
+                                            <span class="text-[12px] font-black italic uppercase text-white"><?= htmlspecialchars(($m['first_name'] ?? '') . ' ' . ($m['last_name'] ?? '')) ?></span>
+                                            <span class="text-[10px] font-black uppercase tracking-widest text-gray-500 mt-0.5"><?= $m['session_count'] ?> Total Sessions</span>
                                         </div>
                                     </div>
                                 </td>
-                                <td class="px-8 py-6 text-[--text-main]/60 font-black italic uppercase tracking-wide text-xs"><?= htmlspecialchars(($m['workout_plan'] ?: 'General Plan')) ?></td>
-                                <td class="px-8 py-6">
-                                    <?php 
-                                        $ws = $m['workout_status'] ?? 'Inactive';
-                                        $w_class = ($ws === 'In Progress') ? 'text-primary bg-primary/10 border-primary/20' : (($ws === 'Completed') ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' : 'text-[--text-main]/20 bg-white/5 border-white/5');
-                                    ?>
-                                    <span class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] border <?= $w_class ?> border-opacity-50"><?= $ws ?></span>
+                                <td class="px-8 py-5">
+                                    <span class="text-[11px] font-black italic uppercase text-[--text-main] opacity-70"><?= htmlspecialchars(($m['workout_plan'] ?: 'General Plan')) ?></span>
                                 </td>
-                                <td class="px-8 py-6 text-[--text-main]/30 font-bold italic text-xs"><?= $m['last_visit'] ? date('M d, Y', strtotime($m['last_visit'])) : 'No visits' ?></td>
-                                <td class="px-8 py-6 text-right">
-                                    <div class="flex justify-end gap-4">
-                                        <button onclick="viewUserProfile(<?= $m['user_id'] ?>)" class="h-11 px-6 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[--text-main]/30 hover:text-primary transition-all active:scale-95 group">
-                                            <span class="material-symbols-rounded text-lg group-hover:scale-110 mr-2">visibility</span>
-                                            <span class="text-[10px] font-black uppercase italic tracking-widest">View Profile</span>
+                                <td class="px-8 py-5 text-center">
+                                    <?php 
+                                        $ws = $m['member_status'] ?? 'Inactive';
+                                        $w_class = ($ws === 'Active') ? 'text-emerald-500 bg-emerald-500/10' : (($ws === 'Pending') ? 'text-amber-500 bg-amber-500/10' : 'text-gray-400 bg-white/5');
+                                    ?>
+                                    <span class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest <?= $w_class ?>"><?= $ws ?></span>
+                                </td>
+                                <td class="px-8 py-5 text-center">
+                                    <span class="text-[11px] font-black text-gray-400 uppercase"><?= $m['last_visit'] ? date('M d, Y', strtotime($m['last_visit'])) : 'No visits' ?></span>
+                                </td>
+                                <td class="px-8 py-5">
+                                    <div class="flex items-center justify-center">
+                                        <button onclick="viewUserProfile(<?= $m['user_id'] ?>)" class="size-9 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-primary transition-all active:scale-95 shadow-lg flex items-center justify-center group/btn" title="View Profile">
+                                            <span class="material-symbols-outlined text-lg group-hover/btn:scale-110 transition-transform">visibility</span>
                                         </button>
                                     </div>
                                 </td>
