@@ -306,12 +306,7 @@ $active_page = "workouts";
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
-        .glass-table { width: 100%; border-collapse: collapse; }
-        .glass-table tr { transition: all 0.3s; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .glass-table tr:hover { background: rgba(255,255,255,0.02); }
-        .glass-table th { padding: 16px 32px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: #475569; text-align: left; background: rgba(255,255,255,0.01); }
-        .glass-table td { padding: 16px 32px; font-size: 11px; }
-        .glass-table th:last-child, .glass-table td:last-child { text-align: right; padding-right: 32px; width: 1%; white-space: nowrap; }
+
 
         .view-btn { padding: 10px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.05); color: #475569; transition: all 0.2s; }
         .view-btn.active { background: <?= $page['theme_color'] ?? '#8c2bee' ?>; color: white; box-shadow: 0 4px 20px <?= $page['theme_color'] ?? '#8c2bee' ?>44; border-color: transparent; }
@@ -421,7 +416,7 @@ $active_page = "workouts";
                 <h2 class="text-3xl font-black uppercase tracking-tighter italic" style="color:var(--text-main)">
                     Workout <span style="color:var(--primary)" class="italic">Tracker</span>
                 </h2>
-                <p class="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-50 italic" style="color:var(--text-main)">Workout Programs & Assignments Hub</p>
+                <p class="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-50 italic" style="color:var(--text-main)">Workout Programs & Assignments</p>
             </div>
             <div class="text-right">
                 <p id="headerClock" class="font-black italic text-2xl leading-none tracking-tighter pr-2" style="color:var(--text-main)">00:00:00 AM</p>
@@ -596,52 +591,44 @@ $active_page = "workouts";
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left border-collapse" id="progressTable">
                             <thead>
-                                <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
-                                    <th class="px-8 py-5 opacity-40">Assignment</th>
-                                    <th class="px-8 py-5 opacity-40">Member</th>
-                                    <th class="px-8 py-5 opacity-40">Assigned Date</th>
-                                    <th class="px-8 py-5 opacity-40 text-center">Status</th>
-                                    <th class="px-8 py-5 opacity-40 text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-white/5" id="progressTbody">
-                                <?php foreach($student_recent_workouts as $rw):
-                                    $rw_status = $rw['workout_status'] ?? 'Assigned';
-                                ?>
-                                <tr class="hover:bg-white/[0.03] transition-all progress-row" data-name="<?= htmlspecialchars(strtolower($rw['workout_name'])) ?>" data-status="<?= htmlspecialchars($rw_status) ?>" data-date="<?= strtotime($rw['created_at']) ?>">
-                                    <td class="px-8 py-5">
-                                        <p class="text-white font-black italic uppercase text-sm truncate max-w-[250px]"><?= htmlspecialchars($rw['workout_name']) ?></p>
-                                    </td>
-                                    <td class="px-8 py-5">
-                                        <div class="flex items-center gap-2">
-                                            <div class="size-6 rounded-lg flex items-center justify-center" style="background:color-mix(in srgb, var(--primary) 12%, transparent)">
-                                                <span class="material-symbols-outlined text-[10px]" style="color:var(--primary)">person</span>
-                                            </div>
-                                            <p class="text-[10px] font-bold text-gray-300"><?= htmlspecialchars($rw['first_name'] . ' ' . $rw['last_name']) ?></p>
-                                        </div>
-                                    </td>
-                                    <td class="px-8 py-5">
-                                        <div class="flex items-center gap-2">
-                                            <span class="material-symbols-outlined text-[12px] text-gray-600">event</span>
-                                            <p class="text-[10px] font-bold text-gray-500 italic"><?= date('M d, Y', strtotime($rw['created_at'])) ?></p>
-                                        </div>
-                                    </td>
-                                    <td class="px-8 py-5 text-center">
-                                        <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) <?= $rw_status === 'Completed' ? '6' : '10' ?>%, transparent); border-color:color-mix(in srgb, var(--primary) 25%, transparent); <?= $rw_status === 'Completed' ? 'opacity:0.7;' : '' ?>"><?= $rw_status ?></span>
-                                    </td>
-                                    <td class="px-8 py-5 text-right">
-                                        <div class="flex items-center justify-end gap-2">
-                                            <?php if($rw_status != 'Completed'): ?>
-                                            <a href="?student_id=<?= $student_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed&tab=progressTab" class="size-10 rounded-xl flex items-center justify-center transition-all active:scale-90 group border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 10%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Complete Program" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 10%, transparent)'; this.style.color='var(--primary)';"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">check_circle</span></a>
-                                            <?php endif; ?>
-                                            <?php if($rw_status != 'Assigned'): ?>
-                                            <a href="?student_id=<?= $student_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Assigned&tab=progressTab" class="size-10 rounded-xl flex items-center justify-center transition-all active:scale-90 group border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 8%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Re-assign" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 8%, transparent)'; this.style.color='var(--primary)';"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">refresh</span></a>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
+                            <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                <th class="px-8 py-5 opacity-40">Assignment</th>
+                                <th class="px-8 py-5 opacity-40">Member</th>
+                                <th class="px-8 py-5 opacity-40">Assigned Date</th>
+                                <th class="px-8 py-5 opacity-40 text-center">Status</th>
+                                <th class="px-8 py-5 opacity-40 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/5" id="progressTbody">
+                            <?php foreach($student_recent_workouts as $rw):
+                                $rw_status = $rw['workout_status'] ?? 'Assigned';
+                            ?>
+                            <tr class="hover:bg-white/[0.03] transition-all progress-row" data-name="<?= htmlspecialchars(strtolower($rw['workout_name'])) ?>" data-status="<?= htmlspecialchars($rw_status) ?>" data-date="<?= strtotime($rw['created_at']) ?>">
+                                <td class="px-8 py-5">
+                                    <p class="text-white font-black italic uppercase text-sm leading-tight truncate max-w-[250px]"><?= htmlspecialchars($rw['workout_name']) ?></p>
+                                </td>
+                                <td class="px-8 py-5">
+                                    <p class="text-[--text-main] opacity-80 font-black uppercase tracking-widest text-[11px] italic"><?= htmlspecialchars($rw['first_name'] . ' ' . $rw['last_name']) ?></p>
+                                </td>
+                                <td class="px-8 py-5">
+                                    <p class="text-[--text-main] opacity-40 font-black uppercase tracking-widest text-[10px] italic"><?= date('M d, Y', strtotime($rw['created_at'])) ?></p>
+                                </td>
+                                <td class="px-8 py-5 text-center">
+                                    <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) <?= $rw_status === 'Completed' ? '6' : '10' ?>%, transparent); border-color:color-mix(in srgb, var(--primary) 25%, transparent); <?= $rw_status === 'Completed' ? 'opacity:0.7;' : '' ?>"><?= $rw_status ?></span>
+                                </td>
+                                <td class="px-8 py-5 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <?php if($rw_status != 'Completed'): ?>
+                                        <a href="?student_id=<?= $student_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed&tab=progressTab" class="size-10 rounded-xl flex items-center justify-center transition-all active:scale-90 group border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 10%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Complete Program" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 10%, transparent)'; this.style.color='var(--primary)';"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">check_circle</span></a>
+                                        <?php endif; ?>
+                                        <?php if($rw_status != 'Assigned'): ?>
+                                        <a href="?student_id=<?= $student_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Assigned&tab=progressTab" class="size-10 rounded-xl flex items-center justify-center transition-all active:scale-90 group border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 8%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Re-assign" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 8%, transparent)'; this.style.color='var(--primary)';"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">refresh</span></a>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
                         </table>
                         <div id="progressNoResults" class="hidden p-24 text-center opacity-30 italic text-[11px] font-black uppercase tracking-[0.3em]">No matching programs found.</div>
                     </div>
@@ -726,10 +713,38 @@ $active_page = "workouts";
             <?php if(!empty($recent_workouts)): ?>
             <section class="mb-12">
 
-            <h4 class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-4 ml-1">Recently Assigned</h4>
-            <div class="glass-card overflow-hidden">
+            <div class="glass-card overflow-hidden animate-slide-up flex flex-col relative z-[50]">
+                <!-- Filter Hub Inside Table -->
+                <div class="px-8 py-6 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01] border-b border-white/5">
+                    <!-- Search Input -->
+                    <div class="relative flex-1 group min-w-[150px]">
+                        <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all focus-within:border-primary/50" style="--tw-border-opacity:1">
+                            <span class="material-symbols-outlined absolute left-4 text-base pointer-events-none" style="color:color-mix(in srgb, var(--primary) 60%, transparent)">search</span>
+                            <input type="text" id="recentSearch" placeholder="Search by plan or member name..." class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest placeholder:text-white/40 pl-11 pr-4 focus:outline-none focus:ring-0 h-full outline-none shadow-none" oninput="filterRecentTable()" autocomplete="off">
+                        </div>
+                    </div>
+
+                    <!-- Sort Filter -->
+                    <div class="w-[180px] relative group shrink-0 custom-select-container">
+                        <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all cursor-pointer custom-select-trigger" onclick="toggleCustomDropdown(this, event)">
+                            <span class="material-symbols-outlined absolute left-4 text-base pointer-events-none" style="color:color-mix(in srgb, var(--primary) 60%, transparent)">sort</span>
+                            <input type="text" id="recentSortDisplay" readonly value="Newest" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none pointer-events-none">
+                            <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none">expand_more</span>
+                        </div>
+                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden">
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors text-white/60" onclick="setRecentSort('newest', 'Newest', this)">Newest</div>
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors text-white/60" onclick="setRecentSort('oldest', 'Oldest', this)">Oldest</div>
+                            <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors text-white/60" onclick="setRecentSort('name_asc', 'Name A-Z', this)">Name A-Z</div>
+                        </div>
+                    </div>
+
+                    <!-- Reset -->
+                    <button onclick="resetRecentFilters()" class="size-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all group active:scale-95 shrink-0" title="Reset Filters">
+                        <span class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform duration-500">restart_alt</span>
+                    </button>
+                </div>
                 <div class="overflow-x-auto no-scrollbar">
-                    <table class="glass-table">
+                    <table class="w-full text-left border-collapse" id="recentTable">
                         <thead>
                             <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
                                 <th class="px-8 py-5 opacity-40">Assignment</th>
@@ -738,30 +753,22 @@ $active_page = "workouts";
                                 <th class="px-8 py-5 opacity-40 text-right">Action</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-white/5">
+                        <tbody class="divide-y divide-white/5" id="recentTbody">
                             <?php foreach($recent_workouts as $rw): ?>
-                            <tr class="hover:bg-white/[0.03] transition-all">
+                            <tr class="hover:bg-white/[0.03] transition-all recent-row group/row animate-fade-in" data-name="<?= htmlspecialchars(strtolower($rw['workout_name'] . ' ' . $rw['first_name'] . ' ' . $rw['last_name'])) ?>" data-date="<?= strtotime($rw['created_at']) ?>">
                                 <td class="px-8 py-5">
-                                    <p class="text-white font-black italic uppercase text-xs truncate max-w-[200px]"><?= htmlspecialchars($rw['workout_name']) ?></p>
+                                    <p class="text-white font-black italic uppercase text-sm leading-tight truncate max-w-[250px]"><?= htmlspecialchars($rw['workout_name']) ?></p>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <div class="flex items-center gap-2">
-                                        <div class="size-6 rounded-lg bg-primary/10 flex items-center justify-center">
-                                            <span class="material-symbols-outlined text-[10px] text-primary">person</span>
-                                        </div>
-                                        <p class="text-[10px] font-bold text-gray-300"><?= htmlspecialchars($rw['first_name'] . ' ' . $rw['last_name']) ?></p>
-                                    </div>
+                                    <p class="text-[--text-main] opacity-80 font-black uppercase tracking-widest text-[11px] italic"><?= htmlspecialchars($rw['first_name'] . ' ' . $rw['last_name']) ?></p>
                                 </td>
                                 <td class="px-8 py-5">
-                                    <div class="flex items-center gap-2">
-                                        <span class="material-symbols-outlined text-[12px] text-gray-600">event</span>
-                                        <p class="text-[10px] font-bold text-gray-500 italic"><?= date('M d, Y', strtotime($rw['created_at'])) ?></p>
-                                    </div>
+                                    <p class="text-[--text-main] opacity-40 font-black uppercase tracking-widest text-[10px] italic"><?= date('M d, Y', strtotime($rw['created_at'])) ?></p>
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     <div class="flex items-center justify-end">
-                                        <a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed" class="size-8 rounded-lg flex items-center justify-center hover:text-white transition-all active:scale-95 border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 10%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Mark as Completed" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 10%, transparent)'; this.style.color='var(--primary)';">
-                                            <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                        <a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed" class="size-10 rounded-xl flex items-center justify-center transition-all active:scale-90 group border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 10%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Mark as Completed" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 10%, transparent)'; this.style.color='var(--primary)';">
+                                            <span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">check_circle</span>
                                         </a>
                                     </div>
                                 </td>
@@ -769,16 +776,66 @@ $active_page = "workouts";
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    <div id="recentNoResults" class="hidden p-24 text-center opacity-30 italic text-[11px] font-black uppercase tracking-[0.3em]">No matching programs found.</div>
                 </div>
                 <!-- Pagination Footer -->
                 <div class="px-8 py-6 border-t border-white/5 flex items-center justify-between bg-white/[0.01]">
-                    <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">SHOWING 1 TO <?= count($recent_workouts) ?> OF <?= count($recent_workouts) ?> ENTRIES</p>
+                    <p id="recentCount" class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">SHOWING <?= count($recent_workouts) ?> ENTRIES</p>
                     <div class="flex items-center gap-4">
                         <button class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">PREV</button>
                         <button class="size-7 rounded-lg bg-primary text-white text-[10px] font-black flex items-center justify-center">1</button>
                         <button class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">NEXT</button>
                     </div>
                 </div>
+                <script>
+                    let recentSortMode = 'newest';
+
+                    function filterRecentTable() {
+                        const search = document.getElementById('recentSearch').value.toLowerCase();
+                        const rows = document.querySelectorAll('.recent-row');
+                        let visible = 0;
+                        const arr = Array.from(rows);
+
+                        // Sort
+                        const tbody = document.getElementById('recentTbody');
+                        arr.sort((a, b) => {
+                            if (recentSortMode === 'oldest') return parseInt(a.dataset.date) - parseInt(b.dataset.date);
+                            if (recentSortMode === 'name_asc') return a.dataset.name.localeCompare(b.dataset.name);
+                            return parseInt(b.dataset.date) - parseInt(a.dataset.date); // newest
+                        });
+                        arr.forEach(r => tbody.appendChild(r));
+
+                        // Filter
+                        rows.forEach(row => {
+                            const nameMatch = row.dataset.name.includes(search);
+                            row.classList.toggle('hidden', !nameMatch);
+                            if (nameMatch) visible++;
+                        });
+
+                        const noResults = document.getElementById('recentNoResults');
+                        if(noResults) noResults.classList.toggle('hidden', visible > 0);
+                        
+                        const countEl = document.getElementById('recentCount');
+                        if(countEl) countEl.textContent = 'SHOWING ' + visible + ' ENTRIES';
+                    }
+
+                    function setRecentSort(val, label, el) {
+                        recentSortMode = val;
+                        document.getElementById('recentSortDisplay').value = label;
+                        document.querySelectorAll('#recentTab .custom-select-dropdown .px-4').forEach(o => o.classList.remove('bg-primary', 'text-white'));
+                        el.classList.add('bg-primary', 'text-white');
+                        filterRecentTable();
+                    }
+
+                    function resetRecentFilters() {
+                        recentSortMode = 'newest';
+                        document.getElementById('recentSearch').value = '';
+                        document.getElementById('recentSortDisplay').value = 'Newest';
+                        document.querySelectorAll('#recentTab .custom-select-dropdown .px-4').forEach(o => o.classList.remove('bg-primary', 'text-white'));
+                        document.querySelector('#recentTab .custom-select-dropdown .px-4:first-child').classList.add('bg-primary', 'text-white');
+                        filterRecentTable();
+                    }
+                </script>
             </section>
             <?php else: ?><div class="py-20 text-center opacity-40 italic text-[10px] uppercase tracking-widest">No recent assignments found.</div><?php endif; ?>
         </div>
