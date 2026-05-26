@@ -2160,11 +2160,15 @@ $active_page = "settings";
                 let controls = document.getElementById(this.paginationContainerId);
                 if (!controls) return;
                 
-                if (this.container.id === 'activePlansGridContainer') {
+                const isHidden = controls.classList.contains('hidden');
+                
+                if (this.container.id === 'activePlansGridContainer' || this.container.id === 'archivedPlansGridContainer') {
                     controls.className = 'px-8 py-5 flex justify-between items-center w-full glass-card mt-8 rounded-2xl';
                 } else {
                     controls.className = 'px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center w-full';
                 }
+                
+                if (isHidden) controls.classList.add('hidden');
                 
                 const end = Math.min(endReached, totalItems);
 

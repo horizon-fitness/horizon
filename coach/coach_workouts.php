@@ -14,6 +14,7 @@ $gym_id = $_SESSION['gym_id'];
 $username = $_SESSION['username'];
 $coach_name = ($_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? '');
 $member_id = $_GET['member_id'] ?? 0;
+$student_id = $_GET['student_id'] ?? 0;
 
 // Fetch Gym Details
 $stmtGym = $pdo->prepare("SELECT * FROM gyms WHERE gym_id = ?");
@@ -90,11 +91,11 @@ if (isset($_GET['action']) && $_GET['action'] == 'update_status' && isset($_GET[
 
 
 
-// Fetch Member Details if member_id is set
+// Fetch Member Details if student_id is set
 $selected_member = null;
-if ($member_id > 0) {
+if ($student_id > 0) {
     $stmtMem = $pdo->prepare("SELECT m.*, u.first_name, u.last_name, u.email FROM members m JOIN users u ON m.user_id = u.user_id WHERE m.member_id = ? AND m.gym_id = ?");
-    $stmtMem->execute([$member_id, $gym_id]);
+    $stmtMem->execute([$student_id, $gym_id]);
     $selected_member = $stmtMem->fetch();
 }
 
@@ -158,11 +159,6 @@ if ($coach_id > 0) {
     $recent_where = ["w.coach_id = ?", "w.gym_id = ?", "w.workout_status = 'Assigned'"];
     $recent_params = [$coach_id, $gym_id];
     
-    if ($member_id > 0) {
-        $recent_where[] = "w.member_id = ?";
-        $recent_params[] = $member_id;
-    }
-
     $stmtRecent = $pdo->prepare("
         SELECT w.*, u.first_name, u.last_name 
         FROM member_workouts w
@@ -174,6 +170,24 @@ if ($coach_id > 0) {
     ");
     $stmtRecent->execute($recent_params);
     $recent_workouts = $stmtRecent->fetchAll();
+}
+
+$student_recent_workouts = [];
+if ($coach_id > 0 && $student_id > 0) {
+    $student_recent_where = ["w.coach_id = ?", "w.gym_id = ?", "w.workout_status = 'Assigned'", "w.member_id = ?"];
+    $student_recent_params = [$coach_id, $gym_id, $student_id];
+    
+    $stmtStudentRecent = $pdo->prepare("
+        SELECT w.*, u.first_name, u.last_name 
+        FROM member_workouts w
+        JOIN members m ON w.member_id = m.member_id
+        JOIN users u ON m.user_id = u.user_id
+        WHERE " . implode(" AND ", $student_recent_where) . "
+        ORDER BY w.created_at DESC
+        LIMIT 5
+    ");
+    $stmtStudentRecent->execute($student_recent_params);
+    $student_recent_workouts = $stmtStudentRecent->fetchAll();
 }
 
 $success_msg = $_SESSION['success_msg'] ?? '';
@@ -249,22 +263,44 @@ $active_page = "workouts";
 
         ::-webkit-calendar-picker-indicator { filter: invert(1) brightness(0.8); opacity: 0.6; cursor: pointer; }
 
-        /* Tabs Styling - Segmented Pill */
-        .tabs-container { display: inline-flex; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 16px; padding: 6px; gap: 4px; }
-        .tab-btn { padding: 10px 24px; font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: #4b5563; border-radius: 12px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; border: none; background: transparent; }
-        .tab-btn:hover:not(.active) { color: white; background: rgba(255,255,255,0.03); }
-        .tab-btn.active { color: white; background: <?= $page['theme_color'] ?? '#8c2bee' ?>; box-shadow: 0 4px 20px <?= $page['theme_color'] ?? '#8c2bee' ?>44; }
+        .tab-btn { border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom-color: var(--primary) !important; color: var(--primary) !important; }
+        
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.4s ease-out; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        #assignModal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
+            z-index: 250;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .side-nav:hover ~ .main-content ~ #assignModal,
+        .side-nav:hover ~ #assignModal { left: 300px; }
     </style>
 
     <script>
         function toggleTab(tabId) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                btn.style.color = 'color-mix(in srgb, var(--text-main) 45%, transparent)';
+                btn.style.borderBottom = '2px solid transparent';
+            });
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+            
+            const targetBtn = document.querySelector(`[data-tab="${tabId}"]`);
+            targetBtn.classList.add('active');
+            targetBtn.style.color = 'var(--primary)';
+            targetBtn.style.borderBottom = '2px solid var(--primary)';
+            
             document.getElementById(tabId).classList.add('active');
         }
 
@@ -279,6 +315,43 @@ $active_page = "workouts";
         let dbt;
         function debounce(f, d) { clearTimeout(dbt); dbt = setTimeout(f, d); }
         function triggerFilter() { document.getElementById('filterForm').submit(); }
+
+        function toggleCustomDropdown(trigger, event) {
+            event.stopPropagation();
+            const dropdown = trigger.nextElementSibling;
+            document.querySelectorAll('.custom-select-dropdown').forEach(d => {
+                if (d !== dropdown) d.classList.add('hidden');
+            });
+            dropdown.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.custom-select-container')) {
+                document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.add('hidden'));
+            }
+
+            const option = e.target.closest('.custom-option');
+            if (option) {
+                e.stopPropagation();
+                const container = option.closest('.custom-select-container');
+                const hiddenInput = container.querySelector('input[type="hidden"]');
+                const displayInput = container.querySelector('input[type="text"]');
+                const dropdown = container.querySelector('.custom-select-dropdown');
+                
+                hiddenInput.value = option.dataset.value;
+                displayInput.value = option.textContent.trim();
+                
+                container.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.classList.remove('bg-primary', 'text-white');
+                    opt.classList.add('text-white/60');
+                });
+                option.classList.add('bg-primary', 'text-white');
+                option.classList.remove('text-white/60');
+                
+                dropdown.classList.add('hidden');
+                triggerFilter();
+            }
+        });
     </script>
 
 </head>
@@ -288,20 +361,18 @@ $active_page = "workouts";
 
 <div class="main-content flex flex-col no-scrollbar">
     <main class="flex-1 p-6 md:p-12 max-w-[1400px] w-full mx-auto pb-40">
-        <header class="mb-10 flex flex-col md:flex-row justify-between items-end gap-6 animate-fade-in">
+        <header class="mb-10 flex justify-between items-end">
             <div>
-                <h2 class="text-3xl lg:text-4xl font-black italic uppercase tracking-tighter text-white leading-none">
-                    <?= $selected_member ? 'Member <span class="text-primary">Programs</span>' : 'Training <span class="text-primary">Registry</span>' ?>
+                <h2 class="text-3xl font-black uppercase tracking-tighter italic" style="color:var(--text-main)">
+                    Workout <span style="color:var(--primary)" class="italic">Tracker</span>
                 </h2>
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mt-2 px-1">
-                    <?= $selected_member ? 'Managing routines for ' . htmlspecialchars($selected_member['first_name'] . ' ' . $selected_member['last_name']) : 'Select a member to manage their routines or assign new programs' ?>
-                </p>
+                <p class="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-50 italic" style="color:var(--text-main)">Workout Programs & Assignments Hub</p>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="text-right shrink-0 ml-4">
-                    <p id="headerClock" class="text-white font-black italic text-2xl leading-none transition-colors hover:text-primary">00:00:00 AM</p>
-                    <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
-                </div>
+            <div class="text-right">
+                <p id="headerClock" class="font-black italic text-2xl leading-none tracking-tighter pr-2" style="color:var(--text-main)">00:00:00 AM</p>
+                <p class="text-[10px] font-bold uppercase tracking-widest mt-2 pr-2 opacity-80" style="color:var(--primary)">
+                    <?= date('l, M d, Y') ?>
+                </p>
             </div>
         </header>
 
@@ -311,42 +382,19 @@ $active_page = "workouts";
         <?php if($success_msg): ?><div class="mb-6 px-6 py-4 rounded-xl bg-emerald-500/10 border border-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest animate-pulse"><?= $success_msg ?></div><?php endif; ?>
         <?php if($error_msg): ?><div class="mb-6 px-6 py-4 rounded-xl bg-rose-500/10 border border-rose-500/10 text-rose-500 text-[10px] font-black uppercase tracking-widest animate-pulse"><?= $error_msg ?></div><?php endif; ?>
 
+        <?php $active_tab = isset($_GET['tab']) ? $_GET['tab'] : (($student_id > 0) ? 'progressTab' : (($member_id > 0 || !empty($search) || !empty($status_filter)) ? 'historyTab' : 'recentTab')); ?>
+
         <!-- Navigation & Search Section -->
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-            <div class="bg-[#14121a]/50 p-2 rounded-[22px] border border-white/5 backdrop-blur-md">
-                <div class="tabs-container !border-none !bg-transparent">
-                    <button onclick="toggleTab('recentTab')" data-tab="recentTab" class="tab-btn active">Recently Assigned</button>
-                    <button onclick="toggleTab('historyTab')" data-tab="historyTab" class="tab-btn">Program History</button>
-                </div>
+        <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 border-b border-white/5">
+            <div class="flex gap-8 w-full md:w-auto overflow-visible">
+                <button onclick="toggleTab('recentTab')" data-tab="recentTab" class="tab-btn <?= $active_tab === 'recentTab' ? 'active' : '' ?> pb-4 -mb-[1px] text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap outline-none" style="color: <?= $active_tab === 'recentTab' ? 'var(--primary)' : 'color-mix(in srgb, var(--text-main) 45%, transparent)' ?>; border-bottom: 2px solid <?= $active_tab === 'recentTab' ? 'var(--primary)' : 'transparent' ?>;">Recently Assigned</button>
+                <button onclick="toggleTab('historyTab')" data-tab="historyTab" class="tab-btn <?= $active_tab === 'historyTab' ? 'active' : '' ?> pb-4 -mb-[1px] text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap outline-none" style="color: <?= $active_tab === 'historyTab' ? 'var(--primary)' : 'color-mix(in srgb, var(--text-main) 45%, transparent)' ?>; border-bottom: 2px solid <?= $active_tab === 'historyTab' ? 'var(--primary)' : 'transparent' ?>;">Program History</button>
+                <button onclick="toggleTab('progressTab')" data-tab="progressTab" class="tab-btn <?= $active_tab === 'progressTab' ? 'active' : '' ?> pb-4 -mb-[1px] text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap outline-none" style="color: <?= $active_tab === 'progressTab' ? 'var(--primary)' : 'color-mix(in srgb, var(--text-main) 45%, transparent)' ?>; border-bottom: 2px solid <?= $active_tab === 'progressTab' ? 'var(--primary)' : 'transparent' ?>;">Student Progress</button>
             </div>
             
-            <div class="flex items-center gap-4 flex-1 max-w-2xl">
-                <div class="flex-1 relative group z-[100]">
-                    <div class="bg-[#14121a]/50 p-2 rounded-[22px] border border-white/5 backdrop-blur-md flex items-center gap-3 pr-4 focus-within:border-primary/30 transition-all">
-                        <span class="material-symbols-outlined ml-3 text-gray-500 text-lg group-focus-within:text-primary transition-colors">person_search</span>
-                        <input type="text" id="memberSearchInput" placeholder="Search student name..." class="flex-1 h-10 bg-transparent text-white text-[10px] font-black uppercase tracking-widest outline-none placeholder:text-gray-600" autocomplete="off" onfocus="document.getElementById('memberSearchDropdown').classList.remove('hidden')" oninput="filterMembers(this.value)">
-                        <span class="material-symbols-outlined text-gray-600 text-sm">expand_more</span>
-                    </div>
-                    
-                    <!-- Custom Dropdown -->
-                    <div id="memberSearchDropdown" class="absolute top-full left-0 right-0 mt-3 hidden bg-[#1a1821] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden backdrop-blur-xl max-h-[300px] overflow-y-auto no-scrollbar animate-slide-up">
-                        <div class="p-2 space-y-1" id="memberList">
-                            <div class="px-4 py-3 text-[8px] font-black text-gray-500 uppercase tracking-widest border-b border-white/5 mb-1">Select Student</div>
-                            <?php foreach($all_members as $m): ?>
-                                <div class="member-item px-4 py-3 rounded-xl hover:bg-primary/10 hover:text-white text-gray-400 text-[10px] font-black uppercase tracking-widest cursor-pointer transition-all flex items-center gap-3 group/item" onclick="window.location.href='?member_id=<?= $m['member_id'] ?>'">
-                                    <div class="size-6 rounded-lg bg-white/5 flex items-center justify-center text-[10px] group-hover/item:bg-primary/20 group-hover/item:text-primary transition-colors">
-                                        <?= strtoupper(substr($m['first_name'], 0, 1)) ?>
-                                    </div>
-                                    <?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?>
-                                </div>
-                            <?php endforeach; ?>
-                            <div id="noResults" class="hidden px-6 py-8 text-center text-[10px] text-gray-600 italic font-bold uppercase tracking-widest">No students found...</div>
-                        </div>
-                    </div>
-                </div>
-
-                <button onclick="document.getElementById('assignModal').style.display = 'flex'" class="h-[58px] px-6 rounded-[22px] bg-primary text-white text-[9px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-2 active:scale-95 shrink-0">
-                    <span class="material-symbols-outlined text-lg">add_circle</span> Assign
+            <div class="flex items-center gap-4 pb-4">
+                <button onclick="document.getElementById('assignModal').style.display = 'flex'" class="bg-primary hover:opacity-90 text-[white] px-6 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-[0.98] flex items-center justify-center gap-2 whitespace-nowrap">
+                    <span class="material-symbols-outlined text-base">add_circle</span> Assign New Program
                 </button>
             </div>
         </div>
@@ -375,39 +423,122 @@ $active_page = "workouts";
             });
         </script>
 
-        <!-- Member Identity Card (Compact & Below Tabs) -->
-        <?php if($selected_member): ?>
-        <section class="mb-10 animate-slide-up">
-            <div class="glass-card p-6 border-l-2 border-primary shadow-xl relative overflow-hidden group bg-gradient-to-r from-[#14121a] to-transparent">
-                <div class="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
-                    <span class="material-symbols-outlined text-8xl">fitness_center</span>
-                </div>
-                <div class="flex items-center justify-between relative z-10">
-                    <div class="flex items-center gap-6">
-                        <div class="size-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-2xl italic border border-primary/10 shadow-inner">
-                            <?= strtoupper(substr($selected_member['first_name'], 0, 1)) ?>
+        <div id="progressTab" class="tab-content <?= $active_tab === 'progressTab' ? 'active' : '' ?>">
+            <section class="mb-12 animate-slide-up">
+                <!-- Search Bar -->
+                <div class="relative group z-[100] max-w-3xl mb-10">
+                    <div class="bg-[#1a1821] p-3 rounded-[32px] border border-white/5 shadow-2xl shadow-black flex items-center gap-4 pr-6 focus-within:border-primary/50 transition-all">
+                        <span class="material-symbols-outlined ml-4 text-primary text-xl">person_search</span>
+                        <input type="text" id="memberSearchInput" placeholder="Search student name..." class="flex-1 h-12 bg-transparent text-white text-[11px] font-black uppercase tracking-widest outline-none placeholder:text-gray-600" autocomplete="off" onfocus="document.getElementById('memberSearchDropdown').classList.remove('hidden')" oninput="filterMembers(this.value)">
+                        <span class="material-symbols-outlined text-gray-600 text-lg">expand_more</span>
+                    </div>
+                    
+                    <!-- Custom Dropdown -->
+                    <div id="memberSearchDropdown" class="absolute top-full left-0 right-0 mt-4 hidden bg-[#14121a] border border-white/5 rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-3xl max-h-[400px] overflow-y-auto no-scrollbar animate-slide-up">
+                        <div class="p-4 space-y-2" id="memberList">
+                            <div class="px-6 py-4 text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] border-b border-white/5 mb-2">Select Student</div>
+                            <?php foreach($all_members as $m): ?>
+                                <div class="member-item px-6 py-4 rounded-2xl hover:bg-white/[0.03] text-gray-400 hover:text-white text-[11px] font-black uppercase tracking-widest cursor-pointer transition-all flex items-center gap-5 group/item" onclick="window.location.href='?student_id=<?= $m['member_id'] ?>'">
+                                    <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center text-[12px] group-hover/item:bg-primary/20 group-hover/item:text-primary transition-colors">
+                                        <?= strtoupper(substr($m['first_name'], 0, 1)) ?>
+                                    </div>
+                                    <?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?>
+                                </div>
+                            <?php endforeach; ?>
+                            <div id="noResults" class="hidden px-6 py-12 text-center text-[10px] text-gray-600 italic font-bold uppercase tracking-widest">No students found...</div>
                         </div>
-                        <div>
-                            <div class="flex items-center gap-3 mb-0.5">
-                                <h3 class="text-xl font-black italic uppercase text-white tracking-tighter"><?= htmlspecialchars($selected_member['first_name'] . ' ' . $selected_member['last_name']) ?></h3>
-                                <span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-widest border border-emerald-500/10">Active</span>
+                    </div>
+                </div>
+
+                <!-- Member Identity Card & Their Progress -->
+                <?php if($selected_member): ?>
+                <div class="glass-card p-6 border-l-2 border-primary shadow-xl relative overflow-hidden group bg-gradient-to-r from-[#14121a] to-transparent mb-12">
+                    <div class="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
+                        <span class="material-symbols-outlined text-8xl">fitness_center</span>
+                    </div>
+                    <div class="flex items-center justify-between relative z-10">
+                        <div class="flex items-center gap-6">
+                            <div class="size-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-2xl italic border border-primary/10 shadow-inner">
+                                <?= strtoupper(substr($selected_member['first_name'], 0, 1)) ?>
                             </div>
-                            <div class="flex items-center gap-4">
-                                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">ID: #<?= str_pad($selected_member['member_id'], 5, '0', STR_PAD_LEFT) ?></p>
-                                <span class="w-1 h-1 rounded-full bg-white/10"></span>
-                                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest"><?= htmlspecialchars($selected_member['email']) ?></p>
-                                <span class="w-1 h-1 rounded-full bg-white/10"></span>
-                                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Since <?= date('M Y', strtotime($selected_member['created_at'] ?? 'now')) ?></p>
+                            <div>
+                                <div class="flex items-center gap-3 mb-0.5">
+                                    <h3 class="text-xl font-black italic uppercase text-white tracking-tighter"><?= htmlspecialchars($selected_member['first_name'] . ' ' . $selected_member['last_name']) ?></h3>
+                                    <span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-widest border border-emerald-500/10">Active</span>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">ID: #<?= str_pad($selected_member['member_id'], 5, '0', STR_PAD_LEFT) ?></p>
+                                    <span class="w-1 h-1 rounded-full bg-white/10"></span>
+                                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest"><?= htmlspecialchars($selected_member['email']) ?></p>
+                                    <span class="w-1 h-1 rounded-full bg-white/10"></span>
+                                    <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Since <?= date('M Y', strtotime($selected_member['created_at'] ?? 'now')) ?></p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
-        <?php endif; ?>
+
+                <h4 class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-4 ml-1">Recently Assigned</h4>
+                <div class="glass-card overflow-hidden">
+                    <div class="overflow-x-auto no-scrollbar">
+                        <table class="glass-table">
+                            <thead>
+                                <tr class="bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                    <th class="px-8 py-5 text-gray-500">Assignment</th>
+                                    <th class="px-8 py-5 text-gray-500">Member</th>
+                                    <th class="px-8 py-5 text-gray-500">Assigned Date</th>
+                                    <th class="px-8 py-5 text-gray-500 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5">
+                                <?php foreach($student_recent_workouts as $rw): ?>
+                                <tr class="hover:bg-white/[0.03] transition-all">
+                                    <td class="px-8 py-5">
+                                        <p class="text-white font-black italic uppercase text-xs truncate max-w-[200px]"><?= htmlspecialchars($rw['workout_name']) ?></p>
+                                    </td>
+                                    <td class="px-8 py-5">
+                                        <div class="flex items-center gap-2">
+                                            <div class="size-6 rounded-lg bg-primary/10 flex items-center justify-center">
+                                                <span class="material-symbols-outlined text-[10px] text-primary">person</span>
+                                            </div>
+                                            <p class="text-[10px] font-bold text-gray-300"><?= htmlspecialchars($rw['first_name'] . ' ' . $rw['last_name']) ?></p>
+                                        </div>
+                                    </td>
+                                    <td class="px-8 py-5">
+                                        <div class="flex items-center gap-2">
+                                            <span class="material-symbols-outlined text-[12px] text-gray-600">event</span>
+                                            <p class="text-[10px] font-bold text-gray-500 italic"><?= date('M d, Y', strtotime($rw['created_at'])) ?></p>
+                                        </div>
+                                    </td>
+                                    <td class="px-8 py-5 text-right">
+                                        <div class="flex items-center justify-end">
+                                            <a href="?student_id=<?= $student_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed" class="size-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-95" title="Mark as Completed">
+                                                <span class="material-symbols-outlined text-[14px]">check_circle</span>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination Footer -->
+                    <div class="px-8 py-6 border-t border-white/5 flex items-center justify-between bg-white/[0.01]">
+                        <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">SHOWING 1 TO <?= count($student_recent_workouts) ?> OF <?= count($student_recent_workouts) ?> ENTRIES</p>
+                        <div class="flex items-center gap-4">
+                            <button class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">PREV</button>
+                            <button class="size-7 rounded-lg bg-primary text-white text-[10px] font-black flex items-center justify-center">1</button>
+                            <button class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">NEXT</button>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </section>
+        </div>
 
 
-        <div id="recentTab" class="tab-content active">
+        <div id="recentTab" class="tab-content <?= $active_tab === 'recentTab' ? 'active' : '' ?>">
             <!-- Recently Assigned Section -->
             <?php if(!empty($recent_workouts)): ?>
             <section class="mb-12">
@@ -417,20 +548,20 @@ $active_page = "workouts";
                 <div class="overflow-x-auto no-scrollbar">
                     <table class="glass-table">
                         <thead>
-                            <tr>
-                                <th>Assignment</th>
-                                <th>Member</th>
-                                <th>Assigned Date</th>
-                                <th class="text-right">Action</th>
+                            <tr class="bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                <th class="px-8 py-5 text-gray-500">Assignment</th>
+                                <th class="px-8 py-5 text-gray-500">Member</th>
+                                <th class="px-8 py-5 text-gray-500">Assigned Date</th>
+                                <th class="px-8 py-5 text-gray-500 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <?php foreach($recent_workouts as $rw): ?>
-                            <tr>
-                                <td>
+                            <tr class="hover:bg-white/[0.03] transition-all">
+                                <td class="px-8 py-5">
                                     <p class="text-white font-black italic uppercase text-xs truncate max-w-[200px]"><?= htmlspecialchars($rw['workout_name']) ?></p>
                                 </td>
-                                <td>
+                                <td class="px-8 py-5">
                                     <div class="flex items-center gap-2">
                                         <div class="size-6 rounded-lg bg-primary/10 flex items-center justify-center">
                                             <span class="material-symbols-outlined text-[10px] text-primary">person</span>
@@ -438,14 +569,14 @@ $active_page = "workouts";
                                         <p class="text-[10px] font-bold text-gray-300"><?= htmlspecialchars($rw['first_name'] . ' ' . $rw['last_name']) ?></p>
                                     </div>
                                 </td>
-                                <td>
+                                <td class="px-8 py-5">
                                     <div class="flex items-center gap-2">
                                         <span class="material-symbols-outlined text-[12px] text-gray-600">event</span>
                                         <p class="text-[10px] font-bold text-gray-500 italic"><?= date('M d, Y', strtotime($rw['created_at'])) ?></p>
                                     </div>
                                 </td>
-                                <td>
-                                    <div class="flex justify-end">
+                                <td class="px-8 py-5 text-right">
+                                    <div class="flex items-center justify-end">
                                         <a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed" class="size-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-95" title="Mark as Completed">
                                             <span class="material-symbols-outlined text-[14px]">check_circle</span>
                                         </a>
@@ -456,93 +587,163 @@ $active_page = "workouts";
                         </tbody>
                     </table>
                 </div>
+                <!-- Pagination Footer -->
+                <div class="px-8 py-6 border-t border-white/5 flex items-center justify-between bg-white/[0.01]">
+                    <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">SHOWING 1 TO <?= count($recent_workouts) ?> OF <?= count($recent_workouts) ?> ENTRIES</p>
+                    <div class="flex items-center gap-4">
+                        <button class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">PREV</button>
+                        <button class="size-7 rounded-lg bg-primary text-white text-[10px] font-black flex items-center justify-center">1</button>
+                        <button class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">NEXT</button>
+                    </div>
+                </div>
             </section>
             <?php else: ?><div class="py-20 text-center opacity-40 italic text-[10px] uppercase tracking-widest">No recent assignments found.</div><?php endif; ?>
         </div>
 
-        <div id="historyTab" class="tab-content">
-            <!-- Filters Section -->
-            <section class="filter-container animate-slide-up">
+        <div id="historyTab" class="tab-content <?= $active_tab === 'historyTab' ? 'active' : '' ?>">
+            <div class="glass-card overflow-hidden animate-slide-up flex flex-col mb-12 relative z-[60]">
+                <!-- Filter Hub Inside Table -->
+                <div class="px-8 py-6 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01] border-b border-white/5">
+                    <form id="filterForm" method="GET" class="w-full flex flex-col md:flex-row items-center gap-4">
+                        <input type="hidden" name="tab" value="historyTab">
+                        
+                        <!-- Search Input -->
+                        <div class="relative flex-1 group min-w-[150px]">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all focus-within:border-primary/50">
+                                <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110">search</span>
+                                <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search by member or plan name..." class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest placeholder:text-white/40 pl-11 pr-4 focus:outline-none focus:ring-0 h-full outline-none shadow-none" oninput="debounce(triggerFilter, 500)" autocomplete="off">
+                            </div>
+                        </div>
 
-            <form id="filterForm" method="GET" class="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
-                <input type="hidden" name="member_id" value="<?= $member_id ?>">
-                <div class="md:col-span-6 space-y-2">
-                    <label class="text-[9px] font-black uppercase tracking-[0.1em] text-gray-500 ml-1">Search Program</label>
-                    <div class="relative">
-                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-lg">search</span>
-                        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search by member or plan name..." class="input-box pl-12" oninput="debounce(triggerFilter, 500)">
-                    </div>
-                </div>
-                <div class="md:col-span-3 space-y-2">
-                    <label class="text-[9px] font-black uppercase tracking-[0.1em] text-gray-500 ml-1">Filter Status</label>
-                    <select name="status" class="input-box pr-10" onchange="triggerFilter()">
-                        <option value="">All Status</option>
-                        <option value="Assigned" <?= $status_filter === 'Assigned' ? 'selected' : '' ?>>Assigned</option>
-                        <option value="Completed" <?= $status_filter === 'Completed' ? 'selected' : '' ?>>Completed</option>
-                    </select>
-                </div>
-                <div class="md:col-span-3 space-y-2">
-                    <label class="text-[9px] font-black uppercase tracking-[0.1em] text-gray-500 ml-1">Sort By</label>
-                    <div class="flex gap-2">
-                        <select name="sort" class="input-box pr-10 flex-1" onchange="triggerFilter()">
-                            <option value="recent" <?= $sort_by === 'recent' ? 'selected' : '' ?>>Newest First</option>
-                            <option value="oldest" <?= $sort_by === 'oldest' ? 'selected' : '' ?>>Oldest First</option>
-                            <option value="name_asc" <?= $sort_by === 'name_asc' ? 'selected' : '' ?>>Member A-Z</option>
-                        </select>
-                        <a href="coach_workouts.php?member_id=<?= $member_id ?>" class="size-[42px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-rose-500 transition-colors hover:bg-rose-500/10" title="Reset Filters"><span class="material-symbols-outlined text-xl">restart_alt</span></a>
-                    </div>
-                </div>
-            </form>
-        </section>
+                        <!-- Searchable User Selector -->
+                        <div class="flex-1 relative group shrink-0 custom-select-container min-w-[150px]">
+                            <input type="hidden" name="member_id" value="<?= $member_id ?>">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all cursor-pointer custom-select-trigger" onclick="toggleCustomDropdown(this, event)">
+                                <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110">person_search</span>
+                                <?php 
+                                    $selected_user_name = "All Users";
+                                    if($member_id > 0) {
+                                        foreach($all_members as $m) {
+                                            if($m['member_id'] == $member_id) {
+                                                $selected_user_name = $m['first_name'] . ' ' . $m['last_name'];
+                                            }
+                                        }
+                                    }
+                                ?>
+                                <input type="text" readonly placeholder="Search Name..." value="<?= htmlspecialchars($selected_user_name) ?>" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none pointer-events-none">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto searchable-dropdown-overlay">
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= $member_id == 0 ? 'bg-primary text-white' : 'text-white/60' ?>" data-value="0">All Users</div>
+                                <?php foreach($all_members as $m): ?>
+                                    <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= $member_id == $m['member_id'] ? 'bg-primary text-white' : 'text-white/60' ?>" data-value="<?= $m['member_id'] ?>">
+                                        <?= htmlspecialchars(trim($m['first_name'] . ' ' . $m['last_name'])) ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
 
+                        <!-- Status Filter -->
+                        <div class="w-[190px] relative group shrink-0 custom-select-container">
+                            <input type="hidden" name="status" value="<?= htmlspecialchars($status_filter) ?>">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all cursor-pointer custom-select-trigger" onclick="toggleCustomDropdown(this, event)">
+                                <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110">toggle_on</span>
+                                <input type="text" readonly value="<?= $status_filter ?: 'All Status' ?>" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none pointer-events-none">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= $status_filter == '' ? 'bg-primary text-white' : 'text-white/60' ?>" data-value="">All Status</div>
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= $status_filter == 'Assigned' ? 'bg-primary text-white' : 'text-white/60' ?>" data-value="Assigned">Assigned</div>
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= $status_filter == 'Completed' ? 'bg-primary text-white' : 'text-white/60' ?>" data-value="Completed">Completed</div>
+                            </div>
+                        </div>
 
-        <!-- History Table Section -->
-        <div>
-            <h4 class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-4 ml-1">Training History</h4>
-            <div class="glass-card overflow-hidden animate-slide-up">
+                        <!-- Sort Filter -->
+                        <div class="w-[180px] relative group shrink-0 custom-select-container">
+                            <input type="hidden" name="sort" value="<?= htmlspecialchars($sort_by) ?>">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all cursor-pointer custom-select-trigger" onclick="toggleCustomDropdown(this, event)">
+                                <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110">sort</span>
+                                <?php 
+                                    $sort_labels = ['recent' => 'Newest', 'oldest' => 'Oldest', 'name_asc' => 'Member A-Z'];
+                                    $current_sort_label = $sort_labels[$sort_by] ?? 'Newest';
+                                ?>
+                                <input type="text" readonly value="<?= $current_sort_label ?>" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none pointer-events-none">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= $sort_by == 'recent' ? 'bg-primary text-white' : 'text-white/60' ?>" data-value="recent">Newest</div>
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= $sort_by == 'oldest' ? 'bg-primary text-white' : 'text-white/60' ?>" data-value="oldest">Oldest</div>
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option <?= $sort_by == 'name_asc' ? 'bg-primary text-white' : 'text-white/60' ?>" data-value="name_asc">Member A-Z</div>
+                            </div>
+                        </div>
+
+                        <!-- Reset Button -->
+                        <a href="coach_workouts.php?tab=historyTab" class="size-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all group active:scale-95 shrink-0" title="Reset Filters">
+                            <span class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform duration-500">restart_alt</span>
+                        </a>
+                    </form>
+                </div>
+
+                <!-- History Table Section -->
                 <div class="overflow-x-auto no-scrollbar">
-                    <table class="glass-table">
+                    <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr>
-                                <th>Identity & Category</th>
-                                <th>Intensity & Time</th>
-                                <th>Status</th>
-                                <th class="text-right">Actions</th>
+                            <tr class="bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                <th class="px-8 py-5 text-gray-500">Identity & Category</th>
+                                <th class="px-8 py-5 text-gray-500">Intensity & Time</th>
+                                <th class="px-8 py-5 text-gray-500 text-center">Status</th>
+                                <th class="px-8 py-5 text-gray-500 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <?php if(count($workouts) > 0) { 
                                 foreach($workouts as $w) { ?>
-                            <tr>
-                                <td>
-                                    <p class="text-white/[0.4] text-[9px] font-black uppercase tracking-widest mb-1 italic"><?= htmlspecialchars($w['first_name'] . ' ' . $w['last_name']) ?></p>
+                            <tr class="hover:bg-white/[0.03] transition-all group/row animate-fade-in">
+                                <td class="px-8 py-5">
+                                    <p class="text-[--text-main] opacity-40 text-[9px] font-black uppercase tracking-widest mb-1 italic"><?= htmlspecialchars($w['first_name'] . ' ' . $w['last_name']) ?></p>
                                     <p class="text-white font-black italic uppercase text-sm leading-tight mb-1 truncate max-w-[250px]"><?= htmlspecialchars($w['workout_name']) ?></p>
-                                    <p class="text-[9px] font-black uppercase tracking-[0.2em] text-primary"><?= htmlspecialchars($w['workout_category'] ?? 'General') ?></p>
+                                    <p class="text-[9px] font-black uppercase tracking-[0.2em]" style="color:var(--primary)"><?= htmlspecialchars($w['workout_category'] ?? 'General') ?></p>
                                 </td>
-                                <td>
+                                <td class="px-8 py-5">
                                     <div class="flex flex-col">
-                                        <p class="text-gray-300 font-bold uppercase italic text-[11px]"><?= htmlspecialchars($w['difficulty_level'] ?? 'Intermediate') ?></p>
-                                        <p class="text-[10px] text-gray-500 font-black uppercase tracking-widest"><?= $w['estimated_minutes'] ?? 60 ?> Mins / <?= $w['duration_weeks'] ?? 4 ?> Wks</p>
+                                        <p class="text-[--text-main] opacity-70 font-bold uppercase italic text-[11px]"><?= htmlspecialchars($w['difficulty_level'] ?? 'Intermediate') ?></p>
+                                        <p class="text-[10px] text-[--text-main] opacity-40 font-black uppercase tracking-widest"><?= $w['estimated_minutes'] ?? 60 ?> Mins / <?= $w['duration_weeks'] ?? 4 ?> Wks</p>
                                     </div>
                                 </td>
-                                <td>
-                                    <?php $ws = $w['workout_status']; $sc = "text-primary bg-primary/10 border-primary/10"; if($ws == 'Completed') $sc = "text-emerald-500 bg-emerald-500/10 border-emerald-500/10"; ?>
-                                    <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-white/5 <?= $sc ?>"><?= $ws ?></span>
+                                <td class="px-8 py-5 text-center">
+                                    <?php 
+                                        $ws = $w['workout_status']; 
+                                        if($ws == 'Completed') {
+                                            $badge_class = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10';
+                                        } else {
+                                            $badge_class = 'text-primary bg-primary/10 border-primary/10';
+                                        }
+                                    ?>
+                                    <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-white/5 <?= $badge_class ?>"><?= $ws ?></span>
                                 </td>
-                                <td>
+                                <td class="px-8 py-5 text-right">
                                     <div class="flex items-center justify-end gap-2">
-                                        <?php if($w['workout_status'] != 'Completed'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Completed" class="size-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-90" title="Complete Program"><span class="material-symbols-outlined text-lg">check_circle</span></a><?php endif; ?>
-                                        <?php if($w['workout_status'] != 'Assigned'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Assigned" class="size-10 rounded-xl bg-primary/10 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-90" title="Re-assign Program"><span class="material-symbols-outlined text-lg">refresh</span></a><?php endif; ?>
+                                        <?php if($w['workout_status'] != 'Completed'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Completed" class="size-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-90 group" title="Complete Program"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">check_circle</span></a><?php endif; ?>
+                                        <?php if($w['workout_status'] != 'Assigned'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Assigned" class="size-10 rounded-xl bg-primary/10 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-90 group" title="Re-assign Program"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">refresh</span></a><?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
                                 <?php } 
                             } else { ?>
-                            <tr><td colspan="4" class="p-24 text-center opacity-30 italic text-xs tracking-widest">No programs logged</td></tr>
+                            <tr><td colspan="4" class="p-24 text-center opacity-30 italic text-[11px] font-black uppercase tracking-[0.3em] text-[--text-main]">No matching programs found.</td></tr>
                             <?php } ?>
                         </tbody>
-
                     </table>
+                </div>
+
+                <!-- Pagination Footer -->
+                <div class="px-8 py-6 border-t border-white/5 flex items-center justify-between bg-white/[0.01]">
+                    <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">SHOWING 1 TO <?= count($workouts) ?> OF <?= count($workouts) ?> ENTRIES</p>
+                    <div class="flex items-center gap-4">
+                        <button class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">PREV</button>
+                        <button class="size-7 rounded-lg bg-primary text-white text-[10px] font-black flex items-center justify-center">1</button>
+                        <button class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">NEXT</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -554,86 +755,103 @@ $active_page = "workouts";
 </div>
 
 <!-- Assign Modal -->
-<div id="assignModal" class="fixed inset-0 bg-black/90 backdrop-blur-3xl z-[200] hidden items-center justify-center p-6">
-    <div class="glass-card w-full max-w-2xl p-12 animate-slide-up border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.5)]">
-        <header class="flex items-center justify-between mb-10">
-            <div>
-                <h3 class="text-2xl font-black italic uppercase tracking-tighter">New <span class="text-primary">Program</span></h3>
-                <p class="text-[10px] text-gray-500 font-black uppercase tracking-widest mt-1">Assign professional training routine to a member</p>
-            </div>
-            <button onclick="document.getElementById('assignModal').style.display = 'none'" class="size-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-500 hover:text-white transition-all"><span class="material-symbols-outlined text-xl">close</span></button>
-        </header>
+<div id="assignModal" class="bg-[--background]/40 backdrop-blur-xl hidden" style="display: none;">
+    <div class="relative z-10 bg-[--card-bg] backdrop-blur-[--card-blur] w-full max-w-[540px] rounded-[32px] shadow-2xl border border-white/5 overflow-hidden transform transition-all duration-300 pointer-events-auto animate-slide-up flex flex-col max-h-[90vh]">
         
-        <form action="" method="POST" class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="space-y-2">
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Target Member</label>
-                    <div class="relative">
-                        <select name="m_id" class="modal-input w-full cursor-pointer pl-10" required>
-                            <option value="">--- Choose Member ---</option>
-                            <?php foreach($all_members as $m): ?>
-                                <option value="<?= $m['member_id'] ?>" <?= $member_id == $m['member_id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-gray-600">person</span>
-                    </div>
+        <div class="p-8 overflow-y-auto no-scrollbar flex-1">
+            <header class="mb-7 relative">
+                <div class="flex items-start justify-between mb-1">
+                    <h3 class="text-[22px] font-black uppercase tracking-tighter leading-none flex gap-2">
+                        <span class="text-white">New</span><span class="text-primary" style="color:var(--primary)">Program</span>
+                    </h3>
+                    <button onclick="document.getElementById('assignModal').style.display = 'none'" class="size-8 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors border border-white/5">
+                        <span class="material-symbols-outlined text-[14px]">close</span>
+                    </button>
                 </div>
-                <div class="space-y-2">
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Category</label>
-                    <div class="relative">
-                        <select name="workout_category" class="modal-input w-full cursor-pointer pl-10">
-                            <option value="Strength">Strength Training</option>
-                            <option value="Cardio">Cardio & HIIT</option>
-                            <option value="Hypertrophy">Hypertrophy</option>
-                            <option value="Flexibility">Flexibility / Yoga</option>
-                            <option value="Endurance">Endurance</option>
-                        </select>
-                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-gray-600">category</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="space-y-2">
-                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Program Identity</label>
-                <div class="relative">
-                    <input type="text" name="workout_name" placeholder="e.g. Advanced Push-Pull Protocol" class="modal-input w-full pl-10" required>
-                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-lg text-gray-600">edit_note</span>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="space-y-2">
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Intensity Level</label>
-                    <select name="difficulty_level" class="modal-input w-full cursor-pointer">
-                        <option value="Beginner">Beginner</option>
-                        <option value="Intermediate" selected>Intermediate</option>
-                        <option value="Advanced">Advanced</option>
-                    </select>
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Wks)</label>
-                    <input type="number" name="duration_weeks" value="4" min="1" class="modal-input w-full">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Time (Mins)</label>
-                    <input type="number" name="estimated_minutes" value="60" min="15" class="modal-input w-full">
-                </div>
-            </div>
-
-            <div class="space-y-2">
-                <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Instructions & Description</label>
-                <textarea name="workout_description" rows="3" placeholder="Rest times, reps, sets..." class="modal-input w-full resize-none no-scrollbar"></textarea>
-            </div>
-
-            <input type="hidden" name="scheduled_date" value="<?= date('Y-m-d') ?>">
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-6">ASSIGN PROFESSIONAL TRAINING ROUTINE</p>
+            </header>
             
-            <div class="pt-6 flex gap-4">
-                <button type="button" onclick="document.getElementById('assignModal').style.display = 'none'" class="flex-1 h-14 rounded-2xl bg-white/5 text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white/10 transition-all">Cancel</button>
-                <button type="submit" name="assign_workout" class="flex-[2] h-14 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all active:scale-95">Complete Assignment</button>
-            </div>
-        </form>
+            <form action="" method="POST" class="flex flex-col gap-3">
+                <div class="bg-white/[0.03] border border-white/5 rounded-[20px] p-6">
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1.5">Target Member</p>
+                            <div class="relative group">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110 z-10">person</span>
+                                <select name="m_id" class="w-full bg-white/5 border border-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 py-3.5 focus:outline-none focus:border-primary/50 hover:border-white/20 transition-all appearance-none" required>
+                                    <option value="" class="bg-[#1a1821] text-white">--- Choose Member ---</option>
+                                    <?php foreach($all_members as $m): ?>
+                                        <option value="<?= $m['member_id'] ?>" <?= $member_id == $m['member_id'] ? 'selected' : '' ?> class="bg-[#1a1821] text-white">
+                                            <?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1.5">Category</p>
+                            <div class="relative group">
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110 z-10">category</span>
+                                <select name="workout_category" class="w-full bg-white/5 border border-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 py-3.5 focus:outline-none focus:border-primary/50 hover:border-white/20 transition-all appearance-none">
+                                    <option value="Strength" class="bg-[#1a1821] text-white">Strength Training</option>
+                                    <option value="Cardio" class="bg-[#1a1821] text-white">Cardio & HIIT</option>
+                                    <option value="Hypertrophy" class="bg-[#1a1821] text-white">Hypertrophy</option>
+                                    <option value="Flexibility" class="bg-[#1a1821] text-white">Flexibility / Yoga</option>
+                                    <option value="Endurance" class="bg-[#1a1821] text-white">Endurance</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white/[0.03] border border-white/5 rounded-[20px] p-6">
+                    <p class="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1.5">Program Identity</p>
+                    <div class="relative group">
+                        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110 z-10">edit_note</span>
+                        <input type="text" name="workout_name" placeholder="e.g. Advanced Push-Pull Protocol" class="w-full bg-white/5 border border-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest placeholder:text-white/30 pl-11 pr-4 py-3.5 focus:outline-none focus:border-primary/50 hover:border-white/20 transition-all shadow-none outline-none" required autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="bg-white/[0.03] border border-white/5 rounded-[20px] p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1.5">Intensity Level</p>
+                            <div class="relative group">
+                                <select name="difficulty_level" class="w-full bg-white/5 border border-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest cursor-pointer px-4 py-3.5 focus:outline-none focus:border-primary/50 hover:border-white/20 transition-all appearance-none">
+                                    <option value="Beginner" class="bg-[#1a1821] text-white">Beginner</option>
+                                    <option value="Intermediate" selected class="bg-[#1a1821] text-white">Intermediate</option>
+                                    <option value="Advanced" class="bg-[#1a1821] text-white">Advanced</option>
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1.5">Duration (Wks)</p>
+                            <input type="number" name="duration_weeks" value="4" min="1" class="w-full bg-white/5 border border-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest pl-4 pr-4 py-3.5 focus:outline-none focus:border-primary/50 hover:border-white/20 transition-all shadow-none outline-none">
+                        </div>
+                        <div>
+                            <p class="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1.5">Time (Mins)</p>
+                            <input type="number" name="estimated_minutes" value="60" min="15" class="w-full bg-white/5 border border-white/10 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest pl-4 pr-4 py-3.5 focus:outline-none focus:border-primary/50 hover:border-white/20 transition-all shadow-none outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white/[0.03] border border-white/5 rounded-[20px] p-6">
+                    <p class="text-[9px] font-bold uppercase tracking-[0.1em] text-gray-500 mb-1.5">Instructions & Description</p>
+                    <textarea name="workout_description" rows="3" placeholder="Rest times, reps, sets..." class="w-full bg-white/5 border border-white/10 rounded-2xl text-white text-[10px] font-bold placeholder:text-white/30 p-4 focus:outline-none focus:border-primary/50 hover:border-white/20 transition-all shadow-none outline-none resize-none no-scrollbar"></textarea>
+                </div>
+
+                <input type="hidden" name="scheduled_date" value="<?= date('Y-m-d') ?>">
+                
+                <div class="pt-6 flex gap-4">
+                    <button type="button" onclick="document.getElementById('assignModal').style.display = 'none'" class="flex-1 h-14 rounded-2xl bg-white/5 text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] hover:bg-white/10 hover:text-white transition-all">Cancel</button>
+                    <button type="submit" name="assign_workout" class="flex-[2] h-14 rounded-2xl bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary/90 transition-all active:scale-95 shadow-none hover:shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]">Complete Assignment</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 </body>
