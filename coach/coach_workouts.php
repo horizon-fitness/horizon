@@ -27,24 +27,69 @@ $stmtGymBranding->execute([$gym_id]);
 $gym_data = $stmtGymBranding->fetch();
 $owner_user_id = $gym_data['owner_user_id'] ?? 0;
 
+// ── Full 4-Color Elite Branding System ───────────────────────────────────────
+if (!function_exists('hexToRgb')) {
+    function hexToRgb($hex) {
+        if (!$hex) return "0, 0, 0";
+        $hex = str_replace("#", "", $hex);
+        if (strlen($hex) == 3) {
+            $r = hexdec(substr($hex, 0, 1) . substr($hex, 0, 1));
+            $g = hexdec(substr($hex, 1, 1) . substr($hex, 1, 1));
+            $b = hexdec(substr($hex, 2, 1) . substr($hex, 2, 1));
+        } else {
+            $r = hexdec(substr($hex, 0, 2));
+            $g = hexdec(substr($hex, 2, 2));
+            $b = hexdec(substr($hex, 4, 2));
+        }
+        return "$r, $g, $b";
+    }
+}
+
 $configs = [
+    'system_name'     => 'Horizon Systems',
     'system_logo'     => '',
     'theme_color'     => '#8c2bee',
+    'secondary_color' => '#a1a1aa',
+    'text_color'      => '#ffffff',
     'bg_color'        => '#0a090d',
+    'card_color'      => '#141216',
+    'auto_card_theme' => '1',
+    'font_family'     => 'Lexend',
 ];
 
-// Fetch tenant-specific settings
-$stmtSettings = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
-$stmtSettings->execute([$owner_user_id]);
-foreach (($stmtSettings->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+// 1. Merge global settings (user_id = 0)
+$stmtGlobal = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
+$stmtGlobal->execute();
+foreach (($stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
     if ($v !== null && $v !== '') $configs[$k] = $v;
 }
 
+// 2. Merge tenant-specific settings (owner)
+$stmtTenant = $pdo->prepare("SELECT setting_key, setting_value FROM system_settings WHERE user_id = ?");
+$stmtTenant->execute([$owner_user_id]);
+foreach (($stmtTenant->fetchAll(PDO::FETCH_KEY_PAIR) ?: []) as $k => $v) {
+    if ($v !== null && $v !== '') $configs[$k] = $v;
+}
+
+$theme_color     = $configs['theme_color'];
+$highlight_color = $configs['secondary_color'];
+$text_color      = $configs['text_color'];
+$bg_color        = $configs['bg_color'];
+$font_family     = $configs['font_family'] ?? 'Lexend';
+$auto_card_theme = $configs['auto_card_theme'] ?? '1';
+$card_color      = $configs['card_color'];
+
+$primary_rgb   = hexToRgb($theme_color);
+$highlight_rgb = hexToRgb($highlight_color);
+$card_bg_css   = ($auto_card_theme === '1') ? "rgba({$primary_rgb}, 0.05)" : $card_color;
+
 $page = [
     'logo_path'   => $configs['system_logo'] ?? '',
-    'theme_color' => $configs['theme_color'],
-    'bg_color'    => $configs['bg_color'],
+    'theme_color' => $theme_color,
+    'bg_color'    => $bg_color,
+    'system_name' => $configs['system_name'] ?? 'Horizon Systems',
 ];
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Fetch Coach ID (from staff table)
 $stmtCoach = $pdo->prepare("SELECT staff_id as coach_id FROM staff WHERE user_id = ? AND gym_id = ? AND staff_role = 'Coach' LIMIT 1");
@@ -201,25 +246,35 @@ $active_page = "workouts";
 <head>
     <meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Workouts Management | Horizon Systems</title>
-    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=<?= urlencode($font_family) ?>:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "<?= $page['theme_color'] ?? '#8c2bee' ?>", "background-dark": "<?= $page['bg_color'] ?? '#0a090d' ?>", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" }}}
+            theme: { extend: { colors: { 
+                "primary": "var(--primary)", 
+                "background": "var(--background)", 
+                "card-bg": "var(--card-bg)", 
+                "text-main": "var(--text-main)",
+                "highlight": "var(--highlight)"
+            } } }
         }
     </script>
     <style>
         :root {
-            --primary: <?= $page['theme_color'] ?? '#8c2bee' ?>;
-            --background: <?= $page['bg_color'] ?? '#0a090d' ?>;
-            --text-main: #ffffff;
-            --highlight: #a1a1aa;
+            --primary:       <?= $theme_color ?>;
+            --primary-rgb:   <?= $primary_rgb ?>;
+            --highlight:     <?= $highlight_color ?>;
+            --highlight-rgb: <?= $highlight_rgb ?>;
+            --text-main:     <?= $text_color ?>;
+            --background:    <?= $bg_color ?>;
+            --card-bg:       <?= $card_bg_css ?>;
+            --card-blur:     20px;
         }
 
-        body { font-family: 'Lexend', sans-serif; background-color: var(--background); color: white; display: flex; flex-direction: row; min-h-screen: 100vh; overflow: hidden; }
-        .glass-card { background: #14121a; border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
+        body { font-family: '<?= $font_family ?>', sans-serif; background-color: var(--background); color: var(--text-main); display: flex; flex-direction: row; min-h-screen: 100vh; overflow: hidden; }
+        .glass-card { background: var(--card-bg); border: 1px solid rgba(255,255,255,0.07); border-radius: 24px; }
         
         .side-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 110; background: var(--background); border-right: 1px solid rgba(255,255,255,0.05); }
         .side-nav:hover { width: 300px; }
@@ -399,72 +454,86 @@ $active_page = "workouts";
             </div>
         </div>
 
-        <script>
-            function filterMembers(val) {
-                const items = document.querySelectorAll('.member-item');
-                let found = 0;
-                items.forEach(item => {
-                    const text = item.textContent.toLowerCase();
-                    if (text.includes(val.toLowerCase())) {
-                        item.classList.remove('hidden');
-                        found++;
-                    } else {
-                        item.classList.add('hidden');
-                    }
-                });
-                document.getElementById('noResults').classList.toggle('hidden', found > 0);
-            }
-
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!e.target.closest('.group')) {
-                    document.getElementById('memberSearchDropdown').classList.add('hidden');
-                }
-            });
-        </script>
 
         <div id="progressTab" class="tab-content <?= $active_tab === 'progressTab' ? 'active' : '' ?>">
             <section class="mb-12 animate-slide-up">
-                <!-- Search Bar -->
-                <div class="relative group z-[100] max-w-3xl mb-10">
-                    <div class="bg-[#1a1821] p-3 rounded-[32px] border border-white/5 shadow-2xl shadow-black flex items-center gap-4 pr-6 focus-within:border-primary/50 transition-all">
-                        <span class="material-symbols-outlined ml-4 text-primary text-xl">person_search</span>
-                        <input type="text" id="memberSearchInput" placeholder="Search student name..." class="flex-1 h-12 bg-transparent text-white text-[11px] font-black uppercase tracking-widest outline-none placeholder:text-gray-600" autocomplete="off" onfocus="document.getElementById('memberSearchDropdown').classList.remove('hidden')" oninput="filterMembers(this.value)">
-                        <span class="material-symbols-outlined text-gray-600 text-lg">expand_more</span>
-                    </div>
-                    
-                    <!-- Custom Dropdown -->
-                    <div id="memberSearchDropdown" class="absolute top-full left-0 right-0 mt-4 hidden bg-[#14121a] border border-white/5 rounded-3xl shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden backdrop-blur-3xl max-h-[400px] overflow-y-auto no-scrollbar animate-slide-up">
-                        <div class="p-4 space-y-2" id="memberList">
-                            <div class="px-6 py-4 text-[9px] font-black text-gray-500 uppercase tracking-[0.2em] border-b border-white/5 mb-2">Select Student</div>
-                            <?php foreach($all_members as $m): ?>
-                                <div class="member-item px-6 py-4 rounded-2xl hover:bg-white/[0.03] text-gray-400 hover:text-white text-[11px] font-black uppercase tracking-widest cursor-pointer transition-all flex items-center gap-5 group/item" onclick="window.location.href='?student_id=<?= $m['member_id'] ?>'">
-                                    <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center text-[12px] group-hover/item:bg-primary/20 group-hover/item:text-primary transition-colors">
-                                        <?= strtoupper(substr($m['first_name'], 0, 1)) ?>
-                                    </div>
-                                    <?= htmlspecialchars($m['first_name'] . ' ' . $m['last_name']) ?>
-                                </div>
-                            <?php endforeach; ?>
-                            <div id="noResults" class="hidden px-6 py-12 text-center text-[10px] text-gray-600 italic font-bold uppercase tracking-widest">No students found...</div>
+                <!-- Student Search Filter Bar -->
+                <div class="glass-card mb-8 relative z-[60]">
+                    <div class="px-8 py-6 flex flex-col md:flex-row items-center gap-4">
+                        <!-- Search Input -->
+                        <div class="relative flex-1 group min-w-[200px]">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all focus-within:border-primary/50">
+                                <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none">person_search</span>
+                                <input type="text" id="memberSearchInput" placeholder="Search student name..." class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest placeholder:text-white/40 pl-11 pr-4 focus:outline-none focus:ring-0 h-full outline-none shadow-none" autocomplete="off" oninput="filterStudentMembers(this.value)">
+                            </div>
                         </div>
+                        <!-- Student Dropdown -->
+                        <div class="flex-1 relative group shrink-0 custom-select-container min-w-[200px]">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all cursor-pointer custom-select-trigger" onclick="toggleCustomDropdown(this, event)">
+                                <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none">people</span>
+                                <?php
+                                    $selected_student_name = 'All Students';
+                                    if($student_id > 0) {
+                                        foreach($all_members as $sm) {
+                                            if($sm['member_id'] == $student_id) {
+                                                $selected_student_name = $sm['first_name'] . ' ' . $sm['last_name'];
+                                            }
+                                        }
+                                    }
+                                ?>
+                                <input type="text" readonly value="<?= htmlspecialchars($selected_student_name) ?>" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none pointer-events-none">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none">expand_more</span>
+                            </div>
+                            <div id="studentSelectDropdown" class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto no-scrollbar">
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-student-option <?= $student_id == 0 ? 'bg-primary text-white' : 'text-white/60' ?>" data-value="0" onclick="window.location.href='?tab=progressTab'">All Students</div>
+                                <?php foreach($all_members as $sm): ?>
+                                    <div class="member-item px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-student-option <?= $student_id == $sm['member_id'] ? 'bg-primary text-white' : 'text-white/60' ?>" data-value="<?= $sm['member_id'] ?>" onclick="window.location.href='?student_id=<?= $sm['member_id'] ?>&tab=progressTab'">
+                                        <?= htmlspecialchars(trim($sm['first_name'] . ' ' . $sm['last_name'])) ?>
+                                    </div>
+                                <?php endforeach; ?>
+                                <div id="noResults" class="hidden px-6 py-8 text-center text-[10px] text-gray-600 italic font-bold uppercase tracking-widest">No students found...</div>
+                            </div>
+                        </div>
+                        <?php if($student_id > 0): ?>
+                        <a href="coach_workouts.php?tab=progressTab" class="size-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all group active:scale-95 shrink-0" title="Clear Selection">
+                            <span class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform duration-500">restart_alt</span>
+                        </a>
+                        <?php endif; ?>
                     </div>
                 </div>
 
+                <script>
+                    function filterStudentMembers(val) {
+                        const items = document.querySelectorAll('.member-item');
+                        let found = 0;
+                        items.forEach(item => {
+                            const text = item.textContent.toLowerCase();
+                            if (text.includes(val.toLowerCase())) {
+                                item.classList.remove('hidden');
+                                found++;
+                            } else {
+                                item.classList.add('hidden');
+                            }
+                        });
+                        document.getElementById('noResults').classList.toggle('hidden', found > 0);
+                    }
+                </script>
+
                 <!-- Member Identity Card & Their Progress -->
                 <?php if($selected_member): ?>
-                <div class="glass-card p-6 border-l-2 border-primary shadow-xl relative overflow-hidden group bg-gradient-to-r from-[#14121a] to-transparent mb-12">
-                    <div class="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
+                <div class="glass-card p-6 shadow-xl relative overflow-hidden group mb-12" style="border-left: 2px solid var(--primary); background: linear-gradient(to right, color-mix(in srgb, var(--primary) 8%, var(--card-bg)), var(--card-bg));">
+                    <div class="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none" style="color:var(--primary)">
                         <span class="material-symbols-outlined text-8xl">fitness_center</span>
                     </div>
                     <div class="flex items-center justify-between relative z-10">
                         <div class="flex items-center gap-6">
-                            <div class="size-16 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-black text-2xl italic border border-primary/10 shadow-inner">
+                            <div class="size-16 rounded-2xl flex items-center justify-center font-black text-2xl italic shadow-inner" style="background:color-mix(in srgb, var(--primary) 12%, transparent); color:var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);">
                                 <?= strtoupper(substr($selected_member['first_name'], 0, 1)) ?>
                             </div>
                             <div>
                                 <div class="flex items-center gap-3 mb-0.5">
                                     <h3 class="text-xl font-black italic uppercase text-white tracking-tighter"><?= htmlspecialchars($selected_member['first_name'] . ' ' . $selected_member['last_name']) ?></h3>
-                                    <span class="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[7px] font-black uppercase tracking-widest border border-emerald-500/10">Active</span>
+                                    <span class="px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 10%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent)">Active</span>
                                 </div>
                                 <div class="flex items-center gap-4">
                                     <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest">ID: #<?= str_pad($selected_member['member_id'], 5, '0', STR_PAD_LEFT) ?></p>
@@ -478,28 +547,75 @@ $active_page = "workouts";
                     </div>
                 </div>
 
-                <h4 class="text-[10px] font-black uppercase text-gray-500 tracking-[0.2em] mb-4 ml-1">Recently Assigned</h4>
-                <div class="glass-card overflow-hidden">
+                <div class="glass-card overflow-hidden animate-slide-up flex flex-col relative z-[50]">
+                    <!-- Filter Hub Inside Table -->
+                    <div class="px-8 py-6 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01] border-b border-white/5">
+                        <!-- Search Input -->
+                        <div class="relative flex-1 group min-w-[150px]">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all focus-within:border-primary/50" style="--tw-border-opacity:1">
+                                <span class="material-symbols-outlined absolute left-4 text-base pointer-events-none" style="color:color-mix(in srgb, var(--primary) 60%, transparent)">search</span>
+                                <input type="text" id="progressSearch" placeholder="Search by plan name..." class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest placeholder:text-white/40 pl-11 pr-4 focus:outline-none focus:ring-0 h-full outline-none shadow-none" oninput="filterProgressTable()" autocomplete="off">
+                            </div>
+                        </div>
+
+                        <!-- Status Filter -->
+                        <div class="w-[190px] relative group shrink-0 custom-select-container">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all cursor-pointer custom-select-trigger" onclick="toggleCustomDropdown(this, event)">
+                                <span class="material-symbols-outlined absolute left-4 text-base pointer-events-none" style="color:color-mix(in srgb, var(--primary) 60%, transparent)">toggle_on</span>
+                                <input type="text" id="progressStatusDisplay" readonly value="All Status" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none pointer-events-none">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden">
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors text-white/60" onclick="setProgressStatus('', 'All Status', this)">All Status</div>
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors text-white/60" onclick="setProgressStatus('Assigned', 'Assigned', this)">Assigned</div>
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors text-white/60" onclick="setProgressStatus('Completed', 'Completed', this)">Completed</div>
+                            </div>
+                        </div>
+
+                        <!-- Sort Filter -->
+                        <div class="w-[180px] relative group shrink-0 custom-select-container">
+                            <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all cursor-pointer custom-select-trigger" onclick="toggleCustomDropdown(this, event)">
+                                <span class="material-symbols-outlined absolute left-4 text-base pointer-events-none" style="color:color-mix(in srgb, var(--primary) 60%, transparent)">sort</span>
+                                <input type="text" id="progressSortDisplay" readonly value="Newest" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none pointer-events-none">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden">
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors text-white/60" onclick="setProgressSort('newest', 'Newest', this)">Newest</div>
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors text-white/60" onclick="setProgressSort('oldest', 'Oldest', this)">Oldest</div>
+                                <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors text-white/60" onclick="setProgressSort('name_asc', 'Name A-Z', this)">Name A-Z</div>
+                            </div>
+                        </div>
+
+                        <!-- Reset -->
+                        <button onclick="resetProgressFilters()" class="size-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all group active:scale-95 shrink-0" title="Reset Filters">
+                            <span class="material-symbols-outlined text-xl group-hover:rotate-180 transition-transform duration-500">restart_alt</span>
+                        </button>
+                    </div>
+
+                    <!-- Table -->
                     <div class="overflow-x-auto no-scrollbar">
-                        <table class="glass-table">
+                        <table class="w-full text-left border-collapse" id="progressTable">
                             <thead>
-                                <tr class="bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
-                                    <th class="px-8 py-5 text-gray-500">Assignment</th>
-                                    <th class="px-8 py-5 text-gray-500">Member</th>
-                                    <th class="px-8 py-5 text-gray-500">Assigned Date</th>
-                                    <th class="px-8 py-5 text-gray-500 text-right">Action</th>
+                                <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                    <th class="px-8 py-5 opacity-40">Assignment</th>
+                                    <th class="px-8 py-5 opacity-40">Member</th>
+                                    <th class="px-8 py-5 opacity-40">Assigned Date</th>
+                                    <th class="px-8 py-5 opacity-40 text-center">Status</th>
+                                    <th class="px-8 py-5 opacity-40 text-right">Action</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-white/5">
-                                <?php foreach($student_recent_workouts as $rw): ?>
-                                <tr class="hover:bg-white/[0.03] transition-all">
+                            <tbody class="divide-y divide-white/5" id="progressTbody">
+                                <?php foreach($student_recent_workouts as $rw):
+                                    $rw_status = $rw['workout_status'] ?? 'Assigned';
+                                ?>
+                                <tr class="hover:bg-white/[0.03] transition-all progress-row" data-name="<?= htmlspecialchars(strtolower($rw['workout_name'])) ?>" data-status="<?= htmlspecialchars($rw_status) ?>" data-date="<?= strtotime($rw['created_at']) ?>">
                                     <td class="px-8 py-5">
-                                        <p class="text-white font-black italic uppercase text-xs truncate max-w-[200px]"><?= htmlspecialchars($rw['workout_name']) ?></p>
+                                        <p class="text-white font-black italic uppercase text-sm truncate max-w-[250px]"><?= htmlspecialchars($rw['workout_name']) ?></p>
                                     </td>
                                     <td class="px-8 py-5">
                                         <div class="flex items-center gap-2">
-                                            <div class="size-6 rounded-lg bg-primary/10 flex items-center justify-center">
-                                                <span class="material-symbols-outlined text-[10px] text-primary">person</span>
+                                            <div class="size-6 rounded-lg flex items-center justify-center" style="background:color-mix(in srgb, var(--primary) 12%, transparent)">
+                                                <span class="material-symbols-outlined text-[10px]" style="color:var(--primary)">person</span>
                                             </div>
                                             <p class="text-[10px] font-bold text-gray-300"><?= htmlspecialchars($rw['first_name'] . ' ' . $rw['last_name']) ?></p>
                                         </div>
@@ -510,32 +626,99 @@ $active_page = "workouts";
                                             <p class="text-[10px] font-bold text-gray-500 italic"><?= date('M d, Y', strtotime($rw['created_at'])) ?></p>
                                         </div>
                                     </td>
+                                    <td class="px-8 py-5 text-center">
+                                        <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) <?= $rw_status === 'Completed' ? '6' : '10' ?>%, transparent); border-color:color-mix(in srgb, var(--primary) 25%, transparent); <?= $rw_status === 'Completed' ? 'opacity:0.7;' : '' ?>"><?= $rw_status ?></span>
+                                    </td>
                                     <td class="px-8 py-5 text-right">
-                                        <div class="flex items-center justify-end">
-                                            <a href="?student_id=<?= $student_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed" class="size-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-95" title="Mark as Completed">
-                                                <span class="material-symbols-outlined text-[14px]">check_circle</span>
-                                            </a>
+                                        <div class="flex items-center justify-end gap-2">
+                                            <?php if($rw_status != 'Completed'): ?>
+                                            <a href="?student_id=<?= $student_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed&tab=progressTab" class="size-10 rounded-xl flex items-center justify-center transition-all active:scale-90 group border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 10%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Complete Program" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 10%, transparent)'; this.style.color='var(--primary)';"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">check_circle</span></a>
+                                            <?php endif; ?>
+                                            <?php if($rw_status != 'Assigned'): ?>
+                                            <a href="?student_id=<?= $student_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Assigned&tab=progressTab" class="size-10 rounded-xl flex items-center justify-center transition-all active:scale-90 group border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 8%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Re-assign" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 8%, transparent)'; this.style.color='var(--primary)';"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">refresh</span></a>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+                        <div id="progressNoResults" class="hidden p-24 text-center opacity-30 italic text-[11px] font-black uppercase tracking-[0.3em]">No matching programs found.</div>
                     </div>
-                    
+
                     <!-- Pagination Footer -->
                     <div class="px-8 py-6 border-t border-white/5 flex items-center justify-between bg-white/[0.01]">
-                        <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">SHOWING 1 TO <?= count($student_recent_workouts) ?> OF <?= count($student_recent_workouts) ?> ENTRIES</p>
+                        <p id="progressCount" class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">SHOWING <?= count($student_recent_workouts) ?> ENTRIES</p>
                         <div class="flex items-center gap-4">
                             <button class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">PREV</button>
-                            <button class="size-7 rounded-lg bg-primary text-white text-[10px] font-black flex items-center justify-center">1</button>
+                            <button class="size-7 rounded-lg text-white text-[10px] font-black flex items-center justify-center" style="background:var(--primary)">1</button>
                             <button class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-colors">NEXT</button>
                         </div>
                     </div>
                 </div>
+
+                <script>
+                    let progressStatusFilter = '';
+                    let progressSortMode = 'newest';
+
+                    function filterProgressTable() {
+                        const search = document.getElementById('progressSearch').value.toLowerCase();
+                        const rows = document.querySelectorAll('.progress-row');
+                        let visible = 0;
+                        const arr = Array.from(rows);
+
+                        // Sort
+                        const tbody = document.getElementById('progressTbody');
+                        arr.sort((a, b) => {
+                            if (progressSortMode === 'oldest') return parseInt(a.dataset.date) - parseInt(b.dataset.date);
+                            if (progressSortMode === 'name_asc') return a.dataset.name.localeCompare(b.dataset.name);
+                            return parseInt(b.dataset.date) - parseInt(a.dataset.date); // newest
+                        });
+                        arr.forEach(r => tbody.appendChild(r));
+
+                        // Filter
+                        rows.forEach(row => {
+                            const nameMatch = row.dataset.name.includes(search);
+                            const statusMatch = !progressStatusFilter || row.dataset.status === progressStatusFilter;
+                            const show = nameMatch && statusMatch;
+                            row.classList.toggle('hidden', !show);
+                            if (show) visible++;
+                        });
+
+                        document.getElementById('progressNoResults').classList.toggle('hidden', visible > 0);
+                        document.getElementById('progressCount').textContent = 'SHOWING ' + visible + ' OF <?= count($student_recent_workouts) ?> ENTRIES';
+                    }
+
+                    function setProgressStatus(val, label, el) {
+                        progressStatusFilter = val;
+                        document.getElementById('progressStatusDisplay').value = label;
+                        document.querySelectorAll('.custom-select-dropdown .px-4').forEach(o => o.classList.remove('bg-primary', 'text-white'));
+                        el.classList.add('bg-primary', 'text-white');
+                        filterProgressTable();
+                    }
+
+                    function setProgressSort(val, label, el) {
+                        progressSortMode = val;
+                        document.getElementById('progressSortDisplay').value = label;
+                        document.querySelectorAll('.custom-select-dropdown .px-4').forEach(o => o.classList.remove('bg-primary', 'text-white'));
+                        el.classList.add('bg-primary', 'text-white');
+                        filterProgressTable();
+                    }
+
+                    function resetProgressFilters() {
+                        progressStatusFilter = '';
+                        progressSortMode = 'newest';
+                        document.getElementById('progressSearch').value = '';
+                        document.getElementById('progressStatusDisplay').value = 'All Status';
+                        document.getElementById('progressSortDisplay').value = 'Newest';
+                        filterProgressTable();
+                    }
+                </script>
+
                 <?php endif; ?>
             </section>
         </div>
+
 
 
         <div id="recentTab" class="tab-content <?= $active_tab === 'recentTab' ? 'active' : '' ?>">
@@ -548,11 +731,11 @@ $active_page = "workouts";
                 <div class="overflow-x-auto no-scrollbar">
                     <table class="glass-table">
                         <thead>
-                            <tr class="bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
-                                <th class="px-8 py-5 text-gray-500">Assignment</th>
-                                <th class="px-8 py-5 text-gray-500">Member</th>
-                                <th class="px-8 py-5 text-gray-500">Assigned Date</th>
-                                <th class="px-8 py-5 text-gray-500 text-right">Action</th>
+                            <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                <th class="px-8 py-5 opacity-40">Assignment</th>
+                                <th class="px-8 py-5 opacity-40">Member</th>
+                                <th class="px-8 py-5 opacity-40">Assigned Date</th>
+                                <th class="px-8 py-5 opacity-40 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
@@ -577,7 +760,7 @@ $active_page = "workouts";
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     <div class="flex items-center justify-end">
-                                        <a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed" class="size-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-95" title="Mark as Completed">
+                                        <a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $rw['workout_id'] ?>&status=Completed" class="size-8 rounded-lg flex items-center justify-center hover:text-white transition-all active:scale-95 border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 10%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Mark as Completed" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 10%, transparent)'; this.style.color='var(--primary)';">
                                             <span class="material-symbols-outlined text-[14px]">check_circle</span>
                                         </a>
                                     </div>
@@ -688,11 +871,11 @@ $active_page = "workouts";
                 <div class="overflow-x-auto no-scrollbar">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
-                                <th class="px-8 py-5 text-gray-500">Identity & Category</th>
-                                <th class="px-8 py-5 text-gray-500">Intensity & Time</th>
-                                <th class="px-8 py-5 text-gray-500 text-center">Status</th>
-                                <th class="px-8 py-5 text-gray-500 text-right">Actions</th>
+                            <tr class="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-[0.25em]">
+                                <th class="px-8 py-5 opacity-40">Identity & Category</th>
+                                <th class="px-8 py-5 opacity-40">Intensity & Time</th>
+                                <th class="px-8 py-5 opacity-40 text-center">Status</th>
+                                <th class="px-8 py-5 opacity-40 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
@@ -714,17 +897,19 @@ $active_page = "workouts";
                                     <?php 
                                         $ws = $w['workout_status']; 
                                         if($ws == 'Completed') {
-                                            $badge_class = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/10';
+                                            $badge_class = '';
+                                            $badge_style = 'color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); border-color: color-mix(in srgb, var(--primary) 25%, transparent); opacity: 0.7;';
                                         } else {
-                                            $badge_class = 'text-primary bg-primary/10 border-primary/10';
+                                            $badge_class = '';
+                                            $badge_style = 'color: var(--primary); background: color-mix(in srgb, var(--primary) 10%, transparent); border-color: color-mix(in srgb, var(--primary) 25%, transparent);';
                                         }
                                     ?>
-                                    <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-white/5 <?= $badge_class ?>"><?= $ws ?></span>
+                                    <span class="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border <?= $badge_class ?>" style="<?= $badge_style ?>"><?= $ws ?></span>
                                 </td>
                                 <td class="px-8 py-5 text-right">
                                     <div class="flex items-center justify-end gap-2">
-                                        <?php if($w['workout_status'] != 'Completed'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Completed" class="size-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/10 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all active:scale-90 group" title="Complete Program"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">check_circle</span></a><?php endif; ?>
-                                        <?php if($w['workout_status'] != 'Assigned'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Assigned" class="size-10 rounded-xl bg-primary/10 text-primary border border-primary/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-90 group" title="Re-assign Program"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">refresh</span></a><?php endif; ?>
+                                        <?php if($w['workout_status'] != 'Completed'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Completed" class="size-10 rounded-xl flex items-center justify-center transition-all active:scale-90 group border" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 10%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Complete Program" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 10%, transparent)'; this.style.color='var(--primary)';"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">check_circle</span></a><?php endif; ?>
+                                        <?php if($w['workout_status'] != 'Assigned'): ?><a href="?member_id=<?= $member_id ?>&action=update_status&workout_id=<?= $w['workout_id'] ?>&status=Assigned" class="size-10 rounded-xl border flex items-center justify-center transition-all active:scale-90 group" style="color:var(--primary); background:color-mix(in srgb, var(--primary) 8%, transparent); border-color:color-mix(in srgb, var(--primary) 20%, transparent);" title="Re-assign Program" onmouseover="this.style.background='var(--primary)'; this.style.color='white';" onmouseout="this.style.background='color-mix(in srgb, var(--primary) 8%, transparent)'; this.style.color='var(--primary)';"><span class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">refresh</span></a><?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
