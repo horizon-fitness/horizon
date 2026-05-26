@@ -1140,6 +1140,7 @@ $active_page = "settings";
                                 <div class="relative group custom-select-container w-full lg:w-72">
                                     <input type="hidden" id="activeIDSort" value="none" onchange="filterActivePlans('id')">
                                     <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">calendar_today</span>
                                         <input type="text" readonly value="Sort by Date" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pointer-events-none pl-11 pr-10 focus:outline-none focus:ring-0 h-full" autocomplete="off">
                                         <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                     </div>
@@ -1153,6 +1154,7 @@ $active_page = "settings";
                                 <div class="relative group custom-select-container w-full lg:w-72">
                                     <input type="hidden" id="activePriceSort" value="none" onchange="filterActivePlans('price')">
                                     <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">sell</span>
                                         <input type="text" readonly value="Sort by Price" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pointer-events-none pl-11 pr-10 focus:outline-none focus:ring-0 h-full" autocomplete="off">
                                         <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                     </div>
@@ -1324,7 +1326,7 @@ $active_page = "settings";
                                                 class="input-field no-scrollbar resize-none"><?= htmlspecialchars($plan['features']) ?></textarea>
                                         </div>
                                         <div class="pt-4 border-t border-white/5">
-                                            <p class="text-[8px] font-black uppercase tracking-widest text-primary opacity-60">
+                                            <p class="text-[10px] font-black uppercase tracking-widest text-gray-500">
                                                 Manual save required via 'Save Changes'</p>
                                         </div>
                                     </div>
@@ -1333,6 +1335,9 @@ $active_page = "settings";
                         <?php endif; ?>
                         </div> <!-- end activePlansGridContainer -->
                         
+                        <!-- ADD THIS LINE RIGHT HERE -->
+                        <div id="activePlansPagination"></div>
+
                         <!-- Active Plans Table Container -->
                         <div id="activePlansTableContainer" class="hidden overflow-hidden">
                             <div class="overflow-x-auto">
@@ -1393,8 +1398,10 @@ $active_page = "settings";
                                         <?php endif; ?>
                                     </tbody>
                                 </table>
-                            </div>
-                        </div>
+                            </div> <!-- end overflow-x-auto -->
+                            <!-- ADD THIS LINE RIGHT HERE -->
+                            <div id="activePlansTablePagination"></div>
+                        </div> <!-- end activePlansTableContainer -->
                         </div> <!-- end activePlansTableWrapper -->
                     </div>
 
@@ -1413,6 +1420,7 @@ $active_page = "settings";
                                 <div class="relative group custom-select-container w-full lg:w-72">
                                     <input type="hidden" id="archivedIDSort" value="none" onchange="filterArchivedPlans('id')">
                                     <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">calendar_today</span>
                                         <input type="text" readonly value="Sort by Date" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pointer-events-none pl-11 pr-10 focus:outline-none focus:ring-0 h-full" autocomplete="off">
                                         <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                     </div>
@@ -1426,6 +1434,7 @@ $active_page = "settings";
                                 <div class="relative group custom-select-container w-full lg:w-72">
                                     <input type="hidden" id="archivedPriceSort" value="none" onchange="filterArchivedPlans('price')">
                                     <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-hover:scale-110">sell</span>
                                         <input type="text" readonly value="Sort by Price" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pointer-events-none pl-11 pr-10 focus:outline-none focus:ring-0 h-full" autocomplete="off">
                                         <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                     </div>
@@ -1502,8 +1511,10 @@ $active_page = "settings";
                                     <?php endif; ?>
                                 </tbody>
                             </table>
-                        </div>
-                    </div>
+                        </div> <!-- end overflow-x-auto -->
+                        <!-- ADD THIS LINE RIGHT HERE -->
+                        <div id="archivedPlansPagination"></div>
+                    </div> <!-- end archivedPlansContainer -->
                 </div>
 
                 <div class="pt-6"></div>
@@ -1978,14 +1989,14 @@ $active_page = "settings";
          * Horizon Elite Pagination Engine
          */
         class ElitePaginator {
-            constructor(containerId, itemsPerPage, itemSelector) {
+            constructor(containerId, itemsPerPage, itemSelector, paginationContainerId = null) {
                 this.container = document.getElementById(containerId);
                 if (!this.container) return;
 
                 this.pageSize = itemsPerPage;
                 this.itemSelector = itemSelector;
                 this.currentPage = 1;
-                this.paginationContainerId = `${containerId}-pagination`;
+                this.paginationContainerId = paginationContainerId || `${containerId}-pagination`;
 
                 this.init();
             }
@@ -2027,37 +2038,14 @@ $active_page = "settings";
 
             renderControls(totalItems, totalPages, start, endReached) {
                 let controls = document.getElementById(this.paginationContainerId);
-                if (!controls) {
-                    controls = document.createElement('div');
-                    controls.id = this.paginationContainerId;
-                }
-                
-                let targetWrapper;
-                const isHidden = controls.classList.contains('hidden');
+                if (!controls) return;
                 
                 if (this.container.id === 'activePlansGridContainer') {
-                    targetWrapper = document.getElementById('activePlansGridContainer');
-                } else if (this.container.tagName === 'TBODY') {
-                    targetWrapper = this.container.closest('.glass-card');
-                    if (!targetWrapper && this.container.id === 'activePlansTableBody') {
-                        targetWrapper = document.getElementById('activePlansContainer');
-                    }
-                }
-                
-                if (this.container.id === 'activePlansGridContainer') {
-                    controls.className = 'col-span-full px-8 py-5 flex justify-between items-center w-full glass-card mt-8 rounded-2xl';
+                    controls.className = 'px-8 py-5 flex justify-between items-center w-full glass-card mt-8 rounded-2xl';
                 } else {
                     controls.className = 'px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center w-full';
                 }
                 
-                if (isHidden) controls.classList.add('hidden');
-                
-                if (targetWrapper) {
-                    targetWrapper.appendChild(controls);
-                } else {
-                    this.container.appendChild(controls);
-                }
-
                 const end = Math.min(endReached, totalItems);
 
                 controls.innerHTML = `
@@ -2115,14 +2103,15 @@ $active_page = "settings";
             // Paginate Active Plans Grid (6 per page)
             const activeGrid = document.getElementById('activePlansGridContainer');
             if (activeGrid) {
-                horizonPaginators['activePlansGridContainer'] = new ElitePaginator('activePlansGridContainer', 6, '.glass-card');
+                horizonPaginators['activePlansGridContainer'] = new ElitePaginator('activePlansGridContainer', 6, '.glass-card', 'activePlansPagination');
             }
             
             // Paginate Active Table (10 per page)
             const activeTable = document.getElementById('activePlansTableBody');
             if (activeTable) {
-                horizonPaginators['activePlansTableBody'] = new ElitePaginator('activePlansTableBody', 10, 'tr:not(.no-pagination)');
-                const tablePaginator = document.getElementById('pagination-activePlansTableBody');
+                horizonPaginators['activePlansTableBody'] = new ElitePaginator('activePlansTableBody', 10, 'tr:not(.no-pagination)', 'activePlansTablePagination');
+                // Hide table paginator on init
+                const tablePaginator = document.getElementById('activePlansTablePagination');
                 if (tablePaginator) {
                     tablePaginator.classList.add('hidden');
                 }
@@ -2131,13 +2120,9 @@ $active_page = "settings";
             // Paginate Archived Table (10 per page)
             const archivedTable = document.getElementById('archivedPlansTableBody');
             if (archivedTable) {
-                horizonPaginators['archivedPlansTableBody'] = new ElitePaginator('archivedPlansTableBody', 10, 'tr:not(.no-pagination)');
+                horizonPaginators['archivedPlansTableBody'] = new ElitePaginator('archivedPlansTableBody', 10, 'tr:not(.no-pagination)', 'archivedPlansPagination');
             }
         }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            initPagination();
-        });
 
         function switchPlanView(view) {
             const activeContainer = document.getElementById('activePlansContainer');
@@ -2290,7 +2275,7 @@ $active_page = "settings";
             if (bgHex) bgHex.innerText = bgInput.value.toUpperCase();
             if (tabActiveTextHex && tabActiveTextInput) tabActiveTextHex.innerText = tabActiveTextInput.value.toUpperCase();
         }
-        // --- Initialization & Lifecycle ---
+
         document.addEventListener('DOMContentLoaded', () => {
             initPagination();
             updateLiveBranding();
@@ -2354,68 +2339,44 @@ $active_page = "settings";
 
         let newPlanCount = 0;
         function addNewPlanCard() {
-            const container = document.getElementById('activePlansContainer');
+            const gridContainer = document.getElementById('activePlansGridContainer');
+            
+            // Limit to one draft plan at a time
+            const existingDraft = gridContainer.querySelector('.draft-plan-card');
+            if (existingDraft) {
+                existingDraft.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Draw attention to the existing draft
+                existingDraft.classList.remove('animate-in', 'fade-in', 'slide-in-from-bottom-4');
+                void existingDraft.offsetWidth; // trigger reflow
+                existingDraft.classList.add('animate-pulse');
+                setTimeout(() => existingDraft.classList.remove('animate-pulse'), 1000);
+                return;
+            }
+
             const newId = `new_plan_${newPlanCount++}`;
 
             const card = document.createElement('div');
-            // Starts with .is-editing by default
-            card.className = "glass-card p-8 flex flex-col gap-6 relative group/plan animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-2xl is-editing";
+            // Starts directly as a form
+            card.className = "glass-card draft-plan-card p-8 flex flex-col gap-6 relative group/plan animate-in fade-in slide-in-from-bottom-4 duration-500 shadow-2xl";
             card.innerHTML = `
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-4">
                         <div class="size-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                            <span class="material-symbols-outlined text-[--highlight]">add_reaction</span>
+                            <span class="material-symbols-outlined text-white">add_reaction</span>
                         </div>
                         <h3 class="text-sm font-black italic uppercase tracking-widest text-emerald-500 plan-title-preview">Draft Plan</h3>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button type="button" onclick="this.closest('.glass-card').classList.toggle('is-editing')" class="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-95" title="Toggle Edit Mode">
+                        <div class="size-8 flex items-center justify-center text-indigo-500/50">
                             <span class="material-symbols-outlined text-base">edit</span>
-                        </button>
-                        <button type="button" onclick="this.closest('.glass-card').remove(); horizonPaginators['activePlansContainer'].update();" class="size-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
+                        </div>
+                        <button type="button" onclick="this.closest('.glass-card').remove(); horizonPaginators['activePlansGridContainer']?.update();" class="size-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all">
                             <span class="material-symbols-outlined text-base">close</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- PREVIEW STATE: Structured View mirroring Edit Mode -->
-                <div class="plan-preview-state space-y-4">
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
-                        <div class="view-box text-white opacity-60 italic">Drafting...</div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Price (₱)</label>
-                            <div class="view-box opacity-40">--</div>
-                        </div>
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Duration (Months)</label>
-                            <div class="view-box opacity-40">--</div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Billing Cycle Text</label>
-                            <div class="view-box opacity-40">--</div>
-                        </div>
-                        <div class="flex flex-col gap-1.5">
-                            <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Featured Badge Text</label>
-                            <div class="view-box opacity-40">--</div>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-col gap-1.5">
-                        <label class="text-[11px] font-black uppercase text-gray-500 tracking-widest ml-1">Features</label>
-                        <div class="view-box view-box-long text-gray-500 italic opacity-40">
-                            Drafting features...
-                        </div>
-                    </div>
-                </div>
-
-                <div class="plan-edit-state space-y-4">
+                <div class="space-y-4">
                     <div class="flex flex-col gap-1.5">
                         <label class="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Plan Name</label>
                         <input type="text" name="new_plans[${newId}][name]" placeholder="e.g. Starter Pack" class="input-field" oninput="this.closest('.glass-card').querySelector('.plan-title-preview').innerText = this.value || 'Draft Plan'" required>
@@ -2446,16 +2407,16 @@ $active_page = "settings";
                     </div>
                     
                     <div class="pt-4 border-t border-white/5">
-                        <p class="text-[8px] font-black uppercase tracking-widest text-primary opacity-60">Manual save required via 'Save Changes'</p>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-500">Manual save required via 'Save Changes'</p>
                     </div>
                 </div>
             `;
-            container.prepend(card);
+            gridContainer.prepend(card);
 
             // Sync with pagination engine
-            if (horizonPaginators['activePlansContainer']) {
-                horizonPaginators['activePlansContainer'].currentPage = 1; // Back to first page to see the new card
-                horizonPaginators['activePlansContainer'].update();
+            if (horizonPaginators['activePlansGridContainer']) {
+                horizonPaginators['activePlansGridContainer'].currentPage = 1; // Back to first page to see the new card
+                horizonPaginators['activePlansGridContainer'].update();
             }
 
             card.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2736,6 +2697,7 @@ $active_page = "settings";
         });
 
         function setActiveView(view) {
+            const container = document.getElementById('activePlansContainer');
             const gridContainer = document.getElementById('activePlansGridContainer');
             const tableContainer = document.getElementById('activePlansTableContainer');
             const gridBtn = document.getElementById('activeViewGridBtn');
@@ -2743,8 +2705,15 @@ $active_page = "settings";
             const tableWrapper = document.getElementById('activePlansTableWrapper');
             const filterBar = document.getElementById('activeFilterBar');
             
+            const gridPaginator = document.getElementById('activePlansPagination');
+            const tablePaginator = document.getElementById('activePlansTablePagination');
+            
+            // Prevent white border blink from glass-card CSS transition
+            if (container) container.style.transition = 'none';
+            if (filterBar) filterBar.style.transition = 'none';
+            
             if (view === 'grid') {
-                document.getElementById('activePlansContainer').classList.remove('glass-card');
+                if (container) container.classList.remove('glass-card');
                 
                 gridContainer.classList.remove('hidden');
                 gridContainer.classList.add('grid');
@@ -2756,18 +2725,10 @@ $active_page = "settings";
                 gridBtn.className = 'flex-1 lg:size-9 rounded-lg bg-primary text-white flex items-center justify-center transition-all h-full';
                 tableBtn.className = 'flex-1 lg:size-9 rounded-lg text-white/40 hover:bg-white/5 hover:text-white flex items-center justify-center transition-all h-full';
                 
-                const activePaginator = document.getElementById('pagination-activePlansGridContainer');
-                if (activePaginator) {
-                    activePaginator.className = 'col-span-full px-8 py-5 flex justify-between items-center w-full glass-card mt-8 rounded-2xl';
-                    activePaginator.classList.remove('hidden');
-                }
-                
-                const activeTablePaginator = document.getElementById('pagination-activePlansTableBody');
-                if (activeTablePaginator) {
-                    activeTablePaginator.classList.add('hidden');
-                }
+                if (gridPaginator) gridPaginator.classList.remove('hidden');
+                if (tablePaginator) tablePaginator.classList.add('hidden');
             } else {
-                document.getElementById('activePlansContainer').classList.add('glass-card');
+                if (container) container.classList.add('glass-card');
                 
                 gridContainer.classList.add('hidden');
                 gridContainer.classList.remove('grid');
@@ -2779,17 +2740,15 @@ $active_page = "settings";
                 tableBtn.className = 'flex-1 lg:size-9 rounded-lg bg-primary text-white flex items-center justify-center transition-all h-full';
                 gridBtn.className = 'flex-1 lg:size-9 rounded-lg text-white/40 hover:bg-white/5 hover:text-white flex items-center justify-center transition-all h-full';
                 
-                const activePaginator = document.getElementById('pagination-activePlansGridContainer');
-                if (activePaginator) {
-                    activePaginator.classList.add('hidden');
-                }
-                
-                const activeTablePaginator = document.getElementById('pagination-activePlansTableBody');
-                if (activeTablePaginator) {
-                    activeTablePaginator.className = 'px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center w-full';
-                    activeTablePaginator.classList.remove('hidden');
-                }
+                if (gridPaginator) gridPaginator.classList.add('hidden');
+                if (tablePaginator) tablePaginator.classList.remove('hidden');
             }
+            
+            // Restore transitions after a tiny delay to allow DOM to apply classes instantly
+            setTimeout(() => {
+                if (container) container.style.transition = '';
+                if (filterBar) filterBar.style.transition = '';
+            }, 50);
         }
 
         function resetActiveFilters() {
