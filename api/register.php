@@ -144,7 +144,7 @@ try {
         $birth_date = $input['birth_date'] ?? '2000-01-01';
         $sex = $input['sex'] ?? 'Not Specified';
         $occupation = trim($input['occupation'] ?? '');
-        $medical_history = trim($input['medical_history'] ?? '');
+        // Removed medical_history
         $emergency_name = trim($input['emergency_contact_name'] ?? $input['emergency_name'] ?? '');
         $emergency_phone = trim($input['emergency_contact_number'] ?? $input['emergency_phone'] ?? '');
         $parent_name = trim($input['parent_name'] ?? '');
@@ -208,8 +208,8 @@ try {
         $address_id = $pdo->lastInsertId();
 
         $member_code = 'MBR-' . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
-        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, parent_name, parent_contact, registration_source, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $parent_name, $parent_phone, $reg_source, $now, $now]);
+        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, emergency_contact_name, emergency_contact_number, parent_name, parent_contact, registration_source, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $emergency_name, $emergency_phone, $parent_name, $parent_phone, $reg_source, $now, $now]);
         $member_id = $pdo->lastInsertId();
 
         // Save Fitness Profile

@@ -16,7 +16,7 @@ function processMemberRegistration($pdo, $data) {
     $birth_date = $data['birth_date'] ?? '2000-01-01';
     $sex = $data['sex'] ?? 'Not Specified';
     $occupation = trim($data['occupation'] ?? '');
-    $medical_history = trim($data['medical_history'] ?? '');
+
     $emergency_name = trim($data['emergency_name'] ?? $data['emergency_contact_name'] ?? '');
     $emergency_phone = trim($data['emergency_phone'] ?? $data['emergency_contact_number'] ?? '');
     $gym_id = $data['gym_id'];
@@ -89,8 +89,8 @@ function processMemberRegistration($pdo, $data) {
         $stmtAddr->execute([$address, $now, $now]);
         $address_id = $pdo->lastInsertId();
         
-        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, medical_history, emergency_contact_name, emergency_contact_number, registration_source, registered_by_user_id, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $medical_history, $emergency_name, $emergency_phone, $source, $registered_by, $now, $now]);
+        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, emergency_contact_name, emergency_contact_number, registration_source, registered_by_user_id, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $emergency_name, $emergency_phone, $source, $registered_by, $now, $now]);
 
         // 5. Send Email
         $stmtGym = $pdo->prepare("SELECT gym_name FROM gyms WHERE gym_id = ?");

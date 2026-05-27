@@ -571,13 +571,7 @@ $active_page = "register";
                                     value="<?= htmlspecialchars($_POST['emergency_phone'] ?? '') ?>" class="input-field"
                                     placeholder="09XX-XXX-XXXX">
                             </div>
-                            <div class="space-y-2 md:col-span-2">
-                                <label
-                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Medical
-                                    History</label>
-                                <textarea name="medical_history" class="input-field min-h-[100px] py-4"
-                                    placeholder="List any existing conditions or allergies..."><?= htmlspecialchars($_POST['medical_history'] ?? '') ?></textarea>
-                            </div>
+
                         </div>
                     </div>
 

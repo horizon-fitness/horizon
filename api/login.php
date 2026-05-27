@@ -36,7 +36,7 @@ try {
     $sqlRole = "SELECT ur.*, r.role_name, g.gym_name, g.tenant_code as g_tenant_code,
                 m.member_id, m.member_code, m.occupation, m.profile_picture as member_profile_pic,
                 addr.address_line AS member_address, addr.address_line, addr.barangay, addr.city, addr.province, addr.region, 
-                m.emergency_contact_name, m.emergency_contact_number, m.medical_history, m.member_status,
+                m.emergency_contact_name, m.emergency_contact_number, m.member_status,
                 m.parent_name, m.parent_contact
                 FROM user_roles ur
                 JOIN roles r ON ur.role_id = r.role_id
@@ -138,7 +138,7 @@ try {
             'birth_date' => (string)($user['birth_date'] ?? ''),
             'sex' => (string)($user['sex'] ?? ''),
             'occupation' => (string)($roleData['occupation'] ?? ''),
-            'medical_history' => (string)($roleData['medical_history'] ?? ''),
+            // removed medical_history
             'emergency_contact_name' => (string)($roleData['emergency_contact_name'] ?? ''),
             'emergency_contact_number' => (string)($roleData['emergency_contact_number'] ?? ''),
             'parent_name' => (string)($roleData['parent_name'] ?? ''),

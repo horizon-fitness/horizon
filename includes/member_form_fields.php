@@ -63,10 +63,7 @@
     <input type="text" name="occupation" class="input-field" placeholder="Software Engineer" value="<?= htmlspecialchars($_POST['occupation'] ?? '') ?>">
 </div>
 
-<div class="space-y-2">
-    <label class="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">MEDICAL HISTORY / ALLERGIES</label>
-    <textarea name="medical_history" class="input-field h-24" placeholder="Mention any medical conditions..."><?= htmlspecialchars($_POST['medical_history'] ?? '') ?></textarea>
-</div>
+
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
     <div class="space-y-2">

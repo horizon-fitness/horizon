@@ -194,7 +194,7 @@ if (isset($_GET['ajax_user_id'])) {
 
     $sql = "SELECT u.*, r.role_name as role, ur.role_status ";
     if ($role_name === 'member') {
-        $sql .= ", m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.medical_history, m.emergency_contact_name, m.emergency_contact_number ";
+        $sql .= ", m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.emergency_contact_name, m.emergency_contact_number ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id LEFT JOIN addresses a ON m.address_id = a.address_id ";
     } elseif ($role_name === 'staff' || $role_name === 'coach') {
         $sql .= ", s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
@@ -306,14 +306,7 @@ if (isset($_GET['ajax_user_id'])) {
                 </div>
             </div>
             
-            <?php if ($role_name === 'member' && !empty($u['medical_history'])): ?>
-                <section class="space-y-4 pt-4 border-t border-white/5">
-                    <h4 class="text-[9px] font-black uppercase text-rose-500/60 tracking-widest">Medical History</h4>
-                    <p class="text-[11px] leading-relaxed text-[--text-main]/50 bg-black/20 p-5 rounded-2xl border border-white/5 italic">
-                        <?= nl2br(htmlspecialchars($u['medical_history'])) ?>
-                    </p>
-                </section>
-            <?php endif; ?>
+
         </div>
     <?php endif;
     exit;

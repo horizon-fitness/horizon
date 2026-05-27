@@ -458,10 +458,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <input type="tel" name="emergency_phone" required oninput="formatPhoneNumber(this)" value="<?= htmlspecialchars($_POST['emergency_phone'] ?? '') ?>" class="input-field" placeholder="09123456789">
                                 </div>
                             </div>
-                            <div class="space-y-1.5">
-                                <label class="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">Medical history</label>
-                                <textarea name="medical_history" class="input-field min-h-[100px] py-3" placeholder="List any existing conditions, allergies, or medications..."><?= htmlspecialchars($_POST['medical_history'] ?? '') ?></textarea>
-                            </div>
                         </div>
                     </div>
                 </div>

@@ -143,7 +143,7 @@ if (isset($_GET['ajax_user_id'])) {
     // 2. Fetch full user data based on role
     $sql = "SELECT u.*, r.role_name as role, ur.role_status ";
     if ($role_name_lc === 'member') {
-        $sql .= ", COALESCE(m.profile_picture, u.profile_picture) as profile_picture, m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.medical_history, m.emergency_contact_name, m.emergency_contact_number, m.parent_name, m.parent_contact, m.registration_source, m.member_status, ";
+        $sql .= ", COALESCE(m.profile_picture, u.profile_picture) as profile_picture, m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.emergency_contact_name, m.emergency_contact_number, m.parent_name, m.parent_contact, m.registration_source, m.member_status, ";
         $sql .= " (SELECT height_cm FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as height_cm, ";
         $sql .= " (SELECT weight_kg FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as weight_kg, ";
         $sql .= " (SELECT ROUND(weight_kg / POWER(height_cm / 100, 2), 1) FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as bmi ";
@@ -266,13 +266,6 @@ if (isset($_GET['ajax_user_id'])) {
                                     <p class="text-base font-bold text-white"><?= $bmi ? htmlspecialchars($bmi) . '<span class="text-[9px] block opacity-50 font-normal mt-0.5">' . $class . '</span>' : '---' ?></p>
                                 </div>
                             </div>
-                        </div>
-                    <?php endif; ?>
-
-                    <?php if (!empty($u['medical_history'])): ?>
-                        <div class="bg-white/[0.02] p-6 rounded-2xl border border-white/5 space-y-2">
-                            <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Medical Notes</p>
-                            <p class="text-xs font-medium opacity-70 leading-relaxed"><?= nl2br(htmlspecialchars($u['medical_history'])) ?></p>
                         </div>
                     <?php endif; ?>
 

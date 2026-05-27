@@ -156,11 +156,7 @@ try {
         if (array_key_exists('occupation', $input)) {
             $memFields[] = "occupation = ?";
             $memParams[] = $input['occupation'];
-        }
-        if (array_key_exists('medical_history', $input)) {
-            $memFields[] = "medical_history = ?";
-            $memParams[] = $input['medical_history'];
-        }
+        // Removed medical_history handling
         if (array_key_exists('emergency_contact_name', $input)) {
             $memFields[] = "emergency_contact_name = ?";
             $memParams[] = $input['emergency_contact_name'];

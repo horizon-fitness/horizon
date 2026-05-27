@@ -210,7 +210,6 @@ CREATE TABLE members (
     emergency_contact_number VARCHAR(20) NOT NULL,
     parent_name VARCHAR(100),
     parent_contact VARCHAR(20),
-    medical_history TEXT,
     registration_source VARCHAR(100),
     registered_by_user_id INT,
     member_status VARCHAR(50) NOT NULL,
