@@ -39,7 +39,7 @@ try {
         JOIN membership_plans mp ON ms.membership_plan_id = mp.membership_plan_id
         WHERE ms.member_id = ? 
           AND ms.subscription_status IN ('Active', 'Pending Approval') 
-          AND ms.end_date >= CURDATE()
+          AND (ms.end_date IS NULL OR ms.end_date >= CURDATE())
         ORDER BY ms.end_date DESC
         LIMIT 1
     ");

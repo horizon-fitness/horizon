@@ -102,6 +102,9 @@ try {
         }
     }
 
+    // Auto-fix existing broken subscriptions (1 month -> 1 day bug)
+    $pdo->exec("UPDATE member_subscriptions ms JOIN membership_plans mp ON ms.membership_plan_id = mp.membership_plan_id SET ms.end_date = DATE_ADD(ms.start_date, INTERVAL mp.duration_value MONTH) WHERE mp.duration_value < 28 AND DATEDIFF(ms.end_date, ms.start_date) = mp.duration_value");
+
 } catch (Exception $e) { /* Silently fail to avoid blocking connection */
 }
 

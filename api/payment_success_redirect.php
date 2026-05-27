@@ -50,7 +50,11 @@ if ($gym_id > 0 && $user_id > 0) {
             $plan_name = $planDetails ? $planDetails['plan_name'] : "Subscription";
 
             $start_date = date('Y-m-d');
-            $end_date = date('Y-m-d', strtotime("+$duration days"));
+            if ($duration < 28) {
+                $end_date = date('Y-m-d', strtotime("+$duration months"));
+            } else {
+                $end_date = date('Y-m-d', strtotime("+$duration days"));
+            }
             $now = date('Y-m-d H:i:s');
 
             // 2. Create/Update Subscription
