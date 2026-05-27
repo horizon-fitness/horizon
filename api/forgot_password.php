@@ -151,6 +151,24 @@ try {
             // 2. Mark OTP as used
             $pdo->prepare("UPDATE user_verifications SET status = 'verified', verified_at = NOW() WHERE verification_id = ?")->execute([$ver['verification_id']]);
             
+            // 3. Send Success Email
+            $stmtUser = $pdo->prepare("SELECT email, first_name FROM users WHERE user_id = ?");
+            $stmtUser->execute([$user_id]);
+            $user = $stmtUser->fetch();
+            
+            if ($user) {
+                $email = $user['email'];
+                $first_name = $user['first_name'];
+                $subject = "Password Reset Successful";
+                $email_content = "
+                    <p>Hi $first_name,</p>
+                    <p>Your password has been successfully reset.</p>
+                    <p>If you did not make this change, please contact your gym immediately to secure your account.</p>
+                ";
+                $body = getEmailTemplate("Security Alert", $email_content);
+                sendSystemEmail($email, $subject, $body);
+            }
+            
             $pdo->commit();
 
             ob_end_clean();
