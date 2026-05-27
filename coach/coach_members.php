@@ -288,6 +288,28 @@ if ($coach_id > 0) {
         $stmtMembers = $pdo->prepare($sql);
         $stmtMembers->execute($final_params);
         $members = $stmtMembers->fetchAll();
+        
+        // --- INJECT TEST SAMPLE DATA ---
+        $mock_plans = ['Strength Training', 'Cardio & HIIT', 'Hypertrophy', 'General Fitness', 'Flexibility / Yoga'];
+        for ($i = 1; $i <= 35; $i++) {
+            $is_exp = ($i % 5 === 0) ? 1 : 0;
+            $members[] = [
+                'member_id' => 9000 + $i,
+                'user_id' => 9000 + $i,
+                'first_name' => 'Sample',
+                'last_name' => 'Client ' . $i,
+                'email' => "sampleclient{$i}@example.com",
+                'contact_number' => '0912345678' . ($i % 10),
+                'member_code' => 'MEM-900' . str_pad($i, 2, '0', STR_PAD_LEFT),
+                'member_status' => $is_exp ? 'Expired' : 'Active',
+                'profile_picture' => null,
+                'session_count' => rand(2, 45),
+                'last_visit' => date('Y-m-d H:i:s', strtotime('-' . rand(0, 20) . ' days')),
+                'workout_plan' => $mock_plans[array_rand($mock_plans)],
+                'is_in_gym' => ($i % 4 === 0 && !$is_exp) ? 1 : 0,
+                'is_expired' => $is_exp
+            ];
+        }
     } catch (PDOException $e) {
         $members = [];
         $error_msg = "Database integrity check failed.";
@@ -608,34 +630,43 @@ if ($coach_id > 0) {
                 if (this.container.id === 'memberGridContainer') {
                     controls.className = 'px-8 py-5 flex justify-between items-center w-full glass-card mt-8 rounded-2xl';
                 } else {
-                    controls.className = 'px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center w-full';
+                    controls.className = 'px-8 py-6 border-t border-white/5 bg-white/[0.01] flex justify-between items-center w-full';
                 }
                 
                 if (isHidden) controls.classList.add('hidden');
                 
                 const end = Math.min(endReached, totalItems);
 
+                const prevEnabled = this.currentPage > 1;
+                const nextEnabled = this.currentPage < totalPages;
+
+                const prevClass = prevEnabled 
+                    ? "px-4 py-2 rounded-[10px] flex items-center justify-center text-[10px] font-extrabold uppercase tracking-[0.1em] transition-all bg-white/[0.03] border border-white/5 text-white hover:bg-primary hover:border-primary hover:-translate-y-[1px] hover:shadow-lg cursor-pointer"
+                    : "px-4 py-2 rounded-[10px] flex items-center justify-center text-[10px] font-extrabold uppercase tracking-[0.1em] transition-all bg-white/[0.02] border border-white/5 text-white/30 opacity-50 cursor-not-allowed";
+
+                const nextClass = nextEnabled 
+                    ? "px-4 py-2 rounded-[10px] flex items-center justify-center text-[10px] font-extrabold uppercase tracking-[0.1em] transition-all bg-white/[0.03] border border-white/5 text-white hover:bg-primary hover:border-primary hover:-translate-y-[1px] hover:shadow-lg cursor-pointer"
+                    : "px-4 py-2 rounded-[10px] flex items-center justify-center text-[10px] font-extrabold uppercase tracking-[0.1em] transition-all bg-white/[0.02] border border-white/5 text-white/30 opacity-50 cursor-not-allowed";
+
                 controls.innerHTML = `
-                    <div class="flex items-center">
-                        <span class="text-[10px] font-black uppercase text-gray-500 tracking-widest">
-                            Showing ${totalItems === 0 ? 0 : start + 1} to ${end} of ${totalItems} entries
-                        </span>
-                    </div>
+                    <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">
+                        SHOWING ${totalItems === 0 ? 0 : start + 1} TO ${end} OF ${totalItems} ENTRIES
+                    </p>
                     
-                    <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-2">
                         <button type="button" onclick="horizonPaginators['${this.container.id}'].setPage(${this.currentPage - 1})" 
-                            ${this.currentPage === 1 ? 'disabled' : ''}
-                            class="text-[10px] font-black uppercase tracking-widest text-[--secondary] disabled:opacity-30 disabled:cursor-not-allowed hover:text-white transition-all">
+                            ${!prevEnabled ? 'disabled' : ''}
+                            class="${prevClass}">
                             PREV
                         </button>
                         
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1">
                             ${this.renderPageNumbers(totalPages)}
                         </div>
                         
                         <button type="button" onclick="horizonPaginators['${this.container.id}'].setPage(${this.currentPage + 1})" 
-                            ${this.currentPage === totalPages ? 'disabled' : ''}
-                            class="text-[10px] font-black uppercase tracking-widest text-[--secondary] disabled:opacity-30 disabled:cursor-not-allowed hover:text-white transition-all">
+                            ${!nextEnabled ? 'disabled' : ''}
+                            class="${nextClass}">
                             NEXT
                         </button>
                     </div>
@@ -644,14 +675,41 @@ if ($coach_id > 0) {
 
             renderPageNumbers(totalPages) {
                 let html = '';
-                for (let i = 1; i <= totalPages; i++) {
-                    const isActive = i === this.currentPage;
-                    html += `
-                        <button type="button" onclick="horizonPaginators['${this.container.id}'].setPage(${i})"
-                            class="size-8 rounded-lg text-[11px] font-black tracking-widest transition-all ${isActive ? 'bg-primary text-[--tab-active-text]' : 'text-gray-500 hover:text-white'}">
-                            ${i}
-                        </button>
-                    `;
+                const current = this.currentPage;
+                const containerId = this.container.id;
+
+                const makeBtn = (page, isActive) => {
+                    const activeClass = "px-4 py-2 rounded-[10px] bg-primary border border-primary text-white text-[10px] font-extrabold uppercase tracking-[0.1em] flex items-center justify-center cursor-default";
+                    const inactiveClass = "px-4 py-2 rounded-[10px] bg-white/[0.03] border border-white/5 text-white/30 text-[10px] font-extrabold uppercase tracking-[0.1em] hover:bg-primary hover:text-white hover:border-primary hover:-translate-y-[1px] hover:shadow-lg transition-all flex items-center justify-center cursor-pointer";
+                    return `<button type="button" onclick="horizonPaginators['${containerId}'].setPage(${page})" class="${isActive ? activeClass : inactiveClass}">${page}</button>`;
+                };
+                
+                const makeEllipsis = () => `<span class="text-white/30 text-[10px] font-black mx-1 tracking-[0.2em]">...</span>`;
+
+                if (totalPages <= 5) {
+                    for (let i = 1; i <= totalPages; i++) html += makeBtn(i, i === current);
+                } else {
+                    if (current <= 3) {
+                        html += makeBtn(1, current === 1);
+                        html += makeBtn(2, current === 2);
+                        html += makeBtn(3, current === 3);
+                        html += makeEllipsis();
+                        html += makeBtn(totalPages, current === totalPages);
+                    } else if (current >= totalPages - 2) {
+                        html += makeBtn(1, current === 1);
+                        html += makeEllipsis();
+                        html += makeBtn(totalPages - 2, current === totalPages - 2);
+                        html += makeBtn(totalPages - 1, current === totalPages - 1);
+                        html += makeBtn(totalPages, current === totalPages);
+                    } else {
+                        html += makeBtn(1, current === 1);
+                        html += makeEllipsis();
+                        html += makeBtn(current - 1, false);
+                        html += makeBtn(current, true);
+                        html += makeBtn(current + 1, false);
+                        html += makeEllipsis();
+                        html += makeBtn(totalPages, current === totalPages);
+                    }
                 }
                 return html;
             }
@@ -689,6 +747,24 @@ if ($coach_id > 0) {
             });
             
             dropdown.classList.toggle('hidden');
+        }
+
+        function filterCustomSelect(input) {
+            const filter = input.value.toUpperCase();
+            const container = input.closest('.custom-select-container');
+            const options = container.querySelectorAll('.custom-option');
+            options.forEach(opt => {
+                if (opt.textContent.toUpperCase().indexOf(filter) > -1) {
+                    opt.style.display = "";
+                } else {
+                    opt.style.display = "none";
+                }
+            });
+            const dropdown = container.querySelector('.custom-select-dropdown');
+            if (dropdown && dropdown.classList.contains('hidden')) {
+                document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.add('hidden'));
+                dropdown.classList.remove('hidden');
+            }
         }
 
         document.addEventListener('click', (e) => {
@@ -899,10 +975,10 @@ if ($coach_id > 0) {
                         <input type="hidden" id="hidden_user_id" value="all">
                         <div class="relative bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex items-center h-[52px] hover:border-white/20 transition-all cursor-pointer custom-select-trigger" onclick="toggleCustomDropdown(this, event)">
                             <span class="material-symbols-outlined absolute left-4 text-primary/60 text-base pointer-events-none transition-transform group-focus-within:scale-110">person_search</span>
-                            <input type="text" id="userSearchDisplay" readonly placeholder="Search Name..." value="All Users" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none pointer-events-none">
+                            <input type="text" id="userSearchDisplay" placeholder="Search Name..." value="All Users" oninput="filterCustomSelect(this)" onclick="event.stopPropagation(); const d = this.closest('.custom-select-container').querySelector('.custom-select-dropdown'); document.querySelectorAll('.custom-select-dropdown').forEach(x => { if(x !== d) x.classList.add('hidden'); }); d.classList.remove('hidden');" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-text pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none">
                             <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                         </div>
-                        <div id="userDropdown" class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto searchable-dropdown-overlay">
+                        <div id="userDropdown" class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-[220px] overflow-y-auto no-scrollbar searchable-dropdown-overlay">
                             <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option bg-primary text-white" data-value="all">All Users</div>
                             <?php foreach($members as $m): ?>
                                 <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option text-white/60" data-value="<?= htmlspecialchars(trim($m['first_name'] . ' ' . $m['last_name'])) ?>">
@@ -920,7 +996,7 @@ if ($coach_id > 0) {
                             <input type="text" id="statusDisplay" readonly value="All Status" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none pointer-events-none">
                             <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                         </div>
-                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto no-scrollbar">
                             <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option bg-primary text-white" data-value="all">All Status</div>
                             <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option text-white/60" data-value="In Gym">In Gym</div>
                             <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option text-white/60" data-value="Not In Gym">Not In Gym</div>
@@ -936,7 +1012,7 @@ if ($coach_id > 0) {
                             <input type="text" id="sortDisplay" readonly value="Newest" class="w-full bg-transparent border-none text-white text-[10px] font-black uppercase tracking-widest cursor-pointer pl-11 pr-10 focus:outline-none focus:ring-0 h-full outline-none shadow-none pointer-events-none">
                             <span class="material-symbols-outlined absolute right-4 text-white/40 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                         </div>
-                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto no-scrollbar">
                             <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option bg-primary text-white" data-value="recent">Newest</div>
                             <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option text-white/60" data-value="oldest">Oldest</div>
                             <div class="px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-colors custom-option text-white/60" data-value="name_asc">Name A-Z</div>
@@ -1060,7 +1136,7 @@ if ($coach_id > 0) {
                                             <?php endif; ?>
                                         </div>
                                         <div class="flex flex-col">
-                                            <span class="member-name text-[12px] font-black capitalize text-white"><?= htmlspecialchars(($m['first_name'] ?? '') . ' ' . ($m['last_name'] ?? '')) ?></span>
+                                            <span class="member-name text-[12px] font-black capitalize text-[--text-main] opacity-70"><?= htmlspecialchars(($m['first_name'] ?? '') . ' ' . ($m['last_name'] ?? '')) ?></span>
                                         </div>
                                     </div>
                                 </td>

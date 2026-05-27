@@ -90,6 +90,18 @@ try {
         }
     }
 
+    // Member Workouts Schema Enhancements
+    $resWorkout = $pdo->query("SHOW TABLES LIKE 'member_workouts'");
+    if ($resWorkout->fetch()) {
+        $resCat = $pdo->query("SHOW COLUMNS FROM member_workouts LIKE 'workout_category'");
+        if (!$resCat->fetch()) {
+            $pdo->exec("ALTER TABLE member_workouts ADD COLUMN workout_category VARCHAR(50) AFTER workout_name");
+            $pdo->exec("ALTER TABLE member_workouts ADD COLUMN difficulty_level VARCHAR(50) AFTER workout_category");
+            $pdo->exec("ALTER TABLE member_workouts ADD COLUMN duration_weeks INT DEFAULT 1 AFTER difficulty_level");
+            $pdo->exec("ALTER TABLE member_workouts ADD COLUMN estimated_minutes INT DEFAULT 60 AFTER duration_weeks");
+        }
+    }
+
 } catch (Exception $e) { /* Silently fail to avoid blocking connection */
 }
 
