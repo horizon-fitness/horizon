@@ -192,27 +192,86 @@ $active_page = "register";
         }
 
         .input-field {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            color: white;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 14px;
+            color: var(--text-main);
             padding: 14px 18px;
             width: 100%;
             outline: none;
-            transition: all 0.2s;
+            transition: all 0.25s ease;
             font-size: 13px;
             font-weight: 500;
             color-scheme: dark;
         }
 
+        .input-field::placeholder {
+            color: rgba(255, 255, 255, 0.55);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
         .input-field:focus {
             border-color: var(--primary);
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.07);
+            box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.18);
         }
 
         .input-field option {
-            background-color: #1a1821;
-            color: white;
+            background-color: #0f0d18;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 12px 14px;
+        }
+
+        .input-field option:checked {
+            background-color: rgba(16, 185, 129, 0.65);
+            color: #ffffff;
+        }
+
+        .select-field {
+            appearance: none;
+            cursor: pointer;
+            padding-right: 46px;
+            font-weight: 700;
+            font-size: 13px;
+            background-image:
+                linear-gradient(45deg, transparent 50%, rgba(var(--highlight-rgb), 0.85) 50%),
+                linear-gradient(135deg, rgba(var(--highlight-rgb), 0.85) 50%, transparent 50%);
+            background-position:
+                calc(100% - 18px) calc(50% - 2px),
+                calc(100% - 12px) calc(50% - 2px);
+            background-size: 6px 6px, 6px 6px;
+            background-repeat: no-repeat;
+            border-radius: 18px;
+            border-color: rgba(255, 255, 255, 0.12);
+            background-color: rgba(255, 255, 255, 0.03);
+            color: rgba(255, 255, 255, 0.88);
+        }
+
+        .field-note {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.10em;
+            text-transform: uppercase;
+            color: rgba(16, 185, 129, 0.92);
+        }
+
+        .preview-label {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: rgba(255, 255, 255, 0.45);
+        }
+
+        .preview-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.86);
+            min-height: 18px;
         }
 
         ::-webkit-calendar-picker-indicator {
@@ -378,6 +437,10 @@ $active_page = "register";
         function formatPhoneNumber(input) {
             let value = input.value.replace(/\D/g, '');
 
+            if (value.length > 0 && !value.startsWith('09')) {
+                value = '09' + value.replace(/^0+/, '').replace(/^9/, '');
+            }
+
             if (value.length > 11) value = value.slice(0, 11);
 
             let formatted = '';
@@ -392,6 +455,48 @@ $active_page = "register";
         function validateForm(event) {
             return true;
         }
+
+        function initializePhonePrefix() {
+            const phoneFields = document.querySelectorAll('input[name="phone"], input[name="emergency_phone"]');
+            phoneFields.forEach((field) => {
+                field.addEventListener('input', () => formatPhoneNumber(field));
+            });
+        }
+
+        function initializeLivePreview() {
+            const pairs = [
+                ['first_name', 'preview_first_name'],
+                ['middle_name', 'preview_middle_name'],
+                ['last_name', 'preview_last_name'],
+                ['sex', 'preview_sex'],
+                ['birth_date', 'preview_birth_date'],
+                ['email', 'preview_email'],
+                ['phone', 'preview_phone'],
+                ['address', 'preview_address'],
+                ['occupation', 'preview_occupation'],
+                ['emergency_name', 'preview_emergency_name'],
+                ['emergency_phone', 'preview_emergency_phone']
+            ];
+
+            pairs.forEach(([inputName, previewId]) => {
+                const input = document.querySelector(`[name="${inputName}"]`);
+                const preview = document.getElementById(previewId);
+                if (!input || !preview)
+                    return;
+
+                const render = () => {
+                    const value = (input.value || '').trim();
+                    preview.textContent = value || 'Not set';
+                };
+
+                input.addEventListener('input', render);
+                input.addEventListener('change', render);
+                render();
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', initializePhonePrefix);
+        window.addEventListener('DOMContentLoaded', initializeLivePreview);
     </script>
 </head>
 
@@ -401,11 +506,11 @@ $active_page = "register";
     <?php include '../includes/admin_sidebar.php'; ?>
 
     <div class="main-content flex-1 overflow-y-auto no-scrollbar">
-        <main class="p-10 max-w-[1400px] mx-auto">
-            <header class="mb-12 flex flex-row justify-between items-end gap-6">
+        <main class="p-8 max-w-[1500px] mx-auto">
+            <header class="mb-8 flex flex-row justify-between items-end gap-6">
                 <div>
                     <h2
-                        class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none tracking-tight">
+                        class="text-2xl font-black italic uppercase tracking-tighter text-white leading-none tracking-tight">
                         Walk-in <span class="text-primary">Registration</span></h2>
                     <p
                         class="text-[--text-main]/60 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60">
@@ -422,26 +527,27 @@ $active_page = "register";
                 </div>
             </header>
 
-            <div class="max-w-4xl mx-auto">
+            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+                <div>
                 <?php if ($success): ?>
                     <div
-                        class="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-3 shadow-lg">
+                        class="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-3 shadow-lg">
                         <span class="material-symbols-rounded text-lg">check_circle</span> <?= $success ?>
                     </div>
                 <?php endif; ?>
 
                 <?php if ($error): ?>
                     <div
-                        class="mb-8 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-3 shadow-lg">
+                        class="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-3 shadow-lg">
                         <span class="material-symbols-rounded text-lg">error</span> <?= $error ?>
                     </div>
                 <?php endif; ?>
 
-                <form method="POST" onsubmit="return validateForm(event)" class="space-y-8 pb-20">
-                    <div class="glass-card p-8 border-l-4 border-l-primary">
+                <form method="POST" onsubmit="return validateForm(event)" class="space-y-6 pb-12">
+                    <div class="glass-card p-6 border-l-4 border-l-primary">
                         <h4
-                            class="text-base font-black italic uppercase tracking-tighter mb-3 flex items-center gap-3 text-primary">
-                            <span class="material-symbols-rounded bg-primary/10 p-2 rounded-xl text-xl">key</span>
+                            class="text-sm font-black italic uppercase tracking-tighter mb-3 flex items-center gap-2 text-primary">
+                            <span class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-lg">key</span>
                             Credentials
                         </h4>
                         <p class="text-[12px] font-medium text-[--text-main]/70 leading-relaxed max-w-2xl">
@@ -451,13 +557,13 @@ $active_page = "register";
                         </p>
                     </div>
 
-                    <div class="glass-card p-8">
+                    <div class="glass-card p-6">
                         <h4
-                            class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
-                            <span class="material-symbols-rounded bg-primary/10 p-2 rounded-xl text-xl">person</span>
+                            class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2 text-primary">
+                            <span class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-lg">person</span>
                             Personal Information
                         </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
                             <div class="space-y-2">
                                 <label
                                     class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">First
@@ -486,7 +592,7 @@ $active_page = "register";
                                 <label
                                     class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Sex
                                     <span class="text-red-500">*</span></label>
-                                <select name="sex" required class="input-field appearance-none cursor-pointer">
+                                <select name="sex" required class="input-field select-field">
                                     <option value="" disabled <?= !isset($_POST['sex']) ? 'selected' : '' ?>>Select Sex
                                     </option>
                                     <option value="Male" <?= ($_POST['sex'] ?? '') === 'Male' ? 'selected' : '' ?>>Male
@@ -505,14 +611,14 @@ $active_page = "register";
                         </div>
                     </div>
 
-                    <div class="glass-card p-8">
+                    <div class="glass-card p-6">
                         <h4
-                            class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
+                            class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2 text-primary">
                             <span
-                                class="material-symbols-rounded bg-primary/10 p-2 rounded-xl text-xl">alternate_email</span>
+                                class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-lg">alternate_email</span>
                             Contact Information
                         </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="space-y-2">
                                 <label
                                     class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Email
@@ -524,10 +630,11 @@ $active_page = "register";
                             <div class="space-y-2">
                                 <label
                                     class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Contact
-                                    Number <span class="text-red-500">*</span></label>
+                                    No. <span class="text-red-500">*</span></label>
                                 <input type="tel" name="phone" required oninput="formatPhoneNumber(this)"
                                     value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>" class="input-field"
                                     placeholder="09XX-XXX-XXXX">
+                                <p class="field-note ml-1">Starts with 09 automatically.</p>
                             </div>
                             <div class="space-y-2 md:col-span-2">
                                 <label
@@ -540,14 +647,14 @@ $active_page = "register";
                         </div>
                     </div>
 
-                    <div class="glass-card p-8">
+                    <div class="glass-card p-6">
                         <h4
-                            class="text-base font-black italic uppercase tracking-tighter mb-8 flex items-center gap-3 text-primary">
+                            class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2 text-primary">
                             <span
-                                class="material-symbols-rounded bg-primary/10 p-2 rounded-xl text-xl">medical_information</span>
+                                class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-lg">medical_information</span>
                             Health & Profile
                         </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div class="space-y-2 md:col-span-2">
                                 <label
                                     class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Occupation</label>
@@ -575,13 +682,33 @@ $active_page = "register";
                         </div>
                     </div>
 
-                    <div class="flex justify-end pt-4">
+                    <div class="flex justify-end pt-2">
                         <button type="submit"
-                            class="group px-10 h-16 rounded-2xl bg-primary text-white text-xs font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-4">Register
+                            class="group px-8 h-12 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-[0.16em] shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all flex items-center gap-3">Register
                             Member <span
-                                class="material-symbols-rounded group-hover:translate-x-1 transition-transform text-xl">arrow_forward</span></button>
+                                class="material-symbols-rounded group-hover:translate-x-1 transition-transform text-lg">arrow_forward</span></button>
                     </div>
                 </form>
+                </div>
+
+                <aside class="hidden lg:block sticky top-8">
+                    <div class="glass-card p-5">
+                        <h4 class="text-xs font-black uppercase tracking-[0.16em] text-primary mb-4">New Registration Preview</h4>
+                        <div class="space-y-3">
+                            <div><p class="preview-label">First Name</p><p id="preview_first_name" class="preview-value">Not set</p></div>
+                            <div><p class="preview-label">Middle Name</p><p id="preview_middle_name" class="preview-value">Not set</p></div>
+                            <div><p class="preview-label">Last Name</p><p id="preview_last_name" class="preview-value">Not set</p></div>
+                            <div><p class="preview-label">Sex</p><p id="preview_sex" class="preview-value">Not set</p></div>
+                            <div><p class="preview-label">Birth Date</p><p id="preview_birth_date" class="preview-value">Not set</p></div>
+                            <div><p class="preview-label">Email</p><p id="preview_email" class="preview-value">Not set</p></div>
+                            <div><p class="preview-label">Contact</p><p id="preview_phone" class="preview-value">Not set</p></div>
+                            <div><p class="preview-label">Address</p><p id="preview_address" class="preview-value">Not set</p></div>
+                            <div><p class="preview-label">Occupation</p><p id="preview_occupation" class="preview-value">Not set</p></div>
+                            <div><p class="preview-label">Emergency Name</p><p id="preview_emergency_name" class="preview-value">Not set</p></div>
+                            <div><p class="preview-label">Emergency Contact</p><p id="preview_emergency_phone" class="preview-value">Not set</p></div>
+                        </div>
+                    </div>
+                </aside>
             </div>
         </main>
     </div>

@@ -183,59 +183,28 @@ try {
             --text-main:     <?= $text_color ?>;
             --background:    <?= $bg_color ?>;
             --card-bg:       <?= $card_bg_css ?>;
-            --card-blur:     20px;
         }
 
         body { 
             font-family: '<?= $font_family ?>', sans-serif; 
             background-color: var(--background); 
             color: var(--text-main); 
-            display: flex; 
-            flex-direction: row; 
-            min-h-screen: 100vh; 
             overflow: hidden; 
         }
 
         .glass-card { 
             background: var(--card-bg); 
-            border: 1px solid rgba(255,255,255,0.05); 
+            border: 1px solid rgba(255,255,255,0.07); 
             border-radius: 24px; 
-            backdrop-filter: blur(var(--card-blur));
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: box-shadow 0.4s ease, border-color 0.4s ease;
         }
 
-        .status-card-green {
-            border: 1px solid #10b981;
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
-        }
-
-        .status-card-yellow {
-            border: 1px solid #f59e0b;
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
-        }
-
-        .status-card-red {
-            border: 1px solid #ef4444;
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
-        }
-
-        .search-container {
-            background: var(--card-bg);
-            border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 20px;
-            padding: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s ease;
-        }
-        .search-container:focus-within {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
-        }
+        .status-card-primary { border: 1px solid rgba(var(--primary-rgb), 0.3); background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, transparent 100%); }
+        .status-card-green   { border: 1px solid rgba(16, 185, 129, 0.3); background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%); }
+        .status-card-yellow  { border: 1px solid rgba(245, 158, 11, 0.3); background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, transparent 100%); }
+        .status-card-red     { border: 1px solid rgba(239, 68, 68, 0.3); background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, transparent 100%); }
         
         /* Unified Sidebar Navigation Styles */
         .side-nav { width: 110px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; display: flex; flex-direction: column; position: fixed; left: 0; top: 0; height: 100vh; z-index: 50; background-color: var(--background); border-right: 1px solid rgba(255,255,255,0.05); }
@@ -249,24 +218,33 @@ try {
         .side-nav:hover .nav-section-label { max-height: 20px; opacity: 1; margin-bottom: 8px !important; pointer-events: auto; }
         
         .nav-item { 
-            display: flex; align-items: center; gap: 16px; padding: 10px 38px; 
-            transition: opacity 0.2s ease, color 0.2s ease; 
+            display: flex; align-items: center; gap: 20px; padding: 12px 43px; 
+            transition: all 0.2s ease; 
             text-decoration: none; white-space: nowrap; font-size: 11px; font-weight: 800; 
-            text-transform: uppercase; letter-spacing: 0.05em; 
-            color: color-mix(in srgb, var(--text-main) 45%, transparent); 
+            text-transform: uppercase; letter-spacing: 0.1em; 
+            color: color-mix(in srgb, var(--text-main) 40%, transparent); 
             position: relative;
         }
-        .nav-item:hover { color: var(--text-main); }
-        .nav-item .material-symbols-rounded { color: var(--highlight); transition: transform 0.2s ease; }
-        .nav-item:hover .material-symbols-rounded { transform: scale(1.12); }
+        .nav-item .material-symbols-rounded { color: var(--highlight); transition: transform 0.2s ease, color 0.2s ease; }
+        .nav-item:hover { color: var(--text-main); background: rgba(255,255,255,0.02); }
+        .nav-item:hover .material-symbols-rounded { color: var(--text-main); transform: scale(1.15); }
         .nav-item.active { color: var(--primary) !important; position: relative; }
         .nav-item.active .material-symbols-rounded { color: var(--primary); }
         .nav-item.active::after { content: ''; position: absolute; right: 0px; top: 50%; transform: translateY(-50%); width: 4px; height: 24px; background: var(--primary); border-radius: 4px 0 0 4px; }
         
         .alert-pulse { animation: alert-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
         @keyframes alert-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none !important; }
+        * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        .label-muted {
+            color: var(--text-main); opacity: 0.5;
+            font-size: 10px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.15em;
+        }
     </style>
     
     <script>
@@ -292,96 +270,85 @@ try {
 
 <!-- Main Page Content Area -->
 <div class="main-content flex-1 overflow-y-auto no-scrollbar">
-    <main class="p-10 max-w-[1400px] mx-auto">
+    <main class="p-10 max-w-[1500px] mx-auto animate-fade-in">
         
         <!-- Welcome Header with Dynamic Date Color Fix -->
-        <header class="mb-12 flex flex-row justify-between items-end gap-6">
+        <header class="mb-10 flex justify-between items-end">
             <div>
-                <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none tracking-tight text-white"><span class="opacity-40">Staff</span> <span class="text-primary">Dashboard</span></h2>
-                <p class="text-[--text-main]/60 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60">Welcome Back, <?= htmlspecialchars($admin_name ?? 'Admin') ?> • Site Control Center</p>
+                <h2 class="text-3xl font-black uppercase tracking-tighter italic" style="color:var(--text-main)">
+                    Welcome Back, <span style="color:var(--primary)" class="italic"><?= htmlspecialchars($admin_name ?? 'Staff') ?></span>
+                </h2>
+                <p class="label-muted mt-1 italic">Staff Overview & Site Control Center</p>
             </div>
-            <div class="flex items-end gap-8 text-right shrink-0">
-                <div class="flex flex-col items-end">
-                    <p id="headerClock" class="text-[--text-main] font-black italic text-2xl leading-none tracking-tighter uppercase">00:00:00 AM</p>
-                    <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
-                </div>
+            <div class="text-right">
+                <p id="headerClock" class="font-black italic text-2xl leading-none tracking-tighter pr-2" style="color:var(--text-main)">00:00:00 AM</p>
+                <p class="text-[10px] font-bold uppercase tracking-widest mt-2 pr-2 opacity-80" style="color:var(--primary)"><?= date('l, M d, Y') ?></p>
             </div>
         </header>
 
         <!-- Dynamic Stat Overview Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
             <!-- Active Members Card -->
-            <a href="admin_users.php" class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02] block transition-all shadow-lg hover:shadow-primary/10">
-                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-emerald-500">groups</span>
+            <a href="admin_users.php" class="glass-card p-8 status-card-green relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">groups</span>
                 <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Active Members</p>
-                <h3 class="text-2xl font-black italic uppercase italic text-emerald-400"><?= number_format($total_members) ?></h3>
-                <p class="text-emerald-500 text-[10px] font-black uppercase mt-2 tracking-tight">Active Client List</p>
+                <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= number_format($total_members) ?></h3>
+                <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Active Client List</p>
             </a>
 
             <!-- Pending Payments Card -->
-            <a href="admin_transaction.php" class="glass-card p-8 status-card-red relative overflow-hidden group hover:scale-[1.02] block transition-all shadow-lg hover:shadow-red-500/10">
-                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-red-500">payments</span>
+            <a href="admin_transaction.php" class="glass-card p-8 status-card-red relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">payments</span>
                 <p class="text-[10px] font-black uppercase text-red-500/70 mb-2 tracking-widest">Pending Payments</p>
-                <h3 class="text-2xl font-black italic uppercase text-red-400"><?= $pending_payments ?> <span class="text-red-500 text-sm ml-1 <?= $pending_payments > 0 ? 'alert-pulse' : '' ?>">!</span></h3>
-                <p class="text-red-500 text-[10px] font-black uppercase mt-2 tracking-tight">Action Required</p>
+                <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= $pending_payments ?> <span class="text-red-500 text-sm ml-1 <?= $pending_payments > 0 ? 'alert-pulse' : '' ?>">!</span></h3>
+                <p class="text-red-500 text-[10px] font-black uppercase mt-2">Action Required</p>
             </a>
 
             <!-- Pending Bookings Card -->
-            <a href="admin_appointment.php" class="glass-card p-8 status-card-yellow relative overflow-hidden group hover:scale-[1.02] block transition-all shadow-lg hover:shadow-amber-500/10">
-                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-7xl opacity-5 group-hover:scale-110 transition-transform text-amber-500">event_note</span>
+            <a href="admin_appointment.php" class="glass-card p-8 status-card-yellow relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">event_note</span>
                 <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending Sessions</p>
-                <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_appts ?></h3>
-                <p class="text-amber-500 text-[10px] font-black uppercase mt-2 tracking-tight">Scheduled Classes</p>
+                <h3 class="text-2xl font-black uppercase" style="color:var(--text-main)"><?= $pending_appts ?></h3>
+                <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Scheduled Classes</p>
             </a>
-        </div>
-
-        <!-- Dashboard Table Filter Bar UI (Superadmin Look) -->
-        <div class="mb-8 flex flex-wrap items-center gap-4 bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
-            <div class="flex-1 min-w-[200px] relative group">
-                <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main]/40 group-focus-within:text-primary transition-colors">search</span>
-                <input type="text" placeholder="Quick Search Staff Table Data..." class="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-[10px] font-bold uppercase tracking-widest outline-none focus:border-primary/50 transition-all text-[--text-main]">
-            </div>
-            <div class="flex gap-2">
-                <button class="size-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[--text-main]/40 hover:text-primary hover:bg-white/10 transition-all shadow-lg" title="Reset Filters">
-                    <span class="material-symbols-rounded text-sm">refresh</span>
-                </button>
-            </div>
         </div>
 
         <!-- Recent Data Activity Section -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 pb-10">
             <!-- Recent Transactions Data Grid -->
-            <div class="glass-card flex flex-col overflow-hidden">
+            <div class="glass-card flex flex-col overflow-hidden shadow-2xl shadow-primary/5">
                 <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
-                    <h4 class="text-sm font-black italic uppercase tracking-tighter flex items-center gap-2 text-[--text-main]">
-                        <span class="material-symbols-rounded text-[--highlight] text-lg">payments</span> Financial Records
+                    <h4 class="text-sm font-black uppercase tracking-tighter flex items-center gap-2 text-[--text-main]/90">
+                        <span class="material-symbols-rounded text-primary text-lg">payments</span> Financial Records
                     </h4>
-                    <a href="admin_transaction.php" class="text-[9px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-primary transition-colors">View All Archive</a>
+                    <a href="admin_transaction.php" class="text-[9px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors">View All Archive</a>
                 </div>
-                <div class="p-0">
-                    <table class="w-full text-left order-collapse">
+                <div class="overflow-x-auto no-scrollbar">
+                    <table class="w-full text-left">
                         <thead>
-                            <tr class="bg-white/[0.01] text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 border-b border-white/5">
-                                <th class="px-8 py-5">Full Member Name</th>
-                                <th class="px-8 py-5 text-center">Amount</th>
-                                <th class="px-8 py-5 text-right">Processed At</th>
+                            <tr class="text-[12px] uppercase tracking-widest border-b border-white/5 bg-white/[0.05] text-[#a1a1aa]">
+                                <th class="px-8 py-5 font-black">NAME</th>
+                                <th class="px-8 py-5 text-center font-black">AMOUNT</th>
+                                <th class="px-8 py-5 text-center font-black">DATE</th>
+                                <th class="px-8 py-5 text-right font-black">TIME</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <?php if (empty($recent_payments)): ?>
-                                <tr><td colspan="3" class="px-8 py-14 text-center text-[10px] font-black uppercase tracking-widest text-[--text-main]/20 italic">No recent financial logs found</td></tr>
+                                <tr><td colspan="4" class="px-8 py-14 text-center text-[10px] font-black uppercase tracking-widest text-[--text-main]/25">No recent financial logs found</td></tr>
                             <?php else: foreach ($recent_payments as $pay): ?>
-                                <tr class="hover:bg-white/[0.01] group transition-colors">
-                                    <td class="px-8 py-5 border-l-2 border-transparent hover:border-primary transition-all">
-                                        <p class="text-[11px] font-bold text-[--text-main] uppercase group-hover:text-primary transition-colors italic"><?= htmlspecialchars($pay['first_name'] . ' ' . $pay['last_name']) ?></p>
-                                        <p class="text-[8px] text-[--text-main]/40 font-black tracking-widest mt-0.5">@<?= htmlspecialchars($pay['username']) ?></p>
+                                <tr class="hover:bg-white/[0.01] transition-colors h-[72px]">
+                                    <td class="px-8 py-6 text-sm font-semibold" style="color:var(--text-main)">
+                                        <p style="color:rgba(var(--highlight-rgb), 0.92)"><?= htmlspecialchars($pay['first_name'] . ' ' . $pay['last_name']) ?></p>
                                     </td>
-                                    <td class="px-8 py-5 text-center">
-                                        <span class="text-[10px] font-black italic text-[--text-main]">₱<?= number_format($pay['amount'], 2) ?></span>
+                                    <td class="px-8 py-6 text-center text-sm font-semibold" style="color:rgba(var(--highlight-rgb), 0.88)">
+                                        ₱<?= number_format($pay['amount'], 2) ?>
                                     </td>
-                                    <td class="px-8 py-5 text-right font-mono">
-                                        <p class="text-[9px] font-black uppercase italic text-[--text-main]/60 tracking-tighter leading-none"><?= date('M d, Y', strtotime($pay['created_at'])) ?></p>
-                                        <p class="text-[8px] font-bold text-[--text-main]/20 uppercase tracking-widest mt-1"><?= date('h:i A', strtotime($pay['created_at'])) ?></p>
+                                    <td class="px-8 py-6 text-center text-sm font-semibold" style="color:var(--text-main)">
+                                        <p class="opacity-80"><?= date('M d, Y', strtotime($pay['created_at'])) ?></p>
+                                    </td>
+                                    <td class="px-8 py-6 text-right text-sm font-semibold" style="color:var(--text-main)">
+                                        <p class="text-sm font-semibold opacity-80"><?= date('h:i A', strtotime($pay['created_at'])) ?></p>
                                     </td>
                                 </tr>
                             <?php endforeach; endif; ?>
@@ -393,35 +360,62 @@ try {
             <!-- Recent Bookings Data Grid -->
             <div class="glass-card flex flex-col overflow-hidden shadow-2xl">
                 <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
-                    <h4 class="text-sm font-black italic uppercase tracking-tighter flex items-center gap-2 text-[--text-main]">
-                        <span class="material-symbols-rounded text-[--highlight] text-lg">event_available</span> Session Schedule
+                    <h4 class="text-sm font-black uppercase tracking-tighter flex items-center gap-2 text-[--text-main]/90">
+                        <span class="material-symbols-rounded text-primary text-lg">event_available</span> Session Schedule
                     </h4>
-                    <a href="admin_appointment.php" class="text-[9px] font-black uppercase tracking-widest text-[--text-main]/60 hover:text-primary transition-colors">Manage Full List</a>
+                    <a href="admin_appointment.php" class="text-[9px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors">Manage Full List</a>
                 </div>
-                <div class="p-0">
+                <div class="overflow-x-auto no-scrollbar">
                     <table class="w-full text-left">
                         <thead>
-                            <tr class="bg-white/[0.01] text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 border-b border-white/5">
-                                <th class="px-8 py-5">Member Account</th>
-                                <th class="px-8 py-5 text-center">Reference</th>
-                                <th class="px-8 py-5 text-right">Booking Time</th>
+                            <tr class="text-[12px] uppercase tracking-widest border-b border-white/5 bg-white/[0.05] text-[#a1a1aa]">
+                                <th class="px-8 py-5 font-black">NAME</th>
+                                <th class="px-8 py-5 text-center font-black">DATE</th>
+                                <th class="px-8 py-5 text-center font-black">TIME</th>
+                                <th class="px-8 py-5 text-center font-black">STATUS</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <?php if (empty($recent_bookings)): ?>
-                                <tr><td colspan="3" class="px-8 py-14 text-center text-[10px] font-black uppercase tracking-widest text-[--text-main]/20 italic">No recent bookings registered</td></tr>
+                                <tr><td colspan="4" class="px-8 py-14 text-center text-[10px] font-black uppercase tracking-widest text-[--text-main]/25">No recent bookings registered</td></tr>
                             <?php else: foreach ($recent_bookings as $book): ?>
-                                <tr class="hover:bg-white/[0.01] group transition-colors">
-                                    <td class="px-8 py-5 border-l-2 border-transparent hover:border-primary transition-all">
-                                        <p class="text-[11px] font-bold text-[--text-main] uppercase group-hover:text-primary transition-colors italic"><?= htmlspecialchars($book['first_name'] . ' ' . $book['last_name']) ?></p>
-                                        <p class="text-[8px] text-[--text-main]/40 font-black tracking-widest mt-0.5">#<?= htmlspecialchars($book['booking_id']) ?></p>
+                                <tr class="hover:bg-white/[0.01] transition-colors h-[72px]">
+                                    <td class="px-8 py-6 text-sm font-semibold" style="color:var(--text-main)">
+                                        <p style="color:rgba(var(--highlight-rgb), 0.92)"><?= htmlspecialchars($book['first_name'] . ' ' . $book['last_name']) ?></p>
                                     </td>
-                                    <td class="px-8 py-5 text-center">
-                                        <p class="text-[10px] font-black italic text-[--text-main]/80 uppercase"><?= htmlspecialchars($book['booking_status']) ?></p>
-                                        <p class="text-[8px] font-bold text-[--text-main]/40 uppercase tracking-widest"><?= date('M d', strtotime($book['booking_date'])) ?></p>
+                                    <td class="px-8 py-6 text-center text-sm font-semibold" style="color:var(--text-main)">
+                                        <p class="opacity-80"><?= date('M d, Y', strtotime($book['booking_date'])) ?></p>
                                     </td>
-                                    <td class="px-8 py-5 text-right font-mono">
-                                        <span class="text-[9px] font-black text-[--text-main] group-hover:text-primary transition-colors italic underline decoration-primary/20"><?= date('h:i A', strtotime($book['start_time'])) ?></span>
+                                    <td class="px-8 py-6 text-center text-sm font-semibold" style="color:var(--text-main)">
+                                        <p class="text-sm font-semibold opacity-85"><?= date('h:i A', strtotime($book['start_time'])) ?></p>
+                                    </td>
+                                    <?php
+                                        $status = strtolower(trim($book['booking_status'] ?? ''));
+                                        $status_label = ucwords($status);
+                                        $status_color = 'var(--text-main)';
+                                        $status_bg = 'rgba(255, 255, 255, 0.03)';
+                                        $status_border = 'rgba(255, 255, 255, 0.12)';
+                                        if ($status === 'completed') {
+                                            $status_color = '#10b981';
+                                            $status_bg = 'rgba(16, 185, 129, 0.10)';
+                                            $status_border = 'rgba(16, 185, 129, 0.30)';
+                                        } elseif ($status === 'pending') {
+                                            $status_color = '#f59e0b';
+                                            $status_bg = 'rgba(245, 158, 11, 0.10)';
+                                            $status_border = 'rgba(245, 158, 11, 0.30)';
+                                        } elseif ($status === 'cancelled' || $status === 'rejected' || $status === 'forfeited') {
+                                            $status_color = '#ef4444';
+                                            $status_bg = 'rgba(239, 68, 68, 0.10)';
+                                            $status_border = 'rgba(239, 68, 68, 0.30)';
+                                        }
+                                    ?>
+                                    <td class="px-8 py-6 text-center">
+                                        <span
+                                            class="inline-flex items-center justify-center px-3 py-1 rounded-full text-[11px] font-semibold"
+                                            style="color:<?= $status_color ?>; background: <?= $status_bg ?>; border: 1px solid <?= $status_border ?>;"
+                                        >
+                                            <?= htmlspecialchars($status_label) ?>
+                                        </span>
                                     </td>
                                 </tr>
                             <?php endforeach; endif; ?>

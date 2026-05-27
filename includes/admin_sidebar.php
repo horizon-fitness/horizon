@@ -5,9 +5,21 @@
 // - $page: Mapping of logo_path and system_name
 ?>
 <style>
+    .nav-item {
+        color: color-mix(in srgb, var(--text-main) 60%, transparent) !important;
+    }
+    .nav-item .nav-label {
+        color: inherit;
+    }
     .nav-item:hover {
         background: transparent !important;
         color: var(--text-main) !important;
+    }
+    .nav-item.active {
+        color: var(--primary) !important;
+    }
+    .nav-item.active .nav-label {
+        color: var(--primary) !important;
     }
     .nav-item .material-symbols-rounded {
         color: var(--highlight);
