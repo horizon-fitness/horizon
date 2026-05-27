@@ -48,19 +48,21 @@ try {
         $gym_name = $gym['gym_name'];
 
         // 2. Find the User within THIS gym by joining with user_roles
+        // RESTRICT TO MEMBERS ONLY
         $stmtUser = $pdo->prepare("
             SELECT u.user_id, u.first_name 
             FROM users u
             JOIN user_roles ur ON u.user_id = ur.user_id
-            WHERE u.email = ? AND ur.gym_id = ? AND u.is_active = 1 
+            JOIN roles r ON ur.role_id = r.role_id
+            WHERE u.email = ? AND ur.gym_id = ? AND r.role_name = 'Member' AND u.is_active = 1 
             LIMIT 1
         ");
         $stmtUser->execute([$email, $gym_id]);
         $user = $stmtUser->fetch();
 
         if (!$user) {
-            // Requirement: Block if no record or wrong details
-            throw new Exception("Invalid credentials or no record found in $gym_name.");
+            // Block if not found or not a member
+            throw new Exception("The email entered is not a gym member.");
         }
 
         $user_id = $user['user_id'];
