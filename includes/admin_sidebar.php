@@ -18,7 +18,8 @@
     .nav-item.active {
         color: var(--primary) !important;
     }
-    .nav-item.active .nav-label {
+    .nav-item.active .nav-label,
+    .nav-item.active span:not(.material-symbols-rounded) {
         color: var(--primary) !important;
     }
     .nav-item .material-symbols-rounded {
@@ -30,7 +31,7 @@
         color: inherit;
     }
     .nav-item.active .material-symbols-rounded {
-        color: var(--primary);
+        color: var(--primary) !important;
     }
     .nav-item.logout-item:hover,
     .nav-item.logout-item:hover .material-symbols-rounded,
