@@ -126,11 +126,16 @@ function processMemberRegistration($pdo, $data) {
         $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $emergency_name, $emergency_phone, $parent_name, $parent_contact, $source, $registered_by, $now, $now]);
 
         // 5. Send Email
-        $stmtGym = $pdo->prepare("SELECT gym_name, profile_picture FROM gyms WHERE gym_id = ?");
+        $stmtGym = $pdo->prepare("
+            SELECT g.gym_name, g.profile_picture,
+                (SELECT setting_value FROM system_settings WHERE user_id = g.owner_user_id AND setting_key = 'system_logo' LIMIT 1) AS system_logo
+            FROM gyms g
+            WHERE g.gym_id = ?
+        ");
         $stmtGym->execute([$gym_id]);
         $gym = $stmtGym->fetch();
         $gymName = $gym['gym_name'] ?? 'Horizon Gym';
-        $gymLogo = $gym['profile_picture'] ?? '';
+        $gymLogo = $gym['system_logo'] ?? $gym['profile_picture'] ?? '';
 
         $safeFirstName = htmlspecialchars($first_name, ENT_QUOTES, 'UTF-8');
         $safeGymName = htmlspecialchars($gymName, ENT_QUOTES, 'UTF-8');

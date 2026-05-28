@@ -73,13 +73,33 @@ function getEmailTemplate($title, $content) {
     </div>";
 }
 
+function resolveEmailAssetUrl($path) {
+    $path = trim((string) $path);
+    if ($path === '') return '';
+    if (strpos($path, 'data:') === 0 || preg_match('/^https?:\/\//i', $path)) return $path;
+
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if ($host === '' || strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false) {
+        return '';
+    }
+
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $cleanPath = preg_replace('#^(\.\./)+#', '', str_replace('\\', '/', $path));
+    $cleanPath = ltrim($cleanPath, '/');
+
+    return $scheme . '://' . $host . '/' . $cleanPath;
+}
+
 /**
  * New Formal Template specifically for Mobile/Registration Branding
  */
 function getFormalEmailTemplate($title, $content, $gymName = "Horizon System", $logoUrl = "") {
     $currentYear = date('Y');
     $accentColor = "#8c2bee";
-    $headerLogo = !empty($logoUrl) ? "<img src='$logoUrl' alt='$gymName Logo' style='max-height: 60px; margin-bottom: 20px;'>" : "<h1 style='color: $accentColor; margin: 0; font-size: 28px; letter-spacing: 2px;'>HORIZON</h1>";
+    $safeGymName = htmlspecialchars($gymName, ENT_QUOTES, 'UTF-8');
+    $resolvedLogoUrl = resolveEmailAssetUrl($logoUrl);
+    $safeLogoUrl = htmlspecialchars($resolvedLogoUrl, ENT_QUOTES, 'UTF-8');
+    $headerLogo = !empty($safeLogoUrl) ? "<img src='$safeLogoUrl' alt='$safeGymName Logo' style='display: block; max-height: 64px; max-width: 180px; width: auto; height: auto; margin: 0 auto 20px auto; object-fit: contain;'>" : "<h1 style='color: $accentColor; margin: 0; font-size: 28px; letter-spacing: 2px;'>HORIZON</h1>";
     
     return "
     <!DOCTYPE html>
@@ -104,14 +124,14 @@ function getFormalEmailTemplate($title, $content, $gymName = "Horizon System", $
                                 </div>
                                 <div style='background-color: #f8fafc; padding: 25px; border-radius: 8px; border-left: 4px solid $accentColor;'>
                                     <p style='margin: 0; font-size: 14px; color: #718096; font-style: italic;'>
-                                        Sent via <strong>$gymName</strong> Registration Service
+                                        Sent via <strong>$safeGymName</strong> Registration Service
                                     </p>
                                 </div>
                             </td>
                         </tr>
                         <tr>
                             <td style='background-color: #1a202c; padding: 30px 40px; text-align: center;'>
-                                <p style='color: #a0aec0; font-size: 12px; margin: 0;'>&copy; $currentYear $gymName. All rights reserved.</p>
+                                <p style='color: #a0aec0; font-size: 12px; margin: 0;'>&copy; $currentYear $safeGymName. All rights reserved.</p>
                             </td>
                         </tr>
                     </table>
@@ -201,4 +221,3 @@ function getReceiptTemplate($data) {
     </body>
     </html>";
 }
-
