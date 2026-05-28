@@ -23,6 +23,8 @@ function processMemberRegistration($pdo, $data) {
 
     $emergency_name = trim($data['emergency_name'] ?? $data['emergency_contact_name'] ?? '');
     $emergency_phone = trim($data['emergency_phone'] ?? $data['emergency_contact_number'] ?? '');
+    $parent_name = trim($data['parent_name'] ?? '');
+    $parent_contact = trim($data['parent_contact'] ?? $data['parent_contact_number'] ?? $data['parent_phone'] ?? '');
     $gym_id = $data['gym_id'];
     $source = $data['registration_source'] ?? 'Self'; // 'Self' or 'Walk-in'
     $registered_by = $data['registered_by_user_id'] ?? null;
@@ -30,6 +32,33 @@ function processMemberRegistration($pdo, $data) {
 
     if (empty($first_name) || empty($last_name) || empty($email)) {
         throw new Exception("First Name, Last Name, and Email are required.");
+    }
+
+    try {
+        $birthDateObj = new DateTime($birth_date);
+        $todayObj = new DateTime('today');
+        if ($birthDateObj > $todayObj) {
+            throw new Exception("Birth date cannot be in the future.");
+        }
+        $age = $birthDateObj->diff($todayObj)->y;
+    } catch (Exception $e) {
+        if ($e->getMessage() === "Birth date cannot be in the future.") {
+            throw $e;
+        }
+        throw new Exception("Please enter a valid birth date.");
+    }
+
+    if ($age < 12) {
+        throw new Exception("Members must be at least 12 years old.");
+    }
+
+    if ($age < 18 && (empty($parent_name) || empty($parent_contact))) {
+        throw new Exception("Parent or guardian name and contact number are required for minors.");
+    }
+
+    if ($age >= 18) {
+        $parent_name = '';
+        $parent_contact = '';
     }
 
     // Check if email already exists
@@ -93,8 +122,8 @@ function processMemberRegistration($pdo, $data) {
         $stmtAddr->execute([$address_line, $barangay, $city, $province, $region, $now, $now]);
         $address_id = $pdo->lastInsertId();
         
-        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, emergency_contact_name, emergency_contact_number, registration_source, registered_by_user_id, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
-        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $emergency_name, $emergency_phone, $source, $registered_by, $now, $now]);
+        $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, emergency_contact_name, emergency_contact_number, parent_name, parent_contact, registration_source, registered_by_user_id, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
+        $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $emergency_name, $emergency_phone, $parent_name, $parent_contact, $source, $registered_by, $now, $now]);
 
         // 5. Send Email
         $stmtGym = $pdo->prepare("SELECT gym_name, profile_picture FROM gyms WHERE gym_id = ?");

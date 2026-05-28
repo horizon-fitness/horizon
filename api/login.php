@@ -111,6 +111,11 @@ try {
         }
     }
 
+    // 4.5 Check if user needs onboarding (no fitness profile yet)
+    $stmtFit = $pdo->prepare("SELECT user_id FROM user_fitness_profiles WHERE user_id = ? LIMIT 1");
+    $stmtFit->execute([$user['user_id']]);
+    $needsOnboarding = !$stmtFit->fetch();
+
     $response = [
         'success' => true,
         'user' => [
@@ -145,6 +150,7 @@ try {
             'parent_contact_number' => (string)($roleData['parent_contact'] ?? ''),
             'member_status' => (string)($roleData['member_status'] ?? 'Active')
         ],
+        'needs_onboarding' => $needsOnboarding,
         'branding' => $branding ? [
             'gym_id' => (int)$branding['gym_id'],
             'tenant_code' => (string)($roleData['tenant_code'] ?? ($roleData['g_tenant_code'] ?? '000')),

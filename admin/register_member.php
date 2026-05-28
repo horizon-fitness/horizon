@@ -316,8 +316,8 @@ $active_page = "register";
         }
 
         ::-webkit-calendar-picker-indicator {
-            filter: invert(1) brightness(0.8);
-            opacity: 0.6;
+            filter: invert(1) brightness(1.8) contrast(1.15);
+            opacity: 0.9;
             cursor: pointer;
         }
 
@@ -493,11 +493,83 @@ $active_page = "register";
             input.value = formatted;
         }
 
+        function calculateAgeFromBirthDate(birthDateValue) {
+            if (!birthDateValue) return null;
+            const birthDate = new Date(`${birthDateValue}T00:00:00`);
+            if (Number.isNaN(birthDate.getTime())) return null;
+
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+            return age;
+        }
+
+        function getMinimumAllowedBirthDate() {
+            const date = new Date();
+            date.setFullYear(date.getFullYear() - 12);
+            return date.toISOString().split('T')[0];
+        }
+
+        function validateBirthDateRules() {
+            const birthDateInput = document.querySelector('input[name="birth_date"]');
+            if (!birthDateInput) return true;
+
+            const age = calculateAgeFromBirthDate(birthDateInput.value);
+            birthDateInput.setCustomValidity('');
+
+            if (age === null) return true;
+            if (age < 12) {
+                birthDateInput.setCustomValidity('Members must be at least 12 years old.');
+                birthDateInput.reportValidity();
+                return false;
+            }
+
+            const parentName = document.querySelector('input[name="parent_name"]');
+            const parentContact = document.querySelector('input[name="parent_contact"]');
+            if (age < 18) {
+                if (parentName && !parentName.value.trim()) {
+                    parentName.setCustomValidity('Parent or guardian name is required for minors.');
+                    parentName.reportValidity();
+                    return false;
+                }
+                if (parentContact && !parentContact.value.trim()) {
+                    parentContact.setCustomValidity('Parent or guardian contact is required for minors.');
+                    parentContact.reportValidity();
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        function updateGuardianFields() {
+            const birthDateInput = document.querySelector('input[name="birth_date"]');
+            const guardianWrap = document.getElementById('guardian_fields_wrap');
+            const guardianInputs = document.querySelectorAll('input[name="parent_name"], input[name="parent_contact"]');
+            if (!birthDateInput || !guardianWrap) return;
+
+            birthDateInput.max = getMinimumAllowedBirthDate();
+            const age = calculateAgeFromBirthDate(birthDateInput.value);
+            const requiresGuardian = age !== null && age >= 12 && age < 18;
+
+            guardianWrap.classList.toggle('hidden', !requiresGuardian);
+            guardianInputs.forEach((input) => {
+                input.required = requiresGuardian;
+                if (!requiresGuardian) {
+                    input.value = '';
+                    input.setCustomValidity('');
+                }
+            });
+        }
+
         let registrationConfirmed = false;
 
         function validateForm(event) {
             if (registrationConfirmed) return true;
             event.preventDefault();
+
+            if (!validateBirthDateRules()) return false;
 
             const otherOccupation = document.getElementById('occupation_other');
             const occupationInput = document.querySelector('input[name="occupation"]');
@@ -519,7 +591,7 @@ $active_page = "register";
         }
 
         function initializePhonePrefix() {
-            const phoneFields = document.querySelectorAll('input[name="phone"], input[name="emergency_phone"]');
+            const phoneFields = document.querySelectorAll('input[name="phone"], input[name="emergency_phone"], input[name="parent_contact"]');
             phoneFields.forEach((field) => {
                 field.addEventListener('input', () => formatPhoneNumber(field));
             });
@@ -677,6 +749,17 @@ $active_page = "register";
         window.addEventListener('DOMContentLoaded', initializePhonePrefix);
         window.addEventListener('DOMContentLoaded', initializeLivePreview);
         window.addEventListener('DOMContentLoaded', () => {
+            const birthDateInput = document.querySelector('input[name="birth_date"]');
+            if (birthDateInput) {
+                birthDateInput.addEventListener('input', updateGuardianFields);
+                birthDateInput.addEventListener('change', updateGuardianFields);
+            }
+            document.querySelectorAll('input[name="parent_name"], input[name="parent_contact"]').forEach((input) => {
+                input.addEventListener('input', () => input.setCustomValidity(''));
+            });
+            updateGuardianFields();
+        });
+        window.addEventListener('DOMContentLoaded', () => {
             const alert = document.getElementById('statusAlert');
             if (alert) {
                 setTimeout(() => {
@@ -747,13 +830,13 @@ $active_page = "register";
                 <?php endif; ?>
 
                 <form method="POST" onsubmit="return validateForm(event)" class="space-y-6 pb-12">
-                    <div class="glass-card p-6 border-l-4 border-l-primary">
+                    <div class="glass-card px-8 py-6 border-l-4 border-l-primary">
                         <h4
-                            class="text-sm font-black uppercase tracking-tighter mb-3 flex items-center gap-2 text-[--text-main]">
+                            class="text-sm font-black uppercase tracking-tighter mb-5 flex items-center gap-3 text-[--text-main]">
                             <span class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-primary text-lg">key</span>
                             Credentials
                         </h4>
-                        <p class="text-sm font-medium italic text-[--text-main]/70 leading-relaxed max-w-3xl">
+                        <p class="text-sm font-semibold italic text-[--text-main]/75 leading-7 text-justify max-w-full">
                             For security, the account <span class="text-primary font-bold">username</span> and
                             <span class="text-primary font-bold">password</span> will be automatically generated
                             and securely delivered to the recipient's email address upon confirmation.
@@ -785,6 +868,15 @@ $active_page = "register";
                             </div>
                             <div class="space-y-2">
                                 <label
+                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Last
+                                    Name <span class="text-red-500">*</span></label>
+                                <input type="text" name="last_name" required
+                                    value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" class="input-field"
+                                    placeholder="Last Name">
+                            </div>
+                            <div class="hidden md:block" aria-hidden="true"></div>
+                            <div class="space-y-2">
+                                <label
                                     class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Birth
                                     Date <span class="text-red-500">*</span></label>
                                 <input type="date" name="birth_date" required
@@ -807,14 +899,6 @@ $active_page = "register";
                                         <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $selected_sex === 'Prefer not to say' ? 'selected-option' : 'text-white/60' ?>" data-value="Prefer not to say">Prefer not to say</div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="space-y-2">
-                                <label
-                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Last
-                                    Name <span class="text-red-500">*</span></label>
-                                <input type="text" name="last_name" required
-                                    value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" class="input-field"
-                                    placeholder="Last Name">
                             </div>
                         </div>
                     </div>
@@ -873,21 +957,55 @@ $active_page = "register";
                                 <input type="text" id="occupation_other" value="<?= htmlspecialchars($other_occupation) ?>" class="input-field"
                                     placeholder="Type occupation" <?= $selected_occupation === 'Other' ? 'required' : '' ?>>
                             </div>
-                            <div class="space-y-2">
-                                <label
-                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Emergency
-                                    Name <span class="text-red-500">*</span></label>
-                                <input type="text" name="emergency_name" required
-                                    value="<?= htmlspecialchars($_POST['emergency_name'] ?? '') ?>" class="input-field"
-                                    placeholder="Full Name">
+                            <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-2">
+                                    <label
+                                        class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Emergency
+                                        Name <span class="text-red-500">*</span></label>
+                                    <input type="text" name="emergency_name" required
+                                        value="<?= htmlspecialchars($_POST['emergency_name'] ?? '') ?>" class="input-field"
+                                        placeholder="Full Name">
+                                </div>
+                                <div class="space-y-2">
+                                    <label
+                                        class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Emergency
+                                        Contact <span class="text-red-500">*</span></label>
+                                    <input type="tel" name="emergency_phone" required oninput="formatPhoneNumber(this)"
+                                        value="<?= htmlspecialchars($_POST['emergency_phone'] ?? '') ?>" class="input-field"
+                                        placeholder="09XX-XXX-XXXX">
+                                </div>
                             </div>
-                            <div class="space-y-2">
-                                <label
-                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Emergency
-                                    Contact <span class="text-red-500">*</span></label>
-                                <input type="tel" name="emergency_phone" required oninput="formatPhoneNumber(this)"
-                                    value="<?= htmlspecialchars($_POST['emergency_phone'] ?? '') ?>" class="input-field"
-                                    placeholder="09XX-XXX-XXXX">
+                            <?php
+                            $posted_birth_date = $_POST['birth_date'] ?? '';
+                            $posted_age = null;
+                            if (!empty($posted_birth_date)) {
+                                try {
+                                    $posted_age = (new DateTime($posted_birth_date))->diff(new DateTime('today'))->y;
+                                } catch (Exception $e) {
+                                    $posted_age = null;
+                                }
+                            }
+                            $show_guardian_fields = $posted_age !== null && $posted_age >= 12 && $posted_age < 18;
+                            ?>
+                            <div id="guardian_fields_wrap" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 <?= $show_guardian_fields ? '' : 'hidden' ?>">
+                                <div class="space-y-2">
+                                    <label
+                                        class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Parent/Guardian
+                                        Name <span class="text-red-500">*</span></label>
+                                    <input type="text" name="parent_name"
+                                        value="<?= htmlspecialchars($_POST['parent_name'] ?? '') ?>" class="input-field"
+                                        placeholder="Parent or Guardian Name" <?= $show_guardian_fields ? 'required' : '' ?>>
+                                    <p class="field-note ml-1">Required for members under 18.</p>
+                                </div>
+                                <div class="space-y-2">
+                                    <label
+                                        class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Parent/Guardian
+                                        Contact <span class="text-red-500">*</span></label>
+                                    <input type="tel" name="parent_contact" oninput="formatPhoneNumber(this)"
+                                        value="<?= htmlspecialchars($_POST['parent_contact'] ?? '') ?>" class="input-field"
+                                        placeholder="09XX-XXX-XXXX" <?= $show_guardian_fields ? 'required' : '' ?>>
+                                    <p class="field-note ml-1">Starts with 09 automatically.</p>
+                                </div>
                             </div>
 
                         </div>
