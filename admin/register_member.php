@@ -1004,7 +1004,6 @@ $active_page = "register";
                                     <input type="tel" name="parent_contact" oninput="formatPhoneNumber(this)"
                                         value="<?= htmlspecialchars($_POST['parent_contact'] ?? '') ?>" class="input-field"
                                         placeholder="09XX-XXX-XXXX" <?= $show_guardian_fields ? 'required' : '' ?>>
-                                    <p class="field-note ml-1">Starts with 09 automatically.</p>
                                 </div>
                             </div>
 

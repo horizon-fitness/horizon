@@ -143,6 +143,17 @@ try {
         $phone = trim($input['phone_number'] ?? $input['contact_number'] ?? $input['phone'] ?? '');
         $birth_date = $input['birth_date'] ?? '2000-01-01';
         $sex = $input['sex'] ?? 'Not Specified';
+        
+        // Strict Backend Age Validation
+        $birthDateObj = new DateTime($birth_date);
+        $todayObj = new DateTime('today');
+        $age = $birthDateObj->diff($todayObj)->y;
+        
+        if ($age < 12) {
+            ob_end_clean();
+            echo json_encode(['success' => false, 'message' => 'Members must be at least 12 years old.']);
+            exit;
+        }
         $occupation = trim($input['occupation'] ?? '');
         // Removed medical_history
         $emergency_name = trim($input['emergency_contact_name'] ?? $input['emergency_name'] ?? '');
