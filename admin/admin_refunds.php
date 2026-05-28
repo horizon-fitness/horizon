@@ -125,20 +125,121 @@ $highlight_rgb = hexToRgb($highlight_color);
 $card_bg_css   = ($auto_card_theme === '1') ? "rgba({$primary_rgb}, 0.05)" : $card_color;
 $system_logo = $configs['system_logo'] ?: ($gym_data['profile_picture'] ?? '');
 
-// Fetch Refund Requests
-$stmtRefunds = $pdo->prepare("
-    SELECT rr.*, u.first_name, u.last_name, u.email, b.booking_date, b.start_time, sc.service_name 
+$limit = 10;
+$current_page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int) $_GET['page'] : 1;
+if ($current_page < 1) $current_page = 1;
+$offset = ($current_page - 1) * $limit;
+
+$search = $_GET['search'] ?? '';
+$filter_status = $_GET['status'] ?? '';
+$user_filter = $_GET['user_id'] ?? 'all';
+$date_from = $_GET['date_from'] ?? '';
+$date_to = $_GET['date_to'] ?? '';
+$today_filter_date = date('Y-m-d');
+
+if (!in_array($filter_status, ['', 'Pending', 'Approved', 'Rejected'], true)) $filter_status = '';
+if ($user_filter !== 'all' && !ctype_digit((string) $user_filter)) $user_filter = 'all';
+if ($date_from !== '' && $date_from > $today_filter_date) $date_from = $today_filter_date;
+if ($date_to !== '' && $date_to > $today_filter_date) $date_to = $today_filter_date;
+if ($date_from !== '' && $date_to !== '' && $date_from > $date_to) $date_from = $date_to;
+
+$where_parts = ["rr.gym_id = :gym_id"];
+$sql_params = [':gym_id' => $gym_id];
+
+if ($search !== '') {
+    $where_parts[] = "(u.first_name LIKE :s1 OR u.last_name LIKE :s2 OR u.email LIKE :s3 OR sc.service_name LIKE :s4 OR rr.reason LIKE :s5)";
+    $sql_params[':s1'] = "%$search%";
+    $sql_params[':s2'] = "%$search%";
+    $sql_params[':s3'] = "%$search%";
+    $sql_params[':s4'] = "%$search%";
+    $sql_params[':s5'] = "%$search%";
+}
+if ($filter_status !== '') {
+    $where_parts[] = "rr.status = :status";
+    $sql_params[':status'] = $filter_status;
+}
+if ($user_filter !== 'all') {
+    $where_parts[] = "u.user_id = :user_id";
+    $sql_params[':user_id'] = (int) $user_filter;
+}
+if ($date_from !== '') {
+    $where_parts[] = "DATE(rr.created_at) >= :date_from";
+    $sql_params[':date_from'] = $date_from;
+}
+if ($date_to !== '') {
+    $where_parts[] = "DATE(rr.created_at) <= :date_to";
+    $sql_params[':date_to'] = $date_to;
+}
+
+$where_clause = "WHERE " . implode(' AND ', $where_parts);
+
+$stmtCount = $pdo->prepare("
+    SELECT COUNT(*)
     FROM refund_requests rr
     JOIN users u ON rr.user_id = u.user_id
     JOIN bookings b ON rr.booking_id = b.booking_id
     JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
-    WHERE rr.gym_id = ?
-    ORDER BY rr.created_at DESC
+    $where_clause
 ");
-$stmtRefunds->execute([$gym_id]);
+$stmtCount->execute($sql_params);
+$total_records = (int) $stmtCount->fetchColumn();
+$total_pages = max(1, (int) ceil($total_records / $limit));
+if ($current_page > $total_pages) {
+    $current_page = $total_pages;
+    $offset = ($current_page - 1) * $limit;
+}
+
+$stmtRefunds = $pdo->prepare("
+    SELECT rr.*, u.user_id, u.first_name, u.last_name, u.email, u.profile_picture, b.booking_date, b.start_time, sc.service_name
+    FROM refund_requests rr
+    JOIN users u ON rr.user_id = u.user_id
+    JOIN bookings b ON rr.booking_id = b.booking_id
+    JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
+    $where_clause
+    ORDER BY rr.created_at DESC
+    LIMIT :limit OFFSET :offset
+");
+foreach ($sql_params as $key => $val) {
+    $isInt = in_array($key, [':gym_id', ':user_id'], true);
+    $stmtRefunds->bindValue($key, $isInt ? (int) $val : $val, $isInt ? PDO::PARAM_INT : PDO::PARAM_STR);
+}
+$stmtRefunds->bindValue(':limit', (int) $limit, PDO::PARAM_INT);
+$stmtRefunds->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
+$stmtRefunds->execute();
 $refunds = $stmtRefunds->fetchAll(PDO::FETCH_ASSOC);
 
+$stmtStats = $pdo->prepare("
+    SELECT COUNT(*) AS total_count,
+           SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending_count,
+           SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) AS approved_count,
+           SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) AS rejected_count
+    FROM refund_requests
+    WHERE gym_id = ?
+");
+$stmtStats->execute([$gym_id]);
+$refund_stats = $stmtStats->fetch() ?: [];
+$total_refunds = (int) ($refund_stats['total_count'] ?? 0);
+$pending_refunds = (int) ($refund_stats['pending_count'] ?? 0);
+$approved_refunds = (int) ($refund_stats['approved_count'] ?? 0);
+$rejected_refunds = (int) ($refund_stats['rejected_count'] ?? 0);
+
+$stmtAllUsers = $pdo->prepare("
+    SELECT DISTINCT u.user_id, CONCAT(u.first_name, ' ', u.last_name) AS full_name
+    FROM refund_requests rr
+    JOIN users u ON rr.user_id = u.user_id
+    WHERE rr.gym_id = ?
+    ORDER BY u.first_name ASC, u.last_name ASC
+");
+$stmtAllUsers->execute([$gym_id]);
+$all_users_list = $stmtAllUsers->fetchAll(PDO::FETCH_ASSOC);
+$users_js = array_map(fn($user) => ['id' => (string) $user['user_id'], 'name' => trim($user['full_name'])], $all_users_list);
+$user_name_map = array_column($users_js, 'name', 'id');
+
 $active_page = "refunds";
+$page = [
+    'logo_path' => $system_logo,
+    'system_name' => $configs['system_name'] ?? 'Horizon Staff'
+];
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -150,6 +251,9 @@ $active_page = "refunds";
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+        const availableUsers = <?= json_encode($users_js, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+        const currentUserFilter = <?= json_encode((string) $user_filter) ?>;
+
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -298,7 +402,103 @@ $active_page = "refunds";
             color: var(--text-main);
             opacity: 0.5;
         }
+
+        .status-card-blue { border: 1px solid rgba(var(--primary-rgb), 0.18); background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05), rgba(var(--primary-rgb), 0.01)); }
+        .status-card-yellow { border: 1px solid rgba(245, 158, 11, 0.25); background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(245, 158, 11, 0.01)); }
+        .status-card-green { border: 1px solid rgba(16, 185, 129, 0.25); background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.01)); }
+        .status-card-red { border: 1px solid rgba(244, 63, 94, 0.25); background: linear-gradient(135deg, rgba(244, 63, 94, 0.05), rgba(244, 63, 94, 0.01)); }
+
+        .pagination-btn {
+            padding: 8px 16px; border-radius: 10px; background: rgba(255,255,255,.03);
+            border: 1px solid rgba(255,255,255,.05); color: var(--text-main);
+            font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em;
+            transition: all .2s ease;
+        }
+        .pagination-btn:hover:not(.disabled), .pagination-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .pagination-btn.disabled { opacity: .2; pointer-events: none; }
+        .pagination-status { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .15em; color: var(--text-main); opacity: .5; }
+
+        .selected-option { background-color: var(--primary) !important; color: #fff !important; }
+        .custom-select-dropdown, .searchable-dropdown-overlay {
+            background: #141216; border: 1px solid rgba(255,255,255,.10);
+            box-shadow: 0 18px 45px rgba(0,0,0,.45); scrollbar-width: none;
+        }
+        .custom-select-dropdown::-webkit-scrollbar, .searchable-dropdown-overlay::-webkit-scrollbar { display: none; }
+        .tenant-option { border: 1px solid transparent; cursor: pointer; transition: all .2s ease; }
+        .tenant-option:hover { background: rgba(var(--primary-rgb), .08); border-color: rgba(var(--primary-rgb), .12); color: var(--primary); }
+        .tenant-option.selected { background: var(--primary); color: #fff; }
+
+        input[type="date"] { color-scheme: dark; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1) brightness(1.35); opacity: .75; cursor: pointer; }
     </style>
+    <script>
+        let filterTimeout;
+        function autoSubmitFilters(delay = 350) {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => document.getElementById('refundFilterForm')?.submit(), delay);
+        }
+        function clearRefundFilters() { window.location.href = 'admin_refunds.php'; }
+        function syncRefundDateLimits() {
+            const fromInput = document.getElementById('date_from');
+            const toInput = document.getElementById('date_to');
+            if (!fromInput || !toInput) return;
+            const today = new Date().toISOString().split('T')[0];
+            fromInput.max = toInput.value || today;
+            toInput.max = today;
+            toInput.min = fromInput.value || '';
+            if (fromInput.value && fromInput.value > today) fromInput.value = today;
+            if (toInput.value && toInput.value > today) toInput.value = today;
+            if (fromInput.value && toInput.value && fromInput.value > toInput.value) fromInput.value = toInput.value;
+        }
+        function toggleCustomDropdown(trigger, event) {
+            event.stopPropagation();
+            const dropdown = trigger.nextElementSibling;
+            const container = trigger.closest('.custom-select-container');
+            document.getElementById('userDropdown')?.classList.add('hidden');
+            document.querySelectorAll('.custom-select-dropdown').forEach((item) => { if (item !== dropdown) item.classList.add('hidden'); });
+            document.querySelectorAll('.custom-select-container').forEach((item) => { if (item !== container) item.classList.remove('is-open'); });
+            dropdown.classList.toggle('hidden');
+            container.classList.toggle('is-open', !dropdown.classList.contains('hidden'));
+        }
+        function initSearchableDropdown() {
+            const input = document.getElementById('userSearchInput');
+            const dropdown = document.getElementById('userDropdown');
+            const list = document.getElementById('userOptionsList');
+            if (!input || !dropdown || !list) return;
+            const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+            const renderOptions = (filter = '') => {
+                const searchFilter = filter === 'All Users' ? '' : filter.toLowerCase().trim();
+                const filtered = availableUsers.filter((user) => user.name.toLowerCase().includes(searchFilter));
+                list.innerHTML = filtered.map((user) => `<div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${String(currentUserFilter) === String(user.id) ? 'selected' : 'text-white/60'}" data-id="${escapeHtml(user.id)}" data-name="${escapeHtml(user.name)}">${escapeHtml(user.name)}</div>`).join('') || '<div class="px-4 py-3 text-[9px] text-white/20 uppercase font-black">No user found...</div>';
+            };
+            input.addEventListener('focus', () => { document.querySelectorAll('.custom-select-dropdown').forEach((item) => item.classList.add('hidden')); dropdown.classList.remove('hidden'); renderOptions(input.value); });
+            input.addEventListener('input', (event) => { dropdown.classList.remove('hidden'); renderOptions(event.target.value); });
+            renderOptions('');
+        }
+        document.addEventListener('click', (event) => {
+            const tenantOption = event.target.closest('.tenant-option');
+            if (tenantOption) {
+                const container = tenantOption.closest('#userSearchContainer');
+                container.querySelector('#hidden_user_id').value = tenantOption.dataset.id || 'all';
+                container.querySelector('#userSearchInput').value = tenantOption.dataset.name || 'All Users';
+                container.querySelector('#userDropdown').classList.add('hidden');
+                container.closest('form')?.submit();
+                return;
+            }
+            const customOption = event.target.closest('.custom-option');
+            if (customOption) {
+                const container = customOption.closest('.custom-select-container');
+                container.querySelector('input[type="hidden"]').value = customOption.dataset.value;
+                container.querySelector('input[type="text"]').value = customOption.textContent.trim();
+                container.querySelector('.custom-select-dropdown').classList.add('hidden');
+                container.closest('form')?.submit();
+                return;
+            }
+            if (!event.target.closest('.custom-select-container')) document.querySelectorAll('.custom-select-dropdown').forEach((item) => item.classList.add('hidden'));
+            if (!event.target.closest('#userSearchContainer')) document.getElementById('userDropdown')?.classList.add('hidden');
+        });
+        window.addEventListener('DOMContentLoaded', () => { syncRefundDateLimits(); initSearchableDropdown(); });
+    </script>
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
     <?php include '../includes/admin_sidebar.php'; ?>
@@ -314,74 +514,150 @@ $active_page = "refunds";
                 </div>
             </header>
 
-            <div class="glass-card p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+                <div class="glass-card p-8 status-card-blue relative overflow-hidden">
+                    <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-primary">payments</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">All Refunds</p>
+                    <h3 class="text-3xl font-black uppercase text-[--text-main]"><?= $total_refunds ?></h3>
+                    <p class="text-[10px] font-black uppercase mt-2 text-primary">Cancellation Requests</p>
+                </div>
+                <div class="glass-card p-8 status-card-yellow relative overflow-hidden">
+                    <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-amber-500">pending_actions</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Pending</p>
+                    <h3 class="text-3xl font-black uppercase text-[--text-main]"><?= $pending_refunds ?></h3>
+                    <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Needs Review</p>
+                </div>
+                <div class="glass-card p-8 status-card-green relative overflow-hidden">
+                    <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-emerald-500">verified</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Approved</p>
+                    <h3 class="text-3xl font-black uppercase text-[--text-main]"><?= $approved_refunds ?></h3>
+                    <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Released</p>
+                </div>
+                <div class="glass-card p-8 status-card-red relative overflow-hidden">
+                    <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-rose-500">block</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Rejected</p>
+                    <h3 class="text-3xl font-black uppercase text-[--text-main]"><?= $rejected_refunds ?></h3>
+                    <p class="text-rose-500 text-[10px] font-black uppercase mt-2">Declined</p>
+                </div>
+            </div>
+
+            <div class="glass-card overflow-hidden">
+                <div class="p-8 border-b border-white/5 bg-white/[0.01]">
+                    <form id="refundFilterForm" method="GET" class="flex flex-wrap items-center gap-5 relative">
+                        <div class="flex-1 min-w-[260px] relative group">
+                            <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50">search</span>
+                            <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search records..." autocomplete="off" oninput="autoSubmitFilters()"
+                                class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary">
+                        </div>
+
+                        <div class="flex-1 min-w-[260px] relative group" id="userSearchContainer">
+                            <?php $selectedUserName = ($user_filter === 'all') ? 'All Users' : ($user_name_map[(string) $user_filter] ?? 'All Users'); ?>
+                            <input type="hidden" name="user_id" id="hidden_user_id" value="<?= htmlspecialchars((string) $user_filter) ?>">
+                            <div class="relative">
+                                <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50">person_search</span>
+                                <input type="text" id="userSearchInput" value="<?= htmlspecialchars($selectedUserName) ?>" placeholder="Search name..." autocomplete="off"
+                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-11 text-[10px] font-black uppercase tracking-widest outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary">
+                                <span class="material-symbols-rounded absolute right-4 top-1/2 -translate-y-1/2 text-primary/70 text-base pointer-events-none">expand_more</span>
+                            </div>
+                            <div id="userDropdown" class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                <div class="p-1.5 space-y-0.5">
+                                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $user_filter === 'all' ? 'selected' : 'text-white/60' ?>" data-id="all" data-name="All Users">All Users</div>
+                                    <div id="userOptionsList"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <?php $statusDisplay = $filter_status ?: 'All Status'; ?>
+                        <div class="w-[180px] relative group shrink-0 custom-select-container">
+                            <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
+                            <div class="relative cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= htmlspecialchars($statusDisplay) ?>" class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-5 pr-11 text-[10px] font-black uppercase tracking-widest outline-none text-[--text-main] cursor-pointer pointer-events-none">
+                                <span class="material-symbols-rounded absolute right-4 top-1/2 -translate-y-1/2 text-primary/70 text-base pointer-events-none">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 <?= $filter_status === '' ? 'selected-option' : 'text-white/60' ?>" data-value="">All Status</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 <?= $filter_status === 'Pending' ? 'selected-option' : 'text-white/60' ?>" data-value="Pending">Pending</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 <?= $filter_status === 'Approved' ? 'selected-option' : 'text-white/60' ?>" data-value="Approved">Approved</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 <?= $filter_status === 'Rejected' ? 'selected-option' : 'text-white/60' ?>" data-value="Rejected">Rejected</div>
+                            </div>
+                        </div>
+
+                        <input type="date" name="date_from" id="date_from" value="<?= htmlspecialchars($date_from) ?>" max="<?= htmlspecialchars($date_to ?: date('Y-m-d')) ?>" onchange="syncRefundDateLimits(); autoSubmitFilters(0)"
+                            class="w-[170px] h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest outline-none text-[--text-main]">
+                        <input type="date" name="date_to" id="date_to" value="<?= htmlspecialchars($date_to) ?>" min="<?= htmlspecialchars($date_from) ?>" max="<?= date('Y-m-d') ?>" onchange="syncRefundDateLimits(); autoSubmitFilters(0)"
+                            class="w-[170px] h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest outline-none text-[--text-main]">
+                        <button type="button" onclick="clearRefundFilters()" class="h-[52px] w-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 transition-all" title="Reset filters">
+                            <span class="material-symbols-rounded text-lg">refresh</span>
+                        </button>
+                    </form>
+                </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left">
                         <thead>
                             <tr class="bg-white/5 border-b border-white/5">
-                                <th class="px-6 py-5 table-header-alt">Member</th>
-                                <th class="px-6 py-5 table-header-alt">Service</th>
-                                <th class="px-6 py-5 table-header-alt">Schedule</th>
-                                <th class="px-6 py-5 table-header-alt">Reason</th>
-                                <th class="px-6 py-5 table-header-alt">Status</th>
-                                <th class="px-6 py-5 table-header-alt text-center">Action</th>
+                                <th class="px-8 py-5 table-header-alt">Name</th>
+                                <th class="px-8 py-5 table-header-alt">Service</th>
+                                <th class="px-8 py-5 table-header-alt text-center">Date</th>
+                                <th class="px-8 py-5 table-header-alt">Reason</th>
+                                <th class="px-8 py-5 table-header-alt text-center">Status</th>
+                                <th class="px-8 py-5 table-header-alt text-center">Action</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5 text-sm font-medium">
                             <?php if (empty($refunds)): ?>
                                 <tr>
-                                    <td colspan="6" class="px-8 py-24 text-center text-[11px] font-black italic uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                    <td colspan="6" class="px-8 py-24 text-center text-[11px] font-black uppercase tracking-[0.3em] text-[--text-main] opacity-20">
                                         No refund requests found.
                                     </td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($refunds as $r): ?>
                                     <tr class="group hover:bg-white/[0.02] transition-colors">
-                                        <td class="px-6 py-4 align-middle">
-                                            <p class="text-[13px] font-bold" style="color:var(--text-main)">
+                                        <td class="px-8 py-6 align-middle">
+                                            <p class="text-[13px] font-bold tracking-wide" style="color:var(--text-main)">
                                                 <?= htmlspecialchars($r['first_name'] . ' ' . $r['last_name']) ?>
                                             </p>
-                                            <p class="text-[11px] opacity-60"><?= htmlspecialchars($r['email']) ?></p>
+                                            <p class="text-[11px] opacity-50"><?= htmlspecialchars($r['email']) ?></p>
                                         </td>
-                                        <td class="px-6 py-4 align-middle">
-                                            <p class="text-[12px] font-medium opacity-80" style="color:var(--text-main)"><?= htmlspecialchars($r['service_name']) ?></p>
+                                        <td class="px-8 py-6 align-middle">
+                                            <p class="text-[12px] font-bold text-[--text-main]/70"><?= htmlspecialchars($r['service_name']) ?></p>
                                         </td>
-                                        <td class="px-6 py-4 align-middle">
+                                        <td class="px-8 py-6 text-center align-middle">
                                             <p class="text-[12px] font-bold" style="color:var(--primary)">
                                                 <?= date('M d, Y', strtotime($r['booking_date'])) ?>
                                             </p>
-                                            <p class="text-[11px] opacity-60"><?= date('h:i A', strtotime($r['start_time'])) ?></p>
+                                            <p class="text-[11px] opacity-50"><?= date('h:i A', strtotime($r['start_time'])) ?></p>
                                         </td>
-                                        <td class="px-6 py-4 align-middle">
-                                            <p class="text-[11px] font-medium opacity-80 italic max-w-xs break-words" style="color:var(--text-main)">
-                                                "<?= htmlspecialchars($r['reason']) ?>"
+                                        <td class="px-8 py-6 align-middle">
+                                            <p class="text-[12px] font-medium text-[--text-main]/65 max-w-xs break-words">
+                                                <?= htmlspecialchars($r['reason']) ?>
                                             </p>
                                         </td>
-                                        <td class="px-6 py-4 align-middle">
+                                        <td class="px-8 py-6 text-center align-middle">
                                             <?php 
-                                            $c = 'text-amber-500';
-                                            if ($r['status'] === 'Approved') $c = 'text-emerald-500';
-                                            if ($r['status'] === 'Rejected') $c = 'text-rose-500';
+                                            $c = 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+                                            if ($r['status'] === 'Approved') $c = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+                                            if ($r['status'] === 'Rejected') $c = 'text-rose-500 bg-rose-500/10 border-rose-500/20';
                                             ?>
-                                            <span class="text-[11px] font-black uppercase tracking-wider <?= $c ?>">
+                                            <span class="px-4 py-1.5 rounded-full border text-[8px] font-black uppercase tracking-widest <?= $c ?>">
                                                 <?= $r['status'] ?>
                                             </span>
                                         </td>
-                                        <td class="px-6 py-4 text-center align-middle">
+                                        <td class="px-8 py-6 text-center align-middle">
                                             <?php if ($r['status'] === 'Pending'): ?>
                                                 <div class="flex items-center justify-center gap-2">
                                                     <form method="POST" onsubmit="return confirm('Approve this refund request? An email will be sent.');">
                                                         <input type="hidden" name="refund_id" value="<?= $r['refund_request_id'] ?>">
                                                         <input type="hidden" name="action" value="approve">
-                                                        <button type="submit" class="px-4 py-2 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">
-                                                            Approve
+                                                        <button type="submit" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all" title="Approve">
+                                                            <span class="material-symbols-rounded text-base">check</span>
                                                         </button>
                                                     </form>
                                                     <form method="POST" onsubmit="return confirm('Reject this refund request? An email will be sent.');">
                                                         <input type="hidden" name="refund_id" value="<?= $r['refund_request_id'] ?>">
                                                         <input type="hidden" name="action" value="reject">
-                                                        <button type="submit" class="px-4 py-2 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">
-                                                            Reject
+                                                        <button type="submit" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all" title="Reject">
+                                                            <span class="material-symbols-rounded text-base">close</span>
                                                         </button>
                                                     </form>
                                                 </div>
@@ -394,6 +670,30 @@ $active_page = "refunds";
                             <?php endif; ?>
                         </tbody>
                     </table>
+                </div>
+                <?php
+                $showing_start = $total_records > 0 ? $offset + 1 : 0;
+                $showing_end = $total_records > 0 ? min($offset + $limit, $total_records) : 0;
+                $page_params = $_GET;
+                unset($page_params['page']);
+                $page_base = 'admin_refunds.php?' . http_build_query($page_params);
+                $page_joiner = empty($page_params) ? 'page=' : '&page=';
+                ?>
+                <div class="px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center">
+                    <p class="pagination-status">
+                        Showing <?= $showing_start ?> to <?= $showing_end ?> of <?= $total_records ?> refunds
+                    </p>
+                    <div class="flex items-center gap-2">
+                        <a href="<?= htmlspecialchars($page_base . $page_joiner . max(1, $current_page - 1)) ?>" class="pagination-btn <?= ($current_page <= 1) ? 'disabled' : '' ?>">Prev</a>
+                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                            <?php if ($i === 1 || $i === $total_pages || ($i >= $current_page - 2 && $i <= $current_page + 2)): ?>
+                                <a href="<?= htmlspecialchars($page_base . $page_joiner . $i) ?>" class="pagination-btn <?= ($i === $current_page) ? 'active' : '' ?>"><?= $i ?></a>
+                            <?php elseif ($i === $current_page - 3 || $i === $current_page + 3): ?>
+                                <span class="text-[--text-main]/20 text-[10px] font-black mx-1">...</span>
+                            <?php endif; ?>
+                        <?php endfor; ?>
+                        <a href="<?= htmlspecialchars($page_base . $page_joiner . min($total_pages, $current_page + 1)) ?>" class="pagination-btn <?= ($current_page >= $total_pages) ? 'disabled' : '' ?>">Next</a>
+                    </div>
                 </div>
             </div>
         </main>
