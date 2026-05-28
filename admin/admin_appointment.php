@@ -192,6 +192,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 sendSystemEmail($ctx['email'], $subject, getEmailTemplate("Appointment Confirmed", $content));
             }
 
+            // 3b. In-App Notification
+            $notif_title = "Booking Approved";
+            $notif_msg = "Your booking for " . ($ctx['resolved_service'] ?? 'Session') . " on " . date('M d, Y', strtotime($ctx['booking_date'])) . " has been approved.";
+            $stmtNotif = $pdo->prepare("INSERT INTO notifications (user_id, gym_id, title, message, notification_type, created_at) VALUES (?, ?, ?, ?, 'booking_approved', ?)");
+            $stmtNotif->execute([$ctx['user_id'], $ctx['gym_id'], $notif_title, $notif_msg, $now]);
+
             // 4. Log Audit
             log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'], 'Approve', 'bookings', $booking_id, ['old_status' => 'Pending'], ['new_status' => 'Confirmed']);
 
@@ -212,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $stmtCtx = $pdo->prepare("
             SELECT 
-                u.email, u.first_name, g.gym_name,
+                u.email, u.first_name, u.user_id, g.gym_name, g.gym_id, b.booking_date,
                 COALESCE(sc.service_name, 'Personal Training') as resolved_service
             FROM bookings b
             JOIN members m ON b.member_id = m.member_id
@@ -244,6 +250,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 sendSystemEmail($ctx['email'], $subject, getEmailTemplate("Appointment Declined", $content));
             }
 
+            // 2b. In-App Notification
+            if ($ctx) {
+                $notif_title = "Booking Rejected";
+                $notif_msg = "Your booking for " . ($ctx['resolved_service'] ?? 'Session') . " on " . date('M d, Y', strtotime($ctx['booking_date'])) . " has been declined by the staff.";
+                $stmtNotif = $pdo->prepare("INSERT INTO notifications (user_id, gym_id, title, message, notification_type, created_at) VALUES (?, ?, ?, ?, 'booking_rejected', ?)");
+                $stmtNotif->execute([$ctx['user_id'], $ctx['gym_id'], $notif_title, $notif_msg, $now]);
+            }
+
             // 3. Log Audit
             log_audit_event($pdo, $_SESSION['user_id'], $_SESSION['gym_id'], 'Reject', 'bookings', $booking_id, ['old_status' => 'Pending'], ['new_status' => 'Rejected', 'reason' => 'Rejected by Staff']);
 
@@ -256,6 +270,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['error_msg'] = $e->getMessage();
             header("Location: admin_appointment.php");
             exit;
+        }
+    }
+
+    if (isset($_POST['staff_cancel_id'])) {
+        $booking_id = (int)$_POST['staff_cancel_id'];
+        $create_refund = isset($_POST['create_refund']) && $_POST['create_refund'] === '1';
+        
+        $stmtCtx = $pdo->prepare("
+            SELECT 
+                b.member_id, u.email, u.first_name, u.user_id, g.gym_name, g.gym_id,
+                COALESCE(sc.service_name, 'Personal Training') as resolved_service
+            FROM bookings b
+            JOIN members m ON b.member_id = m.member_id
+            JOIN users u ON m.user_id = u.user_id
+            JOIN gyms g ON m.gym_id = g.gym_id
+            LEFT JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
+            WHERE b.booking_id = ?
+            LIMIT 1
+        ");
+        $stmtCtx->execute([$booking_id]);
+        $ctx = $stmtCtx->fetch();
+
+        if ($ctx) {
+            $pdo->beginTransaction();
+            try {
+                // 1. Update Booking Status to 'Cancelled'
+                $stmtUB = $pdo->prepare("UPDATE bookings SET booking_status = 'Cancelled', cancellation_reason = 'Cancelled by Staff', updated_at = ? WHERE booking_id = ?");
+                $stmtUB->execute([$now, $booking_id]);
+                
+                // 2. Create Refund if flagged
+                if ($create_refund) {
+                    $refundStmt = $pdo->prepare("
+                        INSERT INTO refund_requests (user_id, gym_id, booking_id, reason, status, created_at)
+                        VALUES (?, ?, ?, 'Staff Initiated Cancellation Refund', 'Pending', NOW())
+                    ");
+                    $refundStmt->execute([$ctx['user_id'], $ctx['gym_id'], $booking_id]);
+                }
+                
+                // 3. Send Email
+                if (!empty($ctx['email'])) {
+                    $subject = "Booking Cancelled - " . htmlspecialchars($ctx['gym_name']);
+                    $srv = $ctx['resolved_service'] ?? 'Session';
+                    
+                    $content = "
+                        <p>Hello " . htmlspecialchars($ctx['first_name']) . ",</p>
+                        <p>Your booking for <strong>" . htmlspecialchars($srv) . "</strong> at " . htmlspecialchars($ctx['gym_name']) . " has been <strong>CANCELLED</strong> by the staff.</p>
+                    ";
+                    if ($create_refund) {
+                        $content .= "<p>A refund request has been automatically created on your behalf.</p>";
+                    } else {
+                        $content .= "<p>No refund is applicable due to policy violations.</p>";
+                    }
+                    $content .= "<p>Please contact the gym for more details.</p>";
+
+                    sendSystemEmail($ctx['email'], $subject, getEmailTemplate("Appointment Cancelled", $content));
+                }
+
+                // 3b. In-App Notification
+                $notif_title = "Booking Cancelled";
+                $notif_msg = "Your booking for " . ($ctx['resolved_service'] ?? 'Session') . " has been cancelled by the staff. " . ($create_refund ? "A refund request was created." : "");
+                $stmtNotif = $pdo->prepare("INSERT INTO notifications (user_id, gym_id, title, message, notification_type, created_at) VALUES (?, ?, ?, ?, 'booking_cancelled', ?)");
+                $stmtNotif->execute([$ctx['user_id'], $ctx['gym_id'], $notif_title, $notif_msg, $now]);
+
+                $pdo->commit();
+                $_SESSION['success_msg'] = "Booking for " . htmlspecialchars($ctx['first_name']) . " has been cancelled.";
+                header("Location: admin_appointment.php");
+                exit;
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $_SESSION['error_msg'] = $e->getMessage();
+                header("Location: admin_appointment.php");
+                exit;
+            }
         }
     }
 }
@@ -597,6 +684,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             form.submit();
         }
 
+        let cancelData = { id: null, isLate: false };
+        function initiateStaffCancel(id, isLate) {
+            cancelData = { id, isLate };
+            if (isLate) {
+                document.getElementById('cancelWarningModal').classList.add('active', 'flex-important');
+            } else {
+                document.getElementById('cancelRefundModal').classList.add('active', 'flex-important');
+            }
+        }
+        
+        function closeCancelModal() {
+            document.querySelectorAll('.cancel-modal-container').forEach(m => m.classList.remove('active', 'flex-important'));
+        }
+
+        function proceedToRefundChoice() {
+            document.getElementById('cancelWarningModal').classList.remove('active', 'flex-important');
+            document.getElementById('cancelRefundModal').classList.add('active', 'flex-important');
+        }
+
+        function submitStaffCancel(createRefund) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'staff_cancel_id';
+            idInput.value = cancelData.id;
+            form.appendChild(idInput);
+            
+            const refInput = document.createElement('input');
+            refInput.type = 'hidden';
+            refInput.name = 'create_refund';
+            refInput.value = createRefund ? '1' : '0';
+            form.appendChild(refInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+
         setTimeout(() => {
             const alerts = document.querySelectorAll('.alert-banner');
             alerts.forEach(a => {
@@ -725,6 +851,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <button onclick="closeDetailModal()" class="w-full mt-8 py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-black uppercase tracking-[0.2em] transition-all text-white active:scale-[0.98]">
             Dismiss Record
         </button>
+    </div>
+</div>
+
+<!-- Cancel Warning Modal -->
+<div id="cancelWarningModal" class="cancel-modal-container" style="position:fixed; top:0; right:0; bottom:0; left:var(--nav-width); z-index:200; display:none; align-items:center; justify-content:center;">
+    <div class="modal-backdrop active" onclick="closeCancelModal()" style="position:absolute; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(12px);"></div>
+    <div class="modal-container p-10 flex flex-col items-center text-center active" style="width:90%; max-width:450px; background:var(--background); border:1px solid rgba(255,255,255,0.1); border-radius:32px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); position:relative; z-index:10;">
+        <div class="size-20 rounded-3xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mb-6">
+            <span class="material-symbols-rounded text-rose-500 text-4xl">warning</span>
+        </div>
+        <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-2">Policy Violation</h3>
+        <p class="text-[--text-main]/60 text-sm font-medium leading-relaxed mb-10 px-4">This violates the 1-hour cancellation policy. Are you sure you want to cancel?</p>
+        <div class="flex w-full gap-4">
+            <button onclick="closeCancelModal()" class="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest transition-all text-[--text-main]/40 hover:text-white">Abort</button>
+            <button onclick="proceedToRefundChoice()" class="flex-1 py-4 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-rose-500/20 transition-all active:scale-[0.98]">Proceed</button>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Refund Choice Modal -->
+<div id="cancelRefundModal" class="cancel-modal-container" style="position:fixed; top:0; right:0; bottom:0; left:var(--nav-width); z-index:200; display:none; align-items:center; justify-content:center;">
+    <div class="modal-backdrop active" onclick="closeCancelModal()" style="position:absolute; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(12px);"></div>
+    <div class="modal-container p-10 flex flex-col items-center text-center active" style="width:90%; max-width:450px; background:var(--background); border:1px solid rgba(255,255,255,0.1); border-radius:32px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); position:relative; z-index:10;">
+        <div class="size-20 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-6">
+            <span class="material-symbols-rounded text-amber-500 text-4xl">payments</span>
+        </div>
+        <h3 class="text-2xl font-black italic uppercase tracking-tighter text-white mb-2">Refund Request</h3>
+        <p class="text-[--text-main]/60 text-sm font-medium leading-relaxed mb-8 px-4">Do you want to create a refund request for this member?</p>
+        <div class="flex w-full gap-4 flex-col">
+            <button onclick="submitStaffCancel(true)" class="w-full py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98]">Yes, Create Refund</button>
+            <button onclick="submitStaffCancel(false)" class="w-full py-4 rounded-2xl bg-rose-500/20 border border-rose-500/30 hover:bg-rose-500/40 text-rose-500 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all active:scale-[0.98]">No (Late Penalty)</button>
+            <button onclick="closeCancelModal()" class="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-[--text-main]/40 hover:text-white transition-colors mt-2">Cancel Action</button>
+        </div>
     </div>
 </div>
 
@@ -901,6 +1060,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                             <span class="material-symbols-rounded text-[18px]">check_circle</span>
                                         </button>
                                         <button onclick="confirmAction(<?= $appt['booking_id'] ?>, 'reject')" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-95" title="Reject">
+                                            <span class="material-symbols-rounded text-[18px]">cancel</span>
+                                        </button>
+                                    <?php endif; ?>
+                                    <?php if ($st === 'Confirmed'): 
+                                        $bDt = new DateTime($appt['booking_date'] . ' ' . $appt['start_time']);
+                                        $nDt = new DateTime();
+                                        $diffHrs = ($bDt->getTimestamp() - $nDt->getTimestamp()) / 3600;
+                                        $is_late = ($diffHrs < 1) ? 'true' : 'false';
+                                    ?>
+                                        <button onclick="initiateStaffCancel(<?= $appt['booking_id'] ?>, <?= $is_late ?>)" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 hover:bg-rose-500 hover:text-white transition-all active:scale-95" title="Cancel Booking">
                                             <span class="material-symbols-rounded text-[18px]">cancel</span>
                                         </button>
                                     <?php endif; ?>

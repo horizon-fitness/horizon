@@ -15,7 +15,13 @@ if ($userId === -1) {
 
 try {
     // 1. Fetch live notifications from DB
-    $stmt = $pdo->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50");
+    $stmt = $pdo->prepare("
+        SELECT *, TIMESTAMPDIFF(SECOND, created_at, NOW()) as seconds_ago 
+        FROM notifications 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC 
+        LIMIT 50
+    ");
     $stmt->execute([$userId]);
     $rows = $stmt->fetchAll();
 
@@ -25,7 +31,7 @@ try {
             'id' => (string)$row['notification_id'],
             'title' => $row['title'],
             'message' => $row['message'],
-            'time' => formatTimeAgo($row['created_at']),
+            'time' => formatTimeAgo((int)$row['seconds_ago'], $row['created_at']),
             'type' => $row['notification_type'],
             'isRead' => (bool)$row['is_read']
         ];
@@ -55,15 +61,13 @@ try {
 /**
  * Helper to convert timestamp to "2 hours ago" etc.
  */
-function formatTimeAgo($timestamp) {
-    $time = strtotime($timestamp);
-    $diff = time() - $time;
-    
+function formatTimeAgo($diff, $timestamp) {
+    if ($diff < 0) $diff = 0;
     if ($diff < 60) return "Just now";
     if ($diff < 3600) return floor($diff / 60) . "m ago";
     if ($diff < 86400) return floor($diff / 3600) . "h ago";
     if ($diff < 604800) return floor($diff / 86400) . "d ago";
     
-    return date("M j, Y", $time);
+    return date("M j, Y", strtotime($timestamp));
 }
 ?>

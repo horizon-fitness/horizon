@@ -53,11 +53,25 @@ try {
             // User is already checked in, so we CHECK OUT
             $stmtOut = $pdo->prepare("UPDATE attendance SET check_out_time = ?, attendance_status = 'Completed' WHERE attendance_id = ?");
             $stmtOut->execute([$now, $session['attendance_id']]);
+            
+            // In-App Notification for Check Out
+            $notif_title = "Checkout Successful";
+            $notif_msg = "You have checked out at " . date('h:i A', strtotime($now)) . ". Great workout!";
+            $stmtNotif = $pdo->prepare("INSERT INTO notifications (user_id, gym_id, title, message, notification_type, created_at) VALUES (?, ?, ?, ?, 'attendance_checkout', NOW())");
+            $stmtNotif->execute([$user_id, $gym_id, $notif_title, $notif_msg]);
+
             echo json_encode(['success' => true, 'member_name' => $member_name, 'message' => 'Checked out successfully!']);
         } else {
             // User is not checked in, so we CHECK IN
             $stmtIn = $pdo->prepare("INSERT INTO attendance (member_id, gym_id, attendance_date, check_in_time, attendance_status, created_at) VALUES (?, ?, ?, ?, 'Active', NOW())");
             $stmtIn->execute([$member_id, $gym_id, $today, $now]);
+            
+            // In-App Notification for Check In
+            $notif_title = "Check-in Successful";
+            $notif_msg = "You have checked in at " . date('h:i A', strtotime($now)) . ". Have a great session!";
+            $stmtNotif = $pdo->prepare("INSERT INTO notifications (user_id, gym_id, title, message, notification_type, created_at) VALUES (?, ?, ?, ?, 'attendance_checkin', NOW())");
+            $stmtNotif->execute([$user_id, $gym_id, $notif_title, $notif_msg]);
+
             echo json_encode(['success' => true, 'member_name' => $member_name, 'message' => 'Checked in successfully!']);
         }
         exit;

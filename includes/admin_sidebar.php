@@ -19,8 +19,21 @@
         color: var(--primary) !important;
     }
     .nav-item.active .nav-label,
-    .nav-item.active span:not(.material-symbols-rounded) {
+    .nav-item.active span:not(.material-symbols-rounded):not(.nav-badge) {
         color: var(--primary) !important;
+    }
+    .nav-badge {
+        color: #ffffff !important;
+        line-height: 1 !important;
+        min-width: 1rem;
+        height: 1rem;
+        padding: 0 0.25rem;
+        border-radius: 9999px;
+        font-size: 8px;
+        font-weight: 900;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     .nav-item .material-symbols-rounded {
         color: var(--highlight);
@@ -68,11 +81,24 @@
             $pending_bookings_count = 0;
             if (isset($pdo) && isset($_SESSION['gym_id'])) {
                 try {
-                    $stmtPendT = $pdo->prepare("SELECT COUNT(*) FROM payments WHERE gym_id = ? AND payment_status = 'Pending'");
+                    $stmtPendT = $pdo->prepare("
+                        SELECT COUNT(*)
+                        FROM payments p
+                        JOIN members m ON p.member_id = m.member_id
+                        WHERE m.gym_id = ?
+                          AND p.payment_type = 'Membership'
+                          AND p.payment_status = 'Pending'
+                    ");
                     $stmtPendT->execute([$_SESSION['gym_id']]);
                     $pending_transactions_count = $stmtPendT->fetchColumn();
  
-                    $stmtPendB = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE gym_id = ? AND booking_status = 'Pending'");
+                    $stmtPendB = $pdo->prepare("
+                        SELECT COUNT(*)
+                        FROM bookings b
+                        JOIN members m ON b.member_id = m.member_id
+                        WHERE m.gym_id = ?
+                          AND b.booking_status = 'Pending'
+                    ");
                     $stmtPendB->execute([$_SESSION['gym_id']]);
                     $pending_bookings_count = $stmtPendB->fetchColumn();
                 } catch (Exception $e) {}
@@ -100,7 +126,7 @@
             <div class="relative flex items-center justify-center shrink-0">
                 <span class="material-symbols-rounded text-xl">receipt_long</span> 
                 <?php if ($pending_transactions_count > 0): ?>
-                    <span class="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-rose-500 text-[8px] font-black flex items-center justify-center text-white shadow-lg shadow-rose-500/20">
+                    <span class="nav-badge absolute -top-1.5 -right-1.5 bg-rose-500 shadow-lg shadow-rose-500/20">
                         <?= $pending_transactions_count ?>
                     </span>
                 <?php endif; ?>
@@ -108,11 +134,41 @@
             <span class="nav-label">Transactions</span>
         </a>
  
+        <?php
+            $pending_refunds_count = 0;
+            if (isset($pdo) && isset($_SESSION['gym_id'])) {
+                try {
+                    $stmtPendR = $pdo->prepare("
+                        SELECT COUNT(*)
+                        FROM refund_requests rr
+                        JOIN users u ON rr.user_id = u.user_id
+                        JOIN bookings b ON rr.booking_id = b.booking_id
+                        JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
+                        WHERE rr.gym_id = ?
+                          AND rr.status = 'Pending'
+                    ");
+                    $stmtPendR->execute([$_SESSION['gym_id']]);
+                    $pending_refunds_count = $stmtPendR->fetchColumn();
+                } catch (Exception $e) {}
+            }
+        ?>
+        <a href="admin_refunds.php" class="nav-item <?= ($active_page == 'refunds') ? 'active' : '' ?>">
+            <div class="relative flex items-center justify-center shrink-0">
+                <span class="material-symbols-rounded text-xl">payments</span> 
+                <?php if ($pending_refunds_count > 0): ?>
+                    <span class="nav-badge absolute -top-1.5 -right-1.5 bg-rose-500 shadow-lg shadow-rose-500/20">
+                        <?= $pending_refunds_count ?>
+                    </span>
+                <?php endif; ?>
+            </div>
+            <span class="nav-label">Refund Requests</span>
+        </a>
+ 
         <a href="admin_appointment.php" class="nav-item <?= ($active_page == 'bookings') ? 'active' : '' ?>">
             <div class="relative flex items-center justify-center shrink-0">
                 <span class="material-symbols-rounded text-xl">event_note</span> 
                 <?php if ($pending_bookings_count > 0): ?>
-                    <span class="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-amber-500 text-[8px] font-black flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                    <span class="nav-badge absolute -top-1.5 -right-1.5 bg-amber-500 shadow-lg shadow-amber-500/20">
                         <?= $pending_bookings_count ?>
                     </span>
                 <?php endif; ?>

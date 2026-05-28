@@ -322,6 +322,25 @@ CREATE TABLE attendance (
     created_at DATETIME NOT NULL
 );
 
+-- =========================================================================
+-- REFUND & CANCELLATION REQUESTS (3NF)
+-- =========================================================================
+CREATE TABLE refund_requests (
+    refund_request_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    gym_id INT NOT NULL,
+    booking_id INT NOT NULL,
+    reason TEXT NOT NULL,
+    status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    processed_by INT,
+    processed_at DATETIME,
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (gym_id) REFERENCES gyms(gym_id) ON DELETE CASCADE,
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id) ON DELETE CASCADE,
+    FOREIGN KEY (processed_by) REFERENCES users(user_id) ON DELETE SET NULL
+);
+
 CREATE TABLE payments (
     payment_id INT AUTO_INCREMENT PRIMARY KEY,
     member_id INT,

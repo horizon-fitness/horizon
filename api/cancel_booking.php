@@ -104,9 +104,24 @@ try {
     ");
     $updateStmt->execute([$new_status, $cancellation_reason, $booking_id]);
 
+    // --- PHASE 2: AUTO-GENERATE REFUND REQUEST IF VALID CANCELLATION ---
+    if ($new_status === 'CANCELLED') {
+        $refundStmt = $pdo->prepare("
+            INSERT INTO refund_requests (user_id, gym_id, booking_id, reason, status, created_at)
+            VALUES (?, ?, ?, ?, 'Pending', NOW())
+        ");
+        $refundStmt->execute([$user_id, $gym_id, $booking_id, $cancellation_reason]);
+    }
+
     $message = $penalty_applied ? 
         "Your session was cancelled less than 1 hour in advance and has been marked as REJECTED according to Gym terms." : 
         "Your session cancellation request has been received and an automated notification has been sent to the gym admin. Please wait for the follow-up email confirming approval.";
+
+    // In-App Notification
+    $notif_title = $penalty_applied ? "Cancellation Rejected" : "Cancellation Requested";
+    $notif_msg = $message;
+    $stmtNotif = $pdo->prepare("INSERT INTO notifications (user_id, gym_id, title, message, notification_type, created_at) VALUES (?, ?, ?, ?, 'booking_cancelled_self', NOW())");
+    $stmtNotif->execute([$user_id, $gym_id, $notif_title, $notif_msg]);
 
     // --- AUTOMATED EMAIL NOTIFICATION ---
     if ($new_status === 'CANCELLED' || $new_status === 'REJECTED') {

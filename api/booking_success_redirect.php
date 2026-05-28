@@ -67,8 +67,55 @@ if ($gym_id > 0 && $user_id > 0 && $service_id > 0 && $db_status === "Pending") 
                 VALUES (?, ?, ?, ?, 'PayMongo', 'Booking', ?, 'Pending', ?)");
             $stmtPay->execute([$member_id, $gym_id, $booking_id, $amount, $payment_reference, $now]);
 
+            // 4. In-App Notification
+            $notif_title = "Booking Placed";
+            $notif_msg = "Your booking request for a session on " . date('M d, Y', strtotime($date)) . " has been placed and is pending approval.";
+            $stmtNotif = $pdo->prepare("INSERT INTO notifications (user_id, gym_id, title, message, notification_type, created_at) VALUES (?, ?, ?, ?, 'booking_placed', ?)");
+            $stmtNotif->execute([$user_id, $gym_id, $notif_title, $notif_msg, $now]);
+
             $pdo->commit();
             $db_status = "Success";
+
+            // Email the receipt
+            try {
+                require_once '../includes/mailer.php';
+                
+                // Fetch user email and name
+                $stmtU = $pdo->prepare("SELECT email, first_name, last_name FROM users WHERE user_id = ? LIMIT 1");
+                $stmtU->execute([$user_id]);
+                $user_info = $stmtU->fetch(PDO::FETCH_ASSOC);
+
+                // Fetch gym name
+                $stmtG = $pdo->prepare("SELECT gym_name FROM gyms WHERE gym_id = ? LIMIT 1");
+                $stmtG->execute([$gym_id]);
+                $gym_info = $stmtG->fetch(PDO::FETCH_ASSOC);
+
+                // Fetch service name
+                $stmtS = $pdo->prepare("SELECT service_name FROM catalog_services WHERE catalog_service_id = ? LIMIT 1");
+                $stmtS->execute([$service_id]);
+                $service_info = $stmtS->fetch(PDO::FETCH_ASSOC);
+
+                if ($user_info && $gym_info && $service_info) {
+                    $receipt_data = [
+                        'reference_number' => $payment_reference,
+                        'gym_name'         => $gym_info['gym_name'],
+                        'plan_name'        => 'Booking: ' . $service_info['service_name'],
+                        'amount'           => $amount,
+                        'customer_name'    => trim($user_info['first_name'] . ' ' . $user_info['last_name']),
+                        'title'            => 'Booking Confirmed',
+                        'intro_text'       => "Your payment for your " . $gym_info['gym_name'] . " booking has been successfully processed.",
+                        'status'           => 'Paid',
+                        'status_color'     => '#10B981'
+                    ];
+                    
+                    $subject = "Booking Payment Receipt - " . $gym_info['gym_name'];
+                    $body = getBookingReceiptTemplate($receipt_data);
+                    
+                    sendSystemEmail($user_info['email'], $subject, $body);
+                }
+            } catch (Exception $mailEx) {
+                error_log("Failed to send booking receipt: " . $mailEx->getMessage());
+            }
         } catch (PDOException $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             $db_status = "Database Error";

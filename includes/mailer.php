@@ -221,3 +221,84 @@ function getReceiptTemplate($data) {
     </body>
     </html>";
 }
+
+/**
+ * Modern Receipt Template matching Tenant Approval style (minimalist, green left border)
+ */
+function getBookingReceiptTemplate($data) {
+    $refNo = $data['reference_number'] ?? 'Pending Processing';
+    $gymName = htmlspecialchars($data['gym_name'] ?? 'Horizon System', ENT_QUOTES, 'UTF-8');
+    $planName = htmlspecialchars($data['plan_name'] ?? 'Service', ENT_QUOTES, 'UTF-8');
+    $amount = number_format($data['amount'], 2);
+    $date = date('M d, Y \a\t h:i A');
+    $customerName = htmlspecialchars($data['customer_name'] ?? 'Valued Member', ENT_QUOTES, 'UTF-8');
+    $statusText = $data['status'] ?? 'Paid';
+    $statusColor = $data['status_color'] ?? '#10B981'; // Green default
+    $title = $data['title'] ?? 'Payment Confirmed';
+    $introText = $data['intro_text'] ?? "Your payment for your $gymName booking has been successfully processed.";
+    
+    return "
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset='UTF-8'></head>
+    <body style='margin: 0; padding: 0; background-color: #f6f9fc; font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; color: #333;'>
+        <table width='100%' border='0' cellspacing='0' cellpadding='0' style='padding: 40px 0;'>
+            <tr>
+                <td align='center'>
+                    <table width='600' border='0' cellspacing='0' cellpadding='0' style='background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);'>
+                        
+                        <!-- Header Line -->
+                        <tr>
+                            <td align='center' style='padding: 30px 40px 10px 40px;'>
+                                <p style='color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; margin: 0;'>Digital Fitness Infrastructure</p>
+                                <div style='height: 1px; width: 100%; background-color: #eee; margin-top: 15px;'></div>
+                            </td>
+                        </tr>
+
+                        <!-- Content -->
+                        <tr>
+                            <td style='padding: 20px 40px 40px 40px;'>
+                                <h1 style='color: #1a1a1a; font-size: 22px; margin: 0 0 20px 0;'>$title</h1>
+                                <p style='margin: 0 0 15px 0; font-size: 15px; color: #4a5568;'>Hello <strong>$customerName</strong>,</p>
+                                <p style='margin: 0 0 25px 0; font-size: 14px; color: #4a5568; line-height: 1.6;'>$introText</p>
+                                
+                                <!-- Details Box -->
+                                <div style='background-color: #f8fafc; padding: 25px; border-radius: 6px; border-left: 4px solid #22c55e;'>
+                                    <table width='100%' border='0' cellspacing='0' cellpadding='8' style='font-size: 14px; color: #1a1a1a;'>
+                                        <tr>
+                                            <td width='130' style='color: #4a5568;'><strong>Plan/Service:</strong></td>
+                                            <td>$planName</td>
+                                        </tr>
+                                        <tr>
+                                            <td style='color: #4a5568;'><strong>Amount Paid:</strong></td>
+                                            <td>₱$amount</td>
+                                        </tr>
+                                        <tr>
+                                            <td style='color: #4a5568;'><strong>Reference ID:</strong></td>
+                                            <td>$refNo</td>
+                                        </tr>
+                                        <tr>
+                                            <td style='color: #4a5568;'><strong>Processed On:</strong></td>
+                                            <td>$date</td>
+                                        </tr>
+                                        <tr>
+                                            <td style='color: #4a5568;'><strong>Account Status:</strong></td>
+                                            <td style='color: $statusColor; font-weight: bold;'>$statusText</td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                
+                                <p style='margin: 25px 0 0 0; font-size: 14px; color: #4a5568; line-height: 1.6;'>Please allow 3-7 business days for the amount to reflect on your original payment method depending on your bank or e-wallet provider if this is a refund.</p>
+                                
+                                <p style='margin: 15px 0 0 0; font-size: 14px; color: #4a5568; line-height: 1.6;'>If you have questions, please contact $gymName Support.</p>
+                                
+                                <p style='margin: 30px 0 0 0; font-size: 14px; color: #4a5568;'>Regards,<br><strong>$gymName Management Team</strong></p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>";
+}
