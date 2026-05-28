@@ -149,6 +149,20 @@ $stmtFinancials = $pdo->prepare("
 $stmtFinancials->execute($date_params);
 $financials = $stmtFinancials->fetchAll();
 
+// Auto-timeout pending checkouts past gym closing time
+$stmtAutoTimeout = $pdo->prepare("
+    UPDATE attendance a
+    JOIN gyms g ON a.gym_id = g.gym_id
+    SET a.attendance_status = 'Did Not Checked Out'
+    WHERE a.check_out_time IS NULL 
+      AND a.attendance_status = 'Active'
+      AND (
+          a.attendance_date < CURDATE() 
+          OR (a.attendance_date = CURDATE() AND CURTIME() > g.closing_time)
+      )
+");
+$stmtAutoTimeout->execute();
+
 // Fetch Attendance (Entry Logs)
 $stmtAttendance = $pdo->prepare("
     SELECT u.first_name, u.last_name, a.check_in_time, a.check_out_time, a.attendance_status, a.recorded_by, m.member_id
@@ -888,7 +902,7 @@ $is_restricted = (!$is_sub_active);
                                             </td>
                                             <?php 
                                                 $statusRaw = strtolower($a['attendance_status'] ?? '');
-                                                $isNoTimeOut = ($statusRaw === 'no time out' || $statusRaw === 'no timeout');
+                                                $isNoTimeOut = ($statusRaw === 'no time out' || $statusRaw === 'no timeout' || $statusRaw === 'did not checked out');
                                                 $isTimedOut = ($statusRaw === 'timed out' || $statusRaw === 'timeout' || !empty($a['check_out_time']));
                                                 $displayStatus = $isNoTimeOut ? 'No Time Out' : ($isTimedOut ? 'Timed Out' : 'In Gym');
                                             ?>

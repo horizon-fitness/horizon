@@ -86,6 +86,20 @@ $page = [
 ];
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Auto-timeout pending checkouts past gym closing time
+$stmtAutoTimeout = $pdo->prepare("
+    UPDATE attendance a
+    JOIN gyms g ON a.gym_id = g.gym_id
+    SET a.attendance_status = 'Did Not Checked Out'
+    WHERE a.check_out_time IS NULL 
+      AND a.attendance_status = 'Active'
+      AND (
+          a.attendance_date < CURDATE() 
+          OR (a.attendance_date = CURDATE() AND CURTIME() > g.closing_time)
+      )
+");
+$stmtAutoTimeout->execute();
+
 // --- FILTERING LOGIC ---
 $view = $_GET['view'] ?? 'history';
 $start_date = $_GET['start_date'] ?? '';
@@ -103,7 +117,7 @@ $query = "
 $params = [$gym_id];
 
 if ($view === 'live') {
-    $query .= " AND a.check_out_time IS NULL";
+    $query .= " AND a.check_out_time IS NULL AND a.attendance_status = 'Active'";
 }
 
 if ($start_date) {
@@ -134,7 +148,7 @@ $stmtMetricsToday = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id 
 $stmtMetricsToday->execute([$gym_id, $today]);
 $total_today = $stmtMetricsToday->fetchColumn();
 
-$stmtMetricsActive = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id = ? AND check_out_time IS NULL");
+$stmtMetricsActive = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id = ? AND check_out_time IS NULL AND attendance_status = 'Active'");
 $stmtMetricsActive->execute([$gym_id]);
 $active_now = $stmtMetricsActive->fetchColumn();
 
@@ -785,10 +799,16 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
                             </td>
                             <td class="px-8 py-5 text-center">
                                 <?php if ($isTraining): ?>
-                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/5 border border-amber-500/10">
-                                        <span class="size-1 rounded-full bg-amber-500 animate-ping"></span>
-                                        <span class="text-amber-500 text-[9px] font-black italic uppercase tracking-widest">ACTIVE</span>
-                                    </div>
+                                    <?php if ($row['attendance_status'] === 'Did Not Checked Out'): ?>
+                                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/5 border border-rose-500/10">
+                                            <span class="text-rose-500 text-[9px] font-black italic uppercase tracking-widest">MISSING</span>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                                            <span class="size-1 rounded-full bg-amber-500 animate-ping"></span>
+                                            <span class="text-amber-500 text-[9px] font-black italic uppercase tracking-widest">ACTIVE</span>
+                                        </div>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <div class="inline-block px-3 py-1.5 rounded-xl bg-white/5 border border-white/5">
                                         <p class="text-[11px] font-black italic text-[--text-main]/40 uppercase"><?= date('h:i A', $check_out_ts) ?></p>
@@ -797,7 +817,11 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
                             </td>
                             <td class="px-8 py-5 text-right">
                                 <?php if ($isTraining): ?>
-                                    <span class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[8px] text-emerald-500 font-black uppercase italic tracking-[0.1em]">PRESENT</span>
+                                    <?php if ($row['attendance_status'] === 'Did Not Checked Out'): ?>
+                                        <span class="px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-[8px] text-rose-500 font-black uppercase italic tracking-[0.1em]">NO CHECKOUT</span>
+                                    <?php else: ?>
+                                        <span class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[8px] text-emerald-500 font-black uppercase italic tracking-[0.1em]">PRESENT</span>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <span class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-[8px] text-[--text-main]/20 font-black uppercase italic tracking-[0.1em]">COMPLETED</span>
                                 <?php endif; ?>

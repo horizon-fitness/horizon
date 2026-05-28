@@ -164,6 +164,7 @@ try {
         $injuries_limitations = trim($input['injuries_limitations'] ?? '');
         $current_weight = isset($input['current_weight']) && is_numeric($input['current_weight']) ? (float)$input['current_weight'] : null;
         $height_cm = isset($input['height_cm']) && is_numeric($input['height_cm']) ? (float)$input['height_cm'] : null;
+        $target_muscles_str = trim($input['target_muscles'] ?? '');
 
         $now = date('Y-m-d H:i:s');
 
@@ -216,6 +217,22 @@ try {
         if ($experience_level || $weekly_commitment || $target_weight !== null || $equipment_availability || $injuries_limitations) {
             $stmtFitness = $pdo->prepare("INSERT INTO user_fitness_profiles (user_id, experience_level, weekly_commitment, target_weight, equipment_availability, injuries_limitations, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmtFitness->execute([$new_user_id, $experience_level, $weekly_commitment, $target_weight, $equipment_availability, $injuries_limitations, $now, $now]);
+        }
+
+        // Save Target Muscles
+        if (!empty($target_muscles_str)) {
+            $muscle_array = explode(',', $target_muscles_str);
+            $stmtGetMuscle = $pdo->prepare("SELECT target_muscle_id FROM target_muscles WHERE muscle_name = ? LIMIT 1");
+            $stmtInsertTarget = $pdo->prepare("INSERT INTO user_target_muscles (user_id, target_muscle_id, priority_level, created_at) VALUES (?, ?, 'Primary', ?)");
+            foreach ($muscle_array as $m_name) {
+                $m_name = trim($m_name);
+                if (!empty($m_name)) {
+                    $stmtGetMuscle->execute([$m_name]);
+                    if ($m_row = $stmtGetMuscle->fetch()) {
+                        $stmtInsertTarget->execute([$new_user_id, $m_row['target_muscle_id'], $now]);
+                    }
+                }
+            }
         }
 
         // Save Initial Health Metrics
