@@ -173,7 +173,7 @@ if ($current_page > $total_pages) {
 }
 
 $sql = "
-        SELECT p.*, u.first_name, u.last_name, u.username, u.email, u.contact_number, u.profile_picture,
+        SELECT p.*, u.first_name, u.last_name, u.username, u.email, u.contact_number, COALESCE(m.profile_picture, u.profile_picture) as profile_picture,
                mp.plan_name, ms.subscription_status
         FROM payments p 
         JOIN members m ON p.member_id = m.member_id 

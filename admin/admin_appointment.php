@@ -151,7 +151,7 @@ if ($current_page > $total_pages) {
 $sql = "
     SELECT 
         b.*, 
-        u.user_id, u.first_name, u.last_name, u.username, u.email, u.contact_number, u.profile_picture,
+        u.user_id, u.first_name, u.last_name, u.username, u.email, u.contact_number, COALESCE(m.profile_picture, u.profile_picture) as profile_picture,
         COALESCE(sc.service_name, 'Unlimited Gym Use') as resolved_service,
         sc.price as service_price,
         CASE 

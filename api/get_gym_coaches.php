@@ -43,6 +43,60 @@ try {
     $stmt->execute($params);
     $coaches = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
+    if (!empty($coaches)) {
+        $coach_ids = array_column($coaches, 'coach_id');
+        $in = str_repeat('?,', count($coach_ids) - 1) . '?';
+        $stmtSched = $pdo->prepare("SELECT coach_id, day_of_week, availability_status, morning_start, morning_end, afternoon_start, afternoon_end FROM coach_schedules WHERE coach_id IN ($in)");
+        $stmtSched->execute($coach_ids);
+        $schedules = $stmtSched->fetchAll(PDO::FETCH_ASSOC);
+
+        $coach_sched_map = [];
+        foreach ($schedules as $s) {
+            if ($s['availability_status'] !== 'Off') {
+                $coach_sched_map[$s['coach_id']][] = $s;
+            }
+        }
+        
+        $dayMap = ['Monday'=>'Mon', 'Tuesday'=>'Tue', 'Wednesday'=>'Wed', 'Thursday'=>'Thu', 'Friday'=>'Fri', 'Saturday'=>'Sat', 'Sunday'=>'Sun'];
+        $dayOrder = ['Monday'=>1, 'Tuesday'=>2, 'Wednesday'=>3, 'Thursday'=>4, 'Friday'=>5, 'Saturday'=>6, 'Sunday'=>7];
+
+        foreach ($coaches as &$c) {
+            $cid = $c['coach_id'];
+            if (isset($coach_sched_map[$cid])) {
+                $sc = $coach_sched_map[$cid];
+                usort($sc, fn($a, $b) => $dayOrder[$a['day_of_week']] <=> $dayOrder[$b['day_of_week']]);
+                
+                $daysAbbr = array_map(fn($d) => $dayMap[$d['day_of_week']] ?? substr($d['day_of_week'], 0, 3), $sc);
+                
+                $daysStr = implode(', ', $daysAbbr);
+                if (count($daysAbbr) == 6 && $daysAbbr[0] == 'Mon' && $daysAbbr[5] == 'Sat') {
+                    $daysStr = 'Mon - Sat';
+                } elseif (count($daysAbbr) == 5 && $daysAbbr[0] == 'Mon' && $daysAbbr[4] == 'Fri') {
+                    $daysStr = 'Mon - Fri';
+                } elseif (count($daysAbbr) == 7) {
+                    $daysStr = 'Mon - Sun';
+                }
+
+                $c['weekly_schedule'] = $daysStr;
+                
+                $first = $sc[0];
+                $start = $first['morning_start'] ? date('h:i A', strtotime($first['morning_start'])) : '';
+                $end = $first['afternoon_end'] ? date('h:i A', strtotime($first['afternoon_end'])) : '';
+                if (!$end && $first['morning_end']) $end = date('h:i A', strtotime($first['morning_end']));
+                if (!$start && $first['afternoon_start']) $start = date('h:i A', strtotime($first['afternoon_start']));
+                
+                if ($start && $end) {
+                    $c['availability_hours'] = "$start - $end";
+                } else {
+                    $c['availability_hours'] = "Flexible";
+                }
+            } else {
+                $c['weekly_schedule'] = "Off-Duty";
+                $c['availability_hours'] = "Unavailable";
+            }
+        }
+    }
+
     echo json_encode([
         'success' => true,
         'coaches' => $coaches

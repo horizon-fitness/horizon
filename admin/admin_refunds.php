@@ -198,9 +198,10 @@ if ($current_page > $total_pages) {
 }
 
 $stmtRefunds = $pdo->prepare("
-    SELECT rr.*, u.user_id, u.first_name, u.last_name, u.email, u.contact_number, u.profile_picture, b.booking_date, b.start_time, sc.service_name
+    SELECT rr.*, u.user_id, u.first_name, u.last_name, u.email, u.contact_number, COALESCE(m.profile_picture, u.profile_picture) as profile_picture, b.booking_date, b.start_time, sc.service_name
     FROM refund_requests rr
     JOIN users u ON rr.user_id = u.user_id
+    LEFT JOIN members m ON m.user_id = u.user_id AND m.gym_id = rr.gym_id
     JOIN bookings b ON rr.booking_id = b.booking_id
     JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
     $where_clause
@@ -631,7 +632,11 @@ $page = [
             pendingRefundForm = null;
         }
         function submitRefundAction() {
-            if (pendingRefundForm) pendingRefundForm.submit();
+            if (pendingRefundForm) {
+                pendingRefundForm.submit();
+                return;
+            }
+            closeRefundActionModal();
         }
         function showSampleAction(action) {
             pendingRefundForm = null;
@@ -967,6 +972,34 @@ $page = [
                     <p class="text-[10px] font-bold uppercase tracking-widest text-[--text-main]/40">Reason</p>
                     <p id="refund_detail_reason" class="text-sm leading-relaxed text-[--text-main]/70">Reason details</p>
                 </section>
+            </div>
+        </div>
+    </div>
+    <div id="refundActionModal" onclick="if(event.target === this) closeRefundActionModal()">
+        <div class="refund-modal-panel max-w-[450px]">
+            <div class="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <div class="flex items-center gap-5 min-w-0">
+                    <div class="size-20 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shadow-lg relative shrink-0">
+                        <span id="refund_action_icon" class="material-symbols-rounded text-primary text-4xl">check_circle</span>
+                    </div>
+                    <div class="min-w-0 text-left">
+                        <h3 id="refund_action_title" class="text-xl font-black uppercase tracking-tight text-[--text-main] leading-tight truncate">Confirm Refund</h3>
+                        <p id="refund_action_label" class="text-[10px] font-bold text-primary uppercase tracking-widest mt-1">Refund Request</p>
+                    </div>
+                </div>
+                <button onclick="closeRefundActionModal()" class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center border border-white/5 text-[--text-main]/60 shrink-0">
+                    <span class="material-symbols-rounded text-xl">close</span>
+                </button>
+            </div>
+            <div class="p-8 space-y-6 text-left">
+                <section class="bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-[--text-main]/40 mb-2">Notice</p>
+                    <p id="refund_action_message" class="text-sm font-medium leading-relaxed text-[--text-main]/70">Confirm this refund action?</p>
+                </section>
+                <div class="flex w-full gap-4">
+                    <button onclick="closeRefundActionModal()" class="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest transition-all text-[--text-main]/40 hover:text-white">Cancel</button>
+                    <button id="refund_action_submit" onclick="submitRefundAction()" class="flex-1 py-4 rounded-2xl bg-primary hover:bg-primary/90 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">Proceed</button>
+                </div>
             </div>
         </div>
     </div>

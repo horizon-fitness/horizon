@@ -36,11 +36,11 @@ try {
         WHERE a.check_out_time IS NULL 
           AND a.attendance_status = 'Active'
           AND (
-              a.attendance_date < CURDATE() 
-              OR (a.attendance_date = CURDATE() AND CURTIME() > g.closing_time)
+              a.attendance_date < ? 
+              OR (a.attendance_date = ? AND ? > g.closing_time)
           )
     ");
-    $stmtAutoTimeout->execute();
+    $stmtAutoTimeout->execute([$today, $today, $now]);
 
     if ($action === 'check_in' || $action === 'check_out' || $action === 'toggle' || $action === 'checkin') {
         

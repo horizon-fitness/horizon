@@ -87,6 +87,8 @@ $page = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Auto-timeout pending checkouts past gym closing time
+$currentDate = date('Y-m-d');
+$currentTime = date('H:i:s');
 $stmtAutoTimeout = $pdo->prepare("
     UPDATE attendance a
     JOIN gyms g ON a.gym_id = g.gym_id
@@ -94,21 +96,28 @@ $stmtAutoTimeout = $pdo->prepare("
     WHERE a.check_out_time IS NULL 
       AND a.attendance_status = 'Active'
       AND (
-          a.attendance_date < CURDATE() 
-          OR (a.attendance_date = CURDATE() AND CURTIME() > g.closing_time)
+          a.attendance_date < ? 
+          OR (a.attendance_date = ? AND ? > g.closing_time)
       )
 ");
-$stmtAutoTimeout->execute();
+$stmtAutoTimeout->execute([$currentDate, $currentDate, $currentTime]);
 
 // --- FILTERING LOGIC ---
 $view = $_GET['view'] ?? 'history';
 $start_date = $_GET['start_date'] ?? '';
 $end_date = $_GET['end_date'] ?? '';
 $search_query = $_GET['search'] ?? '';
+$user_filter = $_GET['user_id'] ?? 'all';
+$status_filter = $_GET['status'] ?? '';
+$today_filter_date = date('Y-m-d');
+
+if ($start_date !== '' && $start_date > $today_filter_date) $start_date = $today_filter_date;
+if ($end_date !== '' && $end_date > $today_filter_date) $end_date = $today_filter_date;
+if ($start_date !== '' && $end_date !== '' && $start_date > $end_date) $start_date = $end_date;
 
 // Base Query
 $query = "
-    SELECT a.*, u.username, u.profile_picture, CONCAT(u.first_name, ' ', u.last_name) as fullname
+    SELECT a.*, u.username, COALESCE(m.profile_picture, u.profile_picture) as profile_picture, CONCAT(u.first_name, ' ', u.last_name) as fullname
     FROM attendance a 
     JOIN members m ON a.member_id = m.member_id 
     JOIN users u ON m.user_id = u.user_id 
@@ -136,6 +145,19 @@ if ($search_query) {
     $params[] = $sterm;
     $params[] = $sterm;
 }
+if ($user_filter !== '' && $user_filter !== 'all') {
+    $query .= " AND u.user_id = ?";
+    $params[] = (int) $user_filter;
+}
+if ($status_filter !== '') {
+    if ($status_filter === 'Completed') {
+        $query .= " AND a.check_out_time IS NOT NULL AND a.attendance_status <> 'Did Not Checked Out'";
+    } elseif ($status_filter === 'Active') {
+        $query .= " AND a.check_out_time IS NULL AND a.attendance_status = 'Active'";
+    } elseif ($status_filter === 'No Checkout') {
+        $query .= " AND a.attendance_status = 'Did Not Checked Out'";
+    }
+}
 
 $query .= " ORDER BY a.attendance_date DESC, a.check_in_time DESC";
 
@@ -153,10 +175,33 @@ $stmtMetricsActive = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id
 $stmtMetricsActive->execute([$gym_id]);
 $active_now = $stmtMetricsActive->fetchColumn();
 
+$stmtAllLogs = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id = ?");
+$stmtAllLogs->execute([$gym_id]);
+$total_logs = (int) $stmtAllLogs->fetchColumn();
+
 // Average Stay Today (Minutes)
 $stmtAvg = $pdo->prepare("SELECT AVG(TIMESTAMPDIFF(MINUTE, check_in_time, check_out_time)) FROM attendance WHERE gym_id = ? AND attendance_date = ? AND check_out_time IS NOT NULL");
 $stmtAvg->execute([$gym_id, $today]);
 $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
+
+$stmtUsers = $pdo->prepare("
+    SELECT DISTINCT u.user_id, CONCAT(u.first_name, ' ', u.last_name) AS full_name
+    FROM attendance a
+    JOIN members m ON a.member_id = m.member_id
+    JOIN users u ON m.user_id = u.user_id
+    WHERE a.gym_id = ?
+    ORDER BY full_name ASC
+");
+$stmtUsers->execute([$gym_id]);
+$all_users_list = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
+$users_js = array_map(fn($user) => ['id' => (string) $user['user_id'], 'name' => trim($user['full_name'])], $all_users_list);
+$current_user_name = 'All Users';
+foreach ($all_users_list as $available_user) {
+    if ((string) $available_user['user_id'] === (string) $user_filter) {
+        $current_user_name = trim($available_user['full_name']);
+        break;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html class="dark" lang="en">
@@ -204,7 +249,7 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
         }
 
         body { 
-            font-family: 'Lexend', sans-serif; 
+            font-family: '<?= $font_family ?>', sans-serif; 
             background-color: var(--background); 
             color: var(--text-main); 
             display: flex; 
@@ -224,25 +269,10 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
-        .status-card-green {
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, var(--card-bg) 100%);
-        }
-
-        .status-card-yellow {
-            border: 1px solid rgba(245, 158, 11, 0.4);
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, var(--card-bg) 100%);
-        }
-
-        .status-card-red {
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, var(--card-bg) 100%);
-        }
-
-        .status-card-blue {
-            border: 1px solid rgba(59, 130, 246, 0.4);
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, var(--card-bg) 100%);
-        }
+        .status-card-blue { border: 1px solid rgba(var(--primary-rgb), 0.18); background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05) 0%, rgba(var(--primary-rgb), 0.01) 100%); }
+        .status-card-green { border: 1px solid rgba(16, 185, 129, 0.25); background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(16, 185, 129, 0.01) 100%); }
+        .status-card-yellow { border: 1px solid rgba(245, 158, 11, 0.25); background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(245, 158, 11, 0.01) 100%); }
+        .status-card-red { border: 1px solid rgba(244, 63, 94, 0.25); background: linear-gradient(135deg, rgba(244, 63, 94, 0.05) 0%, rgba(244, 63, 94, 0.01) 100%); }
 
         .search-container {
             background: var(--card-bg);
@@ -328,9 +358,41 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
         }
 
         .tab-btn:hover:not(.active) { color: var(--text-main); }
+        .table-header-alt {
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .28em;
+            color: color-mix(in srgb, var(--text-main) 46%, transparent);
+        }
+        .pagination-btn {
+            min-width: 42px; height: 36px; padding: 0 14px; border-radius: 12px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.03);
+            color: color-mix(in srgb, var(--text-main) 45%, transparent);
+            font-size: 10px; font-weight: 900; text-transform: uppercase;
+            transition: all .2s ease;
+        }
+        .pagination-btn:hover:not(.disabled), .pagination-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .pagination-btn.disabled { opacity: .2; pointer-events: none; }
+        .pagination-status { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .22em; color: color-mix(in srgb, var(--text-main) 45%, transparent); }
+        .custom-select-dropdown, .searchable-dropdown-overlay {
+            background: rgba(15, 13, 18, .96);
+            border: 1px solid rgba(255,255,255,.05);
+            box-shadow: 0 18px 45px rgba(0,0,0,.45);
+            scrollbar-width: none;
+        }
+        .custom-select-dropdown::-webkit-scrollbar, .searchable-dropdown-overlay::-webkit-scrollbar { display: none; }
+        .tenant-option { border: 1px solid transparent; cursor: pointer; transition: all .2s ease; }
+        .tenant-option:hover { background: rgba(var(--primary-rgb), .08); border-color: rgba(var(--primary-rgb), .12); color: var(--primary); }
+        .tenant-option.selected { background: var(--primary); color: #fff; }
+        input[type="date"] { color-scheme: dark; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1) brightness(1.35); opacity: .75; cursor: pointer; }
     </style>
     
     <script>
+        const availableUsers = <?= json_encode($users_js, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+        const currentUserFilter = "<?= htmlspecialchars((string) $user_filter, ENT_QUOTES) ?>";
         function updateHeaderClock() {
             const now = new Date();
             const clockEl = document.getElementById('headerClock');
@@ -343,6 +405,52 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
 
         function clearAttendanceFilters() {
             window.location.href = 'admin_attendance.php?view=<?= $view ?>';
+        }
+        let attendanceFilterTimeout;
+        function autoSubmitAttendanceFilters(delay = 350) {
+            clearTimeout(attendanceFilterTimeout);
+            attendanceFilterTimeout = setTimeout(() => document.getElementById('attendanceFilterForm')?.submit(), delay);
+        }
+        function syncAttendanceDateLimits() {
+            const fromInput = document.getElementById('start_date');
+            const toInput = document.getElementById('end_date');
+            if (!fromInput || !toInput) return;
+            const today = new Date().toISOString().slice(0, 10);
+            fromInput.max = toInput.value || today;
+            toInput.min = fromInput.value || '';
+            toInput.max = today;
+            if (fromInput.value && fromInput.value > today) fromInput.value = today;
+            if (toInput.value && toInput.value > today) toInput.value = today;
+            if (fromInput.value && toInput.value && fromInput.value > toInput.value) fromInput.value = toInput.value;
+        }
+        function toggleCustomDropdown(trigger, event) {
+            event.stopPropagation();
+            const dropdown = trigger.closest('.custom-select-container').querySelector('.custom-select-dropdown');
+            document.getElementById('userDropdown')?.classList.add('hidden');
+            document.querySelectorAll('.custom-select-dropdown').forEach((item) => { if (item !== dropdown) item.classList.add('hidden'); });
+            dropdown.classList.toggle('hidden');
+        }
+        function initAttendanceUserDropdown() {
+            const input = document.getElementById('userSearchInput');
+            const dropdown = document.getElementById('userDropdown');
+            const list = document.getElementById('userOptionsList');
+            if (!input || !dropdown || !list) return;
+            const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+            const render = (filter = '') => {
+                const searchFilter = filter === 'All Users' ? '' : filter.toLowerCase().trim();
+                const rows = [{ id: 'all', name: 'All Users' }, ...availableUsers].filter((user) => user.name.toLowerCase().includes(searchFilter));
+                list.innerHTML = rows.map((user) => `<button type="button" class="tenant-option w-full text-left px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest ${String(user.id) === String(document.getElementById('hidden_user_id').value) ? 'selected' : 'text-[--text-main]/65'}" data-id="${escapeHtml(user.id)}" data-name="${escapeHtml(user.name)}">${escapeHtml(user.name)}</button>`).join('') || '<div class="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-[--text-main]/35">No users found</div>';
+            };
+            input.addEventListener('focus', () => { document.querySelectorAll('.custom-select-dropdown').forEach((item) => item.classList.add('hidden')); dropdown.classList.remove('hidden'); render(input.value); });
+            input.addEventListener('input', () => { dropdown.classList.remove('hidden'); render(input.value); });
+            list.addEventListener('click', (event) => {
+                const option = event.target.closest('.tenant-option');
+                if (!option) return;
+                document.getElementById('hidden_user_id').value = option.dataset.id || 'all';
+                input.value = option.dataset.name || 'All Users';
+                dropdown.classList.add('hidden');
+                autoSubmitAttendanceFilters(0);
+            });
         }
 
 
@@ -517,8 +625,8 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
 
             // Prev Button
             const prevBtn = document.createElement('button');
-            prevBtn.className = `size-8 rounded-lg flex items-center justify-center transition-all ${page === 1 ? 'opacity-20 cursor-not-allowed text-[--text-main]/20' : 'bg-white/5 border border-white/10 text-[--text-main]/40 hover:bg-primary hover:text-white active:scale-90'}`;
-            prevBtn.innerHTML = '<span class="material-symbols-rounded text-sm">chevron_left</span>';
+            prevBtn.className = `pagination-btn ${page === 1 ? 'disabled' : ''}`;
+            prevBtn.textContent = 'Prev';
             if (page > 1) prevBtn.onclick = () => renderPagination(page - 1);
             controls.appendChild(prevBtn);
 
@@ -526,7 +634,7 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
             for (let i = 1; i <= totalPages; i++) {
                 if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
                     const btn = document.createElement('button');
-                    btn.className = `size-8 rounded-lg text-[10px] font-black transition-all ${i === page ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' : 'bg-white/5 border border-white/10 text-[--text-main]/40 hover:bg-white/10 hover:text-white'}`;
+                    btn.className = `pagination-btn ${i === page ? 'active' : ''}`;
                     btn.textContent = i;
                     btn.onclick = () => renderPagination(i);
                     controls.appendChild(btn);
@@ -540,19 +648,34 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
 
             // Next Button
             const nextBtn = document.createElement('button');
-            nextBtn.className = `size-8 rounded-lg flex items-center justify-center transition-all ${page === totalPages ? 'opacity-20 cursor-not-allowed text-[--text-main]/20' : 'bg-white/5 border border-white/10 text-[--text-main]/40 hover:bg-primary hover:text-white active:scale-90'}`;
-            nextBtn.innerHTML = '<span class="material-symbols-rounded text-sm">chevron_right</span>';
+            nextBtn.className = `pagination-btn ${page === totalPages ? 'disabled' : ''}`;
+            nextBtn.textContent = 'Next';
             if (page < totalPages) nextBtn.onclick = () => renderPagination(page + 1);
             controls.appendChild(nextBtn);
         }
 
         window.addEventListener('DOMContentLoaded', () => {
             updateHeaderClock();
+            syncAttendanceDateLimits();
+            initAttendanceUserDropdown();
             if ('<?= $view ?>' === 'scan') generateQR();
             switchTab('<?= $view ?>');
             
             // Wait slightly for DOM to settle
             setTimeout(initTablePagination, 100);
+        });
+        document.addEventListener('click', (event) => {
+            const customOption = event.target.closest('.custom-option');
+            if (customOption) {
+                const container = customOption.closest('.custom-select-container');
+                container.querySelector('input[type="hidden"]').value = customOption.dataset.value;
+                container.querySelector('.custom-select-label').textContent = customOption.textContent.trim();
+                container.querySelector('.custom-select-dropdown').classList.add('hidden');
+                autoSubmitAttendanceFilters(0);
+                return;
+            }
+            if (!event.target.closest('.custom-select-container')) document.querySelectorAll('.custom-select-dropdown').forEach((item) => item.classList.add('hidden'));
+            if (!event.target.closest('#userSearchContainer')) document.getElementById('userDropdown')?.classList.add('hidden');
         });
     </script>
 </head>
@@ -579,36 +702,30 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
             </div>
         </header>
 
-        <!-- Dynamic Stat Overview Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            <!-- Total Daily Logs Card -->
-            <div class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02] block transition-all shadow-lg hover:shadow-emerald-500/10">
-                <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">history</span>
-                <p class="text-[--text-main]/60 text-[10px] font-black uppercase mb-3 tracking-widest px-1">Daily Traffic</p>
-                <div class="flex items-center gap-4 px-1">
-                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= number_format($total_today) ?> <span class="text-emerald-500 text-xs align-middle ml-1 italic">ENTRIES</span></h3>
-                </div>
-                <p class="text-[--text-main]/40 text-[9px] font-bold uppercase mt-4 tracking-widest border-t border-white/5 pt-4 px-1 italic">Attendance recorded today</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+            <div class="glass-card p-8 status-card-blue relative overflow-hidden group hover:scale-[1.02] transition-all">
+                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">fact_check</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">All Logs</p>
+                <h3 class="text-3xl font-black italic uppercase text-[--text-main]"><?= number_format($total_logs) ?></h3>
+                <p class="text-[10px] font-black uppercase mt-2 italic text-primary">Attendance Records</p>
             </div>
-
-            <!-- Active Sessions Card -->
-            <a href="?view=live" class="glass-card p-8 status-card-yellow relative overflow-hidden group hover:scale-[1.02] block transition-all shadow-lg hover:shadow-amber-500/10">
-                <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">sensors</span>
-                <p class="text-[--text-main]/60 text-[10px] font-black uppercase mb-3 tracking-widest px-1">Active Now</p>
-                <div class="flex items-center gap-4 px-1">
-                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $active_now ?> <span class="text-amber-500 text-xs align-middle ml-1 italic animate-pulse">TRAINING</span></h3>
-                </div>
-                <p class="text-[--text-main]/40 text-[9px] font-bold uppercase mt-4 tracking-widest border-t border-white/5 pt-4 px-1 italic">Members currently in gym</p>
+            <div class="glass-card p-8 status-card-green relative overflow-hidden group hover:scale-[1.02] transition-all">
+                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">today</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Today</p>
+                <h3 class="text-3xl font-black italic uppercase text-[--text-main]"><?= number_format($total_today) ?></h3>
+                <p class="text-emerald-500 text-[10px] font-black uppercase mt-2 italic">Daily Entries</p>
+            </div>
+            <a href="?view=live" class="glass-card p-8 status-card-yellow relative overflow-hidden group hover:scale-[1.02] transition-all">
+                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">sensors</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Active Now</p>
+                <h3 class="text-3xl font-black italic uppercase text-[--text-main]"><?= number_format($active_now) ?></h3>
+                <p class="text-amber-500 text-[10px] font-black uppercase mt-2 italic">Currently In Gym</p>
             </a>
-
-            <!-- Average Visit Duration Card -->
-            <div class="glass-card p-8 status-card-blue relative overflow-hidden group hover:scale-[1.02] block transition-all shadow-lg hover:shadow-blue-500/10">
-                <span class="material-symbols-rounded absolute right-6 top-1/2 -translate-y-1/2 text-7xl opacity-10 group-hover:scale-110 transition-transform text-blue-500">update</span>
-                <p class="text-[--text-main]/60 text-[10px] font-black uppercase mb-3 tracking-widest px-1">Average Stay</p>
-                <div class="flex items-center gap-4 px-1">
-                    <h3 class="text-3xl font-black italic uppercase text-white leading-none tracking-tighter"><?= $avg_stay ?> <span class="text-blue-500 text-xs align-middle ml-1 italic">MINUTES</span></h3>
-                </div>
-                <p class="text-[--text-main]/40 text-[9px] font-bold uppercase mt-4 tracking-widest border-t border-white/5 pt-4 px-1 italic">Typical session duration</p>
+            <div class="glass-card p-8 status-card-red relative overflow-hidden group hover:scale-[1.02] transition-all">
+                <span class="material-symbols-rounded absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-rose-500">update</span>
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Average Stay</p>
+                <h3 class="text-3xl font-black italic uppercase text-[--text-main]"><?= $avg_stay ?></h3>
+                <p class="text-rose-500 text-[10px] font-black uppercase mt-2 italic">Minutes Today</p>
             </div>
         </div>
 
@@ -695,48 +812,57 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
         <?php else: ?>
 
         <!-- Dynamic Filter Matrix -->
-        <div class="mb-10">
-            <form method="GET" class="glass-card p-8 relative overflow-hidden">
+        <div class="glass-card shadow-2xl overflow-hidden border border-white/5">
+            <div class="p-8 border-b border-white/5 bg-white/[0.01]">
+            <form id="attendanceFilterForm" method="GET" class="flex flex-nowrap items-center gap-5 relative">
                 <input type="hidden" name="view" value="<?= $view ?>">
-                <div class="grid grid-cols-1 md:grid-cols-2 <?= ($view === 'history') ? 'lg:grid-cols-5' : 'lg:grid-cols-3' ?> gap-6 items-end">
-                    <div class="space-y-2 lg:col-span-1">
-                        <p class="text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest ml-1">Member Identity</p>
-                        <div class="relative group">
-                            <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main]/40 text-lg group-focus-within:text-primary transition-colors">search</span>
-                            <input type="text" name="search" value="<?= htmlspecialchars($search_query) ?>" placeholder="Search member name..." class="input-box pl-12 w-full">
+                <input type="hidden" name="user_id" id="hidden_user_id" value="<?= htmlspecialchars((string) $user_filter) ?>">
+                    <div class="flex-1 min-w-[260px] relative group">
+                        <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50 transition-transform group-hover:scale-110">search</span>
+                        <input type="text" name="search" value="<?= htmlspecialchars($search_query) ?>" placeholder="Search records..." autocomplete="off" oninput="autoSubmitAttendanceFilters()"
+                            class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary">
+                    </div>
+                    <div id="userSearchContainer" class="flex-1 min-w-[240px] relative group">
+                        <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50 transition-transform group-hover:scale-110 z-10">person_search</span>
+                        <input id="userSearchInput" type="text" value="<?= htmlspecialchars($current_user_name) ?>" autocomplete="off"
+                            class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-11 text-[10px] font-black uppercase tracking-widest outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary">
+                        <span class="material-symbols-rounded absolute right-4 top-1/2 -translate-y-1/2 text-primary/70 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                        <div id="userDropdown" class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl p-1.5 searchable-dropdown-overlay hidden max-h-72 overflow-y-auto">
+                            <div id="userOptionsList" class="space-y-1"></div>
+                        </div>
+                    </div>
+                    <div class="w-[180px] relative group shrink-0 custom-select-container">
+                        <input type="hidden" name="status" value="<?= htmlspecialchars($status_filter) ?>">
+                        <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                            <div class="h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 pr-11 flex items-center text-[10px] font-black uppercase tracking-widest text-[--text-main] hover:border-white/20 transition-all">
+                                <span class="custom-select-label"><?= htmlspecialchars($status_filter ?: 'All Status') ?></span>
+                            </div>
+                            <span class="material-symbols-rounded absolute right-4 top-1/2 -translate-y-1/2 text-primary/70 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                        </div>
+                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
+                            <?php foreach (['' => 'All Status', 'Active' => 'Active', 'Completed' => 'Completed', 'No Checkout' => 'No Checkout'] as $value => $label): ?>
+                                <button type="button" class="custom-option tenant-option w-full text-left px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest <?= ($status_filter === $value) ? 'selected' : 'text-[--text-main]/65' ?>" data-value="<?= htmlspecialchars($value) ?>"><?= htmlspecialchars($label) ?></button>
+                            <?php endforeach; ?>
                         </div>
                     </div>
 
                     <?php if ($view === 'history'): ?>
-                    <div class="space-y-2">
-                        <p class="text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest ml-1">Period Registry (From)</p>
-                        <input type="date" name="start_date" value="<?= htmlspecialchars($start_date) ?>" class="input-box w-full [color-scheme:dark]">
-                    </div>
-
-                    <div class="space-y-2">
-                        <p class="text-[--text-main]/60 text-[10px] font-black uppercase tracking-widest ml-1">Period Registry (To)</p>
-                        <input type="date" name="end_date" value="<?= htmlspecialchars($end_date) ?>" class="input-box w-full [color-scheme:dark]">
-                    </div>
+                    <input type="date" name="start_date" id="start_date" value="<?= htmlspecialchars($start_date) ?>" max="<?= htmlspecialchars($end_date ?: date('Y-m-d')) ?>" onchange="syncAttendanceDateLimits(); autoSubmitAttendanceFilters(0)"
+                        class="w-[170px] h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary shrink-0">
+                    <input type="date" name="end_date" id="end_date" value="<?= htmlspecialchars($end_date) ?>" min="<?= htmlspecialchars($start_date) ?>" max="<?= date('Y-m-d') ?>" onchange="syncAttendanceDateLimits(); autoSubmitAttendanceFilters(0)"
+                        class="w-[170px] h-[52px] bg-white/5 border border-white/10 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest outline-none text-[--text-main] hover:border-white/20 transition-all focus:border-primary shrink-0">
                     <?php endif; ?>
 
-                    <div class="flex gap-3">
-                        <button type="submit" class="flex-1 bg-primary hover:bg-primary/90 text-white h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-primary/20 active:scale-95">Apply Filter</button>
-                        <button type="button" onclick="clearAttendanceFilters()" class="size-[46px] rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-[--text-main]/40 hover:bg-rose-500/10 hover:text-rose-500 transition-all group active:scale-95">
-                            <span class="material-symbols-rounded text-xl group-hover:rotate-180 transition-transform">restart_alt</span>
-                        </button>
-                    </div>
-
-                    <div class="lg:col-span-1">
-                        <button type="button" onclick="alert('CSV Export Protocol Initialized')" class="w-full bg-white/5 border border-white/10 hover:bg-white/10 text-primary h-[46px] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 group active:scale-95">
-                            <span class="material-symbols-rounded text-lg group-hover:-translate-z-1 group-hover:translate-y-0.5 transition-transform">download</span>
-                            Export Data Log
-                        </button>
-                    </div>
-                </div>
+                    <button type="button" onclick="clearAttendanceFilters()" class="h-[52px] w-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-white/30 hover:text-white hover:bg-white/10 transition-all" title="Reset filters">
+                        <span class="material-symbols-rounded text-lg">refresh</span>
+                    </button>
+                    <button type="button" onclick="alert('CSV Export Protocol Initialized')" class="h-[52px] w-[52px] rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-primary/70 hover:text-white hover:bg-white/10 transition-all" title="Export">
+                        <span class="material-symbols-rounded text-lg">download</span>
+                    </button>
             </form>
-        </div>
+            </div>
 
-        <div class="flex justify-between items-center mb-6 px-2">
+        <div class="hidden">
             <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40 italic">Attendance Records — <span class="text-[--text-main]"><?= $view === 'live' ? 'Members Currently In Gym' : 'Full Log History' ?></span></p>
             <div class="flex items-center gap-4">
                 <span class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest text-[--text-main]/40">Records: <?= count($attendance_list) ?></span>
@@ -744,24 +870,22 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
         </div>
 
         <!-- Data Log Table -->
-        <div class="glass-card flex flex-col overflow-hidden border-white/5">
             <div class="overflow-x-auto no-scrollbar">
                 <table id="attendanceTable" class="w-full text-left order-collapse border-separate border-spacing-0">
                     <thead>
-                        <tr class="bg-white/[0.02] text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main]/40 border-b border-white/5">
-                            <th class="px-8 py-6">Member Identity</th>
-                            <th class="px-8 py-6">Registry Date</th>
-                            <th class="px-8 py-6 text-center">Entry Index</th>
-                            <th class="px-8 py-6 text-center">Exit Index</th>
-                            <th class="px-8 py-6 text-right">Status Offset</th>
+                        <tr class="bg-white/5 border-b border-white/5">
+                            <th class="px-8 py-5 table-header-alt">Name</th>
+                            <th class="px-8 py-5 table-header-alt">Date</th>
+                            <th class="px-8 py-5 table-header-alt text-center">Check In</th>
+                            <th class="px-8 py-5 table-header-alt text-center">Check Out</th>
+                            <th class="px-8 py-5 table-header-alt text-center">Status</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-white/5">
+                    <tbody class="divide-y divide-white/5 text-sm font-medium">
                         <?php if (empty($attendance_list)): ?>
                         <tr>
-                            <td colspan="5" class="px-8 py-32 text-center">
-                                <span class="material-symbols-rounded text-5xl text-[--text-main]/10 mb-6 block">event_busy</span>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/20 italic">No attendance records detected in matrix.</p>
+                            <td colspan="5" class="px-8 py-24 text-center text-[11px] font-black uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                No attendance records found.
                             </td>
                         </tr>
                         <?php else: foreach ($attendance_list as $row): 
@@ -769,62 +893,59 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
                             $check_in_ts = strtotime($row['attendance_date'] . ' ' . $row['check_in_time']);
                             $check_out_ts = $row['check_out_time'] ? strtotime($row['attendance_date'] . ' ' . $row['check_out_time']) : null;
                         ?>
-                        <tr class="hover:bg-white/5 group transition-all duration-300">
+                        <tr class="hover:bg-white/[0.02] group transition-colors">
                             <td class="px-8 py-5">
                                 <div class="flex items-center gap-4">
-                                    <div class="size-10 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden">
+                                    <div class="size-11 rounded-full flex items-center justify-center font-black text-[11px] border border-white/10 shrink-0 overflow-hidden shadow-inner relative" style="background:rgba(var(--primary-rgb), 0.1); color:var(--primary)">
                                         <?php if (!empty($row['profile_picture'])): 
                                             $pfp_src = (strpos($row['profile_picture'], 'data:image') === 0) ? $row['profile_picture'] : '../' . $row['profile_picture'];
                                         ?>
                                             <img src="<?= htmlspecialchars($pfp_src) ?>" class="size-full object-cover" alt="">
                                         <?php else: ?>
-                                            <div class="text-primary font-black italic text-base">
-                                                <?= substr($row['fullname'] ?: $row['username'], 0, 1) ?>
-                                            </div>
+                                            <?= htmlspecialchars(strtoupper(substr($row['fullname'] ?: $row['username'], 0, 1))) ?>
                                         <?php endif; ?>
                                     </div>
                                     <div>
-                                        <p class="text-[12.5px] font-black italic uppercase text-white group-hover:text-primary transition-colors tracking-tight"><?= htmlspecialchars($row['fullname'] ?: $row['username']) ?></p>
-                                        <p class="text-[8.5px] font-bold text-[--text-main]/20 uppercase tracking-[0.1em] mt-0.5 opacity-60"><?= htmlspecialchars($row['username']) ?></p>
+                                        <p class="text-[13px] font-bold tracking-wide text-[--text-main] truncate"><?= htmlspecialchars($row['fullname'] ?: $row['username']) ?></p>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-8 py-5">
-                                <p class="text-[10px] font-black text-white italic uppercase tracking-tight"><?= date('M d, Y', $check_in_ts) ?></p>
-                                <p class="text-[8.5px] font-bold text-[--text-main]/20 uppercase tracking-widest mt-1"><?= date('l', $check_in_ts) ?></p>
+                                <p class="text-[12px] font-bold whitespace-nowrap" style="color:var(--primary)"><?= date('M d, Y', $check_in_ts) ?></p>
+                                <p class="text-[11px] font-semibold text-[--text-main]/50"><?= date('l', $check_in_ts) ?></p>
                             </td>
                             <td class="px-8 py-5 text-center">
                                 <div class="inline-block px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
-                                    <p class="text-[11px] font-black italic text-emerald-500 uppercase"><?= date('h:i A', $check_in_ts) ?></p>
+                                    <p class="text-[12px] font-bold text-emerald-500 uppercase"><?= date('h:i A', $check_in_ts) ?></p>
                                 </div>
                             </td>
                             <td class="px-8 py-5 text-center">
                                 <?php if ($isTraining): ?>
                                     <?php if ($row['attendance_status'] === 'Did Not Checked Out'): ?>
                                         <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/5 border border-rose-500/10">
-                                            <span class="text-rose-500 text-[9px] font-black italic uppercase tracking-widest">MISSING</span>
+                                            <span class="text-rose-500 text-[9px] font-black uppercase tracking-widest">MISSING</span>
                                         </div>
                                     <?php else: ?>
                                         <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/5 border border-amber-500/10">
                                             <span class="size-1 rounded-full bg-amber-500 animate-ping"></span>
-                                            <span class="text-amber-500 text-[9px] font-black italic uppercase tracking-widest">ACTIVE</span>
+                                            <span class="text-amber-500 text-[9px] font-black uppercase tracking-widest">ACTIVE</span>
                                         </div>
                                     <?php endif; ?>
                                 <?php else: ?>
                                     <div class="inline-block px-3 py-1.5 rounded-xl bg-white/5 border border-white/5">
-                                        <p class="text-[11px] font-black italic text-[--text-main]/40 uppercase"><?= date('h:i A', $check_out_ts) ?></p>
+                                        <p class="text-[12px] font-bold text-[--text-main]/60 uppercase"><?= date('h:i A', $check_out_ts) ?></p>
                                     </div>
                                 <?php endif; ?>
                             </td>
-                            <td class="px-8 py-5 text-right">
+                            <td class="px-8 py-5 text-center">
                                 <?php if ($isTraining): ?>
                                     <?php if ($row['attendance_status'] === 'Did Not Checked Out'): ?>
-                                        <span class="px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-[8px] text-rose-500 font-black uppercase italic tracking-[0.1em]">NO CHECKOUT</span>
+                                        <span class="px-4 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-[8px] text-rose-500 font-black uppercase tracking-widest">NO CHECKOUT</span>
                                     <?php else: ?>
-                                        <span class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[8px] text-emerald-500 font-black uppercase italic tracking-[0.1em]">PRESENT</span>
+                                        <span class="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[8px] text-emerald-500 font-black uppercase tracking-widest">PRESENT</span>
                                     <?php endif; ?>
                                 <?php else: ?>
-                                    <span class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-[8px] text-[--text-main]/20 font-black uppercase italic tracking-[0.1em]">COMPLETED</span>
+                                    <span class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-[8px] text-[--text-main]/45 font-black uppercase tracking-widest">COMPLETED</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -835,7 +956,7 @@ $avg_stay = round($stmtAvg->fetchColumn() ?: 0);
             
             <!-- Elite Pagination Container -->
             <div id="paginationWrap" class="px-8 py-6 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 bg-white/[0.01] hidden">
-                <p id="paginationStatus" class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/20 italic">Showing 10 of 45 entries</p>
+                <p id="paginationStatus" class="pagination-status">Showing 10 of 45 entries</p>
                 <div id="paginationControls" class="flex items-center gap-2">
                     <!-- Dynamic Buttons -->
                 </div>
