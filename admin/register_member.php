@@ -164,6 +164,9 @@ $active_page = "register";
             --background:
                 <?= $bg_color ?>
             ;
+            --background-rgb:
+                <?= hexToRgb($bg_color) ?>
+            ;
             --card-bg:
                 <?= $card_bg_css ?>
             ;
@@ -193,6 +196,14 @@ $active_page = "register";
 
         .glass-card.allow-overflow {
             overflow: visible;
+        }
+
+        .dropdown-card {
+            z-index: 50;
+        }
+
+        .dropdown-card.dropdown-open {
+            z-index: 1000;
         }
 
         .input-field {
@@ -260,12 +271,33 @@ $active_page = "register";
             color: #ffffff !important;
         }
 
+        #custom-modal {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 110px;
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .side-nav:hover~#custom-modal {
+            left: 300px;
+        }
+
+        #custom-modal.flex {
+            display: flex !important;
+        }
+
         .field-note {
             font-size: 10px;
             font-weight: 800;
             letter-spacing: 0.10em;
             text-transform: uppercase;
-            color: rgba(16, 185, 129, 0.92);
+            color: var(--primary);
         }
 
         .preview-label {
@@ -461,8 +493,29 @@ $active_page = "register";
             input.value = formatted;
         }
 
+        let registrationConfirmed = false;
+
         function validateForm(event) {
-            return true;
+            if (registrationConfirmed) return true;
+            event.preventDefault();
+
+            const otherOccupation = document.getElementById('occupation_other');
+            const occupationInput = document.querySelector('input[name="occupation"]');
+            if (otherOccupation && occupationInput && occupationInput.value === 'Other') {
+                occupationInput.value = otherOccupation.value.trim();
+            }
+
+            showModal(
+                'Confirm Registration',
+                'Proceed with registering this member? Credentials will be generated and sent to their email.',
+                'confirm',
+                () => {
+                    registrationConfirmed = true;
+                    event.target.submit();
+                }
+            );
+
+            return false;
         }
 
         function initializePhonePrefix() {
@@ -475,12 +528,20 @@ $active_page = "register";
         function toggleCustomDropdown(trigger, event) {
             event.stopPropagation();
             const dropdown = trigger.nextElementSibling;
+            const container = trigger.closest('.custom-select-container');
+            const card = trigger.closest('.dropdown-card');
 
             document.querySelectorAll('.custom-select-dropdown').forEach((item) => {
                 if (item !== dropdown) item.classList.add('hidden');
             });
+            document.querySelectorAll('.custom-select-container').forEach((item) => {
+                if (item !== container) item.classList.remove('is-open');
+            });
+            document.querySelectorAll('.dropdown-card').forEach((item) => item.classList.remove('dropdown-open'));
 
             dropdown.classList.toggle('hidden');
+            container.classList.toggle('is-open', !dropdown.classList.contains('hidden'));
+            if (card && !dropdown.classList.contains('hidden')) card.classList.add('dropdown-open');
         }
 
         document.addEventListener('click', (event) => {
@@ -497,6 +558,14 @@ $active_page = "register";
                 displayInput.value = customOption.textContent.trim();
                 hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
 
+                if (hiddenInput.name === 'occupation') {
+                    const otherField = document.getElementById('occupation_other_wrap');
+                    const otherInput = document.getElementById('occupation_other');
+                    const isOther = customOption.dataset.value === 'Other';
+                    if (otherField) otherField.classList.toggle('hidden', !isOther);
+                    if (otherInput) otherInput.required = isOther;
+                }
+
                 container.querySelectorAll('.custom-option').forEach((option) => {
                     option.classList.remove('selected-option');
                     option.classList.add('text-white/60');
@@ -505,13 +574,73 @@ $active_page = "register";
                 customOption.classList.add('selected-option');
                 customOption.classList.remove('text-white/60');
                 dropdown.classList.add('hidden');
+                container.classList.remove('is-open');
+                document.querySelectorAll('.dropdown-card').forEach((item) => item.classList.remove('dropdown-open'));
                 return;
             }
 
             if (!event.target.closest('.custom-select-container')) {
                 document.querySelectorAll('.custom-select-dropdown').forEach((item) => item.classList.add('hidden'));
+                document.querySelectorAll('.custom-select-container').forEach((item) => item.classList.remove('is-open'));
+                document.querySelectorAll('.dropdown-card').forEach((item) => item.classList.remove('dropdown-open'));
             }
         });
+
+        function showModal(title, message, type, callback = null) {
+            const modal = document.getElementById('custom-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const content = document.getElementById('modal-content');
+            const actionsDiv = document.getElementById('modal-actions');
+
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            actionsDiv.innerHTML = '';
+
+            if (type === 'confirm') {
+                const cancelBtn = document.createElement('button');
+                cancelBtn.className = 'px-6 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] font-black uppercase tracking-[0.2em] transition-colors';
+                cancelBtn.innerText = 'Cancel';
+                cancelBtn.onclick = closeModal;
+                actionsDiv.appendChild(cancelBtn);
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = 'px-8 py-3.5 rounded-2xl bg-primary hover:opacity-80 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 transition-all flex items-center gap-2';
+                confirmBtn.innerHTML = '<span class="material-symbols-rounded text-base">check</span> Confirm';
+                confirmBtn.onclick = function () {
+                    if (callback) callback();
+                    closeModal();
+                };
+                actionsDiv.appendChild(confirmBtn);
+
+                document.getElementById('modal-icon').innerText = 'security';
+                document.getElementById('modal-icon').className = 'material-symbols-rounded text-4xl text-primary';
+                document.getElementById('modal-icon-bg').className = 'w-20 h-20 rounded-[24px] bg-primary/10 flex items-center justify-center mx-auto mb-6 border border-primary/20';
+            }
+
+            modal.classList.add('flex');
+            modal.classList.remove('hidden');
+
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                content.classList.remove('scale-90', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            const backdrop = document.getElementById('modal-backdrop');
+            const content = document.getElementById('modal-content');
+
+            backdrop.classList.add('opacity-0');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-90', 'opacity-0');
+
+            setTimeout(() => {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }, 300);
+        }
 
         function initializeLivePreview() {
             const pairs = [
@@ -547,6 +676,17 @@ $active_page = "register";
 
         window.addEventListener('DOMContentLoaded', initializePhonePrefix);
         window.addEventListener('DOMContentLoaded', initializeLivePreview);
+        window.addEventListener('DOMContentLoaded', () => {
+            const alert = document.getElementById('statusAlert');
+            if (alert) {
+                setTimeout(() => {
+                    alert.style.opacity = '0';
+                    alert.style.transition = 'opacity 0.8s ease-out, transform 0.8s ease-out';
+                    alert.style.transform = 'translateY(-10px)';
+                    setTimeout(() => alert.style.display = 'none', 800);
+                }, 15000);
+            }
+        });
     </script>
 </head>
 
@@ -560,7 +700,7 @@ $active_page = "register";
             <header class="mb-8 flex flex-row justify-between items-end gap-6">
                 <div>
                     <h2
-                        class="text-2xl font-black italic uppercase tracking-tighter text-white leading-none tracking-tight">
+                        class="text-2xl font-black uppercase tracking-tighter text-white leading-none tracking-tight">
                         Walk-in <span class="text-primary">Registration</span></h2>
                     <p
                         class="text-[--text-main]/60 text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-60">
@@ -569,7 +709,7 @@ $active_page = "register";
                 <div class="flex items-end gap-8 text-right shrink-0">
                     <div class="flex flex-col items-end">
                         <p id="topClock"
-                            class="text-[--text-main] font-black italic text-2xl leading-none tracking-tighter uppercase">
+                            class="text-[--text-main] font-black text-2xl leading-none tracking-tighter uppercase">
                             00:00:00 AM</p>
                         <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
                             <?= date('l, M d, Y') ?></p>
@@ -579,40 +719,54 @@ $active_page = "register";
 
             <div>
                 <?php if ($success): ?>
-                    <div
-                        class="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-3 shadow-lg">
-                        <span class="material-symbols-rounded text-lg">check_circle</span> <?= $success ?>
+                    <div id="statusAlert"
+                        class="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-emerald-500 text-[11px] font-black uppercase mb-8 flex items-center justify-between group">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-rounded text-base">check_circle</span>
+                            <span><?= $success ?></span>
+                        </div>
+                        <button type="button" onclick="document.getElementById('statusAlert').style.display='none'"
+                            class="size-6 flex items-center justify-center rounded-lg hover:bg-emerald-500/20 transition-all text-emerald-500/50 hover:text-emerald-500">
+                            <span class="material-symbols-rounded text-sm">close</span>
+                        </button>
                     </div>
                 <?php endif; ?>
 
                 <?php if ($error): ?>
-                    <div
-                        class="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold flex items-center gap-3 shadow-lg">
-                        <span class="material-symbols-rounded text-lg">error</span> <?= $error ?>
+                    <div id="statusAlert"
+                        class="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-rose-500 text-[11px] font-black uppercase mb-8 flex items-center justify-between group">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-rounded text-base">warning</span>
+                            <span><?= $error ?></span>
+                        </div>
+                        <button type="button" onclick="document.getElementById('statusAlert').style.display='none'"
+                            class="size-6 flex items-center justify-center rounded-lg hover:bg-rose-500/20 transition-all text-rose-500/50 hover:text-rose-500">
+                            <span class="material-symbols-rounded text-sm">close</span>
+                        </button>
                     </div>
                 <?php endif; ?>
 
                 <form method="POST" onsubmit="return validateForm(event)" class="space-y-6 pb-12">
                     <div class="glass-card p-6 border-l-4 border-l-primary">
                         <h4
-                            class="text-sm font-black italic uppercase tracking-tighter mb-3 flex items-center gap-2 text-primary">
-                            <span class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-lg">key</span>
+                            class="text-sm font-black uppercase tracking-tighter mb-3 flex items-center gap-2 text-[--text-main]">
+                            <span class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-primary text-lg">key</span>
                             Credentials
                         </h4>
-                        <p class="text-[12px] font-medium text-[--text-main]/70 leading-relaxed max-w-2xl">
-                            For security, the account <span class="text-white font-bold italic">username</span> and
-                            <span class="text-white font-bold italic">password</span> will be automatically generated
+                        <p class="text-sm font-medium italic text-[--text-main]/70 leading-relaxed max-w-3xl">
+                            For security, the account <span class="text-primary font-bold">username</span> and
+                            <span class="text-primary font-bold">password</span> will be automatically generated
                             and securely delivered to the recipient's email address upon confirmation.
                         </p>
                     </div>
 
-                    <div class="glass-card allow-overflow p-6">
+                    <div class="glass-card allow-overflow dropdown-card p-6">
                         <h4
-                            class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2 text-primary">
-                            <span class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-lg">person</span>
+                            class="text-sm font-black uppercase tracking-tighter mb-6 flex items-center gap-2 text-[--text-main]">
+                            <span class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-primary text-lg">person</span>
                             Personal Information
                         </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
                             <div class="space-y-2">
                                 <label
                                     class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">First
@@ -631,13 +785,12 @@ $active_page = "register";
                             </div>
                             <div class="space-y-2">
                                 <label
-                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Last
-                                    Name <span class="text-red-500">*</span></label>
-                                <input type="text" name="last_name" required
-                                    value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" class="input-field"
-                                    placeholder="Last Name">
+                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Birth
+                                    Date <span class="text-red-500">*</span></label>
+                                <input type="date" name="birth_date" required
+                                    value="<?= htmlspecialchars($_POST['birth_date'] ?? '') ?>" class="input-field">
                             </div>
-                            <div class="space-y-2 md:col-span-1">
+                            <div class="space-y-2">
                                 <label
                                     class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Sex
                                     <span class="text-red-500">*</span></label>
@@ -648,28 +801,29 @@ $active_page = "register";
                                         <input type="text" readonly value="<?= htmlspecialchars($selected_sex) ?>" class="input-field w-full cursor-pointer pointer-events-none pr-12" autocomplete="off">
                                         <span class="material-symbols-rounded absolute right-4 top-1/2 -translate-y-1/2 text-primary/70 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                     </div>
-                                    <div class="absolute left-0 right-0 top-full mt-2 z-[200] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[999] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
                                         <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $selected_sex === 'Male' ? 'selected-option' : 'text-white/60' ?>" data-value="Male">Male</div>
                                         <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $selected_sex === 'Female' ? 'selected-option' : 'text-white/60' ?>" data-value="Female">Female</div>
                                         <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $selected_sex === 'Prefer not to say' ? 'selected-option' : 'text-white/60' ?>" data-value="Prefer not to say">Prefer not to say</div>
                                     </div>
                                 </div>
                             </div>
-                            <div class="space-y-2 md:col-span-2">
+                            <div class="space-y-2">
                                 <label
-                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Birth
-                                    Date <span class="text-red-500">*</span></label>
-                                <input type="date" name="birth_date" required
-                                    value="<?= htmlspecialchars($_POST['birth_date'] ?? '') ?>" class="input-field">
+                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Last
+                                    Name <span class="text-red-500">*</span></label>
+                                <input type="text" name="last_name" required
+                                    value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>" class="input-field"
+                                    placeholder="Last Name">
                             </div>
                         </div>
                     </div>
 
-                    <div class="glass-card p-6">
+                    <div class="glass-card allow-overflow dropdown-card p-6">
                         <h4
-                            class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2 text-primary">
+                            class="text-sm font-black uppercase tracking-tighter mb-6 flex items-center gap-2 text-[--text-main]">
                             <span
-                                class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-lg">alternate_email</span>
+                                class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-primary text-lg">alternate_email</span>
                             Contact Information
                         </h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -690,31 +844,34 @@ $active_page = "register";
                                     placeholder="09XX-XXX-XXXX">
                                 <p class="field-note ml-1">Starts with 09 automatically.</p>
                             </div>
-                            <div class="space-y-2 md:col-span-2">
-                                <label
-                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Home
-                                    Address <span class="text-red-500">*</span></label>
-                                <input type="text" name="address" required
-                                    value="<?= htmlspecialchars($_POST['address'] ?? '') ?>" class="input-field"
-                                    placeholder="Street, Barangay, City">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="glass-card p-6">
-                        <h4
-                            class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2 text-primary">
-                            <span
-                                class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-lg">medical_information</span>
-                            Health & Profile
-                        </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="space-y-2 md:col-span-2">
+                            <div class="space-y-2">
                                 <label
                                     class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Occupation</label>
-                                <input type="text" name="occupation"
-                                    value="<?= htmlspecialchars($_POST['occupation'] ?? '') ?>" class="input-field"
-                                    placeholder="e.g. Software Engineer">
+                                <?php
+                                $occupation_options = ['Student', 'Employed', 'Self-Employed', 'Unemployed'];
+                                $posted_occupation = $_POST['occupation'] ?? 'Student';
+                                $selected_occupation = in_array($posted_occupation, $occupation_options, true) ? $posted_occupation : 'Other';
+                                $other_occupation = $selected_occupation === 'Other' ? $posted_occupation : '';
+                                ?>
+                                <div class="relative group custom-select-container">
+                                    <input type="hidden" name="occupation" value="<?= htmlspecialchars($selected_occupation === 'Other' ? 'Other' : $selected_occupation) ?>">
+                                    <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="<?= htmlspecialchars($selected_occupation) ?>" class="input-field w-full cursor-pointer pointer-events-none pr-12" autocomplete="off">
+                                        <span class="material-symbols-rounded absolute right-4 top-1/2 -translate-y-1/2 text-primary/70 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[999] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-56 overflow-y-auto">
+                                        <?php foreach (['Student', 'Employed', 'Self-Employed', 'Unemployed', 'Other'] as $occupation_option): ?>
+                                            <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $selected_occupation === $occupation_option ? 'selected-option' : 'text-white/60' ?>" data-value="<?= htmlspecialchars($occupation_option) ?>"><?= htmlspecialchars($occupation_option) ?></div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="occupation_other_wrap" class="space-y-2 <?= $selected_occupation === 'Other' ? '' : 'hidden' ?>">
+                                <label
+                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Specify
+                                    Occupation <span class="text-red-500">*</span></label>
+                                <input type="text" id="occupation_other" value="<?= htmlspecialchars($other_occupation) ?>" class="input-field"
+                                    placeholder="Type occupation" <?= $selected_occupation === 'Other' ? 'required' : '' ?>>
                             </div>
                             <div class="space-y-2">
                                 <label
@@ -736,6 +893,57 @@ $active_page = "register";
                         </div>
                     </div>
 
+                    <div class="glass-card p-6">
+                        <h4
+                            class="text-sm font-black uppercase tracking-tighter mb-6 flex items-center gap-2 text-[--text-main]">
+                            <span
+                                class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-primary text-lg">home_pin</span>
+                            Address
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Address
+                                    Line <span class="text-red-500">*</span></label>
+                                <input type="text" name="address_line" required
+                                    value="<?= htmlspecialchars($_POST['address_line'] ?? $_POST['address'] ?? '') ?>" class="input-field"
+                                    placeholder="House No., Street">
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Barangay
+                                    <span class="text-red-500">*</span></label>
+                                <input type="text" name="barangay" required
+                                    value="<?= htmlspecialchars($_POST['barangay'] ?? '') ?>" class="input-field"
+                                    placeholder="Barangay">
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">City
+                                    <span class="text-red-500">*</span></label>
+                                <input type="text" name="city" required
+                                    value="<?= htmlspecialchars($_POST['city'] ?? '') ?>" class="input-field"
+                                    placeholder="City">
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Province
+                                    <span class="text-red-500">*</span></label>
+                                <input type="text" name="province" required
+                                    value="<?= htmlspecialchars($_POST['province'] ?? '') ?>" class="input-field"
+                                    placeholder="Province">
+                            </div>
+                            <div class="space-y-2">
+                                <label
+                                    class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Region
+                                    <span class="text-red-500">*</span></label>
+                                <input type="text" name="region" required
+                                    value="<?= htmlspecialchars($_POST['region'] ?? '') ?>" class="input-field"
+                                    placeholder="Region">
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="flex justify-end pt-2">
                         <button type="submit"
                             class="group px-8 h-12 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-[0.16em] shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 transition-all flex items-center gap-3">Register
@@ -745,6 +953,30 @@ $active_page = "register";
                 </form>
             </div>
         </main>
+    </div>
+
+    <div id="custom-modal" class="hidden pointer-events-none">
+        <div class="absolute inset-0 transition-opacity duration-300 opacity-0 bg-[rgba(var(--background-rgb),0.4)] backdrop-blur-[20px] backdrop-saturate-[180%] pointer-events-auto" id="modal-backdrop"
+            onclick="closeModal()">
+        </div>
+
+        <div class="relative z-10 bg-[--card-bg] w-full max-w-[400px] rounded-[28px] shadow-2xl border border-white/5 overflow-hidden transform transition-all duration-300 scale-90 opacity-0 pointer-events-auto"
+            id="modal-content">
+            <div class="p-8 text-center">
+                <div class="w-20 h-20 rounded-[24px] bg-white/5 flex items-center justify-center mx-auto mb-6 border border-white/10"
+                    id="modal-icon-bg">
+                    <span class="material-symbols-rounded text-4xl text-primary" id="modal-icon">info</span>
+                </div>
+
+                <h3 class="text-xl font-black text-white uppercase tracking-tighter mb-3" id="modal-title">
+                    Notification</h3>
+                <p class="text-gray-400 text-[11px] font-bold tracking-wider mb-8 leading-relaxed px-2"
+                    id="modal-message">Message goes here...</p>
+
+                <div class="flex gap-3 justify-center" id="modal-actions">
+                </div>
+            </div>
+        </div>
     </div>
 </body>
 
