@@ -28,10 +28,24 @@ try {
     $today = date('Y-m-d');
     $now = date('H:i:s');
 
+    // Auto-timeout pending checkouts past gym closing time
+    $stmtAutoTimeout = $pdo->prepare("
+        UPDATE attendance a
+        JOIN gyms g ON a.gym_id = g.gym_id
+        SET a.attendance_status = 'Did Not Checked Out'
+        WHERE a.check_out_time IS NULL 
+          AND a.attendance_status = 'Active'
+          AND (
+              a.attendance_date < CURDATE() 
+              OR (a.attendance_date = CURDATE() AND CURTIME() > g.closing_time)
+          )
+    ");
+    $stmtAutoTimeout->execute();
+
     if ($action === 'check_in' || $action === 'check_out' || $action === 'toggle' || $action === 'checkin') {
         
         // Find active session
-        $stmtActive = $pdo->prepare("SELECT attendance_id FROM attendance WHERE member_id = ? AND attendance_date = ? AND check_out_time IS NULL ORDER BY check_in_time DESC LIMIT 1");
+        $stmtActive = $pdo->prepare("SELECT attendance_id FROM attendance WHERE member_id = ? AND attendance_date = ? AND check_out_time IS NULL AND attendance_status = 'Active' ORDER BY check_in_time DESC LIMIT 1");
         $stmtActive->execute([$member_id, $today]);
         $session = $stmtActive->fetch();
 

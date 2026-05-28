@@ -95,6 +95,20 @@ $page = [
     'system_name' => !empty($configs['system_name']) ? $configs['system_name'] : (!empty($gym['gym_name']) ? $gym['gym_name'] : 'Owner Portal'),
 ];
 
+// Auto-timeout pending checkouts past gym closing time
+$stmtAutoTimeout = $pdo->prepare("
+    UPDATE attendance a
+    JOIN gyms g ON a.gym_id = g.gym_id
+    SET a.attendance_status = 'Did Not Checked Out'
+    WHERE a.check_out_time IS NULL 
+      AND a.attendance_status = 'Active'
+      AND (
+          a.attendance_date < CURDATE() 
+          OR (a.attendance_date = CURDATE() AND CURTIME() > g.closing_time)
+      )
+");
+$stmtAutoTimeout->execute();
+
 // --- CALCULATION LOGIC ---
 // Total Check-ins Today
 $stmtToday = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id = ? AND attendance_date = CURRENT_DATE");
@@ -102,7 +116,7 @@ $stmtToday->execute([$gym_id]);
 $total_today = (int)$stmtToday->fetchColumn();
 
 // Currently Active Members (Checked in but not checked out)
-$stmtActive = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id = ? AND attendance_date = CURRENT_DATE AND check_out_time IS NULL");
+$stmtActive = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE gym_id = ? AND attendance_date = CURRENT_DATE AND check_out_time IS NULL AND attendance_status = 'Active'");
 $stmtActive->execute([$gym_id]);
 $active_now = (int)$stmtActive->fetchColumn();
 
@@ -466,12 +480,16 @@ include '../includes/tenant_sidebar.php';
                             </td>
                             <td class="px-8 py-6">
                                 <span class="text-sm font-black italic tracking-tighter transition-colors" style="color:<?= $a['check_out_time'] ? 'var(--text-main)' : 'rgba(var(--primary-rgb), 0.3)' ?>; opacity:<?= $a['check_out_time'] ? '0.8' : '1' ?>">
-                                    <?= $a['check_out_time'] ? date('h:i A', strtotime($a['check_out_time'])) : 'ACTIVE SESSION' ?>
+                                    <?= $a['check_out_time'] ? date('h:i A', strtotime($a['check_out_time'])) : ($a['attendance_status'] === 'Did Not Checked Out' ? 'MISSING' : 'ACTIVE SESSION') ?>
                                 </span>
                             </td>
                             <td class="px-8 py-6 text-right">
                                 <?php if($a['check_out_time']): ?>
                                     <span class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-[--text-main] opacity-40 text-[9px] font-black uppercase tracking-widest italic">Logged Out</span>
+                                <?php elseif($a['attendance_status'] === 'Did Not Checked Out'): ?>
+                                    <span class="px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[9px] font-black uppercase tracking-[0.1em] italic flex items-center gap-2 justify-center ml-auto w-fit shadow-lg shadow-rose-500/5">
+                                        No Checkout
+                                    </span>
                                 <?php else: ?>
                                     <span class="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[9px] font-black uppercase tracking-[0.1em] italic flex items-center gap-2 justify-center ml-auto w-fit shadow-lg shadow-emerald-500/5">
                                         <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>

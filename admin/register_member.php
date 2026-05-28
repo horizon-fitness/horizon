@@ -191,6 +191,10 @@ $active_page = "register";
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
 
+        .glass-card.allow-overflow {
+            overflow: visible;
+        }
+
         .input-field {
             background: rgba(255, 255, 255, 0.04);
             border: 1px solid rgba(255, 255, 255, 0.10);
@@ -249,6 +253,11 @@ $active_page = "register";
             border-color: rgba(255, 255, 255, 0.12);
             background-color: rgba(255, 255, 255, 0.03);
             color: rgba(255, 255, 255, 0.88);
+        }
+
+        .selected-option {
+            background-color: var(--primary) !important;
+            color: #ffffff !important;
         }
 
         .field-note {
@@ -463,6 +472,47 @@ $active_page = "register";
             });
         }
 
+        function toggleCustomDropdown(trigger, event) {
+            event.stopPropagation();
+            const dropdown = trigger.nextElementSibling;
+
+            document.querySelectorAll('.custom-select-dropdown').forEach((item) => {
+                if (item !== dropdown) item.classList.add('hidden');
+            });
+
+            dropdown.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (event) => {
+            const customOption = event.target.closest('.custom-option');
+
+            if (customOption) {
+                event.stopPropagation();
+                const container = customOption.closest('.custom-select-container');
+                const hiddenInput = container.querySelector('input[type="hidden"]');
+                const displayInput = container.querySelector('input[type="text"]');
+                const dropdown = container.querySelector('.custom-select-dropdown');
+
+                hiddenInput.value = customOption.dataset.value;
+                displayInput.value = customOption.textContent.trim();
+                hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+                container.querySelectorAll('.custom-option').forEach((option) => {
+                    option.classList.remove('selected-option');
+                    option.classList.add('text-white/60');
+                });
+
+                customOption.classList.add('selected-option');
+                customOption.classList.remove('text-white/60');
+                dropdown.classList.add('hidden');
+                return;
+            }
+
+            if (!event.target.closest('.custom-select-container')) {
+                document.querySelectorAll('.custom-select-dropdown').forEach((item) => item.classList.add('hidden'));
+            }
+        });
+
         function initializeLivePreview() {
             const pairs = [
                 ['first_name', 'preview_first_name'],
@@ -506,7 +556,7 @@ $active_page = "register";
     <?php include '../includes/admin_sidebar.php'; ?>
 
     <div class="main-content flex-1 overflow-y-auto no-scrollbar">
-        <main class="p-8 max-w-[1500px] mx-auto">
+        <main class="p-6 md:p-8 lg:p-10 w-full max-w-[1000px] mx-auto pb-32">
             <header class="mb-8 flex flex-row justify-between items-end gap-6">
                 <div>
                     <h2
@@ -527,8 +577,7 @@ $active_page = "register";
                 </div>
             </header>
 
-            <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
-                <div>
+            <div>
                 <?php if ($success): ?>
                     <div
                         class="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-bold flex items-center gap-3 shadow-lg">
@@ -557,7 +606,7 @@ $active_page = "register";
                         </p>
                     </div>
 
-                    <div class="glass-card p-6">
+                    <div class="glass-card allow-overflow p-6">
                         <h4
                             class="text-sm font-black italic uppercase tracking-tighter mb-6 flex items-center gap-2 text-primary">
                             <span class="material-symbols-rounded bg-primary/10 p-1.5 rounded-lg text-lg">person</span>
@@ -592,14 +641,19 @@ $active_page = "register";
                                 <label
                                     class="text-[11px] font-black uppercase text-[--text-main]/60 tracking-widest ml-1">Sex
                                     <span class="text-red-500">*</span></label>
-                                <select name="sex" required class="input-field select-field">
-                                    <option value="" disabled <?= !isset($_POST['sex']) ? 'selected' : '' ?>>Select Sex
-                                    </option>
-                                    <option value="Male" <?= ($_POST['sex'] ?? '') === 'Male' ? 'selected' : '' ?>>Male
-                                    </option>
-                                    <option value="Female" <?= ($_POST['sex'] ?? '') === 'Female' ? 'selected' : '' ?>>
-                                        Female</option>
-                                </select>
+                                <?php $selected_sex = $_POST['sex'] ?? 'Male'; ?>
+                                <div class="relative group custom-select-container">
+                                    <input type="hidden" name="sex" value="<?= htmlspecialchars($selected_sex) ?>" required>
+                                    <div class="relative custom-select-trigger cursor-pointer" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="<?= htmlspecialchars($selected_sex) ?>" class="input-field w-full cursor-pointer pointer-events-none pr-12" autocomplete="off">
+                                        <span class="material-symbols-rounded absolute right-4 top-1/2 -translate-y-1/2 text-primary/70 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[200] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $selected_sex === 'Male' ? 'selected-option' : 'text-white/60' ?>" data-value="Male">Male</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $selected_sex === 'Female' ? 'selected-option' : 'text-white/60' ?>" data-value="Female">Female</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $selected_sex === 'Prefer not to say' ? 'selected-option' : 'text-white/60' ?>" data-value="Prefer not to say">Prefer not to say</div>
+                                    </div>
+                                </div>
                             </div>
                             <div class="space-y-2 md:col-span-2">
                                 <label
@@ -689,26 +743,6 @@ $active_page = "register";
                                 class="material-symbols-rounded group-hover:translate-x-1 transition-transform text-lg">arrow_forward</span></button>
                     </div>
                 </form>
-                </div>
-
-                <aside class="hidden lg:block sticky top-8">
-                    <div class="glass-card p-5">
-                        <h4 class="text-xs font-black uppercase tracking-[0.16em] text-primary mb-4">New Registration Preview</h4>
-                        <div class="space-y-3">
-                            <div><p class="preview-label">First Name</p><p id="preview_first_name" class="preview-value">Not set</p></div>
-                            <div><p class="preview-label">Middle Name</p><p id="preview_middle_name" class="preview-value">Not set</p></div>
-                            <div><p class="preview-label">Last Name</p><p id="preview_last_name" class="preview-value">Not set</p></div>
-                            <div><p class="preview-label">Sex</p><p id="preview_sex" class="preview-value">Not set</p></div>
-                            <div><p class="preview-label">Birth Date</p><p id="preview_birth_date" class="preview-value">Not set</p></div>
-                            <div><p class="preview-label">Email</p><p id="preview_email" class="preview-value">Not set</p></div>
-                            <div><p class="preview-label">Contact</p><p id="preview_phone" class="preview-value">Not set</p></div>
-                            <div><p class="preview-label">Address</p><p id="preview_address" class="preview-value">Not set</p></div>
-                            <div><p class="preview-label">Occupation</p><p id="preview_occupation" class="preview-value">Not set</p></div>
-                            <div><p class="preview-label">Emergency Name</p><p id="preview_emergency_name" class="preview-value">Not set</p></div>
-                            <div><p class="preview-label">Emergency Contact</p><p id="preview_emergency_phone" class="preview-value">Not set</p></div>
-                        </div>
-                    </div>
-                </aside>
             </div>
         </main>
     </div>

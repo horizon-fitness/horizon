@@ -22,6 +22,20 @@ try {
         exit;
     }
 
+    // Auto-timeout pending checkouts past gym closing time
+    $stmtAutoTimeout = $pdo->prepare("
+        UPDATE attendance a
+        JOIN gyms g ON a.gym_id = g.gym_id
+        SET a.attendance_status = 'Did Not Checked Out'
+        WHERE a.check_out_time IS NULL 
+          AND a.attendance_status = 'Active'
+          AND (
+              a.attendance_date < CURDATE() 
+              OR (a.attendance_date = CURDATE() AND CURTIME() > g.closing_time)
+          )
+    ");
+    $stmtAutoTimeout->execute();
+
     // 2. Get Logs
     $stmtLogs = $pdo->prepare("
         SELECT a.attendance_date, a.check_in_time, a.check_out_time, a.attendance_status, g.gym_name 
