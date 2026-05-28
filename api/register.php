@@ -45,6 +45,10 @@ try {
 
         // 3. Handle Pending User Account
         $now = date('Y-m-d H:i:s');
+        
+        // Clean up any abandoned pending registrations older than 2 hours to avoid 'kalat'
+        $pdo->exec("DELETE FROM users WHERE password_hash = 'PENDING_REGISTRATION' AND created_at < NOW() - INTERVAL 2 HOUR");
+
         $stmtCheck = $pdo->prepare("SELECT user_id FROM users WHERE email = ? LIMIT 1");
         $stmtCheck->execute([$email]);
         $existing = $stmtCheck->fetch();
