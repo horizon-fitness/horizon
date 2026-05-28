@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
 
 // ── 4-Color Elite Branding System Implementation ─────────────────────────────
 if (!function_exists('hexToRgb')) {
-    function hexToRgb($hex) {
+        function hexToRgb($hex) {
         if (!$hex) return "0, 0, 0";
         $hex = str_replace("#", "", $hex);
         if (strlen($hex) == 3) {
@@ -79,6 +79,14 @@ if (!function_exists('hexToRgb')) {
         }
         return "$r, $g, $b";
     }
+}
+
+function getRefundAvatarPath($path) {
+    if (empty($path)) return '';
+    if (strpos($path, 'data:') === 0 || strpos($path, 'http') === 0) return $path;
+    $cleanPath = ltrim($path, './');
+    if (strpos($cleanPath, 'uploads/') === 0) return '../' . $cleanPath;
+    return '../uploads/profile_pics/' . $cleanPath;
 }
 
 // Fetch Gym & Owner Details for Branding
@@ -190,7 +198,7 @@ if ($current_page > $total_pages) {
 }
 
 $stmtRefunds = $pdo->prepare("
-    SELECT rr.*, u.user_id, u.first_name, u.last_name, u.email, u.profile_picture, b.booking_date, b.start_time, sc.service_name
+    SELECT rr.*, u.user_id, u.first_name, u.last_name, u.email, u.contact_number, u.profile_picture, b.booking_date, b.start_time, sc.service_name
     FROM refund_requests rr
     JOIN users u ON rr.user_id = u.user_id
     JOIN bookings b ON rr.booking_id = b.booking_id
@@ -207,6 +215,60 @@ $stmtRefunds->bindValue(':limit', (int) $limit, PDO::PARAM_INT);
 $stmtRefunds->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
 $stmtRefunds->execute();
 $refunds = $stmtRefunds->fetchAll(PDO::FETCH_ASSOC);
+$is_sample_refunds = false;
+if (empty($refunds)) {
+    $is_sample_refunds = true;
+    $refunds = [
+        [
+            'refund_request_id' => 0,
+            'first_name' => 'Julienne',
+            'last_name' => 'Flores',
+            'email' => 'sample.member@email.com',
+            'contact_number' => '0912-345-6789',
+            'profile_picture' => '',
+            'service_name' => 'Personal Training',
+            'booking_date' => date('Y-m-d'),
+            'start_time' => '18:30:00',
+            'reason' => 'Sample reason: member requested cancellation due to schedule conflict.',
+            'status' => 'Pending',
+            'created_at' => date('Y-m-d H:i:s'),
+            'processed_at' => null,
+            'refund_amount' => 500,
+        ],
+        [
+            'refund_request_id' => 0,
+            'first_name' => 'Andrei',
+            'last_name' => 'Mangalus',
+            'email' => 'sample.client@email.com',
+            'contact_number' => '0923-456-7890',
+            'profile_picture' => '',
+            'service_name' => 'Strength Coaching',
+            'booking_date' => date('Y-m-d', strtotime('+1 day')),
+            'start_time' => '10:00:00',
+            'reason' => 'Sample reason: refund review already approved for display testing.',
+            'status' => 'Approved',
+            'created_at' => date('Y-m-d H:i:s', strtotime('-1 day')),
+            'processed_at' => date('Y-m-d H:i:s'),
+            'refund_amount' => 750,
+        ],
+        [
+            'refund_request_id' => 0,
+            'first_name' => 'Alex',
+            'last_name' => 'Estanislao',
+            'email' => 'sample.user@email.com',
+            'contact_number' => '0934-567-8901',
+            'profile_picture' => '',
+            'service_name' => 'Boxing Session',
+            'booking_date' => date('Y-m-d', strtotime('+2 days')),
+            'start_time' => '15:00:00',
+            'reason' => 'Sample reason: request rejected after policy review.',
+            'status' => 'Rejected',
+            'created_at' => date('Y-m-d H:i:s', strtotime('-2 days')),
+            'processed_at' => date('Y-m-d H:i:s', strtotime('-1 day')),
+            'refund_amount' => 350,
+        ],
+    ];
+}
 
 $stmtStats = $pdo->prepare("
     SELECT COUNT(*) AS total_count,
@@ -430,6 +492,20 @@ $page = [
 
         input[type="date"] { color-scheme: dark; }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1) brightness(1.35); opacity: .75; cursor: pointer; }
+
+        #refundDetailModal {
+            position: fixed; top: 0; right: 0; bottom: 0; left: 110px;
+            z-index: 2000; display: none; align-items: center; justify-content: center; padding: 24px;
+            background: rgba(var(--background-rgb), .4); backdrop-filter: blur(20px) saturate(180%);
+            transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .side-nav:hover~#refundDetailModal { left: 300px; }
+        #refundDetailModal.active { display: flex; }
+        .refund-modal-panel {
+            width: 100%; max-width: 600px; background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,.05); border-radius: 28px;
+            overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,.5);
+        }
     </style>
     <script>
         let filterTimeout;
@@ -498,6 +574,51 @@ $page = [
             if (!event.target.closest('#userSearchContainer')) document.getElementById('userDropdown')?.classList.add('hidden');
         });
         window.addEventListener('DOMContentLoaded', () => { syncRefundDateLimits(); initSearchableDropdown(); });
+        function openRefundDetailModal(data) {
+            document.getElementById('refund_detail_name').textContent = data.name;
+            document.getElementById('refund_detail_email').textContent = data.email || 'N/A';
+            document.getElementById('refund_detail_initials').textContent = data.initials || 'U';
+            const avatarEl = document.getElementById('refund_detail_avatar_img');
+            if (data.avatar) {
+                avatarEl.src = data.avatar;
+                avatarEl.classList.remove('hidden');
+            } else {
+                avatarEl.removeAttribute('src');
+                avatarEl.classList.add('hidden');
+            }
+            document.getElementById('refund_detail_contact').textContent = data.contact || 'N/A';
+            document.getElementById('refund_detail_ref').textContent = data.ref || 'REFUND-00000';
+            document.getElementById('refund_detail_service').textContent = data.service || 'N/A';
+            document.getElementById('refund_detail_date').textContent = data.date || 'N/A';
+            document.getElementById('refund_detail_time').textContent = data.time || 'N/A';
+            document.getElementById('refund_detail_requested').textContent = data.requested || 'N/A';
+            document.getElementById('refund_detail_processed').textContent = data.processed || 'Not processed yet';
+            document.getElementById('refund_detail_amount').textContent = data.amount || 'N/A';
+            document.getElementById('refund_detail_reason').textContent = data.reason || 'N/A';
+            const statusEl = document.getElementById('refund_detail_status');
+            statusEl.textContent = data.status || 'Pending';
+            statusEl.className = 'inline-flex px-3 py-1 rounded-full border text-[8px] font-black uppercase tracking-widest ';
+            if (data.status === 'Approved') statusEl.className += 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+            else if (data.status === 'Rejected') statusEl.className += 'text-rose-500 bg-rose-500/10 border-rose-500/20';
+            else statusEl.className += 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+            document.getElementById('refundDetailModal').classList.add('active');
+        }
+        function closeRefundDetailModal() {
+            document.getElementById('refundDetailModal')?.classList.remove('active');
+        }
+        function showSampleAction(action) {
+            alert('Sample only: ' + action + ' button preview. No database changes were made.');
+        }
+        document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeRefundDetailModal(); });
+        function updateHeaderClock() {
+            const now = new Date();
+            const clockEl = document.getElementById('headerClock');
+            if (clockEl) {
+                clockEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }
+        }
+        setInterval(updateHeaderClock, 1000);
+        window.addEventListener('DOMContentLoaded', updateHeaderClock);
     </script>
 </head>
 <body class="antialiased flex h-screen overflow-hidden">
@@ -511,6 +632,10 @@ $page = [
                         Refund <span style="color:var(--primary)" class="italic">Requests</span>
                     </h2>
                     <p class="text-[10px] font-black uppercase tracking-widest mt-1 opacity-50" style="color:var(--text-main)">Manage Cancellations & Refunds</p>
+                </div>
+                <div class="flex flex-col items-end text-right shrink-0">
+                    <p id="headerClock" class="font-black text-2xl leading-none tracking-tighter uppercase" style="color:var(--text-main)">00:00:00 AM</p>
+                    <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2"><?= date('l, M d, Y') ?></p>
                 </div>
             </header>
 
@@ -591,14 +716,15 @@ $page = [
                         </button>
                     </form>
                 </div>
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto no-scrollbar">
                     <table class="w-full text-left">
                         <thead>
                             <tr class="bg-white/5 border-b border-white/5">
                                 <th class="px-8 py-5 table-header-alt">Name</th>
+                                <th class="px-8 py-5 table-header-alt">Ref No.</th>
                                 <th class="px-8 py-5 table-header-alt">Service</th>
                                 <th class="px-8 py-5 table-header-alt text-center">Date</th>
-                                <th class="px-8 py-5 table-header-alt">Reason</th>
+                                <th class="px-8 py-5 table-header-alt">Amount</th>
                                 <th class="px-8 py-5 table-header-alt text-center">Status</th>
                                 <th class="px-8 py-5 table-header-alt text-center">Action</th>
                             </tr>
@@ -606,31 +732,57 @@ $page = [
                         <tbody class="divide-y divide-white/5 text-sm font-medium">
                             <?php if (empty($refunds)): ?>
                                 <tr>
-                                    <td colspan="6" class="px-8 py-24 text-center text-[11px] font-black uppercase tracking-[0.3em] text-[--text-main] opacity-20">
+                                    <td colspan="7" class="px-8 py-24 text-center text-[11px] font-black uppercase tracking-[0.3em] text-[--text-main] opacity-20">
                                         No refund requests found.
                                     </td>
                                 </tr>
                             <?php else: ?>
-                                <?php foreach ($refunds as $r): ?>
+                                <?php foreach ($refunds as $refundIndex => $r): ?>
+                                    <?php
+                                        $refundRefId = (int) ($r['refund_request_id'] ?? 0);
+                                        $displayRefundRef = 'REFUND-' . str_pad((string) ($refundRefId > 0 ? $refundRefId : ($refundIndex + 1)), 5, '0', STR_PAD_LEFT);
+                                        $displayRefundAmount = isset($r['refund_amount']) && $r['refund_amount'] !== null ? 'PHP ' . number_format((float) $r['refund_amount'], 2) : 'N/A';
+                                    ?>
                                     <tr class="group hover:bg-white/[0.02] transition-colors">
                                         <td class="px-8 py-6 align-middle">
-                                            <p class="text-[13px] font-bold tracking-wide" style="color:var(--text-main)">
-                                                <?= htmlspecialchars($r['first_name'] . ' ' . $r['last_name']) ?>
-                                            </p>
-                                            <p class="text-[11px] opacity-50"><?= htmlspecialchars($r['email']) ?></p>
+                                            <div class="flex items-center gap-4">
+                                                <?php
+                                                $initials = strtoupper(substr($r['first_name'] ?? 'U', 0, 1) . substr($r['last_name'] ?? '', 0, 1));
+                                                $avatarPath = getRefundAvatarPath($r['profile_picture'] ?? '');
+                                                ?>
+                                                <div class="size-11 rounded-full flex items-center justify-center font-black text-[11px] border border-white/10 shrink-0 overflow-hidden shadow-inner relative"
+                                                    style="background:rgba(var(--primary-rgb), 0.1); color:var(--primary)">
+                                                    <?php if (!empty($avatarPath)): ?>
+                                                        <img src="<?= htmlspecialchars($avatarPath) ?>" class="size-full object-cover" alt="">
+                                                    <?php else: ?>
+                                                        <?= htmlspecialchars($initials) ?>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <p class="text-[13px] font-bold tracking-wide text-[--text-main] truncate">
+                                                        <?= htmlspecialchars($r['first_name'] . ' ' . $r['last_name']) ?>
+                                                    </p>
+                                                    <p class="text-[11px] font-semibold text-[--text-main]/50 truncate"><?= htmlspecialchars($r['email']) ?></p>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td class="px-8 py-6 align-middle">
-                                            <p class="text-[12px] font-bold text-[--text-main]/70"><?= htmlspecialchars($r['service_name']) ?></p>
+                                            <p class="text-[11px] font-black uppercase tracking-widest text-[--text-main]/60 whitespace-nowrap">
+                                                <?= htmlspecialchars($displayRefundRef) ?>
+                                            </p>
+                                        </td>
+                                        <td class="px-8 py-6 align-middle">
+                                            <p class="text-[12px] font-bold text-[--text-main]/70 leading-snug"><?= htmlspecialchars($r['service_name']) ?></p>
                                         </td>
                                         <td class="px-8 py-6 text-center align-middle">
-                                            <p class="text-[12px] font-bold" style="color:var(--primary)">
+                                            <p class="text-[12px] font-bold whitespace-nowrap" style="color:var(--primary)">
                                                 <?= date('M d, Y', strtotime($r['booking_date'])) ?>
                                             </p>
-                                            <p class="text-[11px] opacity-50"><?= date('h:i A', strtotime($r['start_time'])) ?></p>
+                                            <p class="text-[11px] font-semibold text-[--text-main]/50"><?= date('h:i A', strtotime($r['start_time'])) ?></p>
                                         </td>
                                         <td class="px-8 py-6 align-middle">
-                                            <p class="text-[12px] font-medium text-[--text-main]/65 max-w-xs break-words">
-                                                <?= htmlspecialchars($r['reason']) ?>
+                                            <p class="text-[12px] font-black text-[--text-main]/75 whitespace-nowrap">
+                                                <?= htmlspecialchars($displayRefundAmount) ?>
                                             </p>
                                         </td>
                                         <td class="px-8 py-6 text-center align-middle">
@@ -644,8 +796,29 @@ $page = [
                                             </span>
                                         </td>
                                         <td class="px-8 py-6 text-center align-middle">
-                                            <?php if ($r['status'] === 'Pending'): ?>
-                                                <div class="flex items-center justify-center gap-2">
+                                            <div class="flex items-center justify-center gap-2">
+                                                <button type="button"
+                                                    onclick='openRefundDetailModal({
+                                                        name: "<?= htmlspecialchars($r["first_name"] . " " . $r["last_name"], ENT_QUOTES) ?>",
+                                                        email: "<?= htmlspecialchars($r["email"], ENT_QUOTES) ?>",
+                                                        initials: "<?= htmlspecialchars($initials, ENT_QUOTES) ?>",
+                                                        avatar: "<?= htmlspecialchars($avatarPath, ENT_QUOTES) ?>",
+                                                        contact: "<?= htmlspecialchars($r["contact_number"] ?? "N/A", ENT_QUOTES) ?>",
+                                                        ref: "<?= htmlspecialchars($displayRefundRef, ENT_QUOTES) ?>",
+                                                        service: "<?= htmlspecialchars($r["service_name"], ENT_QUOTES) ?>",
+                                                        date: "<?= date("M d, Y", strtotime($r["booking_date"])) ?>",
+                                                        time: "<?= date("h:i A", strtotime($r["start_time"])) ?>",
+                                                        requested: "<?= !empty($r["created_at"]) ? date("M d, Y h:i A", strtotime($r["created_at"])) : "N/A" ?>",
+                                                        processed: "<?= !empty($r["processed_at"]) ? date("M d, Y h:i A", strtotime($r["processed_at"])) : "Not processed yet" ?>",
+                                                        amount: "<?= htmlspecialchars($displayRefundAmount, ENT_QUOTES) ?>",
+                                                        reason: "<?= htmlspecialchars($r["reason"], ENT_QUOTES) ?>",
+                                                        status: "<?= htmlspecialchars($r["status"], ENT_QUOTES) ?>"
+                                                    })'
+                                                    class="size-8 rounded-lg bg-white/5 border border-white/10 text-[--text-main]/40 flex items-center justify-center hover:bg-primary hover:text-white transition-all"
+                                                    title="View Details">
+                                                    <span class="material-symbols-rounded text-base">visibility</span>
+                                                </button>
+                                                <?php if (!$is_sample_refunds && $r['status'] === 'Pending'): ?>
                                                     <form method="POST" onsubmit="return confirm('Approve this refund request? An email will be sent.');">
                                                         <input type="hidden" name="refund_id" value="<?= $r['refund_request_id'] ?>">
                                                         <input type="hidden" name="action" value="approve">
@@ -660,10 +833,17 @@ $page = [
                                                             <span class="material-symbols-rounded text-base">close</span>
                                                         </button>
                                                     </form>
-                                                </div>
-                                            <?php else: ?>
-                                                <p class="text-[10px] uppercase font-black opacity-30">Processed</p>
-                                            <?php endif; ?>
+                                                <?php elseif ($is_sample_refunds): ?>
+                                                    <button type="button" onclick="showSampleAction('Approve')" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all" title="Sample approve preview">
+                                                        <span class="material-symbols-rounded text-base">check</span>
+                                                    </button>
+                                                    <button type="button" onclick="showSampleAction('Reject')" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all" title="Sample reject preview">
+                                                        <span class="material-symbols-rounded text-base">close</span>
+                                                    </button>
+                                                <?php else: ?>
+                                                    <span class="px-3 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest text-[--text-main]/35">Processed</span>
+                                                <?php endif; ?>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -697,6 +877,69 @@ $page = [
                 </div>
             </div>
         </main>
+    </div>
+    <div id="refundDetailModal" onclick="if(event.target === this) closeRefundDetailModal()">
+        <div class="refund-modal-panel">
+            <div class="p-8 border-b border-white/5 flex justify-between items-center gap-4 bg-white/[0.02]">
+                <div class="flex items-center gap-4 min-w-0">
+                    <div class="size-14 rounded-full flex items-center justify-center font-black text-[12px] border border-white/10 shrink-0 overflow-hidden shadow-inner relative"
+                        style="background:rgba(var(--primary-rgb), 0.1); color:var(--primary)">
+                        <img id="refund_detail_avatar_img" class="hidden size-full object-cover absolute inset-0" alt="">
+                        <span id="refund_detail_initials">U</span>
+                    </div>
+                    <div class="min-w-0">
+                        <h4 id="refund_detail_name" class="text-xl font-black tracking-tight text-[--text-main] leading-tight truncate">Member Name</h4>
+                        <p id="refund_detail_email" class="text-[12px] font-bold text-[--text-main]/55 tracking-wide mt-1 truncate">email@example.com</p>
+                        <p id="refund_detail_ref" class="text-[10px] font-bold text-primary tracking-wide mt-1">REFUND-00000</p>
+                    </div>
+                </div>
+                <button onclick="closeRefundDetailModal()" class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center border border-white/5 text-[--text-main]/60 shrink-0">
+                    <span class="material-symbols-rounded text-xl">close</span>
+                </button>
+            </div>
+            <div class="p-8 space-y-6">
+                <section class="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                    <div class="space-y-1">
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-[--text-main]/40">Service</p>
+                        <p id="refund_detail_service" class="text-sm font-bold text-[--text-main]">Service</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-[--text-main]/40">Status</p>
+                        <span id="refund_detail_status" class="inline-flex px-3 py-1 rounded-full border text-[8px] font-black uppercase tracking-widest">Pending</span>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-[--text-main]/40">Refund Amount</p>
+                        <p id="refund_detail_amount" class="text-sm font-bold text-[--text-main]">N/A</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-[--text-main]/40">Contact</p>
+                        <p id="refund_detail_contact" class="text-sm font-medium text-[--text-main]/70">N/A</p>
+                    </div>
+                </section>
+                <section class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                        <p class="text-[9px] font-bold uppercase tracking-widest text-[--text-main]/40">Date</p>
+                        <p id="refund_detail_date" class="text-xs font-bold text-[--text-main]">Jan 01, 2026</p>
+                    </div>
+                    <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                        <p class="text-[9px] font-bold uppercase tracking-widest text-[--text-main]/40">Time</p>
+                        <p id="refund_detail_time" class="text-xs font-bold text-[--text-main]">12:00 PM</p>
+                    </div>
+                    <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                        <p class="text-[9px] font-bold uppercase tracking-widest text-[--text-main]/40">Requested</p>
+                        <p id="refund_detail_requested" class="text-xs font-bold text-[--text-main]">N/A</p>
+                    </div>
+                    <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                        <p class="text-[9px] font-bold uppercase tracking-widest text-[--text-main]/40">Processed</p>
+                        <p id="refund_detail_processed" class="text-xs font-bold text-[--text-main]">Not processed yet</p>
+                    </div>
+                </section>
+                <section class="bg-white/[0.02] p-6 rounded-2xl border border-white/5 space-y-2">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-[--text-main]/40">Reason</p>
+                    <p id="refund_detail_reason" class="text-sm leading-relaxed text-[--text-main]/70">Reason details</p>
+                </section>
+            </div>
+        </div>
     </div>
 </body>
 </html>
