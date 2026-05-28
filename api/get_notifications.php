@@ -57,7 +57,7 @@ try {
             'time' => formatTimeAgo($baseSeconds, $baseTime),
             'rawTime' => $baseTime,
             'type' => 'system',
-            'isRead' => false
+            'isRead' => true
         ],
         [
             'id' => 'welcome_002',
@@ -66,7 +66,7 @@ try {
             'time' => formatTimeAgo(max(0, $baseSeconds - 120), $baseTime),
             'rawTime' => $baseTime,
             'type' => 'membership',
-            'isRead' => false
+            'isRead' => true
         ],
         [
             'id' => 'welcome_003',
@@ -75,7 +75,7 @@ try {
             'time' => formatTimeAgo(max(0, $baseSeconds - 300), $baseTime),
             'rawTime' => $baseTime,
             'type' => 'booking',
-            'isRead' => false
+            'isRead' => true
         ],
         [
             'id' => 'welcome_004',
@@ -84,7 +84,7 @@ try {
             'time' => formatTimeAgo(max(0, $baseSeconds - 600), $baseTime),
             'rawTime' => $baseTime,
             'type' => 'system',
-            'isRead' => false
+            'isRead' => true
         ],
         [
             'id' => 'welcome_005',
@@ -93,7 +93,7 @@ try {
             'time' => formatTimeAgo(max(0, $baseSeconds - 900), $baseTime),
             'rawTime' => $baseTime,
             'type' => 'system',
-            'isRead' => false
+            'isRead' => true
         ],
         [
             'id' => 'welcome_006',
@@ -102,7 +102,7 @@ try {
             'time' => formatTimeAgo(max(0, $baseSeconds - 1200), $baseTime),
             'rawTime' => $baseTime,
             'type' => 'system',
-            'isRead' => false
+            'isRead' => true
         ],
         [
             'id' => 'welcome_007',
@@ -111,7 +111,7 @@ try {
             'time' => formatTimeAgo(max(0, $baseSeconds - 1800), $baseTime),
             'rawTime' => $baseTime,
             'type' => 'system',
-            'isRead' => false
+            'isRead' => true
         ]
     ];
 

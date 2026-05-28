@@ -127,14 +127,16 @@ try {
     if ($new_status === 'CANCELLED' || $new_status === 'REJECTED') {
         $memberName = ($booking['first_name'] ?? 'Member') . ' ' . ($booking['last_name'] ?? '');
         $gymEmail = $booking['gym_email'] ?? 'horizonfitnesscorp@gmail.com';
+        $memberEmail = $booking['member_email'];
         $gymName = $booking['gym_name'] ?? 'Horizon System';
         $serviceName = $booking['service_name'] ?? 'Gym Session';
         $bookingDate = date('M d, Y', strtotime($booking['booking_date']));
         $bookingTime = date('h:i A', strtotime($booking['start_time']));
         $refNo = $booking['booking_reference'] ?? 'N/A';
 
-        $subject = "Cancellation Request: $serviceName - $memberName";
-        $emailContent = "
+        // 1. Email to Admin
+        $adminSubject = "Cancellation Request: $serviceName - $memberName";
+        $adminEmailContent = "
             <p>A session cancellation has been initiated through the mobile application.</p>
             <div style='background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;'>
                 <p style='margin: 5px 0;'><strong>Member:</strong> $memberName</p>
@@ -144,11 +146,27 @@ try {
                 <p style='margin: 5px 0;'><strong>Reason:</strong> " . htmlspecialchars($cancellation_reason) . "</p>
                 <p style='margin: 5px 0;'><strong>Status Assigned:</strong> <span style='color: " . ($penalty_applied ? '#ef4444' : '#f59e0b') . ";'>$new_status</span></p>
             </div>
-            <p>Please review this request and send the final approval/confirmation email to the member at <strong>{$booking['member_email']}</strong> as per the Updated Terms & Conditions.</p>
+            <p>Please review this request and send the final approval/confirmation email to the member at <strong>{$memberEmail}</strong> as per the Updated Terms & Conditions.</p>
         ";
+        $adminFullBody = getFormalEmailTemplate($adminSubject, $adminEmailContent, $gymName);
+        sendSystemEmail($gymEmail, $adminSubject, $adminFullBody);
 
-        $fullBody = getFormalEmailTemplate($subject, $emailContent, $gymName);
-        sendSystemEmail($gymEmail, $subject, $fullBody);
+        // 2. Email to Member
+        $memberSubject = "Cancellation Request Received - $gymName";
+        $memberEmailContent = "
+            <p>Hi $memberName,</p>
+            <p>Your cancellation request has been received by our system and sent to the gym admin for processing.</p>
+            <div style='background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;'>
+                <p style='margin: 5px 0;'><strong>Service:</strong> $serviceName</p>
+                <p style='margin: 5px 0;'><strong>Schedule:</strong> $bookingDate at $bookingTime</p>
+                <p style='margin: 5px 0;'><strong>Reference No:</strong> $refNo</p>
+                <p style='margin: 5px 0;'><strong>Status:</strong> <span style='color: #f59e0b;'>Processing</span></p>
+            </div>
+            <p>If you are eligible for a refund based on the cancellation policy, kindly wait for <strong>3 to 7 business days</strong> for the request to be fully processed.</p>
+            <p>You will receive a follow-up email from $gymName once your request has been reviewed.</p>
+        ";
+        $memberFullBody = getFormalEmailTemplate($memberSubject, $memberEmailContent, $gymName);
+        sendSystemEmail($memberEmail, $memberSubject, $memberFullBody);
     }
 
     echo json_encode([

@@ -493,14 +493,17 @@ $page = [
         input[type="date"] { color-scheme: dark; }
         input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1) brightness(1.35); opacity: .75; cursor: pointer; }
 
-        #refundDetailModal {
+        #refundDetailModal,
+        #refundActionModal {
             position: fixed; top: 0; right: 0; bottom: 0; left: 110px;
             z-index: 2000; display: none; align-items: center; justify-content: center; padding: 24px;
             background: rgba(var(--background-rgb), .4); backdrop-filter: blur(20px) saturate(180%);
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .side-nav:hover~#refundDetailModal { left: 300px; }
-        #refundDetailModal.active { display: flex; }
+        .side-nav:hover~#refundDetailModal,
+        .side-nav:hover~#refundActionModal { left: 300px; }
+        #refundDetailModal.active,
+        #refundActionModal.active { display: flex; }
         .refund-modal-panel {
             width: 100%; max-width: 600px; background: var(--card-bg);
             border: 1px solid rgba(255,255,255,.05); border-radius: 28px;
@@ -606,10 +609,36 @@ $page = [
         function closeRefundDetailModal() {
             document.getElementById('refundDetailModal')?.classList.remove('active');
         }
-        function showSampleAction(action) {
-            alert('Sample only: ' + action + ' button preview. No database changes were made.');
+        let pendingRefundForm = null;
+        function confirmRefundAction(form, action) {
+            pendingRefundForm = form;
+            const isApprove = action === 'approve';
+            document.getElementById('refund_action_icon').textContent = isApprove ? 'check_circle' : 'cancel';
+            document.getElementById('refund_action_icon').className = 'material-symbols-rounded text-4xl ' + (isApprove ? 'text-emerald-500' : 'text-rose-500');
+            document.getElementById('refund_action_title').textContent = isApprove ? 'Approve Refund' : 'Reject Refund';
+            document.getElementById('refund_action_label').textContent = isApprove ? 'Release Request' : 'Decline Request';
+            document.getElementById('refund_action_label').className = 'text-[10px] font-bold uppercase tracking-widest mt-1 ' + (isApprove ? 'text-emerald-500' : 'text-rose-500');
+            document.getElementById('refund_action_message').textContent = isApprove
+                ? 'Approve this refund request? An email will be sent to the member.'
+                : 'Reject this refund request? An email will be sent to the member.';
+            const submitBtn = document.getElementById('refund_action_submit');
+            submitBtn.textContent = isApprove ? 'Approve' : 'Reject';
+            submitBtn.className = 'flex-1 py-4 rounded-2xl text-white text-[10px] font-black uppercase tracking-widest shadow-lg transition-all active:scale-[0.98] ' + (isApprove ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/20' : 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20');
+            document.getElementById('refundActionModal').classList.add('active');
         }
-        document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeRefundDetailModal(); });
+        function closeRefundActionModal() {
+            document.getElementById('refundActionModal')?.classList.remove('active');
+            pendingRefundForm = null;
+        }
+        function submitRefundAction() {
+            if (pendingRefundForm) pendingRefundForm.submit();
+        }
+        function showSampleAction(action) {
+            pendingRefundForm = null;
+            confirmRefundAction(null, String(action).toLowerCase());
+            document.getElementById('refund_action_message').textContent = 'Sample only: ' + action + ' button preview. No database changes will be made.';
+        }
+        document.addEventListener('keydown', (event) => { if (event.key === 'Escape') { closeRefundDetailModal(); closeRefundActionModal(); } });
         function updateHeaderClock() {
             const now = new Date();
             const clockEl = document.getElementById('headerClock');
@@ -819,17 +848,17 @@ $page = [
                                                     <span class="material-symbols-rounded text-base">visibility</span>
                                                 </button>
                                                 <?php if (!$is_sample_refunds && $r['status'] === 'Pending'): ?>
-                                                    <form method="POST" onsubmit="return confirm('Approve this refund request? An email will be sent.');">
+                                                    <form method="POST">
                                                         <input type="hidden" name="refund_id" value="<?= $r['refund_request_id'] ?>">
                                                         <input type="hidden" name="action" value="approve">
-                                                        <button type="submit" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all" title="Approve">
+                                                        <button type="button" onclick="confirmRefundAction(this.form, 'approve')" class="size-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center hover:bg-emerald-500 hover:text-white transition-all" title="Approve">
                                                             <span class="material-symbols-rounded text-base">check</span>
                                                         </button>
                                                     </form>
-                                                    <form method="POST" onsubmit="return confirm('Reject this refund request? An email will be sent.');">
+                                                    <form method="POST">
                                                         <input type="hidden" name="refund_id" value="<?= $r['refund_request_id'] ?>">
                                                         <input type="hidden" name="action" value="reject">
-                                                        <button type="submit" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all" title="Reject">
+                                                        <button type="button" onclick="confirmRefundAction(this.form, 'reject')" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all" title="Reject">
                                                             <span class="material-symbols-rounded text-base">close</span>
                                                         </button>
                                                     </form>

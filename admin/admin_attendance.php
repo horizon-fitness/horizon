@@ -129,8 +129,9 @@ if ($end_date) {
     $params[] = $end_date;
 }
 if ($search_query) {
-    $query .= " AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)";
+    $query .= " AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR CONCAT(u.first_name, ' ', u.last_name) LIKE ?)";
     $sterm = "%$search_query%";
+    $params[] = $sterm;
     $params[] = $sterm;
     $params[] = $sterm;
     $params[] = $sterm;
