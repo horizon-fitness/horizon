@@ -12,7 +12,11 @@ function processMemberRegistration($pdo, $data) {
     $last_name = trim($data['last_name'] ?? '');
     $email = trim($data['email'] ?? '');
     $phone = trim($data['phone'] ?? $data['phone_number'] ?? '');
-    $address = trim($data['address'] ?? '');
+    $address_line = trim($data['address_line'] ?? $data['address'] ?? '');
+    $barangay = trim($data['barangay'] ?? '');
+    $city = trim($data['city'] ?? '');
+    $province = trim($data['province'] ?? '');
+    $region = trim($data['region'] ?? '');
     $birth_date = $data['birth_date'] ?? '2000-01-01';
     $sex = $data['sex'] ?? 'Not Specified';
     $occupation = trim($data['occupation'] ?? '');
@@ -85,8 +89,8 @@ function processMemberRegistration($pdo, $data) {
         $member_code = $prefix . str_pad($new_user_id, 4, '0', STR_PAD_LEFT);
 
         // 3NF: Insert address into dedicated table
-        $stmtAddr = $pdo->prepare("INSERT INTO addresses (address_line, barangay, city, province, region, created_at, updated_at) VALUES (?, '', '', '', '', ?, ?)");
-        $stmtAddr->execute([$address, $now, $now]);
+        $stmtAddr = $pdo->prepare("INSERT INTO addresses (address_line, barangay, city, province, region, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmtAddr->execute([$address_line, $barangay, $city, $province, $region, $now, $now]);
         $address_id = $pdo->lastInsertId();
         
         $stmtMember = $pdo->prepare("INSERT INTO members (user_id, gym_id, member_code, address_id, occupation, emergency_contact_name, emergency_contact_number, registration_source, registered_by_user_id, member_status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active', ?, ?)");
