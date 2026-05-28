@@ -156,7 +156,8 @@ try {
         if (array_key_exists('occupation', $input)) {
             $memFields[] = "occupation = ?";
             $memParams[] = $input['occupation'];
-        // Removed medical_history handling
+        }
+        
         if (array_key_exists('emergency_contact_name', $input)) {
             $memFields[] = "emergency_contact_name = ?";
             $memParams[] = $input['emergency_contact_name'];
@@ -202,6 +203,19 @@ try {
                     $stmtInsMetric = $pdo->prepare("INSERT INTO member_health_metrics (member_id, weight_kg, height_cm, recorded_at) VALUES (?, ?, ?, NOW())");
                     $stmtInsMetric->execute([$member_id, $weight, $height]);
                 }
+            }
+        }
+
+        // 5. Update injuries_limitations if provided
+        if (array_key_exists('injuries_limitations', $input)) {
+            $stmtFitnessCheck = $pdo->prepare("SELECT user_id FROM user_fitness_profiles WHERE user_id = ?");
+            $stmtFitnessCheck->execute([$user_id]);
+            if ($stmtFitnessCheck->fetch()) {
+                $stmtUpdFit = $pdo->prepare("UPDATE user_fitness_profiles SET injuries_limitations = ?, updated_at = NOW() WHERE user_id = ?");
+                $stmtUpdFit->execute([$input['injuries_limitations'], $user_id]);
+            } else {
+                $stmtInsFit = $pdo->prepare("INSERT INTO user_fitness_profiles (user_id, injuries_limitations, created_at, updated_at) VALUES (?, ?, NOW(), NOW())");
+                $stmtInsFit->execute([$user_id, $input['injuries_limitations']]);
             }
         }
     }

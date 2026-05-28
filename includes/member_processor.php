@@ -97,26 +97,50 @@ function processMemberRegistration($pdo, $data) {
         $stmtMember->execute([$new_user_id, $gym_id, $member_code, $address_id, $occupation, $emergency_name, $emergency_phone, $source, $registered_by, $now, $now]);
 
         // 5. Send Email
-        $stmtGym = $pdo->prepare("SELECT gym_name FROM gyms WHERE gym_id = ?");
+        $stmtGym = $pdo->prepare("SELECT gym_name, profile_picture FROM gyms WHERE gym_id = ?");
         $stmtGym->execute([$gym_id]);
         $gym = $stmtGym->fetch();
         $gymName = $gym['gym_name'] ?? 'Horizon Gym';
+        $gymLogo = $gym['profile_picture'] ?? '';
+
+        $safeFirstName = htmlspecialchars($first_name, ENT_QUOTES, 'UTF-8');
+        $safeGymName = htmlspecialchars($gymName, ENT_QUOTES, 'UTF-8');
+        $safeUsername = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
+        $safePassword = htmlspecialchars($plain_password, ENT_QUOTES, 'UTF-8');
+        $safeMemberCode = htmlspecialchars($member_code, ENT_QUOTES, 'UTF-8');
 
         $subject = ($source === 'Walk-in') ? "Your New Membership Account - $gymName" : "Welcome to $gymName - Your Account Details";
         $welcomeMsg = ($source === 'Walk-in') 
-            ? "Your membership has been registered as a walk-in at <strong>$gymName</strong>."
-            : "You have successfully registered at <strong>$gymName</strong>.";
+            ? "Your membership has been registered as a walk-in at <strong>$safeGymName</strong>."
+            : "You have successfully registered at <strong>$safeGymName</strong>.";
 
-        $emailBody = getEmailTemplate(
-            "Welcome to the Community!",
-            "<p>Hello $first_name,</p>
-            <p>$welcomeMsg</p>
-            <p>Your account is ready for use on our mobile application and web portal.</p>
-            <div style='background: #f4f4f4; padding: 15px; border-radius: 8px; margin: 20px 0;'>
-                <strong>Username:</strong> $username<br>
-                <strong>Password:</strong> $plain_password
+        $emailBody = getFormalEmailTemplate(
+            "Membership Account Activated",
+            "<p style='margin: 0 0 14px 0;'>Hello <strong>$safeFirstName</strong>,</p>
+            <p style='margin: 0 0 14px 0;'>$welcomeMsg</p>
+            <p style='margin: 0 0 24px 0;'>Your account is ready for the member portal. Please keep these credentials private.</p>
+
+            <div style='background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 14px; padding: 22px; margin: 24px 0;'>
+                <p style='margin: 0 0 14px 0; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 700;'>Account Details</p>
+                <table width='100%' border='0' cellspacing='0' cellpadding='0'>
+                    <tr>
+                        <td style='padding: 10px 0; color: #64748b; font-size: 14px;'>Member Code</td>
+                        <td align='right' style='padding: 10px 0; color: #111827; font-size: 14px; font-weight: 700;'>$safeMemberCode</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px 0; color: #64748b; font-size: 14px; border-top: 1px solid #e5e7eb;'>Username</td>
+                        <td align='right' style='padding: 10px 0; color: #111827; font-size: 14px; font-weight: 700; border-top: 1px solid #e5e7eb;'>$safeUsername</td>
+                    </tr>
+                    <tr>
+                        <td style='padding: 10px 0 0 0; color: #64748b; font-size: 14px; border-top: 1px solid #e5e7eb;'>Temporary Password</td>
+                        <td align='right' style='padding: 10px 0 0 0; color: #7f13ec; font-size: 14px; font-weight: 800; border-top: 1px solid #e5e7eb;'>$safePassword</td>
+                    </tr>
+                </table>
             </div>
-            <p>You can download our mobile app from the website to start tracking your progress!</p>"
+
+            <p style='margin: 0;'>For your security, change your password after your first login.</p>",
+            $safeGymName,
+            $gymLogo
         );
         
         sendSystemEmail($email, $subject, $emailBody);

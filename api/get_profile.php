@@ -96,6 +96,15 @@ try {
         }
     }
 
+    // 4.5 Fetch Fitness Profile (Injuries/Limitations)
+    $injuries = '';
+    $stmtFit = $pdo->prepare("SELECT injuries_limitations FROM user_fitness_profiles WHERE user_id = ? LIMIT 1");
+    $stmtFit->execute([$user_id]);
+    $fitData = $stmtFit->fetch();
+    if ($fitData) {
+        $injuries = (string)$fitData['injuries_limitations'];
+    }
+
     $response = [
         'success' => true,
         'user' => [
@@ -123,7 +132,7 @@ try {
             'birth_date' => (string)($user['birth_date'] ?? ''),
             'sex' => (string)($user['sex'] ?? ''),
             'occupation' => (string)($roleData['occupation'] ?? ''),
-            // removed medical_history
+            'medical_history' => $injuries,
             'emergency_contact_name' => (string)($roleData['emergency_contact_name'] ?? ''),
             'emergency_contact_number' => (string)($roleData['emergency_contact_number'] ?? ''),
             'parent_name' => (string)($roleData['parent_name'] ?? ''),
