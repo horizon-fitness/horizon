@@ -90,9 +90,14 @@ $search = $_GET['search'] ?? '';
 $filter_role = $_GET['role'] ?? '';
 $filter_status = $_GET['status'] ?? '';
 $sort_by = $_GET['sort'] ?? 'newest';
+$user_filter = $_GET['user_id'] ?? 'all';
 
 if (!in_array($filter_role, ['', 'Member', 'Coach'], true)) {
     $filter_role = '';
+}
+
+if ($user_filter !== 'all' && !ctype_digit((string) $user_filter)) {
+    $user_filter = 'all';
 }
 
 // 1. Base Query Structure
@@ -117,6 +122,11 @@ if ($filter_status !== '') {
     $sql_params[':status'] = (int) $filter_status;
 }
 
+if ($user_filter !== 'all') {
+    $where_parts[] = "u.user_id = :user_id";
+    $sql_params[':user_id'] = (int) $user_filter;
+}
+
 $where_clause = "WHERE " . implode(' AND ', $where_parts);
 
 $order_sql = "ORDER BY u.created_at DESC";
@@ -130,12 +140,23 @@ if ($sort_by === 'name_desc')
 // 2. Fetch Total Count
 $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id $where_clause");
 $stmtCount->execute($sql_params);
-$total_records = $stmtCount->fetchColumn();
-$total_pages = ceil($total_records / $limit);
+$total_records = (int) $stmtCount->fetchColumn();
+$total_pages = max(1, (int) ceil($total_records / $limit));
+if ($current_page > $total_pages) {
+    $current_page = $total_pages;
+    $offset = ($current_page - 1) * $limit;
+}
 
 // 3. Fetch Paginated List
 $users_sql = "
-    SELECT u.user_id as id, u.first_name, u.last_name, u.username, u.email, u.contact_number, COALESCE(m.profile_picture, u.profile_picture) as profile_picture, r.role_name as role, u.created_at, u.is_active 
+    SELECT u.user_id as id, u.first_name, u.last_name, u.username, u.email, u.contact_number, COALESCE(m.profile_picture, u.profile_picture) as profile_picture, r.role_name as role, u.created_at, u.is_active,
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM member_subscriptions ms
+            WHERE ms.member_id = m.member_id
+              AND ms.subscription_status = 'Active'
+            LIMIT 1
+        ) THEN 1 ELSE 0 END AS has_active_subscription
     FROM users u 
     JOIN user_roles ur ON u.user_id = ur.user_id 
     JOIN roles r ON ur.role_id = r.role_id 
@@ -148,7 +169,7 @@ $users_sql = "
 
 $stmtUsers = $pdo->prepare($users_sql);
 foreach ($sql_params as $key => $val) {
-    if ($key === ':status' || $key === ':gym_id') {
+    if ($key === ':status' || $key === ':gym_id' || $key === ':user_id') {
         $stmtUsers->bindValue($key, (int) $val, PDO::PARAM_INT);
     } else {
         $stmtUsers->bindValue($key, $val, PDO::PARAM_STR);
@@ -159,11 +180,32 @@ $stmtUsers->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
 $stmtUsers->execute();
 $users_list = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
 
+$stmtAllUsers = $pdo->prepare("
+    SELECT u.user_id, CONCAT(u.first_name, ' ', u.last_name) AS full_name
+    FROM users u
+    JOIN user_roles ur ON u.user_id = ur.user_id
+    JOIN roles r ON ur.role_id = r.role_id
+    WHERE ur.gym_id = ? AND r.role_name IN ('Member', 'Coach')
+    GROUP BY u.user_id, u.first_name, u.last_name
+    ORDER BY u.first_name ASC, u.last_name ASC
+");
+$stmtAllUsers->execute([$gym_id]);
+$all_users_list = $stmtAllUsers->fetchAll(PDO::FETCH_ASSOC);
+$users_js = array_map(function ($user) {
+    return [
+        'id' => (string) $user['user_id'],
+        'name' => trim($user['full_name']),
+    ];
+}, $all_users_list);
+$user_name_map = array_column($users_js, 'name', 'id');
+
 $stmtMemberTotal = $pdo->prepare("
     SELECT COUNT(DISTINCT u.user_id)
     FROM users u
     JOIN user_roles ur ON u.user_id = ur.user_id
     JOIN roles r ON ur.role_id = r.role_id
+    JOIN members m ON u.user_id = m.user_id AND m.gym_id = ur.gym_id
+    JOIN member_subscriptions ms ON m.member_id = ms.member_id AND ms.subscription_status = 'Active'
     WHERE ur.gym_id = ? AND r.role_name = 'Member'
 ");
 $stmtMemberTotal->execute([$gym_id]);
@@ -232,10 +274,17 @@ if (isset($_GET['ajax_user_id'])) {
 
     $sql = "SELECT u.*, r.role_name as role, ur.role_status ";
     if ($role_name === 'member') {
-        $sql .= ", COALESCE(m.profile_picture, u.profile_picture) as profile_picture, m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.emergency_contact_name, m.emergency_contact_number, m.parent_name, m.parent_contact, m.registration_source, m.member_status ";
+        $sql .= ", COALESCE(m.profile_picture, u.profile_picture) as profile_picture, m.member_code, u.birth_date, u.sex, m.occupation, a.address_line, m.emergency_contact_name, m.emergency_contact_number, m.parent_name, m.parent_contact, m.registration_source, m.member_status,
+            CASE WHEN EXISTS (
+                SELECT 1
+                FROM member_subscriptions ms
+                WHERE ms.member_id = m.member_id
+                  AND ms.subscription_status = 'Active'
+                LIMIT 1
+            ) THEN 1 ELSE 0 END AS has_active_subscription ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id AND m.gym_id = ur.gym_id LEFT JOIN addresses a ON m.address_id = a.address_id ";
     } elseif ($role_name === 'coach') {
-        $sql .= ", ca.coach_type as employment_type, 'Coach' as staff_role, c.hire_date, c.status as staff_status ";
+        $sql .= ", ca.coach_type as employment_type, 'Coach' as staff_role, c.hire_date, c.status as staff_status, 0 AS has_active_subscription ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN coaches c ON u.user_id = c.user_id AND c.gym_id = ur.gym_id LEFT JOIN coach_applications ca ON c.coach_application_id = ca.coach_application_id ";
     } else {
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id ";
@@ -246,128 +295,134 @@ if (isset($_GET['ajax_user_id'])) {
     $stmtUser->execute([$uid, $gym_id]);
     $u = $stmtUser->fetch();
 
-    if ($u): ?>
-        <div class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-6">
-            <!-- Professional Header -->
-            <header class="flex justify-between items-center border-b border-white/5 pb-8">
-                <div class="flex items-center gap-6">
-                    <div class="size-16 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden">
-                        <?php if (!empty($u['profile_picture'])): 
+    if ($u):
+        $is_member_profile = $role_name === 'member' && (int) ($u['has_active_subscription'] ?? 0) === 1;
+        $membership_label = $is_member_profile ? 'Member' : 'Non-Member';
+    ?>
+        <div class="overflow-hidden">
+            <div class="p-8 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                <div class="flex items-center gap-5 min-w-0">
+                    <div class="size-20 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shadow-lg relative shrink-0">
+                        <?php if (!empty($u['profile_picture'])):
                             $pfp_src = getAdminUserAvatarPath($u['profile_picture']);
                         ?>
                             <img src="<?= htmlspecialchars($pfp_src) ?>" class="size-full object-cover" alt="">
                         <?php else: ?>
-                            <div class="text-primary font-bold text-2xl uppercase">
-                                <?= substr($u['first_name'], 0, 1) ?>
-                            </div>
+                            <span class="text-primary font-black italic text-2xl uppercase">
+                                <?= htmlspecialchars(substr($u['first_name'], 0, 1) . substr($u['last_name'], 0, 1)) ?>
+                            </span>
                         <?php endif; ?>
                     </div>
-                    <div>
-                        <h2 class="text-2xl font-bold uppercase tracking-tight text-[--text-main]">
+                    <div class="min-w-0">
+                        <h4 class="text-xl font-black uppercase tracking-tight text-white leading-tight truncate">
                             <?= htmlspecialchars($u['first_name'] . ' ' . $u['last_name']) ?>
-                        </h2>
-                        <div class="flex items-center gap-3 mt-1">
-                            <span class="text-[10px] text-primary font-black uppercase tracking-widest px-2 py-0.5 rounded bg-primary/5 border border-primary/10">
-                                <?= $u['role'] ?>
+                        </h4>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="min-w-[84px] text-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.18em] italic border <?= $is_member_profile ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-white/10 bg-white/5 text-white/45' ?>">
+                                <?= $membership_label ?>
+                            </span>
+                            <?php if ($role_name !== 'member'): ?>
+                                <span class="min-w-[70px] text-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.18em] italic border border-primary/20 bg-primary/10 text-primary">
+                                    <?= htmlspecialchars($u['role']) ?>
+                                </span>
+                            <?php endif; ?>
+                            <span class="min-w-[72px] text-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.18em] italic border <?= $u['is_active'] ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-rose-500/30 bg-rose-500/10 text-rose-400' ?>">
+                                <?= $u['is_active'] ? 'Active' : 'Deactivated' ?>
                             </span>
                         </div>
                     </div>
                 </div>
-                <button onclick="closeUserModal()" class="size-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-[--text-main]/40 transition-all">
+                <button onclick="closeUserModal()"
+                    class="size-10 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-500 transition-all flex items-center justify-center border border-white/5 text-white/60 shrink-0">
                     <span class="material-symbols-rounded text-xl">close</span>
                 </button>
-            </header>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Data Nodes -->
-                <div class="space-y-8">
-                    <section class="space-y-4">
-                        <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Account Details</h4>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Username</p>
-                                <p class="text-xs font-bold text-[--text-main]">@<?= htmlspecialchars($u['username']) ?></p>
-                            </div>
-                            <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Status</p>
-                                <p class="text-xs font-bold uppercase <?= $u['is_active'] ? 'text-emerald-500' : 'text-rose-500' ?>">
-                                    <?= $u['is_active'] ? 'Active' : 'Deactivated' ?>
-                                </p>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="space-y-4">
-                        <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Contact Information</h4>
-                        <div class="space-y-3">
-                            <div class="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                <span class="text-[9px] font-black uppercase text-[--text-main]/30 tracking-widest">Email Address</span>
-                                <span class="text-xs font-medium text-[--text-main]/70 truncate max-w-[180px]"><?= htmlspecialchars($u['email']) ?></span>
-                            </div>
-                            <div class="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                <span class="text-[9px] font-black uppercase text-[--text-main]/30 tracking-widest">Phone Number</span>
-                                <span class="text-xs font-bold text-[--text-main] tracking-widest"><?= htmlspecialchars($u['contact_number'] ?: 'N/A') ?></span>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-
-                <div class="space-y-8">
-                    <?php if ($role_name === 'member'): ?>
-                        <section class="space-y-4">
-                            <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Member Profile</h4>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                    <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Gender</p>
-                                    <p class="text-xs font-bold text-[--text-main] uppercase"><?= $u['sex'] ?: 'N/A' ?></p>
-                                </div>
-                                <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                    <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Birth Date</p>
-                                    <p class="text-xs font-bold text-[--text-main]"><?= $u['birth_date'] ? date('M d, Y', strtotime($u['birth_date'])) : 'N/A' ?></p>
-                                </div>
-                            </div>
-                        </section>
-                    <?php endif; ?>
-
-                    <?php if ($role_name === 'coach'): ?>
-                        <section class="space-y-4">
-                            <h4 class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Coach Profile</h4>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                    <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Coach Type</p>
-                                    <p class="text-xs font-bold text-[--text-main] uppercase"><?= htmlspecialchars($u['employment_type'] ?: 'N/A') ?></p>
-                                </div>
-                                <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                                    <p class="text-[8px] font-black uppercase text-[--text-main]/30 tracking-widest mb-1">Date Joined</p>
-                                    <p class="text-xs font-bold text-[--text-main]"><?= $u['hire_date'] ? date('M d, Y', strtotime($u['hire_date'])) : 'N/A' ?></p>
-                                </div>
-                            </div>
-                        </section>
-                    <?php endif; ?>
-
-                    <?php if (!empty($u['emergency_contact_name'])): ?>
-                        <section class="space-y-4">
-                            <h4 class="text-[9px] font-black uppercase text-amber-500/60 tracking-widest">Emergency Contact</h4>
-                            <div class="p-5 rounded-2xl bg-amber-500/[0.03] border border-amber-500/10">
-                                <p class="text-[10px] font-black text-[--text-main] uppercase mb-1"><?= htmlspecialchars($u['emergency_contact_name']) ?></p>
-                                <p class="text-xs font-bold text-amber-500 tracking-widest"><?= htmlspecialchars($u['emergency_contact_number']) ?></p>
-                            </div>
-                        </section>
-                    <?php endif; ?>
-
-                    <?php if (!empty($u['parent_name'])): ?>
-                        <section class="space-y-4">
-                            <h4 class="text-[9px] font-black uppercase text-sky-500/60 tracking-widest">Parent / Guardian</h4>
-                            <div class="p-5 rounded-2xl bg-sky-500/[0.03] border border-sky-500/10">
-                                <p class="text-[10px] font-black text-[--text-main] uppercase mb-1"><?= htmlspecialchars($u['parent_name']) ?></p>
-                                <p class="text-xs font-bold text-sky-500 tracking-widest"><?= htmlspecialchars($u['parent_contact']) ?></p>
-                            </div>
-                        </section>
-                    <?php endif; ?>
-                </div>
             </div>
-            
 
+            <div class="p-8 space-y-6 text-left max-h-[70vh] overflow-y-auto no-scrollbar">
+                <section class="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                    <div class="space-y-1 min-w-0">
+                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Username</p>
+                        <p class="text-sm font-bold text-white truncate">@<?= htmlspecialchars($u['username']) ?></p>
+                    </div>
+                    <div class="space-y-1 min-w-0">
+                        <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Account Type</p>
+                        <p class="text-sm font-bold text-white uppercase italic tracking-wider"><?= htmlspecialchars($u['role']) ?></p>
+                    </div>
+                </section>
+
+                <section class="grid grid-cols-1 gap-6 bg-white/[0.02] p-6 rounded-2xl border border-white/5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div class="space-y-1 min-w-0">
+                            <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Email Address</p>
+                            <p class="text-sm font-medium text-white truncate"><?= htmlspecialchars($u['email']) ?></p>
+                        </div>
+                        <div class="space-y-1 min-w-0">
+                            <p class="text-[10px] font-bold uppercase tracking-widest opacity-40">Contact Number</p>
+                            <p class="text-sm font-medium text-white"><?= htmlspecialchars($u['contact_number'] ?: 'N/A') ?></p>
+                        </div>
+                    </div>
+                </section>
+
+                <?php if ($role_name === 'member'): ?>
+                    <section class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                            <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Gender</p>
+                            <p class="text-xs font-bold text-white uppercase"><?= htmlspecialchars($u['sex'] ?: 'N/A') ?></p>
+                        </div>
+                        <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                            <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Birthdate</p>
+                            <p class="text-xs font-bold text-white"><?= $u['birth_date'] ? date('M d, Y', strtotime($u['birth_date'])) : 'N/A' ?></p>
+                        </div>
+                        <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                            <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Occupation</p>
+                            <p class="text-xs font-bold text-white uppercase truncate"><?= htmlspecialchars($u['occupation'] ?: 'N/A') ?></p>
+                        </div>
+                    </section>
+                <?php endif; ?>
+
+                <?php if ($role_name === 'coach'): ?>
+                    <section class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                            <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Coach Type</p>
+                            <p class="text-xs font-bold text-white uppercase truncate"><?= htmlspecialchars($u['employment_type'] ?: 'N/A') ?></p>
+                        </div>
+                        <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                            <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Status</p>
+                            <p class="text-xs font-bold text-white uppercase"><?= htmlspecialchars($u['staff_status'] ?: 'N/A') ?></p>
+                        </div>
+                        <div class="bg-white/[0.02] p-5 rounded-2xl border border-white/5 space-y-1">
+                            <p class="text-[9px] font-bold uppercase tracking-widest opacity-40">Joined On</p>
+                            <p class="text-xs font-bold text-white"><?= $u['hire_date'] ? date('M d, Y', strtotime($u['hire_date'])) : 'N/A' ?></p>
+                        </div>
+                    </section>
+                <?php endif; ?>
+
+                <?php if (!empty($u['emergency_contact_name'])): ?>
+                    <section class="bg-amber-500/[0.03] p-6 rounded-2xl border border-amber-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-amber-500/60">Emergency Contact</p>
+                            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Primary contact person</p>
+                        </div>
+                        <div class="sm:text-right min-w-0">
+                            <p class="text-sm font-black uppercase text-white truncate"><?= htmlspecialchars($u['emergency_contact_name']) ?></p>
+                            <p class="text-sm font-black italic text-amber-500 tracking-wider"><?= htmlspecialchars($u['emergency_contact_number']) ?></p>
+                        </div>
+                    </section>
+                <?php endif; ?>
+
+                <?php if (!empty($u['parent_name'])): ?>
+                    <section class="bg-sky-500/[0.03] p-6 rounded-2xl border border-sky-500/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-sky-500/60">Parent / Guardian</p>
+                            <p class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Required for minors</p>
+                        </div>
+                        <div class="sm:text-right min-w-0">
+                            <p class="text-sm font-black uppercase text-white truncate"><?= htmlspecialchars($u['parent_name']) ?></p>
+                            <p class="text-sm font-black italic text-sky-500 tracking-wider"><?= htmlspecialchars($u['parent_contact']) ?></p>
+                        </div>
+                    </section>
+                <?php endif; ?>
+            </div>
         </div>
     <?php endif;
     exit;
@@ -390,6 +445,9 @@ $page = [
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+        const availableUsers = <?= json_encode($users_js, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+        const currentUserFilter = <?= json_encode((string) $user_filter) ?>;
+
         tailwind.config = {
             darkMode: "class",
             theme: {
@@ -626,6 +684,8 @@ $page = [
             background: var(--primary);
             color: #fff;
             border-color: var(--primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .pagination-btn.active {
@@ -637,6 +697,16 @@ $page = [
         .pagination-btn.disabled {
             opacity: 0.2;
             pointer-events: none;
+            cursor: not-allowed;
+        }
+
+        .pagination-status {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            color: var(--text-main);
+            opacity: 0.5;
         }
 
         .selected-option {
@@ -648,6 +718,35 @@ $page = [
             background-color: #141216;
             border: 1px solid rgba(255, 255, 255, 0.10);
             box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+        }
+
+        .searchable-dropdown-overlay {
+            background: #141216;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(40px);
+            scrollbar-width: none;
+        }
+
+        .searchable-dropdown-overlay::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tenant-option {
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tenant-option:hover {
+            background: rgba(var(--primary-rgb), 0.08);
+            border-color: rgba(var(--primary-rgb), 0.12);
+            color: var(--primary);
+        }
+
+        .tenant-option.selected {
+            background: var(--primary);
+            color: #ffffff;
         }
 
         #userModal {
@@ -673,11 +772,7 @@ $page = [
         }
 
         function clearFilters() {
-            const form = document.getElementById('filterForm');
-            form.reset();
-            // Clear inputs manually if reset() isn't enough for some browsers
-            form.querySelectorAll('input, select').forEach(el => el.value = '');
-            changePage(1);
+            window.location.href = window.location.pathname;
         }
 
         function changePage(pageNumber) {
@@ -699,9 +794,59 @@ $page = [
                     const newContainer = doc.getElementById('usersTableContainer');
                     if (newContainer) {
                         document.getElementById('usersTableContainer').innerHTML = newContainer.innerHTML;
+                        initSearchableDropdown('userSearchContainer', 'userSearchInput', 'userDropdown', 'userOptionsList', 'hidden_user_id', document.getElementById('hidden_user_id')?.value || 'all');
                     }
                 })
                 .catch(err => console.error("Filter Fetch Error:", err));
+        }
+
+        function initSearchableDropdown(containerId, inputId, dropdownId, listId, hiddenInputId, currentFilter) {
+            const container = document.getElementById(containerId);
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            const list = document.getElementById(listId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+
+            if (!container || !input || !dropdown || !list || !hiddenInput) return;
+
+            function escapeHtml(value) {
+                return String(value).replace(/[&<>"']/g, (char) => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#039;'
+                }[char]));
+            }
+
+            function renderOptions(filter = '') {
+                const searchFilter = filter === 'All Users' ? '' : filter.toLowerCase().trim();
+                const filtered = availableUsers.filter((user) => user.name.toLowerCase().includes(searchFilter));
+
+                list.innerHTML = filtered.map((user) => `
+                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider ${String(currentFilter) === String(user.id) ? 'selected' : 'text-white/60'}"
+                         data-id="${escapeHtml(user.id)}" data-name="${escapeHtml(user.name)}">
+                        ${escapeHtml(user.name)}
+                    </div>
+                `).join('') || '<div class="px-4 py-3 text-[9px] text-white/20 italic uppercase font-black">No user found...</div>';
+            }
+
+            const newInput = input.cloneNode(true);
+            input.parentNode.replaceChild(newInput, input);
+
+            newInput.addEventListener('focus', () => {
+                document.querySelectorAll('.custom-select-dropdown').forEach((item) => item.classList.add('hidden'));
+                document.querySelectorAll('.custom-select-container').forEach((item) => item.classList.remove('is-open'));
+                dropdown.classList.remove('hidden');
+                renderOptions(newInput.value);
+            });
+
+            newInput.addEventListener('input', (event) => {
+                dropdown.classList.remove('hidden');
+                renderOptions(event.target.value);
+            });
+
+            renderOptions('');
         }
 
         async function viewUserProfile(userId) {
@@ -748,6 +893,9 @@ $page = [
             const dropdown = trigger.nextElementSibling;
             const container = trigger.closest('.custom-select-container');
 
+            const userDropdown = document.getElementById('userDropdown');
+            if (userDropdown) userDropdown.classList.add('hidden');
+
             document.querySelectorAll('.custom-select-dropdown').forEach((item) => {
                 if (item !== dropdown) item.classList.add('hidden');
             });
@@ -760,6 +908,23 @@ $page = [
         }
 
         document.addEventListener('click', (event) => {
+            const tenantOption = event.target.closest('.tenant-option');
+            if (tenantOption) {
+                event.stopPropagation();
+                const container = tenantOption.closest('#userSearchContainer');
+                if (container) {
+                    const hiddenInput = container.querySelector('#hidden_user_id');
+                    const input = container.querySelector('#userSearchInput');
+                    const dropdown = container.querySelector('#userDropdown');
+
+                    hiddenInput.value = tenantOption.dataset.id || 'all';
+                    input.value = tenantOption.dataset.name || 'All Users';
+                    dropdown.classList.add('hidden');
+                    reactiveFilter();
+                }
+                return;
+            }
+
             const customOption = event.target.closest('.custom-option');
 
             if (customOption) {
@@ -789,6 +954,11 @@ $page = [
                 document.querySelectorAll('.custom-select-dropdown').forEach((item) => item.classList.add('hidden'));
                 document.querySelectorAll('.custom-select-container').forEach((item) => item.classList.remove('is-open'));
             }
+
+            if (!event.target.closest('#userSearchContainer')) {
+                const userDropdown = document.getElementById('userDropdown');
+                if (userDropdown) userDropdown.classList.add('hidden');
+            }
         });
 
         function updateHeaderClock() {
@@ -799,7 +969,10 @@ $page = [
             }
         }
         setInterval(updateHeaderClock, 1000);
-        window.addEventListener('DOMContentLoaded', updateHeaderClock);
+        window.addEventListener('DOMContentLoaded', () => {
+            updateHeaderClock();
+            initSearchableDropdown('userSearchContainer', 'userSearchInput', 'userDropdown', 'userOptionsList', 'hidden_user_id', currentUserFilter);
+        });
 
     </script>
 </head>
@@ -857,6 +1030,27 @@ $page = [
                             <input type="text" name="search" value="<?= htmlspecialchars($search) ?>"
                                 placeholder="Search records..." oninput="reactiveFilter()" autocomplete="off"
                                 class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest outline-none text-white hover:border-white/20 transition-all focus:border-primary">
+                        </div>
+
+                        <div class="flex-1 min-w-[280px] relative group" id="userSearchContainer">
+                            <?php
+                            $selectedUserName = ($user_filter === 'all') ? 'All Users' : ($user_name_map[(string) $user_filter] ?? 'All Users');
+                            ?>
+                            <input type="hidden" name="user_id" id="hidden_user_id" value="<?= htmlspecialchars((string) $user_filter) ?>">
+                            <div class="relative">
+                                <span class="material-symbols-rounded absolute left-4 top-1/2 -translate-y-1/2 text-base text-primary/50 transition-transform group-hover:scale-110">person_search</span>
+                                <input type="text" id="userSearchInput" value="<?= htmlspecialchars($selectedUserName) ?>"
+                                    placeholder="Search name..." autocomplete="off"
+                                    class="w-full h-[52px] bg-white/5 border border-white/10 rounded-2xl pl-12 pr-11 text-[10px] font-black uppercase tracking-widest outline-none text-white hover:border-white/20 transition-all focus:border-primary">
+                                <span class="material-symbols-rounded absolute right-4 top-1/2 -translate-y-1/2 text-primary/70 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                            <div id="userDropdown" class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                <div class="p-1.5 space-y-0.5">
+                                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $user_filter === 'all' ? 'selected' : 'text-white/60' ?>"
+                                        data-id="all" data-name="All Users">All Users</div>
+                                    <div id="userOptionsList"></div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="w-[180px] relative group shrink-0 custom-select-container">
@@ -971,8 +1165,13 @@ $page = [
                                             </div>
                                         </td>
                                         <td class="px-8 py-6 align-middle">
-                                            <span class="text-[13px] font-bold tracking-wider <?= strtolower($u['role']) === 'coach' ? 'text-amber-500' : 'text-emerald-500' ?>">
-                                                <?= htmlspecialchars($u['role']) ?>
+                                            <?php
+                                            $rowIsSubscribedMember = strtolower($u['role']) === 'member' && (int) ($u['has_active_subscription'] ?? 0) === 1;
+                                            $rowRoleLabel = strtolower($u['role']) === 'member' ? ($rowIsSubscribedMember ? 'Member' : 'Non-Member') : $u['role'];
+                                            $rowRoleClass = strtolower($u['role']) === 'coach' ? 'text-amber-500' : ($rowIsSubscribedMember ? 'text-emerald-500' : 'text-white/45');
+                                            ?>
+                                            <span class="text-[13px] font-bold tracking-wider <?= $rowRoleClass ?>">
+                                                <?= htmlspecialchars($rowRoleLabel) ?>
                                             </span>
                                         </td>
                                         <td class="px-8 py-6 align-middle">
@@ -1004,26 +1203,26 @@ $page = [
                     </table>
                 </div>
 
-                <?php if ($total_pages > 1): ?>
-                    <div class="px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/40">
-                            Showing page <span class="text-[--text-main]"><?= $current_page ?></span> of
-                            <span class="text-[--text-main]"><?= $total_pages ?></span>
-                        </p>
-                        <div class="flex items-center gap-2">
-                            <button onclick="changePage(<?= max(1, $current_page - 1) ?>)" class="pagination-btn <?= ($current_page <= 1) ? 'disabled' : '' ?>">Prev</button>
-                            <?php
-                            $start_p = max(1, $current_page - 2);
-                            $end_p = min($total_pages, $start_p + 4);
-                            if ($end_p - $start_p < 4) $start_p = max(1, $end_p - 4);
-                            for ($i = $start_p; $i <= $end_p; $i++):
-                            ?>
-                                <button onclick="changePage(<?= $i ?>)" class="pagination-btn <?= ($i === $current_page) ? 'active' : '' ?>"><?= $i ?></button>
-                            <?php endfor; ?>
-                            <button onclick="changePage(<?= min($total_pages, $current_page + 1) ?>)" class="pagination-btn <?= ($current_page >= $total_pages) ? 'disabled' : '' ?>">Next</button>
-                        </div>
+                <?php
+                $showing_start = $total_records > 0 ? $offset + 1 : 0;
+                $showing_end = $total_records > 0 ? min($offset + $limit, $total_records) : 0;
+                ?>
+                <div id="pagination-users" class="px-8 py-5 border-t border-white/5 bg-white/[0.01] flex justify-between items-center">
+                    <p class="pagination-status">
+                        Showing <?= $showing_start ?> to <?= $showing_end ?> of <?= $total_records ?> users
+                    </p>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="changePage(<?= max(1, $current_page - 1) ?>)" class="pagination-btn <?= ($current_page <= 1) ? 'disabled' : '' ?>" <?= ($current_page <= 1) ? 'disabled' : '' ?>>Prev</button>
+                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                            <?php if ($i === 1 || $i === $total_pages || ($i >= $current_page - 2 && $i <= $current_page + 2)): ?>
+                                <button type="button" onclick="changePage(<?= $i ?>)" class="pagination-btn <?= ($i === $current_page) ? 'active' : '' ?>"><?= $i ?></button>
+                            <?php elseif ($i === $current_page - 3 || $i === $current_page + 3): ?>
+                                <span class="text-[--text-main]/20 text-[10px] font-black mx-1">...</span>
+                            <?php endif; ?>
+                        <?php endfor; ?>
+                        <button type="button" onclick="changePage(<?= min($total_pages, $current_page + 1) ?>)" class="pagination-btn <?= ($current_page >= $total_pages) ? 'disabled' : '' ?>" <?= ($current_page >= $total_pages) ? 'disabled' : '' ?>>Next</button>
                     </div>
-                <?php endif; ?>
+                </div>
             </div>
         </main>
     </div>
@@ -1034,7 +1233,7 @@ $page = [
             onclick="closeUserModal()"></div>
 
         <div id="user-modal-content"
-            class="relative z-10 bg-[--card-bg] w-full max-w-2xl max-h-[90vh] overflow-y-auto no-scrollbar rounded-[28px] shadow-2xl border border-white/5 backdrop-blur-3xl p-8 transform transition-all duration-300 scale-90 opacity-0 pointer-events-auto">
+            class="relative z-10 bg-[--card-bg] w-full max-w-[600px] max-h-[90vh] overflow-hidden rounded-[28px] shadow-2xl border border-white/5 backdrop-blur-3xl transform transition-all duration-300 scale-90 opacity-0 pointer-events-auto">
             <div id="modalContent">
                 <!-- Loaded via AJAX -->
             </div>
