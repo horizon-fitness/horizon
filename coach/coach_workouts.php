@@ -691,7 +691,6 @@ $active_page = "workouts";
                                 <th class="px-8 py-5 opacity-40">Target Member</th>
                                 <th class="px-8 py-5 opacity-40">Program</th>
                                 <th class="px-8 py-5 opacity-40">Assigned Date</th>
-                                <th class="px-8 py-5 opacity-40 text-center">Outcome</th>
                                 <th class="px-8 py-5 opacity-40 text-center">Status</th>
                                 <th class="px-8 py-5 opacity-40 text-center">Action</th>
                             </tr>
@@ -719,19 +718,6 @@ $active_page = "workouts";
                                 </td>
                                 <td class="px-8 py-5">
                                     <p class="text-[--text-main] opacity-40 font-black tracking-widest text-[12px]"><?= date('M d, Y', strtotime($rw['created_at'])) ?></p>
-                                </td>
-                                <td class="px-8 py-5 text-center">
-                                    <?php if ($rw_status === 'Completed'): ?>
-                                        <p class="text-green-400 font-black tracking-widest text-[10px]">Completed</p>
-                                    <?php elseif ($rw_status === 'Missed'): ?>
-                                        <p class="text-red-400 font-black tracking-widest text-[10px]">No Data</p>
-                                    <?php else: ?>
-                                        <?php if(isset($rw['total_items']) && $rw['total_items'] > 0): ?>
-                                            <p class="text-[#3B82F6] font-black tracking-widest text-[11px]"><?= htmlspecialchars($rw['completed_items']) ?>/<?= htmlspecialchars($rw['total_items']) ?></p>
-                                        <?php else: ?>
-                                            <p class="text-white/30 font-black tracking-widest text-[10px]">Pending</p>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
                                 </td>
                                 <td class="px-8 py-5 text-center">
                                     <?php

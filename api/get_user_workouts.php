@@ -27,10 +27,13 @@ try {
 
     // Get workouts assigned to this member
     $stmtWorkouts = $pdo->prepare("
-        SELECT workout_id, workout_name, workout_category, difficulty_level, workout_description, workout_status, scheduled_date, completed_items, total_items, created_at
-        FROM member_workouts 
-        WHERE member_id = ? AND gym_id = ?
-        ORDER BY created_at DESC
+        SELECT mw.workout_id, mw.workout_name, mw.workout_category, mw.difficulty_level, mw.workout_description, mw.workout_status, mw.scheduled_date, mw.completed_items, mw.total_items, mw.created_at,
+               CONCAT(u.first_name, ' ', u.last_name) AS coach_name
+        FROM member_workouts mw
+        LEFT JOIN staff s ON mw.coach_id = s.staff_id
+        LEFT JOIN users u ON s.user_id = u.user_id
+        WHERE mw.member_id = ? AND mw.gym_id = ?
+        ORDER BY mw.created_at DESC
     ");
     $stmtWorkouts->execute([$member['member_id'], $gym_id]);
     $workouts = $stmtWorkouts->fetchAll(PDO::FETCH_ASSOC);

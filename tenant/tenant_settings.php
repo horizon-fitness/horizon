@@ -297,6 +297,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// --- AJAX HANDLER: UPDATE CATALOG SERVICE ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_catalog_service') {
+    try {
+        $id = (int) $_POST['id'];
+        $stmtUpdateService = $pdo->prepare("UPDATE service_catalog SET service_name = ?, price = ?, description = ? WHERE catalog_service_id = ? AND gym_id = ?");
+        $stmtUpdateService->execute([
+            trim($_POST['name'] ?? ''),
+            (float) ($_POST['price'] ?? 0),
+            trim($_POST['description'] ?? ''),
+            $id,
+            $gym_id
+        ]);
+
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // --- AJAX HANDLER: RESET PORTAL CONTENT ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'reset_portal_content') {
     try {
@@ -2301,6 +2321,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                             <?php else: ?>
                                 <?php foreach ($active_services as $s): ?>
                                     <div class="service-card elite-red-card p-10 group relative transition-all duration-300"
+                                        id="service-card-<?= $s['catalog_service_id'] ?>"
                                         data-id="<?= $s['catalog_service_id'] ?>"
                                         data-name="<?= strtolower(htmlspecialchars($s['service_name'])) ?>"
                                         data-price="<?= (float) $s['price'] ?>" data-date="<?= strtotime($s['created_at']) ?>">
@@ -2314,19 +2335,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                                 </div>
                                                 <div>
                                                     <h5
-                                                        class="text-sm font-black italic uppercase tracking-widest text-primary">
+                                                        class="text-sm font-black italic uppercase tracking-widest text-primary service-title-preview">
                                                         <?= htmlspecialchars($s['service_name']) ?></h5>
                                                 </div>
                                             </div>
-                                            <button type="button"
-                                                onclick="confirmArchiveService(<?= $s['catalog_service_id'] ?>)"
-                                                class="size-10 rounded-xl bg-white/5 text-gray-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all active:scale-95 border border-white/5"
-                                                title="Archive Service">
-                                                <span class="material-symbols-outlined text-lg">archive</span>
-                                            </button>
+                                            <div class="flex items-center gap-2">
+                                                <button type="button"
+                                                    onclick="toggleServiceEdit(<?= $s['catalog_service_id'] ?>)"
+                                                    class="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-all active:scale-95 border border-white/5 service-edit-btn"
+                                                    title="Edit Service">
+                                                    <span class="material-symbols-outlined text-lg">edit</span>
+                                                </button>
+                                                <button type="button"
+                                                    onclick="confirmArchiveService(<?= $s['catalog_service_id'] ?>)"
+                                                    class="size-10 rounded-xl bg-white/5 text-gray-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all active:scale-95 border border-white/5"
+                                                    title="Archive Service">
+                                                    <span class="material-symbols-outlined text-lg">archive</span>
+                                                </button>
+                                            </div>
                                         </div>
 
-                                        <div class="space-y-6">
+                                        <div class="plan-preview-state space-y-6">
                                             <div class="flex flex-col gap-1.5">
                                                 <label class="label-elite">Price Tag</label>
                                                 <div class="view-box font-black text-white text-base justify-between">
@@ -2340,6 +2369,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                                 <div class="view-box view-box-long text-gray-400 italic">
                                                     <?= !empty($s['description']) ? htmlspecialchars($s['description']) : 'No official description provided for this catalog offering.' ?>
                                                 </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="plan-edit-state grid grid-cols-2 gap-x-6 gap-y-6 animate-in fade-in duration-300">
+                                            <div class="col-span-2 flex flex-col gap-1.5">
+                                                <label class="text-[9px] font-black uppercase text-primary tracking-widest ml-1">Service Name</label>
+                                                <input type="text"
+                                                    name="catalog_services[<?= $s['catalog_service_id'] ?>][name]"
+                                                    value="<?= htmlspecialchars($s['service_name']) ?>"
+                                                    class="input-dark-elite italic tracking-tight uppercase"
+                                                    placeholder="e.g. Boxing" required
+                                                    oninput="this.closest('.service-card').querySelector('.service-title-preview').innerText = this.value || 'Unnamed Service'">
+                                            </div>
+                                            <div class="col-span-2 flex flex-col gap-1.5">
+                                                <label class="text-[9px] font-black uppercase text-primary tracking-widest ml-1">Price Tag (₱)</label>
+                                                <input type="number"
+                                                    name="catalog_services[<?= $s['catalog_service_id'] ?>][price]"
+                                                    value="<?= (float) $s['price'] ?>"
+                                                    class="input-dark-elite font-bold"
+                                                    placeholder="1000" required>
+                                            </div>
+                                            <div class="col-span-2 flex flex-col gap-1.5">
+                                                <label class="text-[9px] font-black uppercase text-primary tracking-widest ml-1">Description</label>
+                                                <textarea name="catalog_services[<?= $s['catalog_service_id'] ?>][description]"
+                                                    rows="4"
+                                                    class="input-dark-elite !bg-white/[0.01] resize-none leading-relaxed font-bold"
+                                                    placeholder="What does this service include?"><?= htmlspecialchars($s['description'] ?? '') ?></textarea>
+                                            </div>
+                                            <div class="col-span-2 pt-4 border-t border-white/5">
+                                                <p class="text-[8px] font-black uppercase tracking-widest text-primary opacity-60 italic">
+                                                    Click the check button to save this service</p>
                                             </div>
                                         </div>
                                     </div>
@@ -3536,6 +3596,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         icon.classList.remove('animate-spin');
                     });
             }
+        }
+
+        function toggleServiceEdit(idOrBtn) {
+            let card, btn, id;
+
+            if (typeof idOrBtn === 'number' || typeof idOrBtn === 'string') {
+                id = idOrBtn;
+                card = document.getElementById(`service-card-${id}`);
+                btn = card?.querySelector('.service-edit-btn');
+            } else {
+                btn = idOrBtn;
+                card = btn.closest('.service-card');
+                id = card.getAttribute('data-id');
+            }
+
+            if (!card || !btn) return;
+
+            const isEditing = card.classList.toggle('is-editing');
+            const icon = btn.querySelector('.material-symbols-outlined');
+
+            if (isEditing) {
+                icon.textContent = 'check';
+                btn.classList.add('bg-emerald-500/10', 'text-emerald-500');
+                btn.classList.remove('bg-primary/10', 'text-primary');
+
+                setTimeout(() => {
+                    const firstInput = card.querySelector('.plan-edit-state input');
+                    if (firstInput) firstInput.focus();
+                }, 100);
+                return;
+            }
+
+            btn.disabled = true;
+            icon.textContent = 'sync';
+            icon.classList.add('animate-spin');
+
+            const nameInput = card.querySelector(`[name*="[name]"]`);
+            const priceInput = card.querySelector(`[name*="[price]"]`);
+            const descInput = card.querySelector(`[name*="[description]"]`);
+
+            const formData = new FormData();
+            formData.append('action', 'update_catalog_service');
+            formData.append('id', id);
+            formData.append('name', nameInput?.value || '');
+            formData.append('price', priceInput?.value || 0);
+            formData.append('description', descInput?.value || '');
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const serviceName = nameInput?.value || 'Unnamed Service';
+                        const servicePrice = parseFloat(priceInput?.value || 0);
+                        const serviceDesc = descInput?.value || 'No official description provided for this catalog offering.';
+                        const views = card.querySelectorAll('.plan-preview-state .view-box');
+
+                        card.dataset.name = serviceName.toLowerCase();
+                        card.dataset.price = String(servicePrice);
+                        card.querySelector('.service-title-preview').textContent = serviceName;
+
+                        if (views[0]) {
+                            const priceSpan = views[0].querySelector('span:first-child');
+                            if (priceSpan) {
+                                priceSpan.textContent = '₱' + servicePrice.toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                            }
+                        }
+                        if (views[1]) views[1].textContent = serviceDesc;
+
+                        icon.textContent = 'edit';
+                        btn.classList.remove('bg-emerald-500/10', 'text-emerald-500');
+                        btn.classList.add('bg-primary/10', 'text-primary');
+                        showEliteToast('Service Updated Successfully!', 'verified', 'bg-emerald-600');
+                        updateMockup();
+                        filterServices();
+                    } else {
+                        showEliteToast(data.error || 'Failed to update service.', 'error', 'bg-rose-600');
+                        card.classList.add('is-editing');
+                    }
+                })
+                .catch(err => {
+                    console.error('AJAX Error:', err);
+                    showEliteToast('Failed to save service.', 'error', 'bg-rose-600');
+                    card.classList.add('is-editing');
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    icon.classList.remove('animate-spin');
+                });
         }
 
         // --- ARCHIVED PLANS FILTERING & SORTING ---

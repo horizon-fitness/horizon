@@ -22,12 +22,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
     
     // Fetch details for email
     $stmtRef = $pdo->prepare("
-        SELECT rr.*, u.email, u.first_name, u.last_name, b.booking_date, b.start_time, sc.service_name, g.gym_name
+        SELECT rr.*, u.email, u.first_name, u.last_name, b.booking_date, b.start_time, sc.service_name, g.gym_name,
+               COALESCE(bp.booking_amount, sc.price, 0) AS refund_amount
         FROM refund_requests rr
         JOIN users u ON rr.user_id = u.user_id
         JOIN bookings b ON rr.booking_id = b.booking_id
         JOIN gyms g ON rr.gym_id = g.gym_id
         JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
+        LEFT JOIN (
+            SELECT booking_id, MAX(amount) AS booking_amount
+            FROM payments
+            WHERE payment_type = 'Booking'
+            GROUP BY booking_id
+        ) bp ON bp.booking_id = b.booking_id
         WHERE rr.refund_request_id = ? AND rr.gym_id = ?
     ");
     $stmtRef->execute([$refund_id, $gym_id]);
@@ -49,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_
             <p>Your refund and cancellation request has been processed.</p>
             <div style='background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;'>
                 <p style='margin: 5px 0;'><strong>Service:</strong> {$refundData['service_name']}</p>
+                <p style='margin: 5px 0;'><strong>Refund Amount:</strong> PHP " . number_format((float) $refundData['refund_amount'], 2) . "</p>
                 <p style='margin: 5px 0;'><strong>Schedule:</strong> " . date('M d, Y', strtotime($refundData['booking_date'])) . " at " . date('h:i A', strtotime($refundData['start_time'])) . "</p>
                 <p style='margin: 5px 0;'><strong>Reason Provided:</strong> " . htmlspecialchars($refundData['reason']) . "</p>
                 <p style='margin: 5px 0;'><strong>Final Status:</strong> <span style='color: $color; font-weight: bold;'>$new_status</span></p>
@@ -198,12 +206,19 @@ if ($current_page > $total_pages) {
 }
 
 $stmtRefunds = $pdo->prepare("
-    SELECT rr.*, u.user_id, u.first_name, u.last_name, u.email, u.contact_number, COALESCE(m.profile_picture, u.profile_picture) as profile_picture, b.booking_date, b.start_time, sc.service_name
+    SELECT rr.*, u.user_id, u.first_name, u.last_name, u.email, u.contact_number, COALESCE(m.profile_picture, u.profile_picture) as profile_picture, b.booking_date, b.start_time, sc.service_name,
+           COALESCE(bp.booking_amount, sc.price, 0) AS refund_amount
     FROM refund_requests rr
     JOIN users u ON rr.user_id = u.user_id
     LEFT JOIN members m ON m.user_id = u.user_id AND m.gym_id = rr.gym_id
     JOIN bookings b ON rr.booking_id = b.booking_id
     JOIN service_catalog sc ON b.catalog_service_id = sc.catalog_service_id
+    LEFT JOIN (
+        SELECT booking_id, MAX(amount) AS booking_amount
+        FROM payments
+        WHERE payment_type = 'Booking'
+        GROUP BY booking_id
+    ) bp ON bp.booking_id = b.booking_id
     $where_clause
     ORDER BY rr.created_at DESC
     LIMIT :limit OFFSET :offset
@@ -775,7 +790,7 @@ $page = [
                                     <?php
                                         $refundRefId = (int) ($r['refund_request_id'] ?? 0);
                                         $displayRefundRef = 'REFUND-' . str_pad((string) ($refundRefId > 0 ? $refundRefId : ($refundIndex + 1)), 5, '0', STR_PAD_LEFT);
-                                        $displayRefundAmount = isset($r['refund_amount']) && $r['refund_amount'] !== null ? 'PHP ' . number_format((float) $r['refund_amount'], 2) : 'N/A';
+                                        $displayRefundAmount = 'PHP ' . number_format((float) ($r['refund_amount'] ?? 0), 2);
                                     ?>
                                     <tr class="group hover:bg-white/[0.02] transition-colors">
                                         <td class="px-8 py-6 align-middle">
@@ -874,8 +889,6 @@ $page = [
                                                     <button type="button" onclick="showSampleAction('Reject')" class="size-8 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all" title="Sample reject preview">
                                                         <span class="material-symbols-rounded text-base">close</span>
                                                     </button>
-                                                <?php else: ?>
-                                                    <span class="px-3 py-1 rounded-lg bg-white/5 border border-white/5 text-[9px] font-black uppercase tracking-widest text-[--text-main]/35">Processed</span>
                                                 <?php endif; ?>
                                             </div>
                                         </td>

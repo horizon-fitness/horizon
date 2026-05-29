@@ -918,6 +918,51 @@ $affiliatedGyms = $stmtGyms->fetchAll();
             </div>
         </section>
 
+        <section id="mission-vision" class="py-24 px-6 relative border-t border-black/5 dark:border-white/5 bg-slate-50 dark:bg-[#08080a] overflow-hidden">
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(127,19,236,0.12),transparent_35%),radial-gradient(circle_at_80%_80%,rgba(127,19,236,0.08),transparent_35%)] pointer-events-none"></div>
+            <div class="max-w-7xl mx-auto relative z-10">
+                <div class="text-center max-w-3xl mx-auto mb-14">
+                    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-6">
+                        System Direction
+                    </div>
+                    <h2 class="text-4xl md:text-5xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter mb-4">
+                        Built With <span class="text-gradient">Purpose</span>
+                    </h2>
+                    <p class="text-[10px] text-gray-600 dark:text-gray-400 font-bold uppercase tracking-[0.3em] leading-relaxed">
+                        Connecting web administration and mobile member access in one secure platform
+                    </p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6 lg:gap-10">
+                    <div class="plan-card rounded-2xl p-8 md:p-10 text-left bg-white dark:bg-white/[0.02] border-black/5 dark:border-white/5">
+                        <div class="size-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-8">
+                            <span class="material-symbols-outlined text-primary text-2xl">flag</span>
+                        </div>
+                        <p class="text-[10px] text-primary font-black uppercase tracking-[0.3em] mb-4">Mission</p>
+                        <h3 class="text-2xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter mb-6">
+                            Simplify Fitness Operations
+                        </h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed italic text-justify">
+                            To empower fitness facilities with a unified web and mobile management platform that simplifies gym operations, improves member accessibility, and automates essential processes such as registration, scheduling, attendance tracking, payments, and reporting while maintaining secure tenant-based data separation.
+                        </p>
+                    </div>
+
+                    <div class="plan-card rounded-2xl p-8 md:p-10 text-left border-primary/40 bg-primary/5 shadow-2xl shadow-primary/10">
+                        <div class="size-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-8">
+                            <span class="material-symbols-outlined text-primary text-2xl">visibility</span>
+                        </div>
+                        <p class="text-[10px] text-primary font-black uppercase tracking-[0.3em] mb-4">Vision</p>
+                        <h3 class="text-2xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter mb-6">
+                            One Connected Fitness Network
+                        </h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 leading-relaxed italic text-justify">
+                            To become a trusted digital fitness management solution for gyms and wellness centers by connecting administrators, staff, coaches, and members through one scalable platform that delivers efficient operations, real-time mobile access, accurate records, and a better fitness service experience.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section id="plans" class="pt-16 pb-32 px-6 relative border-t border-black/5 dark:border-white/5">
             <div class="max-w-7xl mx-auto text-center">
                 <div class="mb-16">

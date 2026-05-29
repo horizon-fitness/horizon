@@ -13,6 +13,7 @@ try {
     $workout_id = isset($input['workout_id']) ? (int)$input['workout_id'] : 0;
     $completed_items = isset($input['completed_items']) ? (int)$input['completed_items'] : 0;
     $total_items = isset($input['total_items']) ? (int)$input['total_items'] : 0;
+    $mark_completed = isset($input['mark_completed']) ? (bool)$input['mark_completed'] : false;
 
     if ($workout_id <= 0) {
         ob_end_clean();
@@ -20,8 +21,13 @@ try {
         exit;
     }
 
-    $stmt = $pdo->prepare("UPDATE member_workouts SET completed_items = ?, total_items = ? WHERE workout_id = ?");
-    $stmt->execute([$completed_items, $total_items, $workout_id]);
+    if ($mark_completed) {
+        $stmt = $pdo->prepare("UPDATE member_workouts SET completed_items = ?, total_items = ?, workout_status = 'Completed' WHERE workout_id = ?");
+        $stmt->execute([$completed_items, $total_items, $workout_id]);
+    } else {
+        $stmt = $pdo->prepare("UPDATE member_workouts SET completed_items = ?, total_items = ? WHERE workout_id = ?");
+        $stmt->execute([$completed_items, $total_items, $workout_id]);
+    }
 
     ob_end_clean();
     echo json_encode(['success' => true, 'message' => 'Progress saved.']);
