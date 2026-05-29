@@ -288,28 +288,6 @@ if ($coach_id > 0) {
         $stmtMembers = $pdo->prepare($sql);
         $stmtMembers->execute($final_params);
         $members = $stmtMembers->fetchAll();
-        
-        // --- INJECT TEST SAMPLE DATA ---
-        $mock_plans = ['Strength Training', 'Cardio & HIIT', 'Hypertrophy', 'General Fitness', 'Flexibility / Yoga'];
-        for ($i = 1; $i <= 35; $i++) {
-            $is_exp = ($i % 5 === 0) ? 1 : 0;
-            $members[] = [
-                'member_id' => 9000 + $i,
-                'user_id' => 9000 + $i,
-                'first_name' => 'Sample',
-                'last_name' => 'Client ' . $i,
-                'email' => "sampleclient{$i}@example.com",
-                'contact_number' => '0912345678' . ($i % 10),
-                'member_code' => 'MEM-900' . str_pad($i, 2, '0', STR_PAD_LEFT),
-                'member_status' => $is_exp ? 'Expired' : 'Active',
-                'profile_picture' => null,
-                'session_count' => rand(2, 45),
-                'last_visit' => date('Y-m-d H:i:s', strtotime('-' . rand(0, 20) . ' days')),
-                'workout_plan' => $mock_plans[array_rand($mock_plans)],
-                'is_in_gym' => ($i % 4 === 0 && !$is_exp) ? 1 : 0,
-                'is_expired' => $is_exp
-            ];
-        }
     } catch (PDOException $e) {
         $members = [];
         $error_msg = "Database integrity check failed.";

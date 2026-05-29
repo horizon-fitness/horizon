@@ -146,10 +146,16 @@ if ($student_id > 0) {
 
 // Fetch All Members in Gym for Selection
 $stmtAllMembers = $pdo->prepare("
-    SELECT m.member_id, u.first_name, u.last_name 
+    SELECT m.member_id, m.user_id, u.first_name, u.last_name,
+           ufp.fitness_goal, ufp.experience_level, ufp.injuries_limitations,
+           GROUP_CONCAT(tm.muscle_name SEPARATOR ', ') as target_muscles
     FROM members m 
     JOIN users u ON m.user_id = u.user_id 
+    LEFT JOIN user_fitness_profiles ufp ON u.user_id = ufp.user_id
+    LEFT JOIN user_target_muscles utm ON u.user_id = utm.user_id
+    LEFT JOIN target_muscles tm ON utm.target_muscle_id = tm.target_muscle_id
     WHERE m.gym_id = ? 
+    GROUP BY m.member_id, m.user_id, u.first_name, u.last_name, ufp.fitness_goal, ufp.experience_level, ufp.injuries_limitations
     ORDER BY u.first_name ASC
 ");
 $stmtAllMembers->execute([$gym_id]);
@@ -237,8 +243,6 @@ if ($coach_id > 0 && $student_id > 0) {
 $success_msg = $_SESSION['success_msg'] ?? '';
 $error_msg = $_SESSION['error_msg'] ?? '';
 unset($_SESSION['success_msg'], $_SESSION['error_msg']);
-
-// Mock data removed. The page will now correctly use the queries executed above to fetch actual members and workouts.
 
 $active_page = "workouts";
 ?>
@@ -511,6 +515,12 @@ $active_page = "workouts";
                             targetDiffOpt.classList.remove('text-white/60');
                         }
                     }
+                    if (option.dataset.muscles) {
+                        const targetMusclesInput = document.getElementById('assign_target_muscles');
+                        if (targetMusclesInput) {
+                            targetMusclesInput.value = option.dataset.muscles;
+                        }
+                    }
                 }
                 
                 if (option.closest('#filterForm')) {
@@ -560,7 +570,7 @@ $active_page = "workouts";
             
             <div class="flex items-center gap-4 pb-4">
                 <button onclick="document.getElementById('assignModal').style.display = 'flex'" class="bg-primary hover:opacity-90 text-[white] px-6 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-[0.98] flex items-center justify-center gap-2 whitespace-nowrap">
-                    <span class="material-symbols-outlined text-base">add_circle</span> Assign New Program
+                    <span class="material-symbols-outlined text-base">add_circle</span> Assign New Workout
                 </button>
             </div>
         </div>
@@ -712,11 +722,15 @@ $active_page = "workouts";
                                 </td>
                                 <td class="px-8 py-5 text-center">
                                     <?php if ($rw_status === 'Completed'): ?>
-                                        <p class="text-green-400 font-black tracking-widest text-[10px]">+5% Str, -0.5 BMI</p>
+                                        <p class="text-green-400 font-black tracking-widest text-[10px]">Completed</p>
                                     <?php elseif ($rw_status === 'Missed'): ?>
                                         <p class="text-red-400 font-black tracking-widest text-[10px]">No Data</p>
                                     <?php else: ?>
-                                        <p class="text-white/30 font-black tracking-widest text-[10px]">Pending</p>
+                                        <?php if(isset($rw['total_items']) && $rw['total_items'] > 0): ?>
+                                            <p class="text-[#3B82F6] font-black tracking-widest text-[11px]"><?= htmlspecialchars($rw['completed_items']) ?>/<?= htmlspecialchars($rw['total_items']) ?></p>
+                                        <?php else: ?>
+                                            <p class="text-white/30 font-black tracking-widest text-[10px]">Pending</p>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                                 <td class="px-8 py-5 text-center">
@@ -1330,7 +1344,7 @@ $active_page = "workouts";
 
             <h3 class="text-xl font-black italic tracking-widest flex items-center gap-2 mb-8" style="color:var(--primary);">
                 <span class="material-symbols-outlined">assignment_add</span>
-                NEW PROGRAM
+                NEW WORKOUT
             </h3>
             
             <form action="" method="POST" class="flex flex-col">
@@ -1352,11 +1366,27 @@ $active_page = "workouts";
                             </div>
                             <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-[200px] overflow-y-auto no-scrollbar searchable-dropdown-overlay">
                                 <?php 
-                                $mock_diffs = ['Beginner', 'Intermediate', 'Advanced'];
                                 foreach($all_members as $m): 
-                                    $m_diff = $mock_diffs[array_rand($mock_diffs)];
+                                    $fitness_goal = $m['fitness_goal'] ?? 'General Fitness';
+                                    $exp_level = $m['experience_level'] ?? 'Intermediate';
+                                    $injuries = $m['injuries_limitations'] ?? 'None';
+                                    $target_muscles = $m['target_muscles'] ?: 'Full Body';
+                                    
+                                    $m_diff = ucfirst(strtolower($exp_level));
+                                    if(!in_array($m_diff, ['Beginner', 'Intermediate', 'Advanced'])) {
+                                        $m_diff = 'Intermediate';
+                                    }
+                                    
+                                    $cat = 'Strength';
+                                    if(stripos($fitness_goal, 'weight') !== false || stripos($fitness_goal, 'cardio') !== false || stripos($fitness_goal, 'lose') !== false) {
+                                        $cat = 'Cardio';
+                                    } elseif(stripos($fitness_goal, 'muscle') !== false || stripos($fitness_goal, 'bulk') !== false || stripos($fitness_goal, 'build') !== false) {
+                                        $cat = 'Hypertrophy';
+                                    } elseif(stripos($fitness_goal, 'endurance') !== false) {
+                                        $cat = 'Endurance';
+                                    }
                                 ?>
-                                    <div class="px-4 py-3 rounded-lg text-[12px] font-bold cursor-pointer hover:bg-white/5 transition-colors custom-option text-white/60" data-value="<?= $m['member_id'] ?>" data-cat="Strength" data-diff="<?= $m_diff ?>">
+                                    <div class="px-4 py-3 rounded-lg text-[12px] font-bold cursor-pointer hover:bg-white/5 transition-colors custom-option text-white/60" data-value="<?= $m['member_id'] ?>" data-cat="<?= $cat ?>" data-diff="<?= $m_diff ?>" data-goal="<?= htmlspecialchars($fitness_goal) ?>" data-injuries="<?= htmlspecialchars($injuries) ?>" data-muscles="<?= htmlspecialchars($target_muscles) ?>">
                                         <?= htmlspecialchars(trim($m['first_name'] . ' ' . $m['last_name'])) ?>
                                     </div>
                                 <?php endforeach; ?>
@@ -1394,6 +1424,12 @@ $active_page = "workouts";
                     <div class="col-span-1 md:col-span-2">
                         <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">PROGRAM IDENTITY <span class="text-red-500">*</span></p>
                         <input type="text" name="workout_name" placeholder="Ex. Advanced Push-Pull Protocol" class="w-full h-12 bg-transparent border border-white/10 rounded-xl text-white text-[12px] font-bold px-4 focus:outline-none focus:border-primary/50 hover:border-white/20 transition-all" required autocomplete="off">
+                    </div>
+
+                    <div class="col-span-1 md:col-span-2">
+                        <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2">TARGET MUSCLES <span class="text-red-500">*</span></p>
+                        <input type="text" name="target_muscles" id="assign_target_muscles" placeholder="Ex. Front Chest, Back Trapezius" class="w-full h-12 bg-transparent border border-white/10 rounded-xl text-white text-[12px] font-bold px-4 focus:outline-none focus:border-primary/50 hover:border-white/20 transition-all" required autocomplete="off">
+                        <p class="text-[9px] font-bold text-primary/60 italic mt-1">* Automatically populated from member's profile but can be changed</p>
                     </div>
 
                     <div>
@@ -1445,7 +1481,7 @@ $active_page = "workouts";
                 <input type="hidden" name="scheduled_date" value="<?= date('Y-m-d') ?>">
                 
                 <div class="pt-2 flex justify-end">
-                    <button type="submit" name="assign_workout" class="px-8 h-12 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary/90 transition-all active:scale-95 shadow-none hover:shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]">Create Program</button>
+                    <button type="submit" name="assign_workout" class="px-8 h-12 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-primary/90 transition-all active:scale-95 shadow-none hover:shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]">Create Workout</button>
                 </div>
             </form>
         </div>
@@ -1591,16 +1627,12 @@ function autoGenerateRoutine() {
     
     const memberName = document.getElementById('assign_m_name').value.trim();
     
-    const goals = {
-        'Strength': 'Build muscle mass & increase 1RM',
-        'Cardio': 'Improve cardiovascular health & lose weight',
-        'Hypertrophy': 'Increase muscle volume & definition',
-        'Flexibility': 'Improve joint mobility & posture',
-        'Endurance': 'Boost stamina & aerobic capacity'
-    };
-    
-    const bmis = ['24.1 (Normal)', '26.5 (Overweight)', '22.8 (Normal)', '28.2 (Overweight)', '21.5 (Normal)'];
-    const randomBmi = bmis[Math.floor(Math.random() * bmis.length)];
+    const option = document.querySelector(`.custom-option[data-value="${memberIdInput.value}"]`);
+    const goal = option ? option.dataset.goal : 'General Fitness';
+    const injuries = option ? option.dataset.injuries : 'None';
+    const musclesInput = document.getElementById('assign_target_muscles');
+    const muscles = musclesInput && musclesInput.value ? musclesInput.value : (option ? option.dataset.muscles : 'Full Body');
+    const diff = option ? option.dataset.diff : 'Intermediate';
     
     const exercises = {
         'Strength': ['Barbell Squats: 4 sets x 8 reps (Rest 90s)', 'Deadlifts: 3 sets x 5 reps (Rest 120s)', 'Bench Press: 4 sets x 8 reps (Rest 90s)', 'Pull-ups: 3 sets x 8-10 reps (Rest 60s)'],
@@ -1612,20 +1644,11 @@ function autoGenerateRoutine() {
     
     let list = exercises[category] || exercises['Strength'];
     
-    let generated = `--- PERSONALIZED RECOMMENDATION ---\n`;
-    generated += `Target Member: ${memberName}\n`;
-    generated += `Current BMI: ${randomBmi}\n`;
-    generated += `Fitness Goal: ${goals[category]}\n`;
-    generated += `-----------------------------------\n\n`;
-    
-    generated += `Recommended ${category.toUpperCase()} Routine:\n\n`;
-    generated += "Warm-up:\n- 5 mins light cardio\n- Dynamic stretching\n\nMain Workout:\n";
-    
-    list.forEach((ex, index) => {
-        generated += (index + 1) + ". " + ex + "\n";
+    let generated = "";
+    list.forEach((ex) => {
+        generated += ex + "\n";
     });
-    
-    generated += "\nCool-down:\n- 5 mins walking\n- Static stretching";
+    generated = generated.trim();
     
     const textarea = document.getElementById('workout_desc_input');
     textarea.value = generated;

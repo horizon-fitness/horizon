@@ -100,6 +100,11 @@ try {
             $pdo->exec("ALTER TABLE member_workouts ADD COLUMN duration_weeks INT DEFAULT 1 AFTER difficulty_level");
             $pdo->exec("ALTER TABLE member_workouts ADD COLUMN estimated_minutes INT DEFAULT 60 AFTER duration_weeks");
         }
+        $resCompleted = $pdo->query("SHOW COLUMNS FROM member_workouts LIKE 'completed_items'");
+        if (!$resCompleted->fetch()) {
+            $pdo->exec("ALTER TABLE member_workouts ADD COLUMN completed_items INT DEFAULT 0 AFTER estimated_minutes");
+            $pdo->exec("ALTER TABLE member_workouts ADD COLUMN total_items INT DEFAULT 0 AFTER completed_items");
+        }
     }
 
     // Auto-fix existing broken subscriptions (1 month -> 1 day bug)
