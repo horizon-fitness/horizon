@@ -629,18 +629,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         }
 
         .modal-overlay {
-            display: none;
+            display: none !important;
             position: fixed;
             top: 0;
             right: 0;
             bottom: 0;
             left: 110px;
-            background: rgba(10, 9, 13, 0.85);
-            backdrop-filter: blur(12px);
-            z-index: 200;
+            background: rgba(var(--background-rgb), 0.4);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            z-index: 1000;
             align-items: center;
             justify-content: center;
-            padding: 40px;
+            padding: 24px;
             transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
@@ -650,6 +651,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 
         .modal-overlay.flex {
             display: flex !important;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 28px;
+            width: 100%;
+            max-width: 500px;
+            transform: scale(0.95);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .modal-overlay.flex .modal-content {
+            transform: scale(1);
+            opacity: 1;
         }
 
         .modal-content-scroll {
@@ -954,6 +971,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         .input-dark option {
             background-color: #0d0c12;
             color: white;
+        }
+
+        .settings-filter-input {
+            height: 52px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.045);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            outline: none;
+            transition: all 0.25s ease;
+        }
+
+        .settings-filter-input:focus,
+        .settings-filter-trigger:hover .settings-filter-input {
+            border-color: rgba(var(--primary-rgb), 0.45);
+            background: rgba(255, 255, 255, 0.07);
+            box-shadow: 0 0 0 4px rgba(var(--primary-rgb), 0.08);
+        }
+
+        .settings-dropdown {
+            background: #141216;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+            padding: 6px;
+            isolation: isolate;
+        }
+
+        .settings-filter-bar {
+            position: relative;
+            z-index: 80;
+            overflow: visible !important;
+        }
+
+        .settings-select-container {
+            z-index: 90;
+        }
+
+        .settings-select-container.is-open {
+            z-index: 300;
+        }
+
+        .settings-select-container.is-open .settings-dropdown {
+            z-index: 310;
+        }
+
+        .settings-option {
+            cursor: pointer;
+            border-radius: 10px;
+            padding: 13px 18px;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.55);
+            transition: all 0.2s ease;
+        }
+
+        .settings-option:hover {
+            color: var(--primary);
+            background: rgba(var(--primary-rgb), 0.08);
+        }
+
+        .settings-option.selected {
+            color: #ffffff;
+            background: var(--primary);
+        }
+
+        .archived-table-shell {
+            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 28px;
+            overflow: visible;
+            box-shadow: 0 28px 80px -30px rgba(0, 0, 0, 0.55);
+        }
+
+        .archived-table-shell .settings-filter-bar {
+            border: 0;
+            border-radius: 28px 28px 0 0;
+            background: transparent;
+            margin: 0;
+        }
+
+        .archived-table-header {
+            background: rgba(255, 255, 255, 0.055);
+        }
+
+        .archived-table-footer {
+            min-height: 72px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 18px 32px;
+        }
+
+        .archived-pagination-btn {
+            min-width: 44px;
+            height: 36px;
+            padding: 0 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.025);
+            color: rgba(255, 255, 255, 0.32);
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .archived-pagination-btn.active {
+            background: var(--primary);
+            color: #ffffff;
         }
 
         /* Invisible Scroll System */
@@ -1936,38 +2069,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         </div>
 
                         <!-- ARCHIVED VIEW (Modern Table UI) -->
-                        <div id="archivedPlansContainer" class="hidden space-y-6">
+                        <div id="archivedPlansContainer" class="hidden archived-table-shell">
                             <!-- Filter Bar Guide (Inspired by Superadmin) -->
                             <div
-                                class="glass-card px-8 py-6 border-b border-white/5 flex flex-col md:flex-row items-center gap-4 bg-white/[0.01]">
+                                class="settings-filter-bar px-8 py-7 flex flex-col md:flex-row items-center gap-4">
                                 <div class="relative flex-1">
                                     <span
                                         class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
                                     <input type="text" id="archivedSearch" oninput="filterArchivedPlans()"
                                         placeholder="Search archived plans..."
-                                        class="input-dark !h-[44px] !pl-12 !text-[11px] font-medium w-full">
+                                        class="settings-filter-input !h-[52px] !pl-12 !text-[10px] font-black w-full placeholder:text-white/40">
                                 </div>
 
                                 <div class="w-full lg:w-fit flex items-center gap-2">
-                                    <div class="relative w-full lg:w-64">
-                                        <select id="archivedSortDate" onchange="filterArchivedPlans()"
-                                            class="input-dark !h-[44px] !pr-10 !pl-4 !text-[10px] font-bold appearance-none cursor-pointer hover:border-primary/50 transition-all !bg-white/[0.02]">
-                                            <option value="newest">Newest First</option>
-                                            <option value="oldest">Oldest First</option>
-                                        </select>
-                                        <span
-                                            class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm pointer-events-none">expand_more</span>
+                                    <div class="relative w-full lg:w-64 settings-select-container">
+                                        <input type="hidden" id="archivedSortDate" value="newest">
+                                        <div class="relative settings-filter-trigger cursor-pointer" onclick="toggleSettingsDropdown(this, event)">
+                                            <input type="text" readonly value="Newest First"
+                                                class="settings-filter-input w-full pl-5 pr-12 cursor-pointer">
+                                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">expand_more</span>
+                                        </div>
+                                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl settings-dropdown hidden">
+                                            <div class="settings-option selected" data-value="newest">Newest First</div>
+                                            <div class="settings-option" data-value="oldest">Oldest First</div>
+                                        </div>
                                     </div>
 
-                                    <div class="relative w-full lg:w-64">
-                                        <select id="archivedSortPrice" onchange="filterArchivedPlans()"
-                                            class="input-dark !h-[44px] !pr-10 !pl-4 !text-[10px] font-bold appearance-none cursor-pointer hover:border-primary/50 transition-all !bg-white/[0.02]">
-                                            <option value="default">Any Price</option>
-                                            <option value="low">Lowest Price</option>
-                                            <option value="high">Highest Price</option>
-                                        </select>
-                                        <span
-                                            class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 text-sm pointer-events-none">expand_more</span>
+                                    <div class="relative w-full lg:w-64 settings-select-container">
+                                        <input type="hidden" id="archivedSortPrice" value="default">
+                                        <div class="relative settings-filter-trigger cursor-pointer" onclick="toggleSettingsDropdown(this, event)">
+                                            <input type="text" readonly value="Any Price"
+                                                class="settings-filter-input w-full pl-5 pr-12 cursor-pointer">
+                                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">expand_more</span>
+                                        </div>
+                                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl settings-dropdown hidden">
+                                            <div class="settings-option selected" data-value="default">Any Price</div>
+                                            <div class="settings-option" data-value="low">Lowest Price</div>
+                                            <div class="settings-option" data-value="high">Highest Price</div>
+                                        </div>
                                     </div>
 
                                     <button type="button" onclick="resetArchivedFilters()"
@@ -1979,11 +2118,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                 </div>
                             </div>
 
-                            <div class="glass-card overflow-hidden border-white/5">
+                            <div class="overflow-hidden border-t border-white/5">
                                 <div class="overflow-x-auto no-scrollbar">
                                     <table class="w-full text-left border-collapse">
                                         <thead>
-                                            <tr class="border-b border-white/5 bg-white/[0.02]">
+                                            <tr class="border-b border-white/5 archived-table-header">
                                                 <th
                                                     class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
                                                     Plan Name</th>
@@ -2004,7 +2143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                         <tbody id="archivedTableBody">
                                             <?php if (empty($archived_plans)): ?>
                                                 <tr class="no-data-row animate-in fade-in duration-500">
-                                                    <td colspan="5" class="px-8 py-20 text-center">
+                                                    <td colspan="5" class="px-8 py-28 text-center">
                                                         <div class="flex flex-col items-center justify-center opacity-40">
                                                             <span
                                                                 class="material-symbols-outlined text-4xl mb-4">history</span>
@@ -2061,17 +2200,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                     </table>
                                 </div>
                             </div>
+                            <div class="archived-table-footer">
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                                    Showing <?= empty($archived_plans) ? '0 to 0 of 0' : '1 to ' . count($archived_plans) . ' of ' . count($archived_plans) ?> entries
+                                </p>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="archived-pagination-btn">Prev</button>
+                                    <button type="button" class="archived-pagination-btn active">1</button>
+                                    <button type="button" class="archived-pagination-btn">Next</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div id="tabServices" class="tab-panel mt-4">
                         <!-- SERVICE HEADER BAR (MATCHING REFERENCE) -->
                         <div
-                            class="service-header-bar flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
+                            class="plan-header-bar service-header-bar flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
                             <div>
-                                <h4 class="text-xl font-black italic uppercase tracking-tighter text-white mb-1">SERVICE
-                                    CATALOG</h4>
-                                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em]">MANAGE YOUR
-                                    AVAILABLE GYM SERVICES AND OFFERINGS</p>
+                                <h4 class="text-xl font-black italic uppercase tracking-tighter text-white mb-1">Service
+                                    Catalog</h4>
+                                <p class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.2em]">Manage your
+                                    available gym services and offerings</p>
                             </div>
 
                             <div class="flex items-center gap-6">
@@ -2079,7 +2228,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                     class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:opacity-80 transition-all group">
                                     <span
                                         class="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">add_circle</span>
-                                    ADD NEW SERVICE
+                                    Add New Service
                                 </button>
 
                                 <div class="bg-black/40 p-1 rounded-xl flex items-center border border-white/5">
@@ -2094,7 +2243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         </div>
 
                         <!-- ADVANCED FILTERS (ALIGNED TO REF) -->
-                        <div class="glass-card px-8 py-4 flex flex-row items-center gap-4 bg-white/[0.01] mb-10">
+                        <div class="glass-card settings-filter-bar px-8 py-4 flex flex-row items-center gap-4 bg-white/[0.01] mb-10">
                             <div class="relative flex-1">
                                 <span
                                     class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-sm">search</span>
@@ -2104,18 +2253,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                             </div>
 
                             <div class="flex items-center gap-3">
-                                <select id="servicesSortDate" onchange="filterServices()"
-                                    class="input-dark !h-[44px] !px-6 !text-[10px] font-bold uppercase tracking-widest cursor-pointer !bg-white/[0.03] !border-white/10 !rounded-xl min-w-[160px]">
-                                    <option value="newest">Newest First</option>
-                                    <option value="oldest">Oldest First</option>
-                                </select>
+                                <div class="relative min-w-[180px] settings-select-container">
+                                    <input type="hidden" id="servicesSortDate" value="newest">
+                                    <div class="relative settings-filter-trigger cursor-pointer" onclick="toggleSettingsDropdown(this, event)">
+                                        <input type="text" readonly value="Newest First"
+                                            class="settings-filter-input w-full pl-5 pr-12 cursor-pointer">
+                                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl settings-dropdown hidden">
+                                        <div class="settings-option selected" data-value="newest">Newest First</div>
+                                        <div class="settings-option" data-value="oldest">Oldest First</div>
+                                    </div>
+                                </div>
 
-                                <select id="servicesSortPrice" onchange="filterServices()"
-                                    class="input-dark !h-[44px] !px-6 !text-[10px] font-bold uppercase tracking-widest cursor-pointer !bg-white/[0.03] !border-white/10 !rounded-xl min-w-[160px]">
-                                    <option value="default">Any Price</option>
-                                    <option value="low">Price: Low to High</option>
-                                    <option value="high">Price: High to Low</option>
-                                </select>
+                                <div class="relative min-w-[190px] settings-select-container">
+                                    <input type="hidden" id="servicesSortPrice" value="default">
+                                    <div class="relative settings-filter-trigger cursor-pointer" onclick="toggleSettingsDropdown(this, event)">
+                                        <input type="text" readonly value="Any Price"
+                                            class="settings-filter-input w-full pl-5 pr-12 cursor-pointer">
+                                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl settings-dropdown hidden">
+                                        <div class="settings-option selected" data-value="default">Any Price</div>
+                                        <div class="settings-option" data-value="low">Price: Low to High</div>
+                                        <div class="settings-option" data-value="high">Price: High to Low</div>
+                                    </div>
+                                </div>
 
                                 <button type="button" onclick="resetServiceFilters()"
                                     class="size-[44px] rounded-xl bg-white/[0.03] border border-white/10 text-gray-500 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center group"
@@ -2185,11 +2348,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                         </div>
 
                         <!-- ARCHIVED SERVICES TABLE (STAYS AS TABLE TO MATCH ARCHIVED PLANS) -->
-                        <div id="archivedServicesContainer" class="glass-card overflow-hidden border-white/5 hidden">
-                            <div class="overflow-x-auto no-scrollbar">
+                        <div id="archivedServicesContainer" class="archived-table-shell hidden">
+                            <div class="overflow-x-auto no-scrollbar border-t border-white/5">
                                 <table class="w-full text-left border-collapse">
                                     <thead>
-                                        <tr class="border-b border-white/5 bg-white/[0.02]">
+                                        <tr class="border-b border-white/5 archived-table-header">
                                             <th
                                                 class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
                                                 Service Name</th>
@@ -2207,7 +2370,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                     <tbody id="archivedServicesTableBody">
                                         <?php if (empty($archived_services)): ?>
                                             <tr class="no-data-row">
-                                                <td colspan="5" class="px-8 py-20 text-center">
+                                                <td colspan="5" class="px-8 py-28 text-center">
                                                     <div class="flex flex-col items-center justify-center opacity-40">
                                                         <span class="material-symbols-outlined text-4xl mb-4">history</span>
                                                         <p class="text-[10px] font-black uppercase tracking-[0.2em]">No
@@ -2249,6 +2412,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                     </tbody>
                                 </table>
                             </div>
+                            <div class="archived-table-footer">
+                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                                    Showing <?= empty($archived_services) ? '0 to 0 of 0' : '1 to ' . count($archived_services) . ' of ' . count($archived_services) ?> entries
+                                </p>
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="archived-pagination-btn">Prev</button>
+                                    <button type="button" class="archived-pagination-btn active">1</button>
+                                    <button type="button" class="archived-pagination-btn">Next</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </form>
@@ -2262,24 +2435,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         <!-- Elite Confirmation Modal (Universal) -->
         <div id="confirmActionModal" class="modal-overlay"
             onclick="if(event.target === this) closeEliteModal('confirmActionModal')">
-            <div class="glass-card w-full max-w-sm p-8 text-center animate-in zoom-in duration-300">
-                <div id="confirmIconBox"
-                    class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
-                    <span id="confirmIcon"
-                        class="material-symbols-outlined text-3xl text-primary font-bold">warning</span>
-                </div>
-                <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter text-white mb-2">
-                    Confirm Action</h3>
-                <p id="confirmDesc"
-                    class="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-8 leading-relaxed italic">
-                    Are you sure you want to proceed with this action?</p>
+            <div class="modal-content overflow-hidden max-w-[400px] text-center">
+                <div class="p-10 relative z-10 w-full space-y-6 text-center">
+                    <div
+                        class="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 blur-[60px] rounded-full pointer-events-none">
+                    </div>
 
-                <div class="grid grid-cols-2 gap-4">
-                    <button type="button" onclick="closeEliteModal('confirmActionModal')"
-                        class="h-12 rounded-xl border border-white/5 text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-all">Cancel</button>
-                    <button type="button" id="confirmActionBtn"
-                        class="h-12 rounded-xl bg-primary text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">Confirm
-                        Now</button>
+                    <div id="confirmIconBox"
+                        class="size-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <span id="confirmIcon"
+                            class="material-symbols-outlined text-4xl text-primary">warning</span>
+                    </div>
+
+                    <h3 id="confirmTitle" class="text-2xl font-black text-white uppercase italic tracking-tight mb-2">
+                        Confirm <span class="text-primary">Action</span>
+                    </h3>
+                    <p id="confirmDesc"
+                        class="text-[12px] text-gray-400 font-bold uppercase tracking-widest leading-relaxed mb-8">
+                        Are you sure you want to proceed with this action?</p>
+
+                    <div class="flex gap-4">
+                        <button type="button" onclick="closeEliteModal('confirmActionModal')"
+                            class="flex-1 h-14 bg-white/5 border border-white/10 text-gray-400 rounded-2xl font-black italic uppercase tracking-widest text-[11px] hover:bg-white/10 transition-all">Cancel</button>
+                        <button type="button" id="confirmActionBtn"
+                            class="flex-1 h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-primary/20">Confirm</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2374,6 +2554,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         }
         setInterval(updateTopClock, 1000);
         window.addEventListener('DOMContentLoaded', updateTopClock);
+
+        function syncSettingsSelectDisplay(hiddenInput) {
+            const container = hiddenInput.closest('.settings-select-container');
+            if (!container) return;
+            const display = container.querySelector('.settings-filter-trigger input[type="text"]');
+            const options = container.querySelectorAll('.settings-option');
+            options.forEach(option => {
+                const isSelected = option.dataset.value === hiddenInput.value;
+                option.classList.toggle('selected', isSelected);
+                if (isSelected && display) display.value = option.textContent.trim();
+            });
+        }
+
+        function toggleSettingsDropdown(trigger, event) {
+            event.stopPropagation();
+            const container = trigger.closest('.settings-select-container');
+            const dropdown = container.querySelector('.settings-dropdown');
+            document.querySelectorAll('.settings-dropdown').forEach(d => {
+                if (d !== dropdown) d.classList.add('hidden');
+            });
+            document.querySelectorAll('.settings-select-container').forEach(c => {
+                if (c !== container) c.classList.remove('is-open');
+            });
+            dropdown.classList.toggle('hidden');
+            container.classList.toggle('is-open', !dropdown.classList.contains('hidden'));
+        }
+
+        document.addEventListener('click', (event) => {
+            const option = event.target.closest('.settings-option');
+            if (option) {
+                event.stopPropagation();
+                const container = option.closest('.settings-select-container');
+                const hiddenInput = container.querySelector('input[type="hidden"]');
+                const dropdown = container.querySelector('.settings-dropdown');
+                hiddenInput.value = option.dataset.value;
+                syncSettingsSelectDisplay(hiddenInput);
+                dropdown.classList.add('hidden');
+                container.classList.remove('is-open');
+
+                if (hiddenInput.id.startsWith('archived')) filterArchivedPlans();
+                if (hiddenInput.id.startsWith('services')) filterServices();
+                return;
+            }
+
+            if (!event.target.closest('.settings-select-container')) {
+                document.querySelectorAll('.settings-dropdown').forEach(d => d.classList.add('hidden'));
+                document.querySelectorAll('.settings-select-container').forEach(c => c.classList.remove('is-open'));
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.settings-select-container input[type="hidden"]').forEach(syncSettingsSelectDisplay);
+        });
 
 
         function previewImg(input, targetId, placeholderId) {
@@ -2547,9 +2780,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             const baseColor = btnClass.replace('bg-', '');
             const shadowColor = baseColor.includes('primary') ? 'primary' : baseColor.split('-')[0];
 
-            iconBox.className = `size-16 rounded-2xl border flex items-center justify-center mx-auto mb-6 ${btnClass}/10 border-${baseColor}${baseColor.includes('-') ? '' : '/20'}`;
-            iconEl.className = `material-symbols-outlined text-3xl font-bold ${btnClass.replace('bg-', 'text-')}`;
-            btn.className = `h-12 rounded-xl text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl transition-all hover:scale-[1.02] ${btnClass} shadow-${shadowColor}/20`;
+            iconBox.className = `size-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6`;
+            iconEl.className = `material-symbols-outlined text-4xl ${btnClass.replace('bg-', 'text-')}`;
+            btn.className = `flex-1 h-14 rounded-2xl text-white text-[11px] font-black uppercase italic tracking-[0.2em] shadow-xl transition-all hover:scale-[1.02] active:scale-95 ${btnClass} shadow-${shadowColor}/20`;
 
             // Message Mapping
             const descEl = document.getElementById('confirmDesc');
@@ -2963,8 +3196,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
 
             document.getElementById('confirmTitle').textContent = 'Sync & Update Settings?';
             document.getElementById('confirmIcon').textContent = 'sync';
+            document.getElementById('confirmIconBox').className = "size-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6";
+            document.getElementById('confirmIcon').className = "material-symbols-outlined text-4xl text-primary";
             btn.textContent = 'Sync & Update';
-            btn.className = `h-12 rounded-xl text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl transition-all hover:scale-[1.02] bg-primary px-8`;
+            btn.className = `flex-1 h-14 rounded-2xl bg-primary text-white text-[11px] font-black uppercase italic tracking-[0.2em] transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-primary/20`;
 
             btn.onclick = () => {
                 btn.disabled = true;
@@ -3006,11 +3241,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
         function setConfirmModal(type, id, title, icon, btnText, btnClass) {
             const modal = document.getElementById('confirmActionModal');
             const btn = document.getElementById('confirmActionBtn');
+            const iconBox = document.getElementById('confirmIconBox');
+            const iconEl = document.getElementById('confirmIcon');
 
             document.getElementById('confirmTitle').textContent = title;
-            document.getElementById('confirmIcon').textContent = icon;
+            iconEl.textContent = icon;
             btn.textContent = btnText;
-            btn.className = `h-12 rounded-xl text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl transition-all hover:scale-[1.02] ${btnClass}`;
+            iconBox.className = "size-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6";
+            iconEl.className = `material-symbols-outlined text-4xl ${btnClass.replace('bg-', 'text-')}`;
+            btn.className = `flex-1 h-14 rounded-2xl text-white text-[11px] font-black uppercase italic tracking-[0.2em] shadow-xl transition-all hover:scale-[1.02] active:scale-95 ${btnClass}`;
 
             // Attach AJAX Action
             btn.onclick = () => autoTogglePlanStatus(id, type);
@@ -3366,6 +3605,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             document.getElementById('archivedSearch').value = '';
             document.getElementById('archivedSortDate').value = 'newest';
             document.getElementById('archivedSortPrice').value = 'default';
+            syncSettingsSelectDisplay(document.getElementById('archivedSortDate'));
+            syncSettingsSelectDisplay(document.getElementById('archivedSortPrice'));
             filterArchivedPlans();
         }
 
@@ -3498,6 +3739,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             document.getElementById('servicesSearch').value = '';
             document.getElementById('servicesSortDate').value = 'newest';
             document.getElementById('servicesSortPrice').value = 'default';
+            syncSettingsSelectDisplay(document.getElementById('servicesSortDate'));
+            syncSettingsSelectDisplay(document.getElementById('servicesSortPrice'));
             filterServices();
         }
 
@@ -3541,10 +3784,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             modalDesc.innerText = "Are you sure you want to archive this service? It will no longer be visible to members.";
 
             icon.innerText = "archive";
-            iconBox.className = "size-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto mb-6";
-            icon.className = "material-symbols-outlined text-3xl text-rose-500 font-bold";
+            iconBox.className = "size-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6";
+            icon.className = "material-symbols-outlined text-4xl text-rose-500";
 
-            confirmBtn.className = "h-12 rounded-xl bg-rose-500 text-white text-[10px] font-black uppercase italic tracking-widest shadow-xl shadow-rose-500/20 hover:scale-[1.02] active:scale-95 transition-all";
+            confirmBtn.className = "flex-1 h-14 rounded-2xl bg-rose-500 text-white text-[11px] font-black uppercase italic tracking-[0.2em] shadow-xl shadow-rose-500/20 hover:scale-[1.02] active:scale-95 transition-all";
 
             confirmBtn.onclick = function () {
                 const formData = new FormData();
@@ -3566,6 +3809,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             const confirmBtn = document.getElementById('confirmActionBtn');
             document.getElementById('confirmTitle').innerText = "Restore Service";
             document.getElementById('confirmDesc').innerText = "Return this service to the active catalog?";
+            document.getElementById('confirmIcon').innerText = "settings_backup_restore";
+            document.getElementById('confirmIconBox').className = "size-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6";
+            document.getElementById('confirmIcon').className = "material-symbols-outlined text-4xl text-emerald-500";
+            confirmBtn.textContent = "Restore";
+            confirmBtn.className = "flex-1 h-14 rounded-2xl bg-emerald-500 text-white text-[11px] font-black uppercase italic tracking-[0.2em] shadow-xl shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all";
 
             confirmBtn.onclick = function () {
                 const formData = new FormData();

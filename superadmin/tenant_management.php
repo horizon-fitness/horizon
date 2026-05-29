@@ -562,6 +562,10 @@ $rejected_count = count($rejected_apps);
                 left: 0 !important;
             }
         }
+        .selected-option {
+            background-color: var(--primary) !important;
+            color: #ffffff !important;
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -760,12 +764,16 @@ $rejected_count = count($rejected_apps);
                                        oninput="applyFiltersAsync(this.form)" 
                                        class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-amber-500/50 outline-none text-[--text-main]">
                             </div>
-                            <div class="w-[180px] relative group">
-                                <select name="sort" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                    <option value="newest" <?= ($active_tab === 'pending' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest First</option>
-                                    <option value="oldest" <?= ($active_tab === 'pending' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest First</option>
-                                </select>
-                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            <div class="w-[180px] relative group custom-select-container">
+                                <input type="hidden" name="sort" value="<?= $active_tab === 'pending' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
+                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                    <input type="text" readonly value="<?= ($active_tab === 'pending' && $sort_order === 'oldest') ? 'Oldest First' : 'Newest First' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'pending' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest First</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'pending' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest First</div>
+                                </div>
                             </div>
                             <div class="flex gap-2">
                                 <input type="date" name="date_from" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_from) : date('Y-m-01') ?>" 
@@ -900,23 +908,39 @@ $rejected_count = count($rejected_apps);
                                        oninput="applyFiltersAsync(this.form)" 
                                        class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
                             </div>
-                            <div class="w-[180px] relative group">
-                                <select name="plan_id" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                    <option value="all" <?= ($active_tab === 'active' && $plan_id === 'all') ? 'selected' : '' ?>>Plan: All Type</option>
+                            <div class="w-[180px] relative group custom-select-container">
+                                <input type="hidden" name="plan_id" value="<?= $active_tab === 'active' ? htmlspecialchars($plan_id) : 'all' ?>" onchange="applyFiltersAsync(this.form)">
+                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                    <?php 
+                                        $display_text = 'Plan: All Type';
+                                        if ($active_tab === 'active' && $plan_id !== 'all') {
+                                            foreach ($all_plans as $p) {
+                                                if ((string)$plan_id === (string)$p['website_plan_id']) {
+                                                    $display_text = $p['plan_name']; break;
+                                                }
+                                            }
+                                        }
+                                    ?>
+                                    <input type="text" readonly value="<?= htmlspecialchars($display_text) ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'active' ? ($plan_id === 'all' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="all">Plan: All Type</div>
                                     <?php foreach ($all_plans as $p): ?>
-                                        <option value="<?= $p['website_plan_id'] ?>" <?= ($active_tab === 'active' && (string)$plan_id === (string)$p['website_plan_id']) ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($p['plan_name']) ?>
-                                        </option>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'active' ? ((string)$plan_id === (string)$p['website_plan_id'] ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="<?= $p['website_plan_id'] ?>"><?= htmlspecialchars($p['plan_name']) ?></div>
                                     <?php endforeach; ?>
-                                </select>
-                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                                </div>
                             </div>
-                            <div class="w-[180px] relative group">
-                                <select name="sort" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                    <option value="newest" <?= ($active_tab === 'active' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Created</option>
-                                    <option value="oldest" <?= ($active_tab === 'active' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Created</option>
-                                </select>
-                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            <div class="w-[180px] relative group custom-select-container">
+                                <input type="hidden" name="sort" value="<?= $active_tab === 'active' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
+                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                    <input type="text" readonly value="<?= ($active_tab === 'active' && $sort_order === 'oldest') ? 'Oldest Created' : 'Newest Created' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'active' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest Created</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'active' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest Created</div>
+                                </div>
                             </div>
                             <a href="tenant_management.php?tab=active" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10" onclick="resetTabFilters('active'); return false;" title="Reset All Active Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
@@ -1105,12 +1129,16 @@ $rejected_count = count($rejected_apps);
                                        oninput="applyFiltersAsync(this.form)" 
                                        class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-amber-500 outline-none text-[--text-main]">
                             </div>
-                            <div class="w-[180px] relative group">
-                                <select name="sort" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                    <option value="newest" <?= ($active_tab === 'suspended' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Suspended</option>
-                                    <option value="oldest" <?= ($active_tab === 'suspended' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Suspended</option>
-                                </select>
-                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            <div class="w-[180px] relative group custom-select-container">
+                                <input type="hidden" name="sort" value="<?= $active_tab === 'suspended' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
+                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                    <input type="text" readonly value="<?= ($active_tab === 'suspended' && $sort_order === 'oldest') ? 'Oldest Suspended' : 'Newest Suspended' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'suspended' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest Suspended</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'suspended' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest Suspended</div>
+                                </div>
                             </div>
                             <div class="flex gap-2">
                                 <input type="date" name="date_from" value="<?= $active_tab === 'suspended' ? htmlspecialchars($date_from) : date('Y-m-01') ?>" 
@@ -1246,12 +1274,16 @@ $rejected_count = count($rejected_apps);
                                        oninput="applyFiltersAsync(this.form)" 
                                        class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-red-500/50 outline-none text-[--text-main]">
                             </div>
-                            <div class="w-[180px] relative group">
-                                <select name="sort" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                    <option value="newest" <?= ($active_tab === 'deactivated' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Deactivated</option>
-                                    <option value="oldest" <?= ($active_tab === 'deactivated' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Deactivated</option>
-                                </select>
-                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            <div class="w-[180px] relative group custom-select-container">
+                                <input type="hidden" name="sort" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
+                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                    <input type="text" readonly value="<?= ($active_tab === 'deactivated' && $sort_order === 'oldest') ? 'Oldest Deactivated' : 'Newest Deactivated' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'deactivated' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest Deactivated</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'deactivated' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest Deactivated</div>
+                                </div>
                             </div>
                             <div class="flex gap-2">
                                 <input type="date" name="date_from" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($date_from) : date('Y-m-01') ?>" 
@@ -1386,12 +1418,16 @@ $rejected_count = count($rejected_apps);
                                        oninput="applyFiltersAsync(this.form)" 
                                        class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-rose-500/50 outline-none text-[--text-main]">
                             </div>
-                            <div class="w-[180px] relative group">
-                                <select name="sort" onchange="applyFiltersAsync(this.form)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                    <option value="newest" <?= ($active_tab === 'rejected' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest Rejected</option>
-                                    <option value="oldest" <?= ($active_tab === 'rejected' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest Rejected</option>
-                                </select>
-                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                            <div class="w-[180px] relative group custom-select-container">
+                                <input type="hidden" name="sort" value="<?= $active_tab === 'rejected' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
+                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                    <input type="text" readonly value="<?= ($active_tab === 'rejected' && $sort_order === 'oldest') ? 'Oldest Rejected' : 'Newest Rejected' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'rejected' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest Rejected</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'rejected' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest Rejected</div>
+                                </div>
                             </div>
                             <div class="flex gap-2">
                                 <input type="date" name="date_from" value="<?= $active_tab === 'rejected' ? htmlspecialchars($date_from) : date('Y-m-01') ?>" 
@@ -1851,9 +1887,27 @@ $rejected_count = count($rejected_apps);
             const form = section.querySelector('form');
             if (!form) return;
 
-            // Physically reset all inputs
-            form.querySelectorAll('input:not([type="hidden"]):not([type="date"])').forEach(input => input.value = '');
-            form.querySelectorAll('select').forEach(select => select.selectedIndex = 0);
+            // Physically reset all search inputs
+            form.querySelectorAll('input[type="text"]:not([readonly])').forEach(input => input.value = '');
+            
+            // Reset custom dropdowns to their first option
+            form.querySelectorAll('.custom-select-container').forEach(container => {
+                const firstOption = container.querySelector('.custom-option');
+                if (firstOption) {
+                    container.querySelectorAll('.custom-option').forEach(opt => {
+                        opt.classList.remove('selected-option');
+                        opt.classList.add('text-white/60');
+                    });
+                    firstOption.classList.add('selected-option');
+                    firstOption.classList.remove('text-white/60');
+                    
+                    const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
+                    const hiddenInput = container.querySelector('input[type="hidden"]:not([name="tab"])');
+                    
+                    if (trigger) trigger.value = firstOption.textContent.trim();
+                    if (hiddenInput) hiddenInput.value = firstOption.getAttribute('data-value');
+                }
+            });
             
             // Sync with Reports default: Reset to current month range
             const today = new Date().toISOString().split('T')[0];
@@ -1915,6 +1969,59 @@ $rejected_count = count($rejected_apps);
     </script>
 
     <?php include '../includes/image_viewer.php'; ?>
+<script>
+        function toggleCustomDropdown(trigger, event) {
+            event.stopPropagation();
+            document.querySelectorAll('.custom-select-dropdown').forEach(dropdown => {
+                if (dropdown !== trigger.nextElementSibling) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+            const dropdown = trigger.nextElementSibling;
+            dropdown.classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.custom-select-container')) {
+                document.querySelectorAll('.custom-select-dropdown').forEach(dropdown => {
+                    dropdown.classList.add('hidden');
+                });
+            }
+        });
+
+        // Use event delegation so dropdowns work even after AJAX replacements
+        document.addEventListener('click', function (e) {
+            // Option clicked
+            const option = e.target.closest('.custom-option');
+            if (option) {
+                const container = option.closest('.custom-select-container');
+                if (!container) return;
+                
+                const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
+                const hiddenInput = container.querySelector('input[type="hidden"]');
+                const dropdown = container.querySelector('.custom-select-dropdown');
+                
+                dropdown.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.classList.remove('selected-option');
+                    opt.classList.add('text-white/60');
+                });
+                option.classList.add('selected-option');
+                option.classList.remove('text-white/60');
+                
+                if (trigger) trigger.value = option.textContent.trim();
+                hiddenInput.value = option.getAttribute('data-value');
+                
+                dropdown.classList.add('hidden');
+
+                const evt = new Event('change');
+                hiddenInput.dispatchEvent(evt);
+                
+                if (hiddenInput.onchange) {
+                    hiddenInput.onchange();
+                }
+            }
+        });
+</script>
 </body>
 
 </html>

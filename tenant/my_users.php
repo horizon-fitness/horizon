@@ -125,8 +125,15 @@ function getAvatarPath($path) {
     // Handle base64 or absolute URLs
     if (strpos($path, 'data:') === 0 || strpos($path, 'http') === 0) return $path;
     // Clean redundant relative prefixes
-    $cleanPath = ltrim($path, './');
+    $cleanPath = str_replace('\\', '/', trim($path));
+    $cleanPath = preg_replace('#^(\./|\../)+#', '', $cleanPath);
+    $cleanPath = ltrim($cleanPath, '/');
+    $cleanPath = preg_replace('#^horizon/#i', '', $cleanPath);
+
+    if (strpos($cleanPath, 'assets/uploads/') === 0) return '../' . $cleanPath;
     if (strpos($cleanPath, 'uploads/') === 0) return '../' . $cleanPath;
+    if (strpos($cleanPath, 'profile_pics/') === 0) return '../uploads/' . $cleanPath;
+    if (strpos($cleanPath, 'assets/') === 0) return '../' . $cleanPath;
     return '../uploads/profile_pics/' . $cleanPath;
 }
 
@@ -149,10 +156,10 @@ if (isset($_GET['ajax_user_id'])) {
         $sql .= " (SELECT ROUND(weight_kg / POWER(height_cm / 100, 2), 1) FROM member_health_metrics WHERE member_id = m.member_id ORDER BY recorded_at DESC, metric_id DESC LIMIT 1) as bmi ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN members m ON u.user_id = m.user_id AND m.gym_id = ur.gym_id LEFT JOIN addresses a ON m.address_id = a.address_id ";
     } elseif ($role_name_lc === 'staff') {
-        $sql .= ", s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
+        $sql .= ", u.profile_picture as profile_picture, s.staff_role, s.employment_type, s.hire_date, s.status as staff_status ";
         $sql .= " FROM users u JOIN user_roles ur ON u.user_id = ur.user_id JOIN roles r ON ur.role_id = r.role_id LEFT JOIN staff s ON u.user_id = s.user_id AND s.gym_id = ur.gym_id ";
     } elseif ($role_name_lc === 'coach') {
-        $sql .= ", ca.coach_type as employment_type, 'Coach' as staff_role, c.hire_date, c.status as staff_status ";
+        $sql .= ", u.profile_picture as profile_picture, ca.coach_type as employment_type, 'Coach' as staff_role, c.hire_date, c.status as staff_status ";
         $sql .= " FROM users u 
                   JOIN user_roles ur ON u.user_id = ur.user_id 
                   JOIN roles r ON ur.role_id = r.role_id 
@@ -331,7 +338,9 @@ if (isset($_GET['ajax_search'])) {
     if (empty($search)) {
         // Show "Recent Activity" (Top 5 newest users)
         $stmt = $pdo->prepare("
-            SELECT u.user_id, u.first_name, u.last_name, u.email, COALESCE(m.profile_picture, u.profile_picture) as profile_picture, r.role_name as role, m.member_code
+            SELECT u.user_id, u.first_name, u.last_name, u.email,
+                   CASE WHEN r.role_name = 'Member' THEN COALESCE(m.profile_picture, u.profile_picture) ELSE u.profile_picture END as profile_picture,
+                   r.role_name as role, m.member_code
             FROM users u
             JOIN user_roles ur ON u.user_id = ur.user_id
             JOIN roles r ON ur.role_id = r.role_id
@@ -346,7 +355,9 @@ if (isset($_GET['ajax_search'])) {
         $is_recent = true;
     } else {
         $stmt = $pdo->prepare("
-            SELECT u.user_id, u.first_name, u.last_name, u.email, COALESCE(m.profile_picture, u.profile_picture) as profile_picture, r.role_name as role, m.member_code
+            SELECT u.user_id, u.first_name, u.last_name, u.email,
+                   CASE WHEN r.role_name = 'Member' THEN COALESCE(m.profile_picture, u.profile_picture) ELSE u.profile_picture END as profile_picture,
+                   r.role_name as role, m.member_code
             FROM users u
             JOIN user_roles ur ON u.user_id = ur.user_id
             JOIN roles r ON ur.role_id = r.role_id
@@ -469,7 +480,7 @@ $where_sql = "WHERE " . implode(" AND ", $where);
 // Fetch Filtered Users
 $stmtUsers = $pdo->prepare("
     SELECT u.user_id, u.first_name, u.last_name, u.email, u.contact_number, 
-           COALESCE(m.profile_picture, u.profile_picture) as profile_picture, 
+           CASE WHEN r.role_name = 'Member' THEN COALESCE(m.profile_picture, u.profile_picture) ELSE u.profile_picture END as profile_picture,
            r.role_name as role, u.is_active, u.created_at,
            CASE 
                WHEN r.role_name = 'Member' THEN m.member_status 

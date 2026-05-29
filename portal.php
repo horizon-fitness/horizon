@@ -190,7 +190,7 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
                     backdrop-filter: blur(32px);
                     border: 1px solid rgba(255, 255, 255, 0.08);
                     border-radius: 32px;
-                    box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.5);
+                    box-shadow: 0 30px 60px -15px rgba(<?= $theme_rgb ?>, 0.25);
                 }
             </style>
         </head>
@@ -278,28 +278,38 @@ if (empty($gym_slug) && isset($_GET['preview'])) {
     $portal_services = $stmtServices->fetchAll();
 }
 
+function portalPlainText($value)
+{
+    return html_entity_decode((string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+function portalSafeHtml($value)
+{
+    return nl2br(htmlspecialchars(portalPlainText($value), ENT_QUOTES, 'UTF-8'));
+}
+
 // Map CMS Content with robust fallbacks
 $cms = [
-    'hero_label' => !empty($configs['portal_hero_label']) ? $configs['portal_hero_label'] : 'Open for Membership',
-    'hero_title' => !empty($configs['portal_hero_title']) ? nl2br(htmlspecialchars($configs['portal_hero_title'])) : ('Elevate Your <br /> Fitness at <br class="md:hidden" /> ' . htmlspecialchars($page['page_title'] ?? $page['gym_name'])),
-    'hero_subtitle' => !empty($configs['portal_hero_subtitle']) ? nl2br(htmlspecialchars($configs['portal_hero_subtitle'])) : 'Discover a premium workout experience powered by Horizon\'s elite technology and world-class coaching staff.',
+    'hero_label' => !empty($configs['portal_hero_label']) ? portalPlainText($configs['portal_hero_label']) : 'Open for Membership',
+    'hero_title' => !empty($configs['portal_hero_title']) ? portalSafeHtml($configs['portal_hero_title']) : ('Elevate Your <br /> Fitness at <br class="md:hidden" /> ' . htmlspecialchars(portalPlainText($page['page_title'] ?? $page['gym_name']), ENT_QUOTES, 'UTF-8')),
+    'hero_subtitle' => !empty($configs['portal_hero_subtitle']) ? portalPlainText($configs['portal_hero_subtitle']) : 'Discover a premium workout experience powered by Horizon\'s elite technology and world-class coaching staff.',
     
-    'features_label' => !empty($configs['portal_features_label']) ? $configs['portal_features_label'] : 'Experience the Difference',
-    'features_title' => !empty($configs['portal_features_title']) ? nl2br(htmlspecialchars($configs['portal_features_title'])) : 'Premium Training.<br /> Elite Management.',
-    'features_desc' => !empty($configs['portal_features_desc']) ? nl2br(htmlspecialchars($configs['portal_features_desc'])) : 'Access our elite workout tracking and world-class management platform. For membership inquiries and registrations, please visit our front desk or register online to get started.',
+    'features_label' => !empty($configs['portal_features_label']) ? portalPlainText($configs['portal_features_label']) : 'Experience the Difference',
+    'features_title' => !empty($configs['portal_features_title']) ? portalSafeHtml($configs['portal_features_title']) : 'Premium Training.<br /> Elite Management.',
+    'features_desc' => !empty($configs['portal_features_desc']) ? portalSafeHtml($configs['portal_features_desc']) : 'Access our elite workout tracking and world-class management platform. For membership inquiries and registrations, please visit our front desk or register online to get started.',
     
-    'philosophy_label' => !empty($configs['portal_philosophy_label']) ? $configs['portal_philosophy_label'] : 'The Philosophy',
-    'philosophy_title' => !empty($configs['portal_philosophy_title']) ? nl2br(htmlspecialchars($configs['portal_philosophy_title'])) : 'Modern technology meets <br /> unwavering dedication.',
-    'philosophy_desc' => !empty($configs['portal_philosophy_desc']) ? nl2br(htmlspecialchars($configs['portal_philosophy_desc'])) : 'Experience fitness like never before with our cutting-edge multi-tenant facility.',
+    'philosophy_label' => !empty($configs['portal_philosophy_label']) ? portalPlainText($configs['portal_philosophy_label']) : 'The Philosophy',
+    'philosophy_title' => !empty($configs['portal_philosophy_title']) ? portalSafeHtml($configs['portal_philosophy_title']) : 'Modern technology meets <br /> unwavering dedication.',
+    'philosophy_desc' => !empty($configs['portal_philosophy_desc']) ? portalSafeHtml($configs['portal_philosophy_desc']) : 'Experience fitness like never before with our cutting-edge multi-tenant facility.',
     
-    'plans_title' => !empty($configs['portal_plans_title']) ? $configs['portal_plans_title'] : 'Membership Plans',
-    'plans_subtitle' => !empty($configs['portal_plans_subtitle']) ? $configs['portal_plans_subtitle'] : ('Select a plan to start your journey at ' . htmlspecialchars($page['gym_name'])),
+    'plans_title' => !empty($configs['portal_plans_title']) ? portalPlainText($configs['portal_plans_title']) : 'Membership Plans',
+    'plans_subtitle' => !empty($configs['portal_plans_subtitle']) ? portalPlainText($configs['portal_plans_subtitle']) : ('Select a plan to start your journey at ' . portalPlainText($page['gym_name'])),
     
-    'services_title' => !empty($configs['portal_services_title']) ? $configs['portal_services_title'] : 'SERVICES & SESSION RATES',
-    'services_subtitle' => !empty($configs['portal_services_subtitle']) ? $configs['portal_services_subtitle'] : ('SPECIALIZED SESSIONS AND PER-SESSION PRICING FOR ' . htmlspecialchars($page['gym_name'])),
+    'services_title' => !empty($configs['portal_services_title']) ? portalPlainText($configs['portal_services_title']) : 'SERVICES & SESSION RATES',
+    'services_subtitle' => !empty($configs['portal_services_subtitle']) ? portalPlainText($configs['portal_services_subtitle']) : ('SPECIALIZED SESSIONS AND PER-SESSION PRICING FOR ' . portalPlainText($page['gym_name'])),
     
-    'footer_label' => !empty($configs['portal_footer_label']) ? $configs['portal_footer_label'] : 'Expand Your Horizon',
-    'footer_desc' => !empty($configs['portal_footer_desc']) ? nl2br(htmlspecialchars($configs['portal_footer_desc'])) : 'Powered by Horizon Systems. Elevating fitness center management through cutting-edge technology.',
+    'footer_label' => !empty($configs['portal_footer_label']) ? portalPlainText($configs['portal_footer_label']) : 'Expand Your Horizon',
+    'footer_desc' => !empty($configs['portal_footer_desc']) ? portalSafeHtml($configs['portal_footer_desc']) : 'Powered by Horizon Systems. Elevating fitness center management through cutting-edge technology.',
     
     'footer_links_title' => 'Quick Links',
     'footer_contact_title' => 'Contact Facility',
@@ -395,6 +405,9 @@ $primary_rgb = hexToRgb($primary_color);
                 <?= $page['text_color'] ?? '#d1d5db' ?>
             ;
             --pg-font: '<?= $font_family ?>', 'Plus Jakarta Sans', sans-serif;
+            --pg-surface: color-mix(in srgb, var(--pg-bg) 94%, white 6%);
+            --pg-surface-strong: color-mix(in srgb, var(--pg-bg) 88%, white 12%);
+            --pg-border: rgba(var(--pg-primary-rgb), 0.18);
         }
 
         html,
@@ -426,24 +439,24 @@ $primary_rgb = hexToRgb($primary_color);
         }
 
         .glass-nav {
-            background: rgba(5, 5, 5, 0.2);
+            background: color-mix(in srgb, var(--pg-bg) 72%, transparent);
             backdrop-filter: blur(8px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid var(--pg-border);
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .glass-nav.scrolled {
-            background: rgba(5, 5, 5, 0.9);
+            background: color-mix(in srgb, var(--pg-bg) 92%, var(--pg-primary) 8%);
             backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid var(--pg-border);
             padding-top: 0.75rem;
             padding-bottom: 0.75rem;
         }
 
         .dashboard-window {
-            background: #08080a;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
+            background: var(--pg-surface);
+            border: 1px solid var(--pg-border);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.22);
         }
 
         .metric-card {
@@ -472,13 +485,13 @@ $primary_rgb = hexToRgb($primary_color);
         .mobile-frame {
             width: 300px;
             height: 610px;
-            background: #08080a;
+            background: var(--pg-surface);
             border-radius: 48px;
             padding: 12px;
             position: relative;
             box-shadow:
-                0 0 0 2px #1a1a1a,
-                0 30px 60px -12px rgba(0, 0, 0, 0.8),
+                0 0 0 2px var(--pg-border),
+                0 30px 60px -12px rgba(var(--pg-primary-rgb), 0.25),
                 inset 0 0 2px 1px rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
@@ -486,7 +499,7 @@ $primary_rgb = hexToRgb($primary_color);
         .mobile-screen {
             width: 100%;
             height: 100%;
-            background: #000;
+            background: var(--pg-bg);
             border-radius: 38px;
             overflow: hidden;
             position: relative;
@@ -502,7 +515,7 @@ $primary_rgb = hexToRgb($primary_color);
             transform: translateX(-50%);
             width: 90px;
             height: 28px;
-            background: #000;
+            background: var(--pg-surface-strong);
             border-radius: 20px;
             z-index: 50;
             border: 0.5px solid rgba(255, 255, 255, 0.05);
@@ -510,13 +523,13 @@ $primary_rgb = hexToRgb($primary_color);
 
         .floating-action-card {
             position: absolute;
-            background: rgba(15, 15, 18, 0.6);
+            background: color-mix(in srgb, var(--pg-bg) 72%, var(--pg-primary) 28%);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 20px;
             padding: 16px;
             z-index: 60;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 25px 50px -12px rgba(var(--pg-primary-rgb), 0.25);
         }
 
         /* APK App Mode Adjustments (High-Fidelity Mobile Landing Replica) */
@@ -539,7 +552,7 @@ $primary_rgb = hexToRgb($primary_color);
                 border-radius: 20px;
                 margin-bottom: 24px;
                 overflow: hidden;
-                box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+                box-shadow: 0 10px 30px -10px rgba(var(--pg-primary-rgb), 0.25);
                 background: linear-gradient(135deg, var(--pg-primary), transparent);
                 display: flex;
                 items-center: center;
@@ -591,7 +604,7 @@ $primary_rgb = hexToRgb($primary_color);
             width: 100%;
             height: 100%;
             z-index: 2000;
-            background: rgba(0, 0, 0, 0.6);
+            background: color-mix(in srgb, var(--pg-bg) 72%, transparent);
             backdrop-filter: blur(16px);
             align-items: center;
             justify-content: center;
@@ -605,11 +618,11 @@ $primary_rgb = hexToRgb($primary_color);
         }
 
         .modal-content {
-            background: rgba(15, 15, 20, 0.95);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: color-mix(in srgb, var(--pg-bg) 86%, var(--pg-primary) 14%);
+            border: 1px solid var(--pg-border);
             border-radius: 16px;
             /* Reduced from 24px for a sharper, modern edge */
-            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8),
+            box-shadow: 0 40px 100px -20px rgba(var(--pg-primary-rgb), 0.24),
                 0 0 80px -10px rgba(var(--pg-primary-rgb), 0.15);
             transform: scale(0.9);
             transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -670,6 +683,75 @@ $primary_rgb = hexToRgb($primary_color);
 
         #membership-plans-grid:active {
             cursor: grabbing;
+        }
+
+        #services-catalog-grid {
+            cursor: grab;
+            user-select: none;
+        }
+
+        #services-catalog-grid:active {
+            cursor: grabbing;
+        }
+
+        #membership-plans-grid::-webkit-scrollbar,
+        #services-catalog-grid::-webkit-scrollbar {
+            display: block !important;
+            height: 4px !important;
+        }
+
+        #membership-plans-grid::-webkit-scrollbar-track,
+        #services-catalog-grid::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+        }
+
+        #membership-plans-grid::-webkit-scrollbar-thumb,
+        #services-catalog-grid::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.18);
+            border-radius: 20px;
+        }
+
+        .portal-plan-card,
+        .portal-service-card {
+            border: 1px solid var(--pg-border);
+            box-shadow: 0 25px 50px -12px rgba(var(--pg-primary-rgb), 0.2);
+            transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .portal-plan-card {
+            background: var(--pg-surface);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.18);
+        }
+
+        .portal-plan-card.is-featured {
+            background: rgba(var(--pg-primary-rgb), 0.05);
+            border-color: rgba(var(--pg-primary-rgb), 0.5);
+            box-shadow: 0 25px 70px -20px rgba(var(--pg-primary-rgb), 0.22);
+        }
+
+        .portal-card-title {
+            color: var(--pg-text);
+        }
+
+        .portal-card-muted {
+            color: color-mix(in srgb, var(--pg-text) 72%, transparent);
+        }
+
+        .portal-service-card {
+            background: var(--pg-surface);
+        }
+
+        .portal-plan-card:hover,
+        .portal-service-card:hover {
+            border-color: var(--pg-primary);
+            transform: translateY(-5px);
+            box-shadow: 0 30px 70px -18px rgba(var(--pg-primary-rgb), 0.25);
+        }
+
+        #contact {
+            background: var(--pg-bg);
+            border-top: 1px solid var(--pg-border);
         }
 
         .btn-modern {
@@ -1028,7 +1110,7 @@ $primary_rgb = hexToRgb($primary_color);
                             <?= $cms['features_title'] ?>
                         </h2>
                         <p id="features-desc-display" class="text-gray-400 italic leading-relaxed mb-10">
-                            <?= nl2br(htmlspecialchars($cms['features_desc'])) ?>
+                            <?= $cms['features_desc'] ?>
                         </p>
                     </div>
 
@@ -1041,9 +1123,6 @@ $primary_rgb = hexToRgb($primary_color);
                                     class="text-2xl font-black text-white italic"><?= !empty($gym_details['opening_time']) ? date('h:i A', strtotime($gym_details['opening_time'])) : '--:--' ?></span>
                                 <span class="material-symbols-outlined text-primary/40 text-2xl">schedule</span>
                             </div>
-                            <p class="text-[8px] text-gray-600 uppercase font-bold mt-3">Until
-                                <?= !empty($gym_details['closing_time']) ? date('h:i A', strtotime($gym_details['closing_time'])) : '--:--' ?>
-                            </p>
                         </div>
 
                         <div class="metric-card border border-primary/20">
@@ -1055,7 +1134,6 @@ $primary_rgb = hexToRgb($primary_color);
                                 <span
                                     class="material-symbols-outlined text-primary/40 text-2xl">history_toggle_off</span>
                             </div>
-                            <p class="text-[8px] text-gray-600 uppercase font-bold mt-3">Daily Operations</p>
                         </div>
 
                         <div class="metric-card md:col-span-2 border border-white/5">
@@ -1105,7 +1183,7 @@ $primary_rgb = hexToRgb($primary_color);
         </section>
 
         <section id="about"
-            class="py-32 px-6 relative border-t border-white/5 bg-gradient-to-b from-transparent to-black/50">
+            class="py-32 px-6 relative border-t border-white/5">
             <div class="max-w-7xl mx-auto text-center">
                 <div id="philosophy-label-display"
                     class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-12">
@@ -1117,14 +1195,14 @@ $primary_rgb = hexToRgb($primary_color);
                 </h2>
                 <div class="max-w-3xl mx-auto text-gray-400 italic text-xl leading-relaxed">
                     <p id="philosophy-desc-display">
-                        <?= nl2br(htmlspecialchars($cms['philosophy_desc'])) ?>
+                        <?= $cms['philosophy_desc'] ?>
                     </p>
                 </div>
             </div>
         </section>
 
         <!-- New Section: Elite Membership Plans -->
-        <section id="plans" class="py-32 px-6 relative border-t border-white/5">
+        <section id="plans" class="pt-16 pb-32 px-6 relative border-t border-white/5">
             <div class="max-w-7xl mx-auto text-center">
                 <div class="mb-16">
                     <div
@@ -1132,7 +1210,7 @@ $primary_rgb = hexToRgb($primary_color);
                         <span class="material-symbols-outlined text-primary">workspace_premium</span>
                     </div>
                     <h2 id="plans-title-display"
-                        class="text-4xl md:text-5xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
+                        class="text-4xl md:text-5xl font-display font-black portal-card-title uppercase italic tracking-tighter mb-4">
                         <?= $cms['plans_title'] ?>
                     </h2>
                     <p id="plans-subtitle-display"
@@ -1141,10 +1219,10 @@ $primary_rgb = hexToRgb($primary_color);
                     </p>
                 </div>
 
-                <div id="membership-plans-grid"
-                    class="flex overflow-x-auto snap-x snap-mandatory gap-10 pt-14 pb-12 px-10 no-scrollbar custom-scrollbar scroll-smooth <?= count($membership_plans) <= 2 ? 'justify-center' : '' ?>">
+                <div id="membership-plans-grid" class="overflow-x-auto snap-x snap-mandatory custom-scrollbar scroll-smooth w-full">
+                    <div class="flex justify-start items-stretch gap-6 md:gap-10 py-12 px-6 md:px-10 mx-auto w-max max-w-full <?= count($membership_plans) <= 2 ? 'justify-center' : '' ?>">
                     <?php if (empty($membership_plans)): ?>
-                        <div class="w-full max-w-2xl py-20 dashboard-window rounded-3xl opacity-50 text-center shrink-0">
+                        <div class="w-[calc(100vw-3rem)] max-w-2xl py-20 portal-plan-card rounded-2xl opacity-50 text-center shrink-0">
                             <span class="material-symbols-outlined text-4xl mb-4">info</span>
                             <p class="text-xs font-bold uppercase tracking-widest">No membership plans available at this
                                 time.</p>
@@ -1154,26 +1232,22 @@ $primary_rgb = hexToRgb($primary_color);
                             $badgeText = !empty($plan['featured_badge_text']) ? $plan['featured_badge_text'] : ((strpos(strtoupper($plan['plan_name'] ?? ''), 'ELITE') !== false || strpos(strtoupper($plan['plan_name'] ?? ''), 'VIP') !== false) ? 'Recommended' : '');
                             ?>
                             <div
-                                class="dashboard-window rounded-2xl p-10 flex flex-col text-left transition-all hover:scale-[1.02] hover:border-primary/40 duration-500 shrink-0 w-[85%] md:w-[400px] snap-start <?= !empty($badgeText) ? 'border-primary/30 relative' : '' ?>">
-                                <?php if (!empty($badgeText)): ?>
-                                    <div
-                                        class="absolute -top-3 right-8 bg-primary text-white text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full shadow-lg shadow-primary/20">
-                                        <?= htmlspecialchars($badgeText) ?>
-                                    </div>
-                                <?php endif; ?>
-
-                                <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">
+                                class="portal-plan-card rounded-2xl p-6 md:p-10 flex flex-col text-left shrink-0 w-[calc(100vw-3rem)] lg:w-[400px] snap-start <?= !empty($badgeText) ? 'is-featured scale-105' : '' ?>">
+                                <h3 class="text-xl font-display font-black portal-card-title uppercase italic mb-1">
                                     <?= htmlspecialchars($plan['plan_name']) ?>
                                 </h3>
+                                <p class="text-[9px] <?= !empty($badgeText) ? 'text-primary' : 'portal-card-muted' ?> font-bold uppercase tracking-widest mb-8">
+                                    <?= !empty($badgeText) ? htmlspecialchars($badgeText) : (!empty($plan['billing_cycle_text']) ? htmlspecialchars($plan['billing_cycle_text']) : htmlspecialchars($plan['duration_value']) . ' Days') ?>
+                                </p>
 
                                 <div class="mb-10">
                                     <span
-                                        class="text-4xl font-display font-black text-white">₱<?= number_format($plan['price'], 2) ?></span>
-                                    <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/
+                                        class="text-4xl font-display font-black portal-card-title">₱<?= number_format($plan['price'], 2) ?></span>
+                                    <span class="text-[10px] portal-card-muted font-bold uppercase tracking-widest">/
                                         <?= !empty($plan['billing_cycle_text']) ? htmlspecialchars($plan['billing_cycle_text']) : htmlspecialchars($plan['duration_value']) . ' Days' ?></span>
                                 </div>
 
-                                <ul class="space-y-4 mb-12 flex-grow">
+                                <ul class="space-y-3 mb-12 flex-grow">
                                     <?php
                                     if (!empty($plan['features'])) {
                                         $featuresList = explode("\n", str_replace(["\r\n", "\r"], "\n", $plan['features']));
@@ -1182,25 +1256,35 @@ $primary_rgb = hexToRgb($primary_color);
                                             if (empty($feature))
                                                 continue;
                                             ?>
-                                            <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
-                                                <span class="material-symbols-outlined text-primary text-sm">check_circle</span>
+                                            <li class="flex items-start gap-3 text-xs portal-card-muted font-medium leading-relaxed">
+                                                <span class="material-symbols-outlined text-primary text-sm mt-0.5 shrink-0">check_circle</span>
                                                 <?= htmlspecialchars($feature) ?>
                                             </li>
                                             <?php
                                         }
                                     } else {
                                         ?>
-                                        <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
-                                            <span class="material-symbols-outlined text-primary text-sm">check_circle</span>
-                                            <?= !empty($plan['description']) ? htmlspecialchars($plan['description']) : 'Full access to all facility equipment and amenities.' ?>
-                                        </li>
+                                        <?php
+                                        $fallbackFeatures = !empty($plan['description'])
+                                            ? preg_split('/,\s*/', $plan['description'])
+                                            : ['Full access to all facility equipment and amenities.'];
+                                        foreach ($fallbackFeatures as $fallbackFeature):
+                                            $fallbackFeature = trim($fallbackFeature);
+                                            if (empty($fallbackFeature))
+                                                continue;
+                                            ?>
+                                            <li class="flex items-start gap-3 text-xs portal-card-muted font-medium leading-relaxed">
+                                                <span class="material-symbols-outlined text-primary text-sm mt-0.5 shrink-0">check_circle</span>
+                                                <span><?= htmlspecialchars($fallbackFeature) ?></span>
+                                            </li>
+                                        <?php endforeach; ?>
                                         <?php
                                     }
                                     ?>
                                     <?php if ($plan['session_limit']): ?>
-                                        <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
-                                            <span class="material-symbols-outlined text-primary text-sm opacity-60">verified</span>
-                                            <?= htmlspecialchars($plan['session_limit']) ?> Total Sessions included
+                                        <li class="flex items-start gap-3 text-xs portal-card-muted font-medium leading-relaxed">
+                                            <span class="material-symbols-outlined text-primary text-sm opacity-60 mt-0.5 shrink-0">verified</span>
+                                            <span><?= htmlspecialchars($plan['session_limit']) ?> Total Sessions included</span>
                                         </li>
                                     <?php endif; ?>
                                 </ul>
@@ -1208,13 +1292,14 @@ $primary_rgb = hexToRgb($primary_color);
                             </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </section>
 
         <!-- Section: Services Catalog (Per Session) -->
         <?php if (!empty($portal_services)): ?>
-        <section id="services" class="py-32 px-6 relative border-t border-white/5 bg-white/[0.01]">
+        <section id="services" class="py-32 px-6 relative border-t border-white/5">
             <div class="max-w-7xl mx-auto text-center">
                 <div class="mb-16">
                     <div class="inline-flex items-center justify-center p-3 rounded-xl bg-primary/10 border border-primary/20 mb-6">
@@ -1228,42 +1313,43 @@ $primary_rgb = hexToRgb($primary_color);
                     </p>
                 </div>
 
-                <div id="services-catalog-grid"
-                    class="flex overflow-x-auto snap-x snap-mandatory gap-8 pt-6 pb-12 px-10 no-scrollbar custom-scrollbar scroll-smooth <?= count($portal_services) <= 3 ? 'justify-center' : '' ?>">
+                <div id="services-catalog-grid" class="overflow-x-auto snap-x snap-mandatory custom-scrollbar scroll-smooth w-full">
+                    <div class="flex justify-start items-stretch gap-6 md:gap-10 py-12 px-6 md:px-10 mx-auto w-max max-w-full <?= count($portal_services) <= 3 ? 'justify-center' : '' ?>">
                     <?php foreach ($portal_services as $service): ?>
-                        <div class="dashboard-window rounded-3xl p-10 flex flex-col text-left hover:border-primary/40 transition-all duration-500 shrink-0 w-[85%] md:w-[350px] snap-start relative group overflow-hidden">
-                            <div class="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity">
+                        <div class="portal-service-card rounded-2xl p-6 md:p-10 flex flex-col text-left shrink-0 w-[calc(100vw-3rem)] lg:w-[360px] snap-start relative group overflow-hidden">
+                            <div class="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity pointer-events-none">
                                 <span class="material-symbols-outlined text-8xl">fitness_center</span>
                             </div>
 
                             <div class="mb-6">
-                                <span class="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[8px] font-black uppercase tracking-widest italic leading-none">
+                                <span class="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[8px] font-black uppercase tracking-widest leading-none">
                                     <?= htmlspecialchars($service['service_category']) ?>
                                 </span>
                             </div>
 
-                            <h3 class="text-2xl font-display font-black text-white uppercase italic mb-8 leading-tight">
+                            <h3 class="text-xl font-display font-black text-white uppercase italic mb-8 leading-tight">
                                 <?= htmlspecialchars($service['service_name']) ?>
                             </h3>
 
                             <div class="mb-10">
                                 <span class="text-4xl font-display font-black text-white leading-none">₱<?= number_format($service['price'], 2) ?></span>
-                                <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest ml-2 italic">Per Session</span>
+                                <span class="text-[10px] text-gray-500 font-bold uppercase tracking-widest ml-2">Per Session</span>
                             </div>
 
-                            <p class="text-[11px] text-gray-500 font-medium italic leading-relaxed line-clamp-4 flex-grow">
+                            <p class="text-xs text-gray-400 font-medium leading-relaxed line-clamp-4 flex-grow">
                                 <?= htmlspecialchars($service['description'] ?: 'Inquire at our front desk for session details, schedule, and coach availability.') ?>
                             </p>
 
                         </div>
                     <?php endforeach; ?>
+                    </div>
                 </div>
             </div>
         </section>
         <?php endif; ?>
     </main>
 
-    <footer id="contact" class="bg-[#08080a] border-t border-white/5 pt-24 pb-12 px-6">
+    <footer id="contact" class="border-t pt-24 pb-12 px-6">
         <div class="max-w-7xl mx-auto">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-16 mb-24">
                 <div class="space-y-8">
@@ -1285,7 +1371,7 @@ $primary_rgb = hexToRgb($primary_color);
                             <?= htmlspecialchars($cms['footer_label']) ?>
                         </p>
                         <p id="portal-footer-desc" class="text-xs text-gray-500 font-medium leading-relaxed italic max-w-sm">
-                            <?= nl2br(htmlspecialchars($cms['footer_desc'])) ?>
+                            <?= $cms['footer_desc'] ?>
                         </p>
                     </div>
                 </div>
@@ -1575,12 +1661,13 @@ $primary_rgb = hexToRgb($primary_color);
         });
 
         // --- Drag-to-Scroll Engine (Matching Index) ---
-        const slider = document.getElementById('membership-plans-grid');
-        let isDown = false;
-        let startX;
-        let scrollLeft;
+        function enableDragScroll(slider) {
+            let isDown = false;
+            let startX;
+            let scrollLeft;
 
-        if (slider) {
+            if (!slider) return;
+
             slider.addEventListener('mousedown', (e) => {
                 isDown = true;
                 slider.style.scrollSnapType = 'none';
@@ -1606,6 +1693,9 @@ $primary_rgb = hexToRgb($primary_color);
                 slider.scrollLeft = scrollLeft - walk;
             });
         }
+
+        enableDragScroll(document.getElementById('membership-plans-grid'));
+        enableDragScroll(document.getElementById('services-catalog-grid'));
 
         // Real-time Preview Listener
         const hexToRgb = (hex) => {
@@ -1794,20 +1884,17 @@ $primary_rgb = hexToRgb($primary_color);
                     const grid = document.getElementById('membership-plans-grid');
                     if (grid) {
                         if (data.plans.length === 0) {
-                            grid.classList.add('justify-center');
                             grid.innerHTML = `
-                                <div class="w-full max-w-2xl py-20 dashboard-window rounded-3xl opacity-50 text-center shrink-0">
-                                    <span class="material-symbols-outlined text-4xl mb-4">info</span>
-                                    <p class="text-xs font-bold uppercase tracking-widest">No membership plans available at this time.</p>
+                                <div class="flex justify-center items-stretch py-12 px-6 md:px-10 mx-auto w-max max-w-full">
+                                    <div class="w-[calc(100vw-3rem)] max-w-2xl py-20 portal-plan-card rounded-2xl opacity-50 text-center shrink-0">
+                                        <span class="material-symbols-outlined text-4xl mb-4">info</span>
+                                        <p class="text-xs font-bold uppercase tracking-widest">No membership plans available at this time.</p>
+                                    </div>
                                 </div>
                             `;
                         } else {
-                            if (data.plans.length <= 2) {
-                                grid.classList.add('justify-center');
-                            } else {
-                                grid.classList.remove('justify-center');
-                            }
-                            grid.innerHTML = data.plans.map(plan => {
+                            const wrapperClass = `flex justify-start items-stretch gap-6 md:gap-10 py-12 px-6 md:px-10 mx-auto w-max max-w-full ${data.plans.length <= 2 ? 'justify-center' : ''}`;
+                            grid.innerHTML = `<div class="${wrapperClass}">` + data.plans.map(plan => {
                                 const name = plan.name || 'Unnamed Tier';
                                 const type = plan.type || 'Standard';
                                 const price = parseFloat(plan.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1821,38 +1908,40 @@ $primary_rgb = hexToRgb($primary_color);
                                 if (plan.features) {
                                     const featuresList = plan.features.split('\n').map(f => f.trim()).filter(f => f);
                                     featuresHtml = featuresList.map(f => `
-                                        <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
-                                            <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
-                                            ${f}
+                                        <li class="flex items-start gap-3 text-xs portal-card-muted font-medium leading-relaxed">
+                                            <span class="material-symbols-outlined text-primary text-sm mt-0.5 shrink-0">check_circle</span> 
+                                            <span>${f}</span>
                                         </li>
                                     `).join('');
                                 } else {
-                                    featuresHtml = `
-                                        <li class="flex items-center gap-3 text-xs text-gray-400 font-medium italic">
-                                            <span class="material-symbols-outlined text-primary text-sm">check_circle</span> 
-                                            Full access to all facility equipment and amenities.
+                                    const fallbackFeatures = (plan.description || 'Full access to all facility equipment and amenities.')
+                                        .split(',')
+                                        .map(f => f.trim())
+                                        .filter(f => f);
+                                    featuresHtml = fallbackFeatures.map(f => `
+                                        <li class="flex items-start gap-3 text-xs portal-card-muted font-medium leading-relaxed">
+                                            <span class="material-symbols-outlined text-primary text-sm mt-0.5 shrink-0">check_circle</span> 
+                                            <span>${f}</span>
                                         </li>
-                                    `;
+                                    `).join('');
                                 }
 
                                 return `
-                                    <div class="dashboard-window rounded-2xl p-10 flex flex-col text-left transition-all hover:scale-[1.02] hover:border-primary/40 duration-500 shrink-0 w-[85%] md:w-[400px] snap-start ${badgeText ? 'border-primary/30 relative' : ''}">
-                                        ${badgeText ? `<div class="absolute -top-3 right-8 bg-primary text-white text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full shadow-lg shadow-primary/20">${badgeText}</div>` : ''}
-                                        
-                                        <h3 class="text-xl font-display font-black text-white uppercase italic mb-1">${name}</h3>
-                                        <p class="text-[9px] text-primary font-black uppercase tracking-widest mb-8">${type}</p>
+                                    <div class="portal-plan-card rounded-2xl p-6 md:p-10 flex flex-col text-left shrink-0 w-[calc(100vw-3rem)] lg:w-[400px] snap-start ${badgeText ? 'is-featured scale-105' : ''}">
+                                        <h3 class="text-xl font-display font-black portal-card-title uppercase italic mb-1">${name}</h3>
+                                        <p class="text-[9px] ${badgeText ? 'text-primary' : 'portal-card-muted'} font-black uppercase tracking-widest mb-8">${badgeText || type}</p>
                                         
                                         <div class="mb-10">
-                                            <span class="text-4xl font-display font-black text-white">₱${price}</span>
-                                            <span class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">/ ${billing}</span>
+                                            <span class="text-4xl font-display font-black portal-card-title">₱${price}</span>
+                                            <span class="text-[10px] portal-card-muted font-bold uppercase tracking-widest">/ ${billing}</span>
                                         </div>
                                         
-                                        <ul class="space-y-4 mb-12 flex-grow">
+                                        <ul class="space-y-3 mb-12 flex-grow">
                                             ${featuresHtml}
                                         </ul>
                                     </div>
                                 `;
-                            }).join('');
+                            }).join('') + `</div>`;
                         }
                     }
                 }

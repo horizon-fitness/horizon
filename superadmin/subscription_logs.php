@@ -664,6 +664,10 @@ if (isset($_GET['ajax'])) {
                 left: 0 !important;
             }
         }
+        .selected-option {
+            background-color: var(--primary) !important;
+            color: #ffffff !important;
+        }
     </style>
     <script>
         let filterTimeout;
@@ -721,14 +725,27 @@ if (isset($_GET['ajax'])) {
             const form = document.getElementById('filterForm-' + tab);
             if (!form) return;
 
-            // Reset Fields
+            // Reset Search
             const search = form.querySelector('input[name="search"]');
             if (search) search.value = '';
 
-            const selects = form.querySelectorAll('select');
-            selects.forEach(s => {
-                if (s.name === 'sort') s.value = 'newest';
-                else s.value = 'all';
+            // Reset custom dropdowns to their first option
+            form.querySelectorAll('.custom-select-container').forEach(container => {
+                const firstOption = container.querySelector('.custom-option');
+                if (firstOption) {
+                    container.querySelectorAll('.custom-option').forEach(opt => {
+                        opt.classList.remove('selected-option');
+                        opt.classList.add('text-white/60');
+                    });
+                    firstOption.classList.add('selected-option');
+                    firstOption.classList.remove('text-white/60');
+                    
+                    const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
+                    const hiddenInput = container.querySelector('input[type="hidden"]:not([name="tab"])');
+                    
+                    if (trigger) trigger.value = firstOption.textContent.trim();
+                    if (hiddenInput) hiddenInput.value = firstOption.getAttribute('data-value');
+                }
             });
 
             const dates = form.querySelectorAll('input[type="date"]');
@@ -929,21 +946,29 @@ if (isset($_GET['ajax'])) {
                                    oninput="reactiveFilter(this.form)" 
                                    class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
                         </div>
-                        <div class="w-[160px] relative group">
-                            <select name="pay_status" onchange="reactiveFilter(this.form, true)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                <option value="all" <?= ($active_tab === 'recent' && $pay_status === 'all') ? 'selected' : '' ?>>All Payments</option>
-                                <option value="Paid" <?= ($active_tab === 'recent' && $pay_status === 'Paid') ? 'selected' : '' ?>>Paid</option>
-                                <option value="Rejected" <?= ($active_tab === 'recent' && $pay_status === 'Rejected') ? 'selected' : '' ?>>Rejected</option>
-                            </select>
-                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                        <div class="w-[160px] relative group custom-select-container">
+                            <input type="hidden" name="pay_status" value="<?= $active_tab === 'recent' ? htmlspecialchars($pay_status) : 'all' ?>" onchange="reactiveFilter(this.form, true)">
+                            <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= ($active_tab === 'recent' && $pay_status === 'Paid') ? 'Paid' : (($active_tab === 'recent' && $pay_status === 'Rejected') ? 'Rejected' : 'All Payments') ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'recent' ? ($pay_status === 'all' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="all">All Payments</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'recent' ? ($pay_status === 'Paid' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="Paid">Paid</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'recent' ? ($pay_status === 'Rejected' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="Rejected">Rejected</div>
+                            </div>
                         </div>
-                        <div class="w-[160px] relative group">
-                            <select name="sub_status" onchange="reactiveFilter(this.form, true)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                <option value="all" <?= ($active_tab === 'recent' && $sub_status === 'all') ? 'selected' : '' ?>>All Sub Status</option>
-                                <option value="Active" <?= ($active_tab === 'recent' && $sub_status === 'Active') ? 'selected' : '' ?>>Active</option>
-                                <option value="Expired" <?= ($active_tab === 'recent' && $sub_status === 'Expired') ? 'selected' : '' ?>>Expired</option>
-                            </select>
-                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                        <div class="w-[160px] relative group custom-select-container">
+                            <input type="hidden" name="sub_status" value="<?= $active_tab === 'recent' ? htmlspecialchars($sub_status) : 'all' ?>" onchange="reactiveFilter(this.form, true)">
+                            <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= ($active_tab === 'recent' && $sub_status === 'Active') ? 'Active' : (($active_tab === 'recent' && $sub_status === 'Expired') ? 'Expired' : 'All Sub Status') ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'recent' ? ($sub_status === 'all' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="all">All Sub Status</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'recent' ? ($sub_status === 'Active' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="Active">Active</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'recent' ? ($sub_status === 'Expired' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="Expired">Expired</div>
+                            </div>
                         </div>
                         <div class="flex gap-2">
                             <input type="date" name="date_from" value="<?= $active_tab === 'recent' ? htmlspecialchars($date_from) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="From Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
@@ -1169,28 +1194,40 @@ if (isset($_GET['ajax'])) {
                                    oninput="reactiveFilter(this.form)" 
                                    class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
                         </div>
-                        <div class="w-[160px] relative group">
-                            <select name="pay_status" onchange="reactiveFilter(this.form, true)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                <option value="all" <?= ($active_tab === 'history' && $pay_status === 'all') ? 'selected' : '' ?>>All Payments</option>
-                                <option value="Paid" <?= ($active_tab === 'history' && $pay_status === 'Paid') ? 'selected' : '' ?>>Paid</option>
-                                <option value="Rejected" <?= ($active_tab === 'history' && $pay_status === 'Rejected') ? 'selected' : '' ?>>Rejected</option>
-                            </select>
-                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                        <div class="w-[160px] relative group custom-select-container">
+                            <input type="hidden" name="pay_status" value="<?= $active_tab === 'history' ? htmlspecialchars($pay_status) : 'all' ?>" onchange="reactiveFilter(this.form, true)">
+                            <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= ($active_tab === 'history' && $pay_status === 'Paid') ? 'Paid' : (($active_tab === 'history' && $pay_status === 'Rejected') ? 'Rejected' : 'All Payments') ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'history' ? ($pay_status === 'all' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="all">All Payments</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'history' ? ($pay_status === 'Paid' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="Paid">Paid</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'history' ? ($pay_status === 'Rejected' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="Rejected">Rejected</div>
+                            </div>
                         </div>
-                        <div class="w-[160px] relative group">
-                            <select name="sub_status" onchange="reactiveFilter(this.form, true)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                <option value="all" <?= ($active_tab === 'history' && $sub_status === 'all') ? 'selected' : '' ?>>All Sub Status</option>
-                                <option value="Active" <?= ($active_tab === 'history' && $sub_status === 'Active') ? 'selected' : '' ?>>Active</option>
-                                <option value="Expired" <?= ($active_tab === 'history' && $sub_status === 'Expired') ? 'selected' : '' ?>>Expired</option>
-                            </select>
-                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                        <div class="w-[160px] relative group custom-select-container">
+                            <input type="hidden" name="sub_status" value="<?= $active_tab === 'history' ? htmlspecialchars($sub_status) : 'all' ?>" onchange="reactiveFilter(this.form, true)">
+                            <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= ($active_tab === 'history' && $sub_status === 'Active') ? 'Active' : (($active_tab === 'history' && $sub_status === 'Expired') ? 'Expired' : 'All Sub Status') ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'history' ? ($sub_status === 'all' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="all">All Sub Status</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'history' ? ($sub_status === 'Active' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="Active">Active</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'history' ? ($sub_status === 'Expired' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="Expired">Expired</div>
+                            </div>
                         </div>
-                        <div class="w-[160px] relative group">
-                            <select name="sort" onchange="reactiveFilter(this.form, true)" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-bold outline-none text-[--text-main] appearance-none cursor-pointer">
-                                <option value="newest" <?= ($active_tab === 'history' && $sort_order === 'newest') ? 'selected' : '' ?>>Newest First</option>
-                                <option value="oldest" <?= ($active_tab === 'history' && $sort_order === 'oldest') ? 'selected' : '' ?>>Oldest First</option>
-                            </select>
-                            <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none transition-transform group-hover:translate-y-[-40%]">expand_more</span>
+                        <div class="w-[160px] relative group custom-select-container">
+                            <input type="hidden" name="sort" value="<?= $active_tab === 'history' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="reactiveFilter(this.form, true)">
+                            <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= ($active_tab === 'history' && $sort_order === 'oldest') ? 'Oldest First' : 'Newest First' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            </div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'history' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest First</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'history' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest First</div>
+                            </div>
                         </div>
                         <div class="flex gap-2">
                             <input type="date" name="date_from" value="<?= $active_tab === 'history' ? htmlspecialchars($date_from) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="From Date" class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main]">
@@ -1578,6 +1615,57 @@ if (isset($_GET['ajax'])) {
     function closeDetailModal() {
         document.getElementById('subscriptionDetailModal').classList.remove('flex-important');
     }
+</script>
+<script>
+        function toggleCustomDropdown(trigger, event) {
+            event.stopPropagation();
+            document.querySelectorAll('.custom-select-dropdown').forEach(dropdown => {
+                if (dropdown !== trigger.nextElementSibling) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+            const dropdown = trigger.nextElementSibling;
+            dropdown.classList.toggle('hidden');
+        }
+
+        // Use event delegation so dropdowns work even after AJAX replacements
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.custom-select-container')) {
+                document.querySelectorAll('.custom-select-dropdown').forEach(dropdown => {
+                    dropdown.classList.add('hidden');
+                });
+            }
+
+            // Option clicked
+            const option = e.target.closest('.custom-option');
+            if (option) {
+                const container = option.closest('.custom-select-container');
+                if (!container) return;
+                
+                const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
+                const hiddenInput = container.querySelector('input[type="hidden"]');
+                const dropdown = container.querySelector('.custom-select-dropdown');
+                
+                dropdown.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.classList.remove('selected-option');
+                    opt.classList.add('text-white/60');
+                });
+                option.classList.add('selected-option');
+                option.classList.remove('text-white/60');
+                
+                if (trigger) trigger.value = option.textContent.trim();
+                hiddenInput.value = option.getAttribute('data-value');
+                
+                dropdown.classList.add('hidden');
+
+                const evt = new Event('change');
+                hiddenInput.dispatchEvent(evt);
+                
+                if (hiddenInput.onchange) {
+                    hiddenInput.onchange();
+                }
+            }
+        });
 </script>
 </body>
 </html>

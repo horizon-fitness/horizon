@@ -320,10 +320,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+// Fetch Theme Preference
+$currentTheme = 'dark';
+if (isset($_SESSION['user_id'])) {
+    $stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = ? AND setting_key = 'theme_preference'");
+    $stmtTheme->execute([$_SESSION['user_id']]);
+    $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
+} elseif (isset($_COOKIE['theme_preference'])) {
+    $currentTheme = $_COOKIE['theme_preference'];
+} else {
+    $stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'theme_preference'");
+    $stmtTheme->execute();
+    $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
+}
 ?>
 
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html class="<?= htmlspecialchars($currentTheme) ?>" lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
@@ -357,15 +371,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </script>
     <style>
+        :root {
+            --primary: <?= $branding['theme_color'] ?? '#7f13ec' ?>;
+            --bg-color: #050505;
+            --surface-color: rgba(8, 8, 10, 0.6);
+            --text-main: #f3f4f6;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --input-bg: rgba(255, 255, 255, 0.03);
+            --card-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1);
+            --login-overlay: rgba(5, 5, 5, 0.8);
+        }
+
+        .light {
+            --bg-color: #f8fafc;
+            --surface-color: rgba(255, 255, 255, 0.9);
+            --text-main: #0f172a;
+            --border-color: rgba(0, 0, 0, 0.1);
+            --input-bg: rgba(0, 0, 0, 0.03);
+            --card-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.05);
+            --login-overlay: rgba(255, 255, 255, 0.6);
+        }
+
         *::-webkit-scrollbar { display: none; }
         * { -ms-overflow-style: none; scrollbar-width: none; }
-        html, body { background-color: #050505 !important; color: #f3f4f6; margin: 0; padding: 0; min-height: 100vh; font-family: 'Plus Jakarta Sans', sans-serif; }
+        html, body { background-color: var(--bg-color) !important; color: var(--text-main); margin: 0; padding: 0; min-height: 100vh; font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.4s ease; }
         .hero-glow { background-image: radial-gradient(circle at 50% -10%, rgba(127, 19, 236, 0.18), transparent 70%); }
-        .login-bg-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(5,5,5,0.8), #050505), url('https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070&auto=format&fit=crop'); background-size: cover; background-position: center; opacity: 0.3; z-index: -1; }
-        .dashboard-window { background: rgba(8, 8, 10, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 1); }
+        .login-bg-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, var(--login-overlay), var(--bg-color)), url('https://images.unsplash.com/photo-1540497077202-7c8a3999166f?q=80&w=2070&auto=format&fit=crop'); background-size: cover; background-position: center; opacity: 0.3; z-index: -1; }
+        .dashboard-window { background: var(--surface-color); backdrop-filter: blur(20px); border: 1px solid var(--border-color); box-shadow: var(--card-shadow); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
         @keyframes fade-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-        .otp-box { background-color: rgba(255, 255, 255, 0.03) !important; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); appearance: none; -webkit-appearance: none; }
+        .otp-box { background-color: var(--input-bg) !important; color: var(--text-main) !important; border: 1px solid var(--border-color) !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); appearance: none; -webkit-appearance: none; }
         .otp-box:focus { background-color: rgba(127, 19, 236, 0.05) !important; border-color: #7f13ec !important; box-shadow: 0 0 15px rgba(127, 19, 236, 0.2) !important; transform: translateY(-2px); outline: none !important; }
         .btn-premium { background: linear-gradient(135deg, #7f13ec 0%, #6012b3 100%); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .btn-premium:hover { transform: translateY(-2px); box-shadow: 0 8px 25px -5px rgba(127, 19, 236, 0.5); }
@@ -384,7 +419,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <img src="../assests/horizon logo.png" alt="Horizon Logo" class="size-full object-contain rounded-lg">
                 <?php endif; ?>
             </div>
-            <h2 class="text-lg font-display font-bold text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>
+            <h2 class="text-lg font-display font-bold text-gray-900 dark:text-white uppercase italic tracking-tighter"><?= $branding['gym_name'] ?? 'Horizon' ?> <span class="text-primary"><?= $branding ? 'Portal' : 'System' ?></span></h2>
         </a>
     </nav>
 
@@ -397,12 +432,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-primary text-[9px] font-black uppercase tracking-[0.2em] mb-4">
                         Secure Authentication
                     </div>
-                    <h1 class="text-4xl font-display font-black text-white uppercase italic tracking-tighter mb-4">
+                    <h1 class="text-4xl font-display font-black text-gray-900 dark:text-white uppercase italic tracking-tighter mb-4">
                         Verify <span class="text-primary">Identity</span>
                     </h1>
                     <p class="text-[13px] text-gray-500 font-bold tracking-widest leading-relaxed">
                         We've sent a 6-digit security code to <br>
-                        <span class="text-white"><?= htmlspecialchars($email) ?></span>
+                        <span class="text-gray-900 dark:text-white"><?= htmlspecialchars($email) ?></span>
                     </p>
                 </div>
 
@@ -414,8 +449,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php endif; ?>
 
                 <?php if (!empty($success)): ?>
-                    <div id="success-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#050505]/95 backdrop-blur-md animate-fade-in">
-                        <div class="w-full max-w-[400px] rounded-2xl border border-white/5 bg-[#08080a] p-10 text-center relative overflow-hidden shadow-2xl">
+                    <div id="success-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-white/90 dark:bg-[#050505]/95 backdrop-blur-md animate-fade-in">
+                        <div class="w-full max-w-[400px] rounded-2xl border border-black/10 dark:border-white/5 bg-white dark:bg-[#08080a] p-10 text-center relative overflow-hidden shadow-2xl">
                             <div class="absolute -top-24 -right-24 w-48 h-48 <?= $is_auto_approved ? 'bg-primary/10' : 'bg-emerald-500/10' ?> blur-[60px] rounded-full pointer-events-none"></div>
                             
                             <div class="relative z-10">
@@ -423,15 +458,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <span class="material-symbols-outlined text-4xl <?= $is_auto_approved ? 'text-primary' : 'text-emerald-400' ?> animate-bounce">verified</span>
                                 </div>
                                 
-                                <h3 class="text-2xl font-black text-white uppercase italic tracking-tight mb-4">
+                                <h3 class="text-2xl font-black text-gray-900 dark:text-white uppercase italic tracking-tight mb-4">
                                     <?= $is_auto_approved ? 'Portal <span class="text-primary">Activated</span>' : 'Identity <span class="text-emerald-400">Verified</span>' ?>
                                 </h3>
                                 
-                                <p class="text-[12px] text-gray-400 font-bold uppercase tracking-widest leading-relaxed mb-10">
+                                <p class="text-[12px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest leading-relaxed mb-10">
                                     <?= $is_auto_approved ? 'Success! Your gym portal is now live.' : 'Confirmed! Redirecting you to login...' ?>
                                 </p>
                                 
-                                <div class="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden mb-4">
+                                <div class="relative h-1.5 w-full bg-black/10 dark:bg-white/5 rounded-full overflow-hidden mb-4">
                                     <div id="redirect-progress" class="absolute inset-y-0 left-0 <?= $is_auto_approved ? 'bg-primary' : 'bg-emerald-500' ?> transition-all duration-100 ease-linear" style="width: 100%"></div>
                                 </div>
                                 <div class="flex justify-between items-center text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">
@@ -439,7 +474,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <span class="size-1 rounded-full bg-primary animate-pulse"></span>
                                         Finalizing Session
                                     </span>
-                                    <span id="countdown-text" class="text-white">10s</span>
+                                    <span id="countdown-text" class="text-gray-900 dark:text-white">10s</span>
                                 </div>
                             </div>
                         </div>
@@ -450,12 +485,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="space-y-4 text-left">
                         <label class="text-[10px] font-display font-bold uppercase tracking-widest text-gray-500 ml-1">Verification Code</label>
                         <div class="flex gap-3 justify-between" id="otp-inputs">
-                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
-                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-gray-900 dark:text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-gray-900 dark:text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-gray-900 dark:text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-gray-900 dark:text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-gray-900 dark:text-white outline-none focus:ring-0" inputmode="numeric">
+                            <input type="text" maxlength="1" pattern="\d" class="otp-box w-12 h-16 text-center text-3xl font-black rounded-xl text-gray-900 dark:text-white outline-none focus:ring-0" inputmode="numeric">
                         </div>
                         <input type="hidden" name="otp_code" id="otp_full_code">
                     </div>
@@ -469,7 +504,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="text-center mt-12 pt-8 border-t border-white/5">
                     <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
                         Didn't receive the code? 
-                        <a id="resendLink" class="text-primary hover:text-white transition-all ml-1 pointer-events-none opacity-40" href="../action/resend_otp.php<?= isset($_GET['gym']) ? '?gym='.urlencode($_GET['gym']) : '' ?>">
+                        <a id="resendLink" class="text-primary hover:text-gray-900 dark:hover:text-white transition-all ml-1 pointer-events-none opacity-40" href="../action/resend_otp.php<?= isset($_GET['gym']) ? '?gym='.urlencode($_GET['gym']) : '' ?>">
                             Resend Code<span id="resendCountdown" class="ml-1 text-gray-700">(60s)</span>
                         </a>
                     </p>
@@ -584,6 +619,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     else { if (countdownText) countdownText.textContent = Math.ceil(timeLeft) + 's'; if (progressBar) progressBar.style.width = (timeLeft / 10 * 100) + '%'; }
                 }, 100);
             }
+
+            // DEV MODE: Print OTP to console for easy testing if emails fail
+            <?php if (isset($_SESSION['staged_otp']['code'])): ?>
+            console.log("DEV NOTICE: Your OTP Code is: <?= $_SESSION['staged_otp']['code'] ?>");
+            <?php elseif (isset($_SESSION['verify_user_id'])): ?>
+            // Note: For existing user DB OTPs, we would need to fetch it, but usually staged_otp covers registration.
+            console.log("DEV NOTICE: Check your user_verifications database table for the OTP code.");
+            <?php endif; ?>
         };
     </script>
 </body>
