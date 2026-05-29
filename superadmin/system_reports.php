@@ -320,9 +320,38 @@ $tenants_js = array_map(function($t) {
         background: var(--primary);
         color: white;
     }
+
+    .custom-select-container {
+        isolation: isolate;
+    }
+
+    .custom-select-container.is-open,
+    .searchable-select-container.is-open {
+        z-index: 1000 !important;
+    }
+
+    .custom-select-dropdown {
+        pointer-events: auto;
+        z-index: 1001 !important;
+    }
+
+    .selected-option {
+        background: var(--primary) !important;
+        color: #ffffff !important;
+    }
 </style>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        function closeAllReportDropdowns(exceptContainer = null) {
+            document.querySelectorAll('.custom-select-container, .searchable-select-container').forEach(item => {
+                if (item !== exceptContainer) item.classList.remove('is-open');
+            });
+            document.querySelectorAll('.custom-select-dropdown, .searchable-dropdown-overlay').forEach(dropdown => {
+                const owner = dropdown.closest('.custom-select-container, .searchable-select-container');
+                if (owner !== exceptContainer) dropdown.classList.add('hidden');
+            });
+        }
+
         function initSearchableDropdown(containerId, inputId, dropdownId, listId, hiddenInputId, currentFilter) {
             const container = document.getElementById(containerId);
             const input = document.getElementById(inputId);
@@ -346,17 +375,22 @@ $tenants_js = array_map(function($t) {
             }
 
             input.addEventListener('focus', () => {
+                closeAllReportDropdowns(container);
+                container.classList.add('is-open');
                 dropdown.classList.remove('hidden');
                 renderOptions(input.value === 'All Tenants' || input.value === 'All System Tenants' ? '' : input.value);
             });
 
             input.addEventListener('input', (e) => {
+                closeAllReportDropdowns(container);
+                container.classList.add('is-open');
                 dropdown.classList.remove('hidden');
                 renderOptions(e.target.value);
             });
 
             document.addEventListener('click', (e) => {
                 if (!container.contains(e.target)) {
+                    container.classList.remove('is-open');
                     dropdown.classList.add('hidden');
                 }
             });
@@ -369,6 +403,7 @@ $tenants_js = array_map(function($t) {
                     
                     hiddenInput.value = id;
                     input.value = name;
+                    container.classList.remove('is-open');
                     dropdown.classList.add('hidden');
                     
                     container.closest('form').submit();
@@ -376,9 +411,83 @@ $tenants_js = array_map(function($t) {
             });
         }
 
+        window.closeAllReportDropdowns = closeAllReportDropdowns;
+
         // Initialize both dropdowns
         initSearchableDropdown('tenantSearchContainer', 'tenantSearchInput', 'tenantDropdown', 'tenantOptionsList', 'hidden_tenant_id', currentTenantFilter);
         initSearchableDropdown('ovTenantSearchContainer', 'ovTenantSearchInput', 'ovTenantDropdown', 'ovTenantOptionsList', 'hidden_ov_tenant_id', currentOvTenantFilter);
+    });
+
+    function toggleCustomDropdown(trigger, event) {
+        event.stopPropagation();
+        const container = trigger.closest('.custom-select-container');
+        if (window.closeAllReportDropdowns) {
+            window.closeAllReportDropdowns(container);
+        } else {
+            document.querySelectorAll('.custom-select-container, .searchable-select-container').forEach(item => {
+                if (item !== container) item.classList.remove('is-open');
+            });
+            document.querySelectorAll('.custom-select-dropdown, .searchable-dropdown-overlay').forEach(dropdown => {
+                const owner = dropdown.closest('.custom-select-container, .searchable-select-container');
+                if (owner !== container) dropdown.classList.add('hidden');
+            });
+        }
+
+        const dropdown = trigger.nextElementSibling;
+        dropdown.classList.toggle('hidden');
+        if (container) container.classList.toggle('is-open', !dropdown.classList.contains('hidden'));
+    }
+
+    function selectCustomOption(option) {
+        const container = option.closest('.custom-select-container');
+        if (!container) return;
+
+        const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
+        const hiddenInput = container.querySelector('input[type="hidden"]');
+        const dropdown = container.querySelector('.custom-select-dropdown');
+        if (!hiddenInput || !dropdown) return;
+
+        dropdown.querySelectorAll('.custom-option').forEach(opt => {
+            opt.classList.remove('selected-option');
+            opt.classList.add('text-white/60');
+        });
+        option.classList.add('selected-option');
+        option.classList.remove('text-white/60');
+
+        if (trigger) trigger.value = option.textContent.trim();
+        hiddenInput.value = option.getAttribute('data-value') || '';
+        dropdown.classList.add('hidden');
+        container.classList.remove('is-open');
+
+        const form = container.closest('form');
+        if (form) form.submit();
+    }
+
+    document.addEventListener('pointerdown', function (e) {
+        const option = e.target.closest('.custom-option');
+        if (!option) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        selectCustomOption(option);
+    }, true);
+
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.custom-select-container, .searchable-select-container')) {
+            if (window.closeAllReportDropdowns) {
+                window.closeAllReportDropdowns();
+            } else {
+                document.querySelectorAll('.custom-select-container, .searchable-select-container').forEach(container => container.classList.remove('is-open'));
+                document.querySelectorAll('.custom-select-dropdown, .searchable-dropdown-overlay').forEach(dropdown => dropdown.classList.add('hidden'));
+            }
+        }
+
+        const option = e.target.closest('.custom-option');
+        if (option) {
+            e.preventDefault();
+            e.stopPropagation();
+            selectCustomOption(option);
+        }
     });
 </script>
 
@@ -976,16 +1085,19 @@ $tenants_js = array_map(function($t) {
                                 <input type="hidden" name="status" value="<?= htmlspecialchars($status_filter) ?>">
                                 <input type="hidden" name="pay_status" value="<?= htmlspecialchars($pay_status_filter) ?>">
 
-                                <div class="relative group premium-select-container">
-                                    <select name="report_type" onchange="this.form.submit()"
-                                        class="input-field appearance-none rounded-xl px-6 h-[48px] text-[10px] font-black uppercase tracking-[0.1em] text-white focus:outline-none cursor-pointer pr-10 min-w-[240px]">
+                                <div class="relative group custom-select-container min-w-[260px]">
+                                    <input type="hidden" name="report_type" value="<?= htmlspecialchars($report_type) ?>">
+                                    <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center h-[48px] hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="<?= htmlspecialchars($curr_report['title']) ?>" class="w-full bg-transparent border-none text-[--text-main] text-[10px] font-black uppercase tracking-[0.1em] pointer-events-none pl-5 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary text-base pointer-events-none group-hover:scale-110 transition-transform">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-64 overflow-y-auto">
                                         <?php foreach ($report_titles as $key => $data): ?>
-                                            <option value="<?= $key ?>" <?= $report_type == $key ? 'selected' : '' ?>>
-                                                <?= $data['title'] ?></option>
+                                            <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $report_type == $key ? 'selected-option' : 'text-white/60' ?>" data-value="<?= htmlspecialchars($key) ?>">
+                                                <?= htmlspecialchars($data['title']) ?>
+                                            </div>
                                         <?php endforeach; ?>
-                                    </select>
-                                    <span
-                                        class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-primary text-base pointer-events-none group-hover:scale-110 transition-transform">expand_more</span>
+                                    </div>
                                 </div>
                             </form>
                              <a href="system_reports.php?report_type=<?= $report_type ?>&active_tab=detailedTab" 
@@ -1005,7 +1117,7 @@ $tenants_js = array_map(function($t) {
                         </div>
                     </div>
 
-                    <div class="px-8 py-4 border-b border-white/5 relative z-[60]">
+                    <div class="px-8 py-4 border-b border-white/5 relative z-[900] overflow-visible">
                         <form method="GET" class="flex flex-wrap items-center gap-4">
                             <!-- Consolidated Filters -->
                             <input type="hidden" name="active_tab" value="detailedTab">
@@ -1018,7 +1130,7 @@ $tenants_js = array_map(function($t) {
                             </div>
 
                             <!-- Searchable Tenant Selector -->
-                            <div class="w-[240px] relative group shrink-0" id="tenantSearchContainer">
+                            <div class="w-[240px] relative z-[1000] group shrink-0 searchable-select-container" id="tenantSearchContainer">
                                 <input type="hidden" name="tenant_id" id="hidden_tenant_id" value="<?= htmlspecialchars($tenant_filter) ?>">
                                 
                                 <div class="relative">
@@ -1032,7 +1144,7 @@ $tenants_js = array_map(function($t) {
                                 </div>
 
                                 <!-- Dropdown Overlay (Stuck to bottom) -->
-                                <div id="tenantDropdown" class="absolute left-0 right-0 top-full z-[100] rounded-b-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                <div id="tenantDropdown" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
                                     <div class="p-1.5 space-y-0.5">
                                         <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $tenant_filter === 'all' ? 'selected' : 'text-white/60' ?>" data-id="all" data-name="All Tenants">
                                             All Tenants
@@ -1056,42 +1168,58 @@ $tenants_js = array_map(function($t) {
 
                             <!-- Contextual Status -->
                             <?php if ($report_type === 'gym_apps'): ?>
-                                <div class="w-[200px] relative group shrink-0">
-                                    <select name="status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
-                                        <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Apps Status</option>
-                                        <option value="Pending" <?= $status_filter === 'Pending' ? 'selected' : '' ?>>Pending</option>
-                                        <option value="Approved" <?= $status_filter === 'Approved' ? 'selected' : '' ?>>Approved</option>
-                                        <option value="Rejected" <?= $status_filter === 'Rejected' ? 'selected' : '' ?>>Rejected</option>
-                                    </select>
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none">expand_more</span>
+                                <div class="w-[200px] relative z-[1000] group shrink-0 custom-select-container">
+                                    <input type="hidden" name="status" value="<?= htmlspecialchars($status_filter) ?>">
+                                    <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="<?= $status_filter === 'all' ? 'All Apps Status' : htmlspecialchars($status_filter) ?>" class="w-full bg-transparent border-none text-[--text-main] text-xs font-black pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 text-[--text-main] opacity-40 text-sm pointer-events-none">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'all' ? 'selected-option' : 'text-white/60' ?>" data-value="all">All Apps Status</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'Pending' ? 'selected-option' : 'text-white/60' ?>" data-value="Pending">Pending</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'Approved' ? 'selected-option' : 'text-white/60' ?>" data-value="Approved">Approved</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'Rejected' ? 'selected-option' : 'text-white/60' ?>" data-value="Rejected">Rejected</div>
+                                    </div>
                                 </div>
                             <?php elseif ($report_type === 'client_subs'): ?>
-                                <div class="w-[180px] relative group shrink-0">
-                                    <select name="status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
-                                        <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Sub Status</option>
-                                        <option value="Active" <?= $status_filter === 'Active' ? 'selected' : '' ?>>Active</option>
-                                        <option value="Inactive" <?= $status_filter === 'Inactive' ? 'selected' : '' ?>>Inactive</option>
-                                        <option value="Expired" <?= $status_filter === 'Expired' ? 'selected' : '' ?>>Expired</option>
-                                    </select>
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none">expand_more</span>
+                                <div class="w-[180px] relative z-[1000] group shrink-0 custom-select-container">
+                                    <input type="hidden" name="status" value="<?= htmlspecialchars($status_filter) ?>">
+                                    <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="<?= $status_filter === 'all' ? 'All Sub Status' : htmlspecialchars($status_filter) ?>" class="w-full bg-transparent border-none text-[--text-main] text-xs font-black pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 text-[--text-main] opacity-40 text-sm pointer-events-none">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'all' ? 'selected-option' : 'text-white/60' ?>" data-value="all">All Sub Status</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'Active' ? 'selected-option' : 'text-white/60' ?>" data-value="Active">Active</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'Inactive' ? 'selected-option' : 'text-white/60' ?>" data-value="Inactive">Inactive</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'Expired' ? 'selected-option' : 'text-white/60' ?>" data-value="Expired">Expired</div>
+                                    </div>
                                 </div>
-                                <div class="w-[180px] relative group shrink-0">
-                                    <select name="pay_status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
-                                        <option value="all" <?= $pay_status_filter === 'all' ? 'selected' : '' ?>>All Pay Status</option>
-                                        <option value="Paid" <?= $pay_status_filter === 'Paid' ? 'selected' : '' ?>>Paid</option>
-                                        <option value="Pending" <?= $pay_status_filter === 'Pending' ? 'selected' : '' ?>>Pending</option>
-                                        <option value="Rejected" <?= $pay_status_filter === 'Rejected' ? 'selected' : '' ?>>Rejected</option>
-                                    </select>
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none">expand_more</span>
+                                <div class="w-[180px] relative z-[1000] group shrink-0 custom-select-container">
+                                    <input type="hidden" name="pay_status" value="<?= htmlspecialchars($pay_status_filter) ?>">
+                                    <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="<?= $pay_status_filter === 'all' ? 'All Pay Status' : htmlspecialchars($pay_status_filter) ?>" class="w-full bg-transparent border-none text-[--text-main] text-xs font-black pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 text-[--text-main] opacity-40 text-sm pointer-events-none">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $pay_status_filter === 'all' ? 'selected-option' : 'text-white/60' ?>" data-value="all">All Pay Status</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $pay_status_filter === 'Paid' ? 'selected-option' : 'text-white/60' ?>" data-value="Paid">Paid</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $pay_status_filter === 'Pending' ? 'selected-option' : 'text-white/60' ?>" data-value="Pending">Pending</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $pay_status_filter === 'Rejected' ? 'selected-option' : 'text-white/60' ?>" data-value="Rejected">Rejected</div>
+                                    </div>
                                 </div>
                             <?php else: // tenant_activity ?>
-                                <div class="w-[200px] relative group shrink-0">
-                                    <select name="status" onchange="this.form.submit()" class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-4 pr-10 text-xs font-black outline-none text-[--text-main] appearance-none cursor-pointer hover:border-white/20 transition-all">
-                                        <option value="all" <?= $status_filter === 'all' ? 'selected' : '' ?>>All Gym Status</option>
-                                        <option value="Active" <?= $status_filter === 'Active' ? 'selected' : '' ?>>Active</option>
-                                        <option value="Inactive" <?= $status_filter === 'Inactive' ? 'selected' : '' ?>>Inactive</option>
-                                    </select>
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-40 pointer-events-none">expand_more</span>
+                                <div class="w-[200px] relative z-[1000] group shrink-0 custom-select-container">
+                                    <input type="hidden" name="status" value="<?= htmlspecialchars($status_filter) ?>">
+                                    <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                        <input type="text" readonly value="<?= $status_filter === 'all' ? 'All Gym Status' : htmlspecialchars($status_filter) ?>" class="w-full bg-transparent border-none text-[--text-main] text-xs font-black pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                        <span class="material-symbols-outlined absolute right-4 text-[--text-main] opacity-40 text-sm pointer-events-none">expand_more</span>
+                                    </div>
+                                    <div class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'all' ? 'selected-option' : 'text-white/60' ?>" data-value="all">All Gym Status</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'Active' ? 'selected-option' : 'text-white/60' ?>" data-value="Active">Active</div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= $status_filter === 'Inactive' ? 'selected-option' : 'text-white/60' ?>" data-value="Inactive">Inactive</div>
+                                    </div>
                                 </div>
                             <?php endif; ?>
                         </form>
@@ -1326,7 +1454,7 @@ $tenants_js = array_map(function($t) {
                         </div>
                     </div>
 
-                    <div class="px-8 py-4 relative z-[60]">
+                    <div class="px-8 py-4 relative z-[900] overflow-visible">
                         <form method="GET" class="flex flex-wrap items-center gap-4">
                             <input type="hidden" name="active_tab" value="overviewTab">
                             <input type="hidden" name="report_type" value="<?= $report_type ?>">
@@ -1338,7 +1466,7 @@ $tenants_js = array_map(function($t) {
                             </div>
 
                             <!-- Searchable Tenant Selector (Overview) -->
-                             <div class="w-[240px] relative group shrink-0" id="ovTenantSearchContainer">
+                             <div class="w-[240px] relative z-[1000] group shrink-0 searchable-select-container" id="ovTenantSearchContainer">
                                  <input type="hidden" name="ov_tenant_id" id="hidden_ov_tenant_id" value="<?= htmlspecialchars($ov_tenant_id) ?>">
                                  
                                  <div class="relative">
@@ -1352,7 +1480,7 @@ $tenants_js = array_map(function($t) {
                                  </div>
 
                                  <!-- Dropdown Overlay (Stuck to bottom) -->
-                                 <div id="ovTenantDropdown" class="absolute left-0 right-0 top-full z-[100] rounded-b-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                 <div id="ovTenantDropdown" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
                                      <div class="p-1.5 space-y-0.5">
                                          <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider <?= $ov_tenant_id === 'all' ? 'selected' : 'text-white/60' ?>" data-id="all" data-name="All System Tenants">
                                              All System Tenants

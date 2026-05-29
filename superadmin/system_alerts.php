@@ -594,6 +594,19 @@ if (isset($_GET['ajax'])) {
             background-color: var(--primary) !important;
             color: #ffffff !important;
         }
+
+        .custom-select-container {
+            isolation: isolate;
+        }
+
+        .custom-select-container.is-open {
+            z-index: 1000 !important;
+        }
+
+        .custom-select-dropdown {
+            pointer-events: auto;
+            z-index: 1001 !important;
+        }
     </style>
     <script>
         function updateHeaderClock() {
@@ -876,7 +889,7 @@ if (isset($_GET['ajax'])) {
             </div>
 
             <!-- Unified Filter Bar [Elite Design Matches Image] -->
-            <div class="glass-card p-4 mb-10 border-white/5">
+            <div class="glass-card p-4 mb-10 border-white/5 relative z-[900] overflow-visible">
                 <form id="alertFilterForm" method="GET" class="flex flex-wrap items-center gap-4" onsubmit="event.preventDefault()">
                     <input type="hidden" name="tab" id="tabInput" value="<?= htmlspecialchars($tab) ?>">
                     
@@ -890,13 +903,13 @@ if (isset($_GET['ajax'])) {
                     </div>
 
                     <!-- Category -->
-                    <div class="w-[180px] relative z-[60] group custom-select-container">
+                    <div class="w-[180px] relative z-[1000] group custom-select-container">
                         <input type="hidden" name="category" value="<?= htmlspecialchars($category_filter) ?>" onchange="reactiveFilter(true)">
                         <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
                             <input type="text" readonly value="<?= $category_filter !== 'all' ? htmlspecialchars($category_filter) : 'All Categories' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
                             <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                         </div>
-                        <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                        <div class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
                             <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($category_filter === 'all' ? 'selected-option' : 'text-white/60') ?>" data-value="all">All Categories</div>
                             <?php foreach ($available_categories as $cat): ?>
                                 <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($category_filter === $cat ? 'selected-option' : 'text-white/60') ?>" data-value="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></div>
@@ -937,11 +950,11 @@ if (isset($_GET['ajax'])) {
                 </form>
             </div>
 
-            <div class="relative">
+            <div class="relative z-0">
                 <!-- Timeline Line -->
                 <div class="absolute left-7 top-0 bottom-0 w-px bg-gradient-to-b from-primary/30 via-primary/5 to-transparent hidden md:block"></div>
 
-                <div id="alertsContainer" class="transition-opacity duration-300">
+                <div id="alertsContainer" class="transition-opacity duration-300 relative z-0">
                     <div class="space-y-6 relative">
                         <?php foreach ($alerts as $alert):
                             $isHigh = ($alert['priority'] == 'High');
@@ -1214,6 +1227,10 @@ if (isset($_GET['ajax'])) {
         
         function toggleCustomDropdown(trigger, event) {
             event.stopPropagation();
+            const container = trigger.closest('.custom-select-container');
+            document.querySelectorAll('.custom-select-container').forEach(item => {
+                if (item !== container) item.classList.remove('is-open');
+            });
             document.querySelectorAll('.custom-select-dropdown').forEach(dropdown => {
                 if (dropdown !== trigger.nextElementSibling) {
                     dropdown.classList.add('hidden');
@@ -1221,11 +1238,49 @@ if (isset($_GET['ajax'])) {
             });
             const dropdown = trigger.nextElementSibling;
             dropdown.classList.toggle('hidden');
+            if (container) container.classList.toggle('is-open', !dropdown.classList.contains('hidden'));
+        }
+
+        function selectCustomOption(option) {
+            const container = option.closest('.custom-select-container');
+            if (!container) return;
+
+            const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
+            const hiddenInput = container.querySelector('input[type="hidden"]');
+            const dropdown = container.querySelector('.custom-select-dropdown');
+            if (!hiddenInput || !dropdown) return;
+
+            dropdown.querySelectorAll('.custom-option').forEach(opt => {
+                opt.classList.remove('selected-option');
+                opt.classList.add('text-white/60');
+            });
+            option.classList.add('selected-option');
+            option.classList.remove('text-white/60');
+
+            if (trigger) trigger.value = option.textContent.trim();
+            hiddenInput.value = option.getAttribute('data-value') || '';
+
+            dropdown.classList.add('hidden');
+            container.classList.remove('is-open');
+
+            reactiveFilter(true);
         }
 
         // Use event delegation so dropdowns work even after AJAX replacements
+        document.addEventListener('pointerdown', function (e) {
+            const option = e.target.closest('.custom-option');
+            if (!option) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            selectCustomOption(option);
+        }, true);
+
         document.addEventListener('click', function (e) {
             if (!e.target.closest('.custom-select-container')) {
+                document.querySelectorAll('.custom-select-container').forEach(container => {
+                    container.classList.remove('is-open');
+                });
                 document.querySelectorAll('.custom-select-dropdown').forEach(dropdown => {
                     dropdown.classList.add('hidden');
                 });
@@ -1234,31 +1289,9 @@ if (isset($_GET['ajax'])) {
             // Option clicked
             const option = e.target.closest('.custom-option');
             if (option) {
-                const container = option.closest('.custom-select-container');
-                if (!container) return;
-                
-                const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
-                const hiddenInput = container.querySelector('input[type="hidden"]');
-                const dropdown = container.querySelector('.custom-select-dropdown');
-                
-                dropdown.querySelectorAll('.custom-option').forEach(opt => {
-                    opt.classList.remove('selected-option');
-                    opt.classList.add('text-white/60');
-                });
-                option.classList.add('selected-option');
-                option.classList.remove('text-white/60');
-                
-                if (trigger) trigger.value = option.textContent.trim();
-                hiddenInput.value = option.getAttribute('data-value');
-                
-                dropdown.classList.add('hidden');
-
-                const evt = new Event('change');
-                hiddenInput.dispatchEvent(evt);
-                
-                if (hiddenInput.onchange) {
-                    hiddenInput.onchange();
-                }
+                e.preventDefault();
+                e.stopPropagation();
+                selectCustomOption(option);
             }
         });
     </script>
