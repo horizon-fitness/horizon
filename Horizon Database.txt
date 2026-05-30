@@ -501,10 +501,10 @@ INSERT INTO user_roles (
 -- user_id > 0 = Personal Dashboard Branding (Per Superadmin)
 INSERT INTO system_settings (user_id, setting_key, setting_value) VALUES 
 (1, 'theme_color', '#8c2bee'),      -- [Main Color] Titles, primary buttons & accents
-(1, 'secondary_color', '#a1a1aa'),  -- [Icon Color] Sidebar icons & system symbols
-(1, 'text_color', '#d1d5db'),       -- [Text Color] All typography & nav labels
-(1, 'bg_color', '#0a090d'),         -- [Background] Main system canvas color
-(1, 'card_color', '#141216'),       -- [Surface Color] Manual card surface tint
+(1, 'secondary_color', '#334155'),  -- [Icon Color] Sidebar icons & system symbols
+(1, 'text_color', '#0f172a'),       -- [Text Color] All typography & nav labels
+(1, 'bg_color', '#f8fafc'),         -- [Background] Main system canvas color
+(1, 'card_color', '#ffffff'),       -- [Surface Color] Manual card surface tint
 (1, 'auto_card_theme', '1'),        -- [Sync Toggle] 1=Sync with Theme, 0=Manual
 (1, 'font_family', 'Lexend');       -- [Typography] Global font selection
 

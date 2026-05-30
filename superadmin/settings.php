@@ -135,9 +135,10 @@ $stmtSeed = $pdo->prepare("INSERT IGNORE INTO system_settings (user_id, setting_
 // Personal Defaults
 $personal_defaults = [
     ['theme_color', '#8c2bee'],
-    ['secondary_color', '#a1a1aa'],
-    ['text_color', '#d1d5db'],
-    ['bg_color', '#0a090d'],
+    ['secondary_color', '#334155'],
+    ['text_color', '#0f172a'],
+    ['bg_color', '#f8fafc'],
+    ['card_color', '#ffffff'],
     ['auto_tab_sync', '1']
 ];
 foreach ($personal_defaults as $s)
@@ -410,18 +411,18 @@ $active_page = "settings";
                 <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>
             ;
             --background:
-                <?= $configs['bg_color'] ?? '#0a090d' ?>
+                <?= $configs['bg_color'] ?? '#f8fafc' ?>
             ;
             --highlight:
-                <?= $configs['secondary_color'] ?? '#a1a1aa' ?>
+                <?= $configs['secondary_color'] ?? '#334155' ?>
             ;
             --text-main:
-                <?= $configs['text_color'] ?? '#d1d5db' ?>
+                <?= $configs['text_color'] ?? '#0f172a' ?>
             ;
             --secondary-rgb: 161, 161, 170;
             --card-blur: 20px;
             --card-bg:
-                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#141216') ?>
+                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#ffffff') ?>
             ;
             --tab-active-text:
                 <?= $configs['tab_active_text'] ?? '#ffffff' ?>
@@ -2445,11 +2446,11 @@ $active_page = "settings";
                 'undo',
                 () => {
                     document.getElementById('theme_color_input').value = '#8c2bee';
-                    document.getElementById('secondary_color_input').value = '#a1a1aa';
-                    document.getElementById('text_color_input').value = '#d1d5db';
+                    document.getElementById('secondary_color_input').value = '#334155';
+                    document.getElementById('text_color_input').value = '#0f172a';
                     const tabInput = document.getElementById('tab_active_text_input');
                     if (tabInput) tabInput.value = '#ffffff';
-                    document.getElementById('bg_color_input').value = '#0a090d';
+                    document.getElementById('bg_color_input').value = '#f8fafc';
 
                     const isAutoInput = document.getElementById('auto_card_theme_input');
                     if (isAutoInput) isAutoInput.checked = true;

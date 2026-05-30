@@ -4,7 +4,7 @@ require_once 'db.php';
 
 // Handle AJAX Theme Toggle
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'toggle_theme') {
-    $newTheme = in_array($_POST['theme'], ['dark', 'light', 'system']) ? $_POST['theme'] : 'dark';
+    $newTheme = in_array($_POST['theme'], ['dark', 'light', 'system']) ? $_POST['theme'] : 'light';
     $userId = $_SESSION['user_id'] ?? 0;
     
     $stmt = $pdo->prepare("INSERT INTO system_settings (user_id, setting_key, setting_value) 
@@ -20,17 +20,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // Fetch Theme Preference
-$currentTheme = 'dark';
+$currentTheme = 'light';
 if (isset($_SESSION['user_id'])) {
     $stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = ? AND setting_key = 'theme_preference'");
     $stmtTheme->execute([$_SESSION['user_id']]);
-    $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
+    $currentTheme = $stmtTheme->fetchColumn() ?: 'light';
 } elseif (isset($_COOKIE['theme_preference'])) {
     $currentTheme = $_COOKIE['theme_preference'];
 } else {
     $stmtTheme = $pdo->prepare("SELECT setting_value FROM system_settings WHERE user_id = 0 AND setting_key = 'theme_preference'");
     $stmtTheme->execute();
-    $currentTheme = $stmtTheme->fetchColumn() ?: 'dark';
+    $currentTheme = $stmtTheme->fetchColumn() ?: 'light';
 }
 
 // Fetch Active Website Plans
