@@ -21,6 +21,36 @@ if (isset($pdo)) {
     }
 }
 ?>
+<style>
+    body {
+        background-color: #f8fafc !important;
+        background-image: radial-gradient(circle at 50% -10%, rgba(var(--primary-rgb), 0.1), transparent 70%) !important;
+    }
+    
+    .sidebar-nav {
+        background: rgba(248, 250, 252, 0.8) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .sidebar-nav .nav-link:not(.active-nav) {
+        color: #475569 !important; /* slate-600, darker than gray-500 but not black */
+    }
+    
+    .sidebar-nav .nav-link:not(.active-nav) span.material-symbols-outlined {
+        color: #475569 !important;
+        opacity: 1 !important;
+    }
+
+    .sidebar-nav .nav-link:not(.active-nav):hover {
+        color: var(--text-main) !important;
+    }
+
+    .sidebar-nav .nav-link:not(.active-nav):hover span.material-symbols-outlined {
+        color: var(--text-main) !important;
+    }
+</style>
 <nav class="sidebar-nav h-screen sticky top-0 z-50 shrink-0 flex flex-col no-scrollbar">
     <div class="px-7 py-5 mb-2 shrink-0">
         <div class="flex items-center gap-4">
@@ -31,7 +61,7 @@ if (isset($pdo)) {
                     <img src="../assests/horizon logo.png" class="size-full object-contain rounded-xl transition-transform duration-500 hover:scale-110" alt="Horizon Logo">
                 <?php endif; ?>
             </div>
-            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-white">
+            <h1 class="nav-text text-lg font-black italic uppercase tracking-tighter text-[--text-main]">
                 <?= htmlspecialchars($brand['system_name'] ?? 'Horizon System') ?>
             </h1>
         </div>
@@ -106,7 +136,7 @@ if (isset($pdo)) {
 
     </div>
 
-    <div class="mt-auto pt-4 border-t border-white/10 flex flex-col gap-1 shrink-0 pb-6">
+    <div class="mt-auto pt-4 border-t border-black/10 flex flex-col gap-1 shrink-0 pb-6">
         <div class="nav-section-header px-7 mb-0">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span>
         </div>
@@ -118,7 +148,7 @@ if (isset($pdo)) {
             <span class="material-symbols-outlined text-xl shrink-0">person</span> 
             <span class="nav-text">Profile</span>
         </a>
-        <a href="../logout.php" class="nav-link !text-gray-400 hover:!text-rose-500 transition-all group">
+        <a href="../logout.php" class="nav-link !text-gray-500 hover:!text-rose-500 transition-all group">
             <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform text-xl shrink-0 group-hover:!text-rose-500">logout</span>
             <span class="nav-text group-hover:!text-rose-500">Sign Out</span>
         </a>

@@ -133,7 +133,7 @@ $error_msg = $_SESSION['error_msg'] ?? '';
 unset($_SESSION['success_msg'], $_SESSION['error_msg']);
 ?>
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html lang="en">
 
 <head>
     <meta charset="utf-8" />
@@ -156,8 +156,8 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
                         "background": "var(--background)",
                         "highlight": "var(--highlight)",
                         "text-main": "var(--text-main)",
-                        "surface-dark": "#14121a",
-                        "border-subtle": "rgba(255,255,255,0.05)"
+                        "surface-dark": "var(--card-bg)",
+                        "border-subtle": "rgba(0,0,0,0.05)"
                     }
                 }
             }
@@ -165,43 +165,49 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
     </script>
     <style>
         :root {
-            --primary:
-                <?= $brand['theme_color'] ?? '#8c2bee' ?>
-            ;
-            --primary-rgb:
-                <?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>
-            ;
-            --highlight:
-                <?= $brand['secondary_color'] ?? '#a1a1aa' ?>
-            ;
-            --text-main:
-                <?= $brand['text_color'] ?? '#d1d5db' ?>
-            ;
-            --background:
-                <?= $brand['bg_color'] ?? '#0a090d' ?>
-            ;
+            --primary: <?= $brand['theme_color'] ?? '#8c2bee' ?>;
+            --primary-rgb: <?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>;
+            --highlight: <?= $brand['secondary_color'] ?? '#9ca3af' ?>;
+            --text-main: #0f172a;
+            --background: #f8fafc;
 
             /* Glassmorphism Engine */
             --card-blur: 20px;
-            --card-bg:
-                <?= ($brand['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($brand['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($brand['card_color'] ?? '#141216') ?>
-            ;
+            --card-bg: rgba(255, 255, 255, 0.8);
         }
 
         body {
             font-family: '<?= $brand['font_family'] ?? 'Lexend' ?>', sans-serif;
             background-color: var(--background);
+            background-image: radial-gradient(circle at 50% -10%, rgba(var(--primary-rgb), 0.1), transparent 70%);
             color: var(--text-main);
         }
 
         .glass-card {
             background: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 24px;
             backdrop-filter: blur(20px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             transition: all 0.3s ease;
         }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-blue { border: 2px solid rgba(59, 130, 246, 0.5); box-shadow: 0 15px 35px rgba(59, 130, 246, 0.05); }
+        .card-blue:hover { background: rgba(59, 130, 246, 0.02); border-color: rgba(59, 130, 246, 1) !important; box-shadow: 0 20px 40px rgba(59, 130, 246, 0.15); }
+        
+        .card-green { border: 2px solid rgba(16, 185, 129, 0.5); box-shadow: 0 15px 35px rgba(16, 185, 129, 0.05); }
+        .card-green:hover { background: rgba(16, 185, 129, 0.02); border-color: rgba(16, 185, 129, 1) !important; box-shadow: 0 20px 40px rgba(16, 185, 129, 0.15); }
+        
+        .card-purple { border: 2px solid rgba(var(--primary-rgb), 0.5); box-shadow: 0 15px 35px rgba(var(--primary-rgb), 0.05); }
+        .card-purple:hover { background: rgba(var(--primary-rgb), 0.02); border-color: rgba(var(--primary-rgb), 1) !important; box-shadow: 0 20px 40px rgba(var(--primary-rgb), 0.15); }
+        
+        .card-amber { border: 2px solid rgba(245, 158, 11, 0.5); box-shadow: 0 15px 35px rgba(245, 158, 11, 0.05); }
+        .card-amber:hover { background: rgba(245, 158, 11, 0.02); border-color: rgba(245, 158, 11, 1) !important; box-shadow: 0 20px 40px rgba(245, 158, 11, 0.15); }
+        
+        .card-red { border: 2px solid rgba(239, 68, 68, 0.5); box-shadow: 0 15px 35px rgba(239, 68, 68, 0.05); }
+        .card-red:hover { background: rgba(239, 68, 68, 0.02); border-color: rgba(239, 68, 68, 1) !important; box-shadow: 0 20px 40px rgba(239, 68, 68, 0.15); }
 
         .sidebar-nav {
             width: 110px;
@@ -214,8 +220,9 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
             top: 0;
             bottom: 0;
             z-index: 50;
-            background: var(--background);
-            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(248, 250, 252, 0.8);
+            backdrop-filter: blur(16px);
+            border-right: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         .sidebar-nav:hover {
@@ -374,18 +381,15 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
         }
 
         .status-card-green {
-            border: 1px solid #10b981;
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
+            /* Inherits glass-card */
         }
 
         .status-card-yellow {
-            border: 1px solid #f59e0b;
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
+            /* Inherits glass-card */
         }
 
         .status-card-red {
-            border: 1px solid #ef4444;
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
+            /* Inherits glass-card */
         }
 
         .dashed-container {
@@ -427,8 +431,8 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
         <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
             <header class="mb-10 flex flex-row justify-between items-end gap-6">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-white leading-none">
-                        <span class="text-[--text-main] opacity-80">System</span>
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-[--text-main] leading-none">
+                        <span class="opacity-80">System</span>
                         <span class="text-primary">Overview</span>
                     </h2>
                     <p class="text-[--text-main] opacity-60 text-xs font-bold uppercase tracking-widest mt-2 px-1">
@@ -461,66 +465,58 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
             <?php endif; ?>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                <a href="sales_report.php" class="glass-card p-8 status-card-green relative overflow-hidden group block hover:scale-[1.02] transition-all">
-                    <span
-                        class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">payments</span>
+                <a href="sales_report.php" class="glass-card card-green p-8 relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">payments</span>
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Platform Revenue</p>
-                    <h3 class="text-2xl font-black italic uppercase">₱<?= number_format($total_revenue, 2) ?></h3>
+                    <h3 class="text-2xl font-black italic uppercase text-[--text-main]">₱<?= number_format($total_revenue, 2) ?></h3>
                     <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Tenant Subscriptions</p>
                 </a>
 
-                <a href="tenant_management.php" class="glass-card p-8 status-card-yellow relative overflow-hidden group block hover:scale-[1.02] transition-all">
-                    <span
-                        class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">business</span>
+                <a href="tenant_management.php" class="glass-card card-amber p-8 relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">business</span>
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Active Tenants</p>
-                    <h3 class="text-2xl font-black italic uppercase"><?= $gym_stats['active'] ?> Gyms</h3>
+                    <h3 class="text-2xl font-black italic uppercase text-[--text-main]"><?= $gym_stats['active'] ?> Gyms</h3>
                     <div class="flex gap-3 mt-2">
-                        <p class="text-emerald-500 text-[9px] font-black uppercase tracking-tighter">
-                            <?= $gym_stats['active'] ?> Active</p>
-                        <p class="text-amber-500 text-[9px] font-black uppercase tracking-tighter">
-                            <?= $gym_stats['suspended'] ?> Suspended</p>
+                        <p class="text-emerald-500 text-[9px] font-black uppercase tracking-tighter"><?= $gym_stats['active'] ?> Active</p>
+                        <p class="text-amber-500 text-[9px] font-black uppercase tracking-tighter"><?= $gym_stats['suspended'] ?> Suspended</p>
                     </div>
                 </a>
 
-                <a href="tenant_management.php" class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5 block hover:scale-[1.02] transition-all">
-                    <span
-                        class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">groups</span>
+                <a href="tenant_management.php" class="glass-card card-purple p-8 relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">groups</span>
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">User Directory</p>
-                    <h3 class="text-2xl font-black italic uppercase"><?= number_format($user_stats['total']) ?></h3>
+                    <h3 class="text-2xl font-black italic uppercase text-[--text-main]"><?= number_format($user_stats['total']) ?></h3>
                     <div class="flex gap-3 mt-2">
-                        <p class="text-primary text-[9px] font-black uppercase tracking-tighter">
-                            <?= number_format($user_stats['active_users']) ?> Active</p>
-                        <p class="text-[--text-main] opacity-50 text-[9px] font-black uppercase tracking-tighter">
-                            <?= number_format($user_stats['inactive_users']) ?> Inactive</p>
+                        <p class="text-primary text-[9px] font-black uppercase tracking-tighter"><?= number_format($user_stats['active_users']) ?> Active</p>
+                        <p class="text-[--text-main] opacity-50 text-[9px] font-black uppercase tracking-tighter"><?= number_format($user_stats['inactive_users']) ?> Inactive</p>
                     </div>
                 </a>
 
-                <a href="tenant_management.php?tab=pending" class="glass-card p-8 relative overflow-hidden group border border-amber-500/20 bg-amber-500/5 block hover:scale-[1.02] transition-all">
-                    <span
-                        class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">pending_actions</span>
-                    <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending</p>
-                    <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_apps_count ?></h3>
+                <a href="tenant_management.php?tab=pending" class="glass-card card-amber p-8 relative overflow-hidden group block hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">pending_actions</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Pending</p>
+                    <h3 class="text-2xl font-black italic uppercase text-[--text-main]"><?= $pending_apps_count ?></h3>
                     <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Action Required</p>
                 </a>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-                <div class="glass-card p-8">
+                <div class="glass-card p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]" style="border: 2px solid #e2e8f0; transform: none !important;">
                     <div class="flex justify-between items-center mb-6">
                         <div>
-                            <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Daily System Activity</h3>
-                            <p class="text-[9px] text-[--text-main] opacity-50 font-bold uppercase mt-1 tracking-wider">Events across last 7 days</p>
+                            <h3 class="text-sm font-black italic uppercase tracking-widest text-[--text-main]">Daily System Activity</h3>
+                            <p class="text-[9px] text-primary font-black uppercase mt-1 tracking-wider">Events across last 7 days</p>
                         </div>
                     </div>
                     <div class="h-[300px] w-full">
                         <canvas id="dailyActivityChart"></canvas>
                     </div>
                 </div>
-                <div class="glass-card p-8">
+                <div class="glass-card p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]" style="border: 2px solid #e2e8f0; transform: none !important;">
                     <div class="flex justify-between items-center mb-6">
                         <div>
-                            <h3 class="text-sm font-black italic uppercase tracking-widest text-white">Monthly Growth Trend</h3>
-                            <p class="text-[9px] text-[--text-main] opacity-50 font-bold uppercase mt-1 tracking-wider">Event volume over 6 months</p>
+                            <h3 class="text-sm font-black italic uppercase tracking-widest text-[--text-main]">Monthly Growth Trend</h3>
+                            <p class="text-[9px] text-primary font-black uppercase mt-1 tracking-wider">Event volume over 6 months</p>
                         </div>
                     </div>
                     <div class="h-[300px] w-full">
@@ -553,7 +549,7 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
                         maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
                         scales: {
-                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666', font: { size: 9, weight: '800' } } },
+                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#666', font: { size: 9, weight: '800' } } },
                             x: { grid: { display: false }, ticks: { color: '#666', font: { size: 9, weight: '800' } } }
                         }
                     }
@@ -583,7 +579,7 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
                         maintainAspectRatio: false,
                         plugins: { legend: { display: false } },
                         scales: {
-                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666', font: { size: 9, weight: '800' } } },
+                            y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#666', font: { size: 9, weight: '800' } } },
                             x: { grid: { display: false }, ticks: { color: '#666', font: { size: 9, weight: '800' } } }
                         }
                     }

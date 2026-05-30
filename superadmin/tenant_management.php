@@ -60,6 +60,16 @@ $active_tab = $_GET['tab'] ?? 'active';
 $stmtPlans = $pdo->query("SELECT website_plan_id, plan_name FROM website_plans WHERE is_active = 1 ORDER BY price ASC");
 $all_plans = $stmtPlans->fetchAll(PDO::FETCH_ASSOC);
 
+// Fetch All Tenants for Searchable Dropdown PER TAB
+$tab_tenants = [
+    'pending' => $pdo->query("SELECT application_id as id, gym_name as name FROM gym_owner_applications WHERE application_status = 'Pending' ORDER BY gym_name ASC")->fetchAll(PDO::FETCH_ASSOC),
+    'rejected' => $pdo->query("SELECT application_id as id, gym_name as name FROM gym_owner_applications WHERE application_status = 'Rejected' ORDER BY gym_name ASC")->fetchAll(PDO::FETCH_ASSOC),
+    'active' => $pdo->query("SELECT gym_id as id, gym_name as name FROM gyms WHERE status = 'Active' ORDER BY gym_name ASC")->fetchAll(PDO::FETCH_ASSOC),
+    'suspended' => $pdo->query("SELECT gym_id as id, gym_name as name FROM gyms WHERE status = 'Suspended' ORDER BY gym_name ASC")->fetchAll(PDO::FETCH_ASSOC),
+    'deactivated' => $pdo->query("SELECT gym_id as id, gym_name as name FROM gyms WHERE status IN ('Deleted', 'Deactivated') ORDER BY gym_name ASC")->fetchAll(PDO::FETCH_ASSOC)
+];
+$tenant_filter = $_GET['tenant_id'] ?? 'all';
+
 // 1. Fetch Global Settings (user_id = 0)
 $stmtGlobal = $pdo->query("SELECT setting_key, setting_value FROM system_settings WHERE user_id = 0");
 $global_configs = $stmtGlobal->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -91,6 +101,10 @@ if ($active_tab === 'active' || $active_tab === 'suspended' || $active_tab === '
     if ($plan_id !== 'all') {
         $gym_where[] = "cs.website_plan_id = :plan_id";
         $gym_params['plan_id'] = $plan_id;
+    }
+    if ($tenant_filter !== 'all') {
+        $gym_where[] = "g.gym_id = :tenant_id";
+        $gym_params['tenant_id'] = $tenant_filter;
     }
     
     // For Active specifically, user requested to remove Date Filter logic
@@ -162,6 +176,10 @@ if ($active_tab === 'pending') {
         $pending_where[] = "a.submitted_at <= :pdate_to";
         $pending_params['pdate_to'] = $date_to . " 23:59:59";
     }
+    if ($tenant_filter !== 'all') {
+        $pending_where[] = "a.application_id = :ptenant_id";
+        $pending_params['ptenant_id'] = $tenant_filter;
+    }
 }
 
 $pending_sql = "
@@ -194,6 +212,10 @@ if ($active_tab === 'rejected') {
         $rejected_where[] = "a.submitted_at <= :rdate_to";
         $rejected_params['rdate_to'] = $date_to . " 23:59:59";
     }
+    if ($tenant_filter !== 'all') {
+        $rejected_where[] = "a.application_id = :rtenant_id";
+        $rejected_params['rtenant_id'] = $tenant_filter;
+    }
 }
 
 $rejected_sql = "
@@ -221,7 +243,7 @@ $pending_count = count($pending_apps);
 $rejected_count = count($rejected_apps);
 ?>
 <!DOCTYPE html>
-<html class="dark no-scrollbar" lang="en">
+<html class="no-scrollbar" lang="en">
 
 <head>
     <meta charset="utf-8" />
@@ -252,43 +274,72 @@ $rejected_count = count($rejected_apps);
     </script>
     <style>
         :root {
-            --primary:
-                <?= $brand['theme_color'] ?? '#8c2bee' ?>
-            ;
-            --primary-rgb:
-                <?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>
-            ;
-            --highlight:
-                <?= $brand['secondary_color'] ?? '#a1a1aa' ?>
-            ;
-            --text-main:
-                <?= $brand['text_color'] ?? '#d1d5db' ?>
-            ;
-            --background:
-                <?= $brand['bg_color'] ?? '#0a090d' ?>
-            ;
+            --primary: <?= $brand['theme_color'] ?? '#8c2bee' ?>;
+            --primary-rgb: <?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>;
+            --highlight: <?= $brand['secondary_color'] ?? '#a1a1aa' ?>;
+            --text-main: #0f172a; /* PREMIUM LIGHT: Dark slate text */
+            --background: #f8fafc; /* PREMIUM LIGHT: Soft off-white */
 
-            /* Glassmorphism Engine */
+            /* Glassmorphism Engine for Light Mode */
             --card-blur: 20px;
-            --card-bg:
-                <?= ($brand['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($brand['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($brand['card_color'] ?? '#141216') ?>
-            ;
+            --card-bg: rgba(255, 255, 255, 0.8);
         }
 
         body {
             font-family: '<?= $brand['font_family'] ?? 'Lexend' ?>', sans-serif;
-            background-color: var(--background);
             color: var(--text-main);
+            min-height: 100vh;
         }
 
         .glass-card {
             background: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 24px;
             backdrop-filter: blur(20px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             transition: all 0.3s ease;
         }
+        .glass-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .static-table {
+            border: 2px solid #e2e8f0 !important;
+            transform: none !important;
+            transition: none !important;
+        }
+
+        .custom-option:hover {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+            color: var(--primary) !important;
+        }
+        
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            opacity: 1;
+            cursor: pointer;
+            filter: invert(0.4);
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            filter: invert(0.2);
+        }
+
+        .selected-option {
+            background-color: var(--primary) !important;
+            color: #ffffff !important;
+        }
+
+        .card-blue { border: 2px solid rgba(59, 130, 246, 0.5); box-shadow: 0 15px 35px rgba(59, 130, 246, 0.05); }
+        .card-blue:hover { background: rgba(59, 130, 246, 0.02); border-color: rgba(59, 130, 246, 1) !important; box-shadow: 0 20px 40px rgba(59, 130, 246, 0.15); }
+        
+        .card-green { border: 2px solid rgba(16, 185, 129, 0.5); box-shadow: 0 15px 35px rgba(16, 185, 129, 0.05); }
+        .card-green:hover { background: rgba(16, 185, 129, 0.02); border-color: rgba(16, 185, 129, 1) !important; box-shadow: 0 20px 40px rgba(16, 185, 129, 0.15); }
+        
+        .card-purple { border: 2px solid rgba(var(--primary-rgb), 0.5); box-shadow: 0 15px 35px rgba(var(--primary-rgb), 0.05); }
+        .card-purple:hover { background: rgba(var(--primary-rgb), 0.02); border-color: rgba(var(--primary-rgb), 1) !important; box-shadow: 0 20px 40px rgba(var(--primary-rgb), 0.15); }
+        
+        .card-amber { border: 2px solid rgba(245, 158, 11, 0.5); box-shadow: 0 15px 35px rgba(245, 158, 11, 0.05); }
+        .card-amber:hover { background: rgba(245, 158, 11, 0.02); border-color: rgba(245, 158, 11, 1) !important; box-shadow: 0 20px 40px rgba(245, 158, 11, 0.15); }
+        
+        .card-red { border: 2px solid rgba(239, 68, 68, 0.5); box-shadow: 0 15px 35px rgba(239, 68, 68, 0.05); }
+        .card-red:hover { background: rgba(239, 68, 68, 0.02); border-color: rgba(239, 68, 68, 1) !important; box-shadow: 0 20px 40px rgba(239, 68, 68, 0.15); }
 
         /* Dark Mode Select Options & Date Picker */
         select option {
@@ -485,18 +536,18 @@ $rejected_count = count($rejected_apps);
         }
 
         .status-card-green {
-            border: 1px solid #10b981;
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, var(--card-bg) 100%);
         }
 
         .status-card-yellow {
-            border: 1px solid #f59e0b;
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, var(--card-bg) 100%);
         }
 
         .status-card-red {
-            border: 1px solid #ef4444;
-            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(20, 18, 26, 1) 100%);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, var(--card-bg) 100%);
         }
 
         .dashed-container {
@@ -562,12 +613,133 @@ $rejected_count = count($rejected_apps);
                 left: 0 !important;
             }
         }
+        .custom-option:hover {
+            background-color: rgba(var(--primary-rgb), 0.1) !important;
+            color: var(--primary) !important;
+        }
+        
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            opacity: 1;
+            cursor: pointer;
+            filter: invert(0.4);
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            filter: invert(0.2);
+        }
+
         .selected-option {
             background-color: var(--primary) !important;
             color: #ffffff !important;
         }
+        
+        .searchable-dropdown-overlay {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);
+            z-index: 100;
+            scrollbar-width: none;
+            margin-top: 0;
+        }
+        .searchable-dropdown-overlay::-webkit-scrollbar { display: none; }
+        
+        .tenant-option {
+            transition: background 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .tenant-option:hover {
+            background: rgba(var(--primary-rgb), 0.1);
+            color: var(--primary);
+        }
+        .tenant-option.selected {
+            background: var(--primary);
+            color: white;
+        }
+        .searchable-select-container.is-open {
+            z-index: 1000 !important;
+        }
     </style>
+<?php
+$tenants_js = $tab_tenants;
+?>
     <script>
+        const availableTenantsByTab = <?= json_encode($tenants_js) ?>;
+        const currentTenantFilter = "<?= $tenant_filter ?>";
+
+        function initSearchableDropdown(tab, containerId, inputId, dropdownId, listId, hiddenInputId) {
+            const container = document.getElementById(containerId);
+            const input = document.getElementById(inputId);
+            const dropdown = document.getElementById(dropdownId);
+            const list = document.getElementById(listId);
+            const hiddenInput = document.getElementById(hiddenInputId);
+            const availableTenants = availableTenantsByTab[tab] || [];
+
+            if (!container || !input || !dropdown || !list || !hiddenInput) return;
+
+            function renderOptions(filter = "") {
+                const currentFilter = hiddenInput.value;
+                const filtered = availableTenants.filter(t => 
+                    t.name.toLowerCase().includes(filter.toLowerCase())
+                );
+                
+                list.innerHTML = filtered.map(t => `
+                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${currentFilter == t.id ? 'selected-option' : 'text-gray-600'}" 
+                         data-id="${t.id}" data-name="${t.name}">
+                        ${t.name}
+                    </div>
+                `).join('') || `<div class="px-4 py-3 text-[9px] text-gray-400 italic uppercase font-black">No tenant found...</div>`;
+            }
+
+            input.addEventListener('focus', () => {
+                // Close other custom dropdowns
+                document.querySelectorAll('.custom-select-dropdown').forEach(d => d.classList.add('hidden'));
+                document.querySelectorAll('.searchable-dropdown-overlay').forEach(d => d.classList.add('hidden'));
+                
+                container.classList.add('is-open');
+                dropdown.classList.remove('hidden');
+                renderOptions(input.value === 'All Tenants' ? '' : input.value);
+            });
+
+            input.addEventListener('input', (e) => {
+                container.classList.add('is-open');
+                dropdown.classList.remove('hidden');
+                renderOptions(e.target.value);
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!container.contains(e.target)) {
+                    container.classList.remove('is-open');
+                    dropdown.classList.add('hidden');
+                }
+            });
+
+            container.addEventListener('click', (e) => {
+                const option = e.target.closest('.tenant-option');
+                if (option) {
+                    const id = option.dataset.id;
+                    const name = option.dataset.name || "All Tenants";
+                    
+                    hiddenInput.value = id;
+                    input.value = name;
+                    container.classList.remove('is-open');
+                    dropdown.classList.add('hidden');
+                    
+                    const form = container.closest('form');
+                    if (typeof applyFiltersAsync === 'function') {
+                        applyFiltersAsync(form);
+                    } else {
+                        form.submit();
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            ['pending', 'active', 'suspended', 'deactivated', 'rejected'].forEach(tab => {
+                initSearchableDropdown(tab, `tenantSearchContainer-${tab}`, `tenantSearchInput-${tab}`, `tenantDropdown-${tab}`, `tenantOptionsList-${tab}`, `hidden_tenant_id-${tab}`);
+            });
+        });
+
         function updateHeaderClock() {
             const now = new Date();
             const clockEl = document.getElementById('headerClock');
@@ -641,56 +813,45 @@ $rejected_count = count($rejected_apps);
             <?php endif; ?>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
-                <div class="glass-card p-8 relative overflow-hidden group border border-white/5 bg-white/5">
-                    <span
-                        class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform">domain</span>
-                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total
-                        Tenants</p>
-                    <h3 class="text-2xl font-black italic uppercase"><?= $total_tenants ?></h3>
-                    <p class="text-[--text-main] opacity-40 text-[9px] font-black uppercase mt-2 tracking-tighter">Gym
-                        Directory</p>
+                <div class="glass-card card-blue p-8 relative overflow-hidden group hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-blue-500">domain</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total Tenants</p>
+                    <h3 class="text-2xl font-black italic uppercase text-[--text-main]"><?= $total_tenants ?></h3>
+                    <p class="text-blue-500 text-[10px] font-black uppercase mt-2">Gym Directory</p>
                 </div>
 
-                <div class="glass-card p-8 status-card-green relative overflow-hidden group">
-                    <span
-                        class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-emerald-500 group-hover:scale-110 transition-transform">check_circle</span>
-                    <p class="text-[10px] font-black uppercase text-emerald-500/70 mb-2 tracking-widest">Active Gyms</p>
-                    <h3 class="text-2xl font-black italic uppercase text-emerald-400"><?= $active_count ?></h3>
-                    <p class="text-emerald-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Live
-                        Accounts</p>
+                <div class="glass-card card-green p-8 relative overflow-hidden group hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-emerald-500">check_circle</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Active Gyms</p>
+                    <h3 class="text-2xl font-black italic uppercase text-[--text-main]"><?= $active_count ?></h3>
+                    <p class="text-emerald-500 text-[10px] font-black uppercase mt-2">Live Accounts</p>
                 </div>
 
-                <div class="glass-card p-8 relative overflow-hidden group border-primary/20 bg-primary/5">
-                    <span
-                        class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-primary group-hover:scale-110 transition-transform">groups</span>
-                    <p class="text-[10px] font-black uppercase text-primary/70 mb-2 tracking-widest">Total Members</p>
-                    <h3 class="text-2xl font-black italic uppercase text-primary">
+                <div class="glass-card card-purple p-8 relative overflow-hidden group hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-primary">groups</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Total Members</p>
+                    <h3 class="text-2xl font-black italic uppercase text-[--text-main]">
                         <?= number_format($total_members_count) ?>
                     </h3>
-                    <p class="text-primary/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Platform
-                        Global</p>
+                    <p class="text-primary text-[10px] font-black uppercase mt-2">Platform Global</p>
                 </div>
 
-                <div class="glass-card p-8 status-card-yellow relative overflow-hidden group">
-                    <span
-                        class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-amber-500 group-hover:scale-110 transition-transform">pending_actions</span>
-                    <p class="text-[10px] font-black uppercase text-amber-500/70 mb-2 tracking-widest">Pending</p>
-                    <h3 class="text-2xl font-black italic uppercase text-amber-400"><?= $pending_count ?></h3>
-                    <p class="text-amber-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">Review
-                        Required</p>
+                <div class="glass-card card-amber p-8 relative overflow-hidden group hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-amber-500">pending_actions</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Pending</p>
+                    <h3 class="text-2xl font-black italic uppercase text-[--text-main]"><?= $pending_count ?></h3>
+                    <p class="text-amber-500 text-[10px] font-black uppercase mt-2">Review Required</p>
                 </div>
 
-                <div class="glass-card p-8 status-card-red relative overflow-hidden group">
-                    <span
-                        class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 text-red-500 group-hover:scale-110 transition-transform">pause_circle</span>
-                    <p class="text-[10px] font-black uppercase text-red-500/70 mb-2 tracking-widest">Suspended</p>
-                    <h3 class="text-2xl font-black italic uppercase text-red-400"><?= $suspended_count ?></h3>
-                    <p class="text-red-500/50 text-[9px] font-black uppercase mt-2 tracking-tighter italic">On-Hold
-                        Status</p>
+                <div class="glass-card card-red p-8 relative overflow-hidden group hover:scale-[1.02] transition-all">
+                    <span class="material-symbols-outlined absolute right-8 top-1/2 -translate-y-1/2 text-6xl opacity-10 group-hover:scale-110 transition-transform text-red-500">pause_circle</span>
+                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-60 mb-2 tracking-widest">Suspended</p>
+                    <h3 class="text-2xl font-black italic uppercase text-[--text-main]"><?= $suspended_count ?></h3>
+                    <p class="text-red-500 text-[10px] font-black uppercase mt-2">On-Hold Status</p>
                 </div>
             </div>
 
-            <div class="flex items-center gap-8 mb-8 border-b border-white/5 px-2">
+            <div class="flex items-center gap-8 mb-8 border-b border-transparent px-2">
                 <button onclick="switchTab('active')" id="tabBtn-active"
                     class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group <?= $active_tab === 'active' ? 'text-primary' : 'text-[--text-main] opacity-50 hover:opacity-100' ?>">
                     Active Gyms
@@ -705,8 +866,7 @@ $rejected_count = count($rejected_apps);
                         class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'suspended' ? 'opacity-100' : 'opacity-0' ?>">
                     </div>
                     <?php if ($suspended_count > 0): ?>
-                        <span
-                            class="absolute -top-1 -right-6 size-4 bg-amber-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-amber-500/20"><?= $suspended_count ?></span>
+                        <span class="absolute -top-1.5 -right-6 size-5 bg-red-500 text-[10px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-red-500/40"><?= $suspended_count ?></span>
                     <?php endif; ?>
                 </button>
                 <button onclick="switchTab('pending')" id="tabBtn-pending"
@@ -716,8 +876,7 @@ $rejected_count = count($rejected_apps);
                         class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'pending' ? 'opacity-100' : 'opacity-0' ?>">
                     </div>
                     <?php if ($pending_count > 0): ?>
-                        <span
-                            class="absolute -top-1 -right-6 size-4 bg-amber-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-amber-500/20"><?= $pending_count ?></span>
+                        <span class="absolute -top-1.5 -right-6 size-5 bg-amber-500 text-[10px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-amber-500/40"><?= $pending_count ?></span>
                     <?php endif; ?>
                 </button>
                 <button onclick="switchTab('deactivated')" id="tabBtn-deactivated"
@@ -727,8 +886,7 @@ $rejected_count = count($rejected_apps);
                         class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'deactivated' ? 'opacity-100' : 'opacity-0' ?>">
                     </div>
                     <?php if ($deactivated_count > 0): ?>
-                        <span
-                            class="absolute -top-1 -right-6 size-4 bg-red-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-red-500/20"><?= $deactivated_count ?></span>
+                        <span class="absolute -top-1.5 -right-6 size-5 bg-slate-500 text-[10px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-slate-500/40"><?= $deactivated_count ?></span>
                     <?php endif; ?>
                 </button>
                 <button onclick="switchTab('rejected')" id="tabBtn-rejected"
@@ -738,41 +896,59 @@ $rejected_count = count($rejected_apps);
                         class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full transition-all <?= $active_tab === 'rejected' ? 'opacity-100' : 'opacity-0' ?>">
                     </div>
                     <?php if ($rejected_count > 0): ?>
-                        <span
-                            class="absolute -top-1 -right-6 size-4 bg-rose-500 text-[8px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-rose-500/20"><?= $rejected_count ?></span>
+                        <span class="absolute -top-1.5 -right-6 size-5 bg-rose-500 text-[10px] font-black text-white flex items-center justify-center rounded-full shadow-lg shadow-rose-500/40"><?= $rejected_count ?></span>
                     <?php endif; ?>
                 </button>
             </div>
 
             <div id="section-pending" class="hidden">
-                <div class="glass-card overflow-hidden mb-10 border border-amber-500/10">
-                    <div class="px-8 py-6 border-b border-white/5 bg-amber-500/5 flex justify-between items-center">
-                        <h4
-                            class="font-black italic uppercase text-sm tracking-tighter text-amber-400 flex items-center gap-2">
-                            <span class="material-symbols-outlined">pending_actions</span>
-                            Pending Gym Applications
-                        </h4>
-                    </div>
+                <div class="glass-card static-table mb-10 border border-amber-500/10">
+
 
                     <!-- Tab-Specific Filter Bar -->
-                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                    <div class="px-8 py-4 bg-transparent border-b border-black/5">
                         <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="pending">
+                            
                             <div class="flex-1 min-w-[250px] relative group">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-amber-500/50 transition-transform group-hover:scale-110">search</span>
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'pending' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name or Email..." 
                                        oninput="applyFiltersAsync(this.form)" 
-                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-amber-500/50 outline-none text-[--text-main]">
+                                       class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
                             </div>
-                            <div class="w-[180px] relative group custom-select-container">
-                                <input type="hidden" name="sort" value="<?= $active_tab === 'pending' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
-                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
-                                    <input type="text" readonly value="<?= ($active_tab === 'pending' && $sort_order === 'oldest') ? 'Oldest First' : 'Newest First' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+
+                            <!-- Searchable Tenant Selector -->
+                            <div class="flex-1 min-w-[220px] relative z-[1000] group searchable-select-container" id="tenantSearchContainer-pending">
+                                <input type="hidden" name="tenant_id" id="hidden_tenant_id-pending" value="<?= htmlspecialchars($tenant_filter) ?>">
+                                <div class="relative">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <input type="text" id="tenantSearchInput-pending" 
+                                           placeholder="Search Tenant..." 
+                                           value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
+                                           autocomplete="off"
+                                           class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-gray-600 hover:border-gray-200 transition-all focus:border-gray-300">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'pending' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest First</div>
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'pending' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest First</div>
+                                <div id="tenantDropdown-pending" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                    <div class="p-1.5 space-y-0.5">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-gray-600' ?>" data-id="all" data-name="All Tenants">
+                                            All Tenants
+                                        </div>
+                                        <div id="tenantOptionsList-pending"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="w-[230px] relative group custom-select-container">
+                                <input type="hidden" name="sort" value="<?= $active_tab === 'pending' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
+                                <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
+                                    <input type="text" readonly value="<?= ($active_tab === 'pending' && $sort_order === 'oldest') ? 'Oldest First' : 'Newest First' ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'pending' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest First</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'pending' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest First</div>
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -780,15 +956,15 @@ $rejected_count = count($rejected_apps);
                                        max="<?= min($date_to, date('Y-m-d')) ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Submission Date From" 
-                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
                                 <input type="date" name="date_to" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
                                        min="<?= $date_from ?>"
                                        max="<?= date('Y-m-d') ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Submission Date To" 
-                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
                             </div>
-                            <a href="tenant_management.php?tab=pending" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10" onclick="resetTabFilters('pending'); return false;" title="Reset All Pending Filters">
+                            <a href="tenant_management.php?tab=pending" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all hover:bg-gray-200" onclick="resetTabFilters('pending'); return false;" title="Reset All Pending Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -796,27 +972,26 @@ $rejected_count = count($rejected_apps);
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr
-                                    class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
-                                    <th class="px-8 py-4">Gym Identity</th>
-                                    <th class="px-8 py-4">Business ID</th>
-                                    <th class="px-8 py-4">Applicant</th>
-                                    <th class="px-8 py-4">Submitted At</th>
-                                    <th class="px-8 py-4 text-center">Actions</th>
+                                <tr class="bg-gray-100 border-b border-black/5">
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Business ID</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Applicant</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Submitted At</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="pendingTableBody" class="divide-y divide-white/5">
+                            <tbody id="pendingTableBody" class="divide-y divide-black/5 text-sm font-medium">
                                 <?php if (empty($pending_apps)): ?>
                                     <tr>
                                         <td colspan="5" class="px-8 py-12 text-center text-xs font-black uppercase text-[--text-main] opacity-40 tracking-widest italic no-pagination">All caught up! No pending applications found.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($pending_apps as $app): ?>
-                                        <tr class="hover:bg-white/5 transition-all">
-                                            <td class="px-8 py-5">
+                                        <tr class="group hover:bg-black/[0.02] transition-colors">
+                                            <td class="px-8 py-6 align-middle">
                                                 <div class="flex items-center gap-3">
                                                     <div
-                                                        class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 border border-white/10 group-hover:scale-105 transition-transform">
+                                                        class="size-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 border border-transparent group-hover:scale-105 transition-transform">
                                                         <?php if (!empty($app['gym_logo'])):
                                                             $logo_path = getLogoPath($app['gym_logo']);
                                                             ?>
@@ -827,32 +1002,32 @@ $rejected_count = count($rejected_apps);
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-sm font-bold italic"><?= htmlspecialchars($app['gym_name']) ?></p>
-                                                        <p class="text-[10px] text-primary uppercase tracking-widest font-bold">TYPE: <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? 'Gym/Fitness')) ?></p>
+                                                        <p class="text-[16px] font-black text-[#1e293b]"><?= htmlspecialchars($app['gym_name']) ?></p>
+                                                        <p class="text-[11px] text-primary uppercase tracking-widest font-black">TYPE: <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? 'Gym/Fitness')) ?></p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-6 align-middle">
                                                 <div class="flex flex-col">
                                                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-wider mb-1">Business Identity</p>
-                                                    <p class="text-xs font-bold text-white"><?= htmlspecialchars($app['tenant_code'] ?? 'PEND-'.$app['application_id']) ?></p>
+                                                    <p class="text-xs font-bold text-[--text-main]"><?= htmlspecialchars($app['tenant_code'] ?? 'PEND-'.$app['application_id']) ?></p>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-6 align-middle">
                                                 <div class="flex flex-col">
-                                                    <p class="text-xs font-medium text-white"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
-                                                    <p class="text-[10px] text-[--text-main] opacity-50"><?= htmlspecialchars($app['email']) ?></p>
+                                                    <p class="text-[14px] font-black text-[#1e293b]"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
+                                                    <p class="text-[12px] font-bold text-slate-500"><?= htmlspecialchars($app['email']) ?></p>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-6 align-middle">
                                                 <p class="text-xs font-bold text-primary"><?= date('M d, Y', strtotime($app['created_at'] ?? $app['submitted_at'])) ?></p>
                                                 <p class="text-[9px] text-[--text-main] opacity-40 uppercase tracking-widest mt-1 italic"><?= date('h:i A', strtotime($app['created_at'] ?? $app['submitted_at'])) ?></p>
                                             </td>
-                                            <td class="px-8 py-5 text-center">
+                                            <td class="px-8 py-6 text-center align-middle">
                                                 <div class="flex justify-center gap-2">
                                                     <button onclick="openApplicationModal(<?= $app['application_id'] ?>)"
-                                                        class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-colors flex items-center justify-center group" title="View Application Details">
-                                                        <span class="material-symbols-outlined text-[18px] transition-transform group-hover:scale-110">visibility</span>
+                                                        class="size-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center transition-colors group shadow-sm shadow-slate-200/50" title="View Application Details">
+                                                        <span class="material-symbols-outlined text-[18px]">visibility</span>
                                                     </button>
                                                     <form method="POST" action="../action/process_application.php"
                                                         class="inline-flex gap-2">
@@ -883,34 +1058,57 @@ $rejected_count = count($rejected_apps);
                 </div>
                 <!-- Pagination Container for Pending -->
                 <div id="pagination-pending"
-                    class="px-8 py-5 border-t border-white/5 bg-white/[0.01] backdrop-blur-md flex justify-between items-center <?= empty($pending_apps) ? 'hidden' : '' ?>">
+                    class="px-8 py-5 border-t border-transparent bg-black/[0.02] backdrop-blur-md flex justify-between items-center <?= empty($pending_apps) ? 'hidden' : '' ?>">
                     <div class="flex items-center gap-3">
                         <div class="size-2 rounded-full bg-amber-500 animate-pulse"></div>
                         <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                     </div>
-                    <div class="flex gap-2 p-1.5 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-2xl shadow-2xl controls-container"></div>
+                    <div class="flex gap-2 p-1.5 rounded-2xl bg-gray-100 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
                 </div>
             </div>
 
             <div id="section-active">
-                <div class="glass-card overflow-hidden">
-                    <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                        <h4 class="font-black italic uppercase text-sm tracking-tighter">Active Gym Accounts</h4>
-                    </div>
+                <div class="glass-card static-table border border-primary/10">
+
 
                     <!-- Tab-Specific Filter Bar -->
-                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                    <div class="px-8 py-4 bg-transparent border-b border-black/5">
                         <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="active">
+                            
                             <div class="flex-1 min-w-[250px] relative group">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-primary/50 transition-transform group-hover:scale-110">search</span>
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'active' ? htmlspecialchars($search) : '' ?>" placeholder="Search Active Gyms..." 
                                        oninput="applyFiltersAsync(this.form)" 
-                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main]">
+                                       class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
                             </div>
-                            <div class="w-[180px] relative group custom-select-container">
+
+                            <!-- Searchable Tenant Selector -->
+                            <div class="flex-1 min-w-[220px] relative z-[1000] group searchable-select-container" id="tenantSearchContainer-active">
+                                <input type="hidden" name="tenant_id" id="hidden_tenant_id-active" value="<?= htmlspecialchars($tenant_filter) ?>">
+                                <div class="relative">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <input type="text" id="tenantSearchInput-active" 
+                                           placeholder="Search Tenant..." 
+                                           value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
+                                           autocomplete="off"
+                                           class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-gray-600 hover:border-gray-200 transition-all focus:border-gray-300">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div id="tenantDropdown-active" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                    <div class="p-1.5 space-y-0.5">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-gray-600' ?>" data-id="all" data-name="All Tenants">
+                                            All Tenants
+                                        </div>
+                                        <div id="tenantOptionsList-active"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="w-[230px] relative group custom-select-container">
                                 <input type="hidden" name="plan_id" value="<?= $active_tab === 'active' ? htmlspecialchars($plan_id) : 'all' ?>" onchange="applyFiltersAsync(this.form)">
-                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">category</span>
                                     <?php 
                                         $display_text = 'Plan: All Type';
                                         if ($active_tab === 'active' && $plan_id !== 'all') {
@@ -921,28 +1119,29 @@ $rejected_count = count($rejected_apps);
                                             }
                                         }
                                     ?>
-                                    <input type="text" readonly value="<?= htmlspecialchars($display_text) ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    <input type="text" readonly value="<?= htmlspecialchars($display_text) ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'active' ? ($plan_id === 'all' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="all">Plan: All Type</div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ($plan_id === 'all' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="all">Plan: All Type</div>
                                     <?php foreach ($all_plans as $p): ?>
-                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'active' ? ((string)$plan_id === (string)$p['website_plan_id'] ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="<?= $p['website_plan_id'] ?>"><?= htmlspecialchars($p['plan_name']) ?></div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ((string)$plan_id === (string)$p['website_plan_id'] ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="<?= $p['website_plan_id'] ?>"><?= htmlspecialchars($p['plan_name']) ?></div>
                                     <?php endforeach; ?>
                                 </div>
                             </div>
-                            <div class="w-[180px] relative group custom-select-container">
+                            <div class="w-[230px] relative group custom-select-container">
                                 <input type="hidden" name="sort" value="<?= $active_tab === 'active' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
-                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
-                                    <input type="text" readonly value="<?= ($active_tab === 'active' && $sort_order === 'oldest') ? 'Oldest Created' : 'Newest Created' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
+                                    <input type="text" readonly value="<?= ($active_tab === 'active' && $sort_order === 'oldest') ? 'Oldest Created' : 'Newest Created' ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'active' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest Created</div>
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'active' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest Created</div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest Created</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest Created</div>
                                 </div>
                             </div>
-                            <a href="tenant_management.php?tab=active" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10" onclick="resetTabFilters('active'); return false;" title="Reset All Active Filters">
+                            <a href="tenant_management.php?tab=active" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all hover:bg-gray-200" onclick="resetTabFilters('active'); return false;" title="Reset All Active Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -950,16 +1149,15 @@ $rejected_count = count($rejected_apps);
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr
-                                    class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
-                                    <th class="px-8 py-4">Gym Identity</th>
-                                    <th class="px-8 py-4">Owner Contact</th>
-                                    <th class="px-8 py-4">Plan & Status</th>
-                                    <th class="px-8 py-4">Members</th>
-                                    <th class="px-8 py-4 text-center">Actions</th>
+                                <tr class="bg-gray-100 border-b border-black/5">
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Owner Contact</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Plan & Status</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Members</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="activeTableBody" class="divide-y divide-white/5">
+                            <tbody id="activeTableBody" class="divide-y divide-black/5 text-sm font-medium">
                                 <?php if (empty($active_tenants)): ?>
                                     <tr>
                                         <td colspan="5"
@@ -968,11 +1166,11 @@ $rejected_count = count($rejected_apps);
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($active_tenants as $t): ?>
-                                        <tr class="hover:bg-white/5 transition-all">
-                                            <td class="px-8 py-5">
+                                        <tr class="group hover:bg-black/[0.02] transition-colors">
+                                            <td class="px-8 py-6 align-middle">
                                                 <div class="flex items-center gap-3">
                                                     <?php $logo_src = getLogoPath($t['logo_path']); ?>
-                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
+                                                    <div class="size-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
                                                         data-src="<?= $logo_src ?>"
                                                         data-title="<?= htmlspecialchars($t['gym_name']) ?>">
                                                         <?php if (!empty($logo_src)): ?>
@@ -982,18 +1180,18 @@ $rejected_count = count($rejected_apps);
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-sm font-bold italic"><?= htmlspecialchars($t['gym_name']) ?></p>
-                                                        <p class="text-[10px] text-primary uppercase tracking-wider font-bold">Code: <?= htmlspecialchars($t['tenant_code']) ?></p>
+                                                        <p class="text-[16px] font-black text-[#1e293b]"><?= htmlspecialchars($t['gym_name']) ?></p>
+                                                        <p class="text-[11px] text-primary uppercase tracking-widest font-black">Code: <?= htmlspecialchars($t['tenant_code']) ?></p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5">
-                                                <p class="text-xs font-medium text-white"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
-                                                <p class="text-[10px] text-[--text-main] opacity-50"><?= htmlspecialchars($t['owner_email']) ?></p>
+                                            <td class="px-8 py-6 align-middle">
+                                                <p class="text-[14px] font-black text-[#1e293b]"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
+                                                <p class="text-[12px] font-bold text-slate-500"><?= htmlspecialchars($t['owner_email']) ?></p>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-6 align-middle">
                                                 <div class="flex flex-col gap-1.5">
-                                                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
+                                                    <p class="text-[11px] font-black uppercase text-slate-400 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
                                                     <?php
                                                     $sub = $t['sub_status'] ?? 'None';
                                                     if ($sub === 'Active'):
@@ -1012,12 +1210,12 @@ $rejected_count = count($rejected_apps);
                                                     <?php endif; ?>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-6 align-middle">
                                                 <div class="flex flex-col gap-2">
                                                     <div class="flex items-center gap-2">
                                                         <span
                                                             class="material-symbols-outlined text-sm text-primary">groups</span>
-                                                        <p class="text-xs font-black italic">
+                                                        <p class="text-[14px] font-black italic text-[#1e293b]">
                                                             <?= number_format($t['member_count']) ?>
                                                         </p>
                                                     </div>
@@ -1049,12 +1247,12 @@ $rejected_count = count($rejected_apps);
                                                     <?php endif; ?>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5 text-center">
+                                            <td class="px-8 py-6 text-center align-middle">
                                                 <div class="flex justify-center gap-2">
                                                     <?php if ($t['application_id']): ?>
                                                         <button onclick="openApplicationModal(<?= $t['application_id'] ?>)"
                                                             title="View Application Details"
-                                                            class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 flex items-center justify-center transition-colors">
+                                                            class="size-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center transition-colors group shadow-sm shadow-slate-200/50">
                                                             <span class="material-symbols-outlined text-[18px]">visibility</span>
                                                         </button>
                                                     <?php endif; ?>
@@ -1103,41 +1301,63 @@ $rejected_count = count($rejected_apps);
                     </div>
                     <!-- Pagination Container for Active -->
                     <div id="pagination-active"
-                        class="px-8 py-5 border-t border-white/5 bg-white/[0.01] backdrop-blur-md flex justify-between items-center hidden">
+                        class="px-8 py-5 border-t border-transparent bg-black/[0.02] backdrop-blur-md flex justify-between items-center hidden">
                         <div class="flex items-center gap-3">
                             <div class="size-2 rounded-full bg-primary animate-pulse"></div>
                             <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                         </div>
-                        <div class="flex gap-2 p-1.5 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-2xl shadow-2xl controls-container"></div>
+                        <div class="flex gap-2 p-1.5 rounded-2xl bg-gray-100 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
                     </div>
                 </div>
             </div>
 
             <div id="section-suspended" class="hidden">
-                    <div class="glass-card overflow-hidden">
-                        <div class="px-8 py-6 border-b border-white/5 bg-amber-500/5 flex justify-between items-center">
-                            <h4 class="font-black italic uppercase text-sm tracking-tighter text-amber-500">Suspended Accounts</h4>
-                    </div>
+                <div class="glass-card static-table border border-amber-500/10">
+
 
                     <!-- Tab-Specific Filter Bar -->
-                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                    <div class="px-8 py-4 bg-transparent border-b border-black/5">
                         <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="suspended">
                             <div class="flex-1 min-w-[250px] relative group">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-amber-500/50 transition-transform group-hover:scale-110">search</span>
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'suspended' ? htmlspecialchars($search) : '' ?>" placeholder="Search Suspended Gyms..." 
                                        oninput="applyFiltersAsync(this.form)" 
-                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-amber-500 outline-none text-[--text-main]">
+                                       class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
                             </div>
-                            <div class="w-[180px] relative group custom-select-container">
-                                <input type="hidden" name="sort" value="<?= $active_tab === 'suspended' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
-                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
-                                    <input type="text" readonly value="<?= ($active_tab === 'suspended' && $sort_order === 'oldest') ? 'Oldest Suspended' : 'Newest Suspended' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+
+                            <!-- Searchable Tenant Selector -->
+                            <div class="flex-1 min-w-[220px] relative z-[1000] group searchable-select-container" id="tenantSearchContainer-suspended">
+                                <input type="hidden" name="tenant_id" id="hidden_tenant_id-suspended" value="<?= htmlspecialchars($tenant_filter) ?>">
+                                <div class="relative">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <input type="text" id="tenantSearchInput-suspended" 
+                                           placeholder="Search Tenant..." 
+                                           value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
+                                           autocomplete="off"
+                                           class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-gray-600 hover:border-gray-200 transition-all focus:border-gray-300">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'suspended' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest Suspended</div>
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'suspended' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest Suspended</div>
+                                <div id="tenantDropdown-suspended" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                    <div class="p-1.5 space-y-0.5">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-gray-600' ?>" data-id="all" data-name="All Tenants">
+                                            All Tenants
+                                        </div>
+                                        <div id="tenantOptionsList-suspended"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="w-[230px] relative group custom-select-container">
+                                <input type="hidden" name="sort" value="<?= $active_tab === 'suspended' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
+                                <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
+                                    <input type="text" readonly value="<?= ($active_tab === 'suspended' && $sort_order === 'oldest') ? 'Oldest Suspended' : 'Newest Suspended' ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'suspended' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest Suspended</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'suspended' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest Suspended</div>
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -1145,15 +1365,15 @@ $rejected_count = count($rejected_apps);
                                        max="<?= min($date_to, date('Y-m-d')) ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Suspension Date From" 
-                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
                                 <input type="date" name="date_to" value="<?= $active_tab === 'suspended' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
                                        min="<?= $date_from ?>"
                                        max="<?= date('Y-m-d') ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Suspension Date To" 
-                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
                             </div>
-                            <a href="tenant_management.php?tab=suspended" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:bg-white/10 transition-all shadow-lg" onclick="resetTabFilters('suspended'); return false;" title="Reset All Suspended Filters">
+                            <a href="tenant_management.php?tab=suspended" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-all" onclick="resetTabFilters('suspended'); return false;" title="Reset All Suspended Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -1161,16 +1381,15 @@ $rejected_count = count($rejected_apps);
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr
-                                    class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
-                                    <th class="px-8 py-4">Gym Identity</th>
-                                    <th class="px-8 py-4">Owner Contact</th>
-                                    <th class="px-8 py-4">Plan & Status</th>
-                                    <th class="px-8 py-4">Suspended At</th>
-                                    <th class="px-8 py-4 text-center">Actions</th>
+                                <tr class="bg-gray-100 border-b border-black/5">
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Owner Contact</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Plan & Status</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Suspended At</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="suspendedTableBody" class="divide-y divide-white/5">
+                            <tbody id="suspendedTableBody" class="divide-y divide-black/5 text-sm font-medium">
                                 <?php if (empty($suspended_tenants)): ?>
                                     <tr>
                                         <td colspan="5"
@@ -1179,11 +1398,11 @@ $rejected_count = count($rejected_apps);
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($suspended_tenants as $t): ?>
-                                        <tr class="hover:bg-white/5 transition-all">
-                                            <td class="px-8 py-5">
+                                        <tr class="group hover:bg-black/[0.02] transition-colors">
+                                            <td class="px-8 py-6 align-middle">
                                                 <div class="flex items-center gap-3">
                                                     <?php $logo_src = getLogoPath($t['logo_path']); ?>
-                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
+                                                    <div class="size-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
                                                         data-src="<?= $logo_src ?>"
                                                         data-title="<?= htmlspecialchars($t['gym_name']) ?>">
                                                         <?php if (!empty($logo_src)): ?>
@@ -1193,22 +1412,22 @@ $rejected_count = count($rejected_apps);
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-sm font-bold italic"><?= htmlspecialchars($t['gym_name']) ?></p>
-                                                        <p class="text-[10px] text-amber-500 uppercase tracking-wider font-bold">Code: <?= htmlspecialchars($t['tenant_code']) ?></p>
+                                                        <p class="text-[16px] font-black text-[#1e293b]"><?= htmlspecialchars($t['gym_name']) ?></p>
+                                                        <p class="text-[11px] text-amber-500 uppercase tracking-widest font-black">Code: <?= htmlspecialchars($t['tenant_code']) ?></p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5">
-                                                <p class="text-xs font-medium text-white"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
-                                                <p class="text-[10px] text-[--text-main] opacity-50"><?= htmlspecialchars($t['owner_email']) ?></p>
+                                            <td class="px-8 py-6 align-middle">
+                                                <p class="text-[14px] font-black text-[#1e293b]"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
+                                                <p class="text-[12px] font-bold text-slate-500"><?= htmlspecialchars($t['owner_email']) ?></p>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-6 align-middle">
                                                 <div class="flex flex-col gap-1.5">
-                                                    <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
+                                                    <p class="text-[11px] font-black uppercase text-slate-400 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
                                                     <span class="w-fit px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-500 font-black uppercase italic">Suspended</span>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-6 align-middle">
                                                 <p class="text-xs font-bold text-amber-500">
                                                     <?= date('M d, Y', strtotime($t['updated_at'])) ?>
                                                 </p>
@@ -1216,7 +1435,7 @@ $rejected_count = count($rejected_apps);
                                                     <?= date('h:i A', strtotime($t['updated_at'])) ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-5 text-center">
+                                            <td class="px-8 py-6 text-center align-middle">
                                                 <div class="flex justify-center gap-2">
                                                     <form method="POST" action="../action/process_tenant.php" class="inline-flex gap-2">
                                                         <input type="hidden" name="gym_id" value="<?= $t['gym_id'] ?>">
@@ -1244,45 +1463,63 @@ $rejected_count = count($rejected_apps);
                     </div>
                     <!-- Pagination Container for Suspended -->
                     <div id="pagination-suspended"
-                        class="px-8 py-5 border-t border-white/5 bg-white/[0.01] backdrop-blur-md flex justify-between items-center hidden">
+                        class="px-8 py-5 border-t border-transparent bg-black/[0.02] backdrop-blur-md flex justify-between items-center hidden">
                         <div class="flex items-center gap-3">
                             <div class="size-2 rounded-full bg-amber-500 animate-pulse"></div>
                             <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                         </div>
-                        <div class="flex gap-2 p-1.5 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-2xl shadow-2xl controls-container"></div>
+                        <div class="flex gap-2 p-1.5 rounded-2xl bg-gray-100 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
                     </div>
                 </div>
             </div>
 
             <div id="section-deactivated" class="hidden">
-                <div class="glass-card overflow-hidden">
-                    <div class="px-8 py-6 border-b border-white/5 bg-red-500/5 flex justify-between items-center">
-                        <h4
-                            class="font-black italic uppercase text-sm tracking-tighter text-red-400 flex items-center gap-2">
-                            <span class="material-symbols-outlined">cancel</span>
-                            Deactivated Gym Accounts
-                        </h4>
-                    </div>
+                <div class="glass-card static-table border border-red-500/10">
+
 
                     <!-- Tab-Specific Filter Bar -->
-                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                    <div class="px-8 py-4 bg-transparent border-b border-black/5">
                         <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="deactivated">
                             <div class="flex-1 min-w-[250px] relative group">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-red-500/50 transition-transform group-hover:scale-110">search</span>
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name, Code, owner..." 
                                        oninput="applyFiltersAsync(this.form)" 
-                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-red-500/50 outline-none text-[--text-main]">
+                                       class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
                             </div>
-                            <div class="w-[180px] relative group custom-select-container">
-                                <input type="hidden" name="sort" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
-                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
-                                    <input type="text" readonly value="<?= ($active_tab === 'deactivated' && $sort_order === 'oldest') ? 'Oldest Deactivated' : 'Newest Deactivated' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+
+                            <!-- Searchable Tenant Selector -->
+                            <div class="flex-1 min-w-[220px] relative z-[1000] group searchable-select-container" id="tenantSearchContainer-deactivated">
+                                <input type="hidden" name="tenant_id" id="hidden_tenant_id-deactivated" value="<?= htmlspecialchars($tenant_filter) ?>">
+                                <div class="relative">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <input type="text" id="tenantSearchInput-deactivated" 
+                                           placeholder="Search Tenant..." 
+                                           value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
+                                           autocomplete="off"
+                                           class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-gray-600 hover:border-gray-200 transition-all focus:border-gray-300">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'deactivated' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest Deactivated</div>
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'deactivated' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest Deactivated</div>
+                                <div id="tenantDropdown-deactivated" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                    <div class="p-1.5 space-y-0.5">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-gray-600' ?>" data-id="all" data-name="All Tenants">
+                                            All Tenants
+                                        </div>
+                                        <div id="tenantOptionsList-deactivated"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="w-[230px] relative group custom-select-container">
+                                <input type="hidden" name="sort" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
+                                <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
+                                    <input type="text" readonly value="<?= ($active_tab === 'deactivated' && $sort_order === 'oldest') ? 'Oldest Deactivated' : 'Newest Deactivated' ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'deactivated' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest Deactivated</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'deactivated' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest Deactivated</div>
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -1290,15 +1527,15 @@ $rejected_count = count($rejected_apps);
                                        max="<?= min($date_to, date('Y-m-d')) ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Deactivation From" 
-                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
                                 <input type="date" name="date_to" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
                                        min="<?= $date_from ?>"
                                        max="<?= date('Y-m-d') ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Deactivation To" 
-                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
                             </div>
-                            <a href="tenant_management.php?tab=deactivated" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:bg-white/10 transition-all shadow-lg" onclick="resetTabFilters('deactivated'); return false;" title="Reset All Deactivated Filters">
+                            <a href="tenant_management.php?tab=deactivated" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-all" onclick="resetTabFilters('deactivated'); return false;" title="Reset All Deactivated Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -1306,15 +1543,14 @@ $rejected_count = count($rejected_apps);
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr
-                                    class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
-                                    <th class="px-8 py-4">Gym Identity</th>
-                                    <th class="px-8 py-4">Owner Contact</th>
-                                    <th class="px-8 py-4">Deactivated At</th>
-                                    <th class="px-8 py-4 text-center">Actions</th>
+                                <tr class="bg-gray-100 border-b border-black/5">
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Owner Contact</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Deactivated At</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="deactivatedTableBody" class="divide-y divide-white/5">
+                            <tbody id="deactivatedTableBody" class="divide-y divide-black/5 text-sm font-medium">
                                 <?php if (empty($deactivated_tenants)): ?>
                                     <tr>
                                         <td colspan="4"
@@ -1323,26 +1559,26 @@ $rejected_count = count($rejected_apps);
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($deactivated_tenants as $t): ?>
-                                        <tr class="hover:bg-white/5 transition-all">
-                                            <td class="px-8 py-5">
+                                        <tr class="group hover:bg-black/[0.02] transition-colors">
+                                            <td class="px-8 py-6 align-middle">
                                                 <div class="flex items-center gap-3">
                                                     <?php
                                                     $logo_src = getLogoPath($t['logo_path']);
                                                     ?>
-                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden grayscale cursor-zoom-in modal-img-preview"
+                                                    <div class="size-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
                                                         data-src="<?= $logo_src ?>"
                                                         data-title="<?= htmlspecialchars($t['gym_name']) ?>">
                                                         <?php if (!empty($logo_src)):
                                                             ?>
                                                             <img src="<?= $logo_src ?>"
-                                                                class="size-full object-contain opacity-50 transition-transform hover:scale-110">
+                                                                class="size-full object-contain transition-transform hover:scale-110">
                                                         <?php else: ?>
                                                             <span
-                                                                class="text-[--text-main] opacity-50 font-black text-xs"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
+                                                                class="text-primary font-black text-sm"><?= strtoupper(substr($t['gym_name'], 0, 2)) ?></span>
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-sm font-bold italic text-[--text-main] opacity-40">
+                                                        <p class="text-[16px] font-black text-[#1e293b]">
                                                             <?= htmlspecialchars($t['gym_name']) ?>
                                                         </p>
                                                         <p
@@ -1352,15 +1588,15 @@ $rejected_count = count($rejected_apps);
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5">
-                                                <p class="text-xs font-medium text-[--text-main] opacity-40">
+                                            <td class="px-8 py-6 align-middle">
+                                                <p class="text-[14px] font-black text-[#1e293b]">
                                                     <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?>
                                                 </p>
-                                                <p class="text-[10px] text-[--text-main] opacity-60">
+                                                <p class="text-[12px] font-bold text-slate-500">
                                                     <?= htmlspecialchars($t['owner_email']) ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-5">
+                                            <td class="px-8 py-6 align-middle">
                                                 <p class="text-xs font-bold text-red-400">
                                                     <?= date('M d, Y', strtotime($t['updated_at'])) ?>
                                                 </p>
@@ -1368,7 +1604,7 @@ $rejected_count = count($rejected_apps);
                                                     <?= date('h:i A', strtotime($t['updated_at'])) ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-5 text-center">
+                                            <td class="px-8 py-6 text-center align-middle">
                                                 <form method="POST" action="../action/process_tenant.php" class="flex justify-center">
                                                     <input type="hidden" name="gym_id" value="<?= $t['gym_id'] ?>">
                                                     <input type="hidden" name="action" value="activate">
@@ -1388,45 +1624,63 @@ $rejected_count = count($rejected_apps);
                     </div>
                     <!-- Pagination Container for Deactivated -->
                     <div id="pagination-deactivated"
-                        class="px-8 py-5 border-t border-white/5 bg-white/[0.01] backdrop-blur-md flex justify-between items-center hidden">
+                        class="px-8 py-5 border-t border-transparent bg-black/[0.02] backdrop-blur-md flex justify-between items-center hidden">
                         <div class="flex items-center gap-3">
                             <div class="size-2 rounded-full bg-red-500 animate-pulse"></div>
                             <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                         </div>
-                        <div class="flex gap-2 p-1.5 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-2xl shadow-2xl controls-container"></div>
+                        <div class="flex gap-2 p-1.5 rounded-2xl bg-gray-100 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
                     </div>
                 </div>
             </div>
 
             <div id="section-rejected" class="hidden">
-                <div class="glass-card overflow-hidden mb-10 border border-white/5">
-                    <div class="px-8 py-6 border-b border-white/5 bg-rose-500/5 flex justify-between items-center">
-                        <h4
-                            class="font-black italic uppercase text-sm tracking-tighter text-rose-500 flex items-center gap-2">
-                            <span class="material-symbols-outlined">history</span>
-                            Rejected Application History
-                        </h4>
-                    </div>
+                <div class="glass-card static-table mb-10 border border-rose-500/10">
+
 
                     <!-- Tab-Specific Filter Bar -->
-                    <div class="px-8 py-4 bg-white/[0.02] border-b border-white/5">
+                    <div class="px-8 py-4 bg-transparent border-b border-black/5">
                         <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="rejected">
                             <div class="flex-1 min-w-[250px] relative group">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-rose-500/50 transition-transform group-hover:scale-110">search</span>
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'rejected' ? htmlspecialchars($search) : '' ?>" placeholder="Search Rejected Applications..." 
                                        oninput="applyFiltersAsync(this.form)" 
-                                       class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-rose-500/50 outline-none text-[--text-main]">
+                                       class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
                             </div>
-                            <div class="w-[180px] relative group custom-select-container">
-                                <input type="hidden" name="sort" value="<?= $active_tab === 'rejected' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
-                                <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
-                                    <input type="text" readonly value="<?= ($active_tab === 'rejected' && $sort_order === 'oldest') ? 'Oldest Rejected' : 'Newest Rejected' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+
+                            <!-- Searchable Tenant Selector -->
+                            <div class="flex-1 min-w-[220px] relative z-[1000] group searchable-select-container" id="tenantSearchContainer-rejected">
+                                <input type="hidden" name="tenant_id" id="hidden_tenant_id-rejected" value="<?= htmlspecialchars($tenant_filter) ?>">
+                                <div class="relative">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <input type="text" id="tenantSearchInput-rejected" 
+                                           placeholder="Search Tenant..." 
+                                           value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
+                                           autocomplete="off"
+                                           class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-gray-600 hover:border-gray-200 transition-all focus:border-gray-300">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'rejected' ? ($sort_order === 'newest' ? 'selected-option' : 'text-white/60') : 'selected-option') ?>" data-value="newest">Newest Rejected</div>
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($active_tab === 'rejected' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-white/60') : 'text-white/60') ?>" data-value="oldest">Oldest Rejected</div>
+                                <div id="tenantDropdown-rejected" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
+                                    <div class="p-1.5 space-y-0.5">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-gray-600' ?>" data-id="all" data-name="All Tenants">
+                                            All Tenants
+                                        </div>
+                                        <div id="tenantOptionsList-rejected"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="w-[230px] relative group custom-select-container">
+                                <input type="hidden" name="sort" value="<?= $active_tab === 'rejected' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
+                                <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
+                                    <input type="text" readonly value="<?= ($active_tab === 'rejected' && $sort_order === 'oldest') ? 'Oldest Rejected' : 'Newest Rejected' ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                </div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'rejected' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest Rejected</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'rejected' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest Rejected</div>
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -1434,15 +1688,15 @@ $rejected_count = count($rejected_apps);
                                        max="<?= min($date_to, date('Y-m-d')) ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Rejection Date From" 
-                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
                                 <input type="date" name="date_to" value="<?= $active_tab === 'rejected' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
                                        min="<?= $date_from ?>"
                                        max="<?= date('Y-m-d') ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Rejection Date To" 
-                                       class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] [color-scheme:dark]">
+                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
                             </div>
-                            <a href="tenant_management.php?tab=rejected" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 hover:text-white transition-all shadow-lg hover:bg-white/10" onclick="resetTabFilters('rejected'); return false;" title="Reset All Rejected Filters">
+                            <a href="tenant_management.php?tab=rejected" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all hover:bg-gray-200" onclick="resetTabFilters('rejected'); return false;" title="Reset All Rejected Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -1450,26 +1704,25 @@ $rejected_count = count($rejected_apps);
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr
-                                    class="bg-background/50 text-[--text-main] opacity-50 text-[10px] font-black uppercase tracking-widest">
-                                    <th class="px-8 py-4">Gym Name</th>
-                                    <th class="px-8 py-4">Applicant</th>
-                                    <th class="px-8 py-4">Rejected Date</th>
-                                    <th class="px-8 py-4 text-center">Actions</th>
+                                <tr class="bg-gray-100 border-b border-black/5">
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Name</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Applicant</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Rejected Date</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="rejectedTableBody" class="divide-y divide-white/5">
+                            <tbody id="rejectedTableBody" class="divide-y divide-black/5 text-sm font-medium">
                                 <?php if (empty($rejected_apps)): ?>
                                     <tr>
                                         <td colspan="4" class="px-8 py-12 text-center text-xs font-black uppercase text-[--text-main] opacity-40 tracking-widest italic no-pagination">No rejected applications found for the selected period.</td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($rejected_apps as $app): ?>
-                                        <tr class="hover:bg-white/5 transition-all">
-                                            <td class="px-8 py-5">
+                                        <tr class="group hover:bg-black/[0.02] transition-colors">
+                                            <td class="px-8 py-6 align-middle">
                                                 <div class="flex items-center gap-3">
                                                     <div
-                                                        class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 border border-white/5">
+                                                        class="size-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 border border-transparent">
                                                         <?php if (!empty($app['gym_logo'])):
                                                             $r_logo = getLogoPath($app['gym_logo']);
                                                             ?>
@@ -1480,31 +1733,31 @@ $rejected_count = count($rejected_apps);
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-sm font-bold italic text-white">
+                                                        <p class="text-[16px] font-black text-[#1e293b]">
                                                             <?= htmlspecialchars($app['gym_name']) ?>
                                                         </p>
                                                         <p
-                                                            class="text-[10px] text-white/60 uppercase tracking-wider font-bold">
+                                                            class="text-[10px] text-gray-600 uppercase tracking-wider font-bold">
                                                             TYPE: <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? 'Gym/Fitness Center')) ?>
                                                         </p>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td class="px-8 py-5">
-                                                <p class="text-xs font-medium text-gray-500">
+                                            <td class="px-8 py-6 align-middle">
+                                                <p class="text-[14px] font-black text-[#1e293b]">
                                                     <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?>
                                                 </p>
-                                                <p class="text-[10px] text-[--text-main] opacity-40">
+                                                <p class="text-[12px] font-bold text-slate-500">
                                                     <?= htmlspecialchars($app['email']) ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-5 text-xs font-medium text-gray-600 italic">
+                                            <td class="px-8 py-5 text-xs font-bold text-gray-600">
                                                 <?= date('M d, Y', strtotime($app['reviewed_at'])) ?>
                                             </td>
-                                            <td class="px-8 py-5 text-center">
+                                            <td class="px-8 py-6 text-center align-middle">
                                                 <button onclick="openApplicationModal(<?= $app['application_id'] ?>)"
-                                                    class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 transition-colors flex items-center justify-center group mx-auto" title="View Application Details">
-                                                    <span class="material-symbols-outlined text-[18px] transition-transform group-hover:scale-110">visibility</span>
+                                                    class="size-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center transition-colors group shadow-sm shadow-slate-200/50 mx-auto" title="View Application Details">
+                                                    <span class="material-symbols-outlined text-[18px]">visibility</span>
                                                 </button>
                                             </td>
                                         </tr>
@@ -1516,12 +1769,12 @@ $rejected_count = count($rejected_apps);
                 </div>
                 <!-- Pagination Container for Rejected -->
                 <div id="pagination-rejected"
-                    class="px-8 py-5 border-t border-white/5 bg-white/[0.01] backdrop-blur-md flex justify-between items-center <?= empty($rejected_apps) ? 'hidden' : '' ?>">
+                    class="px-8 py-5 border-t border-transparent bg-black/[0.02] backdrop-blur-md flex justify-between items-center <?= empty($rejected_apps) ? 'hidden' : '' ?>">
                     <div class="flex items-center gap-3">
                         <div class="size-2 rounded-full bg-rose-500 animate-pulse"></div>
                         <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                     </div>
-                    <div class="flex gap-2 p-1.5 rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-2xl shadow-2xl controls-container"></div>
+                    <div class="flex gap-2 p-1.5 rounded-2xl bg-gray-100 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
                 </div>
             </div>
         </main>
@@ -1633,14 +1886,14 @@ $rejected_count = count($rejected_apps);
 
                 // Status Text: "Showing 10 of 45 entries" style as requested
                 const currentCount = Math.min(end, totalRows) - start;
-                statusText.innerHTML = `Showing <span class="text-white">${currentCount}</span> of <span class="text-white">${totalRows}</span> entries`;
+                statusText.innerHTML = `Showing <span class="text-[--text-main]">${currentCount}</span> of <span class="text-[--text-main]">${totalRows}</span> entries`;
 
                 // Render Controls
                 controlsContainer.innerHTML = '';
 
                 // Prev Button
                 const prevBtn = document.createElement('button');
-                prevBtn.className = `size-9 rounded-xl flex items-center justify-center transition-all ${currentPage === 1 ? 'opacity-20 cursor-not-allowed text-gray-600' : 'bg-white/5 border border-white/5 text-white hover:bg-white/10 hover:scale-105 active:scale-95'}`;
+                prevBtn.className = `size-9 rounded-xl flex items-center justify-center transition-all ${currentPage === 1 ? 'opacity-20 cursor-not-allowed text-gray-600' : 'bg-gray-100 border border-transparent text-[--text-main] hover:bg-black/10 hover:scale-105 active:scale-95'}`;
                 prevBtn.innerHTML = '<span class="material-symbols-outlined text-lg">chevron_left</span>';
                 prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; render(); paginationContainer.scrollIntoView({ behavior: 'smooth', block: 'end' }); } };
                 controlsContainer.appendChild(prevBtn);
@@ -1652,7 +1905,7 @@ $rejected_count = count($rejected_apps);
 
                 for (let i = startPage; i <= endPage; i++) {
                     const pageBtn = document.createElement('button');
-                    pageBtn.className = `size-9 rounded-xl font-black text-[11px] transition-all ${i === currentPage ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-110' : 'bg-white/5 border border-white/5 text-[--text-main] opacity-40 hover:opacity-100 hover:bg-white/10'}`;
+                    pageBtn.className = `size-9 rounded-xl font-black text-[11px] transition-all ${i === currentPage ? 'bg-primary text-[--text-main] shadow-xl shadow-primary/20 scale-110' : 'bg-gray-100 border border-transparent text-[--text-main] opacity-40 hover:opacity-100 hover:bg-black/10'}`;
                     pageBtn.textContent = i;
                     pageBtn.onclick = () => { 
                         if (currentPage !== i) {
@@ -1666,7 +1919,7 @@ $rejected_count = count($rejected_apps);
 
                 // Next Button
                 const nextBtn = document.createElement('button');
-                nextBtn.className = `size-9 rounded-xl flex items-center justify-center transition-all ${currentPage === totalPages ? 'opacity-20 cursor-not-allowed text-gray-600' : 'bg-white/5 border border-white/5 text-white hover:bg-white/10 hover:scale-105 active:scale-95'}`;
+                nextBtn.className = `size-9 rounded-xl flex items-center justify-center transition-all ${currentPage === totalPages ? 'opacity-20 cursor-not-allowed text-gray-600' : 'bg-gray-100 border border-transparent text-[--text-main] hover:bg-black/10 hover:scale-105 active:scale-95'}`;
                 nextBtn.innerHTML = '<span class="material-symbols-outlined text-lg">chevron_right</span>';
                 nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; render(); paginationContainer.scrollIntoView({ behavior: 'smooth', block: 'end' }); } };
                 controlsContainer.appendChild(nextBtn);
@@ -1680,7 +1933,7 @@ $rejected_count = count($rejected_apps);
         <div id="confirmBackdrop" onclick="closeConfirmModal()"
             class="absolute inset-0 bg-background/40 backdrop-blur-xl transition-opacity duration-300 opacity-0 pointer-events-auto"></div>
         <div id="confirmContainer"
-            class="relative w-full max-w-md bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0 pointer-events-auto">
+            class="relative w-full max-w-md bg-transparent backdrop-blur-3xl border border-transparent shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0 pointer-events-auto">
             <div class="p-8 text-center text-[--text-main]">
                 <div
                     class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
@@ -1693,11 +1946,11 @@ $rejected_count = count($rejected_apps);
 
                 <div class="flex gap-3">
                     <button onclick="closeConfirmModal()"
-                        class="flex-1 py-3 px-6 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase tracking-widest transition-all text-[--text-main] opacity-40 hover:opacity-100">
+                        class="flex-1 py-3 px-6 rounded-xl bg-gray-100 hover:bg-black/10 border border-transparent text-[10px] font-black uppercase tracking-widest transition-all text-[--text-main] opacity-40 hover:opacity-100">
                         Cancel
                     </button>
                     <button onclick="executeConfirmedAction()"
-                        class="flex-1 py-3 px-6 rounded-xl bg-primary hover:bg-primary/90 text-white text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
+                        class="flex-1 py-3 px-6 rounded-xl bg-primary hover:bg-primary/90 text-[--text-main] text-[10px] font-black uppercase italic tracking-widest shadow-lg shadow-primary/20 transition-all active:scale-[0.98]">
                         Confirm
                     </button>
                 </div>
@@ -1709,17 +1962,17 @@ $rejected_count = count($rejected_apps);
         class="hidden items-center justify-center p-4 md:p-10 overflow-hidden pointer-events-none transition-all duration-500">
         <div class="bg-background/40 backdrop-blur-xl transition-opacity duration-500 opacity-0 pointer-events-auto"
             id="modalBackdrop"></div>
-        <div class="relative w-full max-w-5xl bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[40px] overflow-hidden flex flex-col min-h-[500px] max-h-[90vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto no-scrollbar"
+        <div class="relative w-full max-w-5xl bg-transparent backdrop-blur-3xl border border-transparent shadow-2xl rounded-[40px] overflow-hidden flex flex-col min-h-[500px] max-h-[90vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto no-scrollbar"
             id="modalContainer">
             <div id="modalLoading"
-                class="absolute inset-0 flex flex-col items-center justify-center bg-[#0d0c12]/90 backdrop-blur-2xl z-10 transition-opacity duration-300">
+                class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-2xl z-10 transition-opacity duration-300">
                 <div class="size-16 relative flex items-center justify-center mb-8">
                     <div class="absolute inset-0 border-[1px] border-primary/10 rounded-full"></div>
                     <div class="absolute inset-0 border-[1px] border-t-primary rounded-full animate-spin"></div>
                     <span class="material-symbols-outlined text-primary/30 text-2xl">database</span>
                 </div>
                 <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] italic animate-pulse">
-                    Synchronizing Data...</p>
+                    Loading Data...</p>
             </div>
             <div id="modalContent"
                 class="flex-1 p-8 md:p-10 opacity-0 transition-opacity duration-500 overflow-y-auto no-scrollbar"></div>
@@ -1849,8 +2102,10 @@ $rejected_count = count($rejected_apps);
 
             if (!section) return false;
 
-            // Simple loading state
-            section.classList.add('opacity-40', 'pointer-events-none');
+            const tableWrapper = section.querySelector('.overflow-x-auto');
+
+            // Simple loading state on table only
+            if (tableWrapper) tableWrapper.classList.add('opacity-40', 'pointer-events-none');
 
             try {
                 const response = await fetch(url);
@@ -1858,23 +2113,25 @@ $rejected_count = count($rejected_apps);
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
 
-                const newSection = doc.getElementById(sectionId);
-                if (newSection) {
-                    section.innerHTML = newSection.innerHTML;
+                const newTableWrapper = doc.querySelector(`#${sectionId} .overflow-x-auto`);
+                if (newTableWrapper && tableWrapper) {
+                    tableWrapper.innerHTML = newTableWrapper.innerHTML;
                 }
 
                 // Update URL for state preservation
                 history.pushState(null, '', url);
 
-                // Re-calculate the elite pagination engine across all tabs
+                // Re-initialize searchable dropdown for the updated tab
+                // Wait, it is already persistent, but if we need to re-init:
+                // No need, initSearchableDropdown is delegated to DOM click listeners already!
                 refreshAllPagination();
                 
                 // Finalize UI
-                section.classList.remove('opacity-40', 'pointer-events-none');
+                if (tableWrapper) tableWrapper.classList.remove('opacity-40', 'pointer-events-none');
 
             } catch (error) {
                 console.error("Filter Update Failed:", error);
-                section.classList.remove('opacity-40', 'pointer-events-none');
+                if (tableWrapper) tableWrapper.classList.remove('opacity-40', 'pointer-events-none');
             }
             
             return false; // Prevent standard form submission
@@ -1896,10 +2153,10 @@ $rejected_count = count($rejected_apps);
                 if (firstOption) {
                     container.querySelectorAll('.custom-option').forEach(opt => {
                         opt.classList.remove('selected-option');
-                        opt.classList.add('text-white/60');
+                        opt.classList.add('text-gray-600');
                     });
                     firstOption.classList.add('selected-option');
-                    firstOption.classList.remove('text-white/60');
+                    firstOption.classList.remove('text-gray-600');
                     
                     const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
                     const hiddenInput = container.querySelector('input[type="hidden"]:not([name="tab"])');
@@ -1977,6 +2234,9 @@ $rejected_count = count($rejected_apps);
                     dropdown.classList.add('hidden');
                 }
             });
+            document.querySelectorAll('.searchable-dropdown-overlay').forEach(dropdown => {
+                dropdown.classList.add('hidden');
+            });
             const dropdown = trigger.nextElementSibling;
             dropdown.classList.toggle('hidden');
         }
@@ -2003,10 +2263,10 @@ $rejected_count = count($rejected_apps);
                 
                 dropdown.querySelectorAll('.custom-option').forEach(opt => {
                     opt.classList.remove('selected-option');
-                    opt.classList.add('text-white/60');
+                    opt.classList.add('text-gray-600');
                 });
                 option.classList.add('selected-option');
-                option.classList.remove('text-white/60');
+                option.classList.remove('text-gray-600');
                 
                 if (trigger) trigger.value = option.textContent.trim();
                 hiddenInput.value = option.getAttribute('data-value');
