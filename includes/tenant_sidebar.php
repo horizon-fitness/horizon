@@ -6,9 +6,46 @@
 // - $page: Mapping of logo_path
 ?>
 <style>
+    .nav-item {
+        color: color-mix(in srgb, var(--text-main) 60%, transparent) !important;
+    }
+    .nav-item .nav-label {
+        color: inherit;
+    }
     .nav-item:hover {
         background: transparent !important;
-        color: white !important;
+        color: var(--text-main) !important;
+    }
+    .nav-item.active {
+        color: var(--primary) !important;
+    }
+    .nav-item.active .nav-label,
+    .nav-item.active span:not(.material-symbols-outlined):not(.nav-badge) {
+        color: var(--primary) !important;
+    }
+    .nav-badge {
+        color: #ffffff !important;
+        line-height: 1 !important;
+        min-width: 1rem;
+        height: 1rem;
+        padding: 0 0.25rem;
+        border-radius: 9999px;
+        font-size: 8px;
+        font-weight: 900;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .nav-item .material-symbols-outlined {
+        color: var(--highlight);
+        transition: transform 0.2s ease;
+    }
+    .nav-item:hover .material-symbols-outlined {
+        transform: scale(1.1);
+        color: inherit;
+    }
+    .nav-item.active .material-symbols-outlined {
+        color: var(--primary) !important;
     }
     .nav-item.logout-item:hover,
     .nav-item.logout-item:hover .material-symbols-outlined,
@@ -49,7 +86,7 @@
                 } catch (Exception $e) {}
             }
         ?>
-        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Main Menu</span></div>
+        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Main Menu</span></div>
         <a href="tenant_dashboard.php" class="nav-item <?= ($active_page == 'dashboard') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-label">Dashboard</span>
@@ -60,13 +97,13 @@
             <span class="nav-label">Users</span>
         </a>
 
-        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Management</span></div>
+        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Management</span></div>
 
         <a href="staff.php" class="nav-item <?= ($active_page == 'staff') ? 'active' : '' ?>">
             <div class="relative flex items-center justify-center shrink-0">
                 <span class="material-symbols-outlined text-xl">badge</span> 
                 <?php if ($pending_apps_count > 0): ?>
-                    <span class="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-amber-500 text-[8px] font-black flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                    <span class="nav-badge absolute -top-1.5 -right-1.5 bg-amber-500 shadow-lg shadow-amber-500/20">
                         <?= $pending_apps_count ?>
                     </span>
                 <?php endif; ?>
@@ -86,7 +123,7 @@
     </div>
 
     <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
-        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span></div>
+        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Account</span></div>
         <a href="tenant_settings.php" class="nav-item <?= ($active_page == 'settings') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
             <span class="nav-label">Settings</span>
@@ -95,7 +132,7 @@
             <span class="material-symbols-outlined text-xl shrink-0">account_circle</span> 
             <span class="nav-label">Profile</span>
         </a>
-        <a href="../logout.php" class="nav-item logout-item text-gray-400 transition-colors">
+        <a href="../logout.php" class="nav-item logout-item group text-[--text-main]/45 transition-colors">
             <span class="material-symbols-outlined text-xl shrink-0">logout</span> 
             <span class="nav-label">Sign Out</span>
         </a>
