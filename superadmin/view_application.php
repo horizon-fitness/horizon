@@ -125,20 +125,11 @@ $active_page = "tenants";
 
 if ($is_ajax): ?>
     <!-- AJAX Modal Content Only -->
-    <style>
-        #modalContent [class*="text-[--text-main]"] { color: rgba(15, 23, 42, 0.5) !important; }
-        #modalContent .text-gray-500 { color: rgba(15, 23, 42, 0.5) !important; }
-        #modalContent .text-gray-500.uppercase { color: #000000 !important; }
-        #modalContent p, #modalContent span, #modalContent h2, #modalContent h4, #modalContent div { 
-            font-style: normal !important; 
-            text-shadow: none !important; 
-        }
-    </style>
     <div class="space-y-8 max-h-[80vh] overflow-y-auto p-6 -m-6 no-scrollbar overflow-x-hidden">
-        <header class="flex items-center justify-between mb-10 border-b border-black/5 pb-8 relative z-10">
+        <header class="flex items-center justify-between mb-10 border-b border-white/5 pb-8 relative z-10">
             <div class="flex items-center gap-6">
                 <div
-                    class="size-16 rounded-[24px] bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shadow-xl shadow-primary/5">
+                    class="size-16 rounded-[24px] bg-primary/10 border border-transparent flex items-center justify-center overflow-hidden shadow-xl shadow-primary/5">
                     <?php
                     $logo = array_filter($documents, fn($d) => strtolower($d['document_type']) === 'gym logo');
                     $logo = reset($logo);
@@ -191,27 +182,27 @@ if ($is_ajax): ?>
                 <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                     Owner Contact</h4>
                 <div class="grid grid-cols-1 gap-4">
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Owner Name</p>
                         <p class="text-sm font-bold text-[--text-main] tracking-tight">
                             <?= htmlspecialchars($app['first_name'] . ' ' . $app['middle_name'] . ' ' . $app['last_name']) ?>
                         </p>
                     </div>
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Email Address</p>
                         <p class="text-sm font-bold text-[--text-main] tracking-tight"><?= htmlspecialchars($app['owner_email']) ?></p>
                     </div>
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Contact Number</p>
                         <p class="text-sm font-bold text-[--text-main] tracking-tight"><?= htmlspecialchars($app['owner_contact']) ?></p>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Birth Date</p>
                             <p class="text-sm font-bold text-[--text-main] tracking-tight italic">
                                 <?= $app['birth_date'] ? date('M d, Y', strtotime($app['birth_date'])) : '---' ?></p>
                         </div>
-                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Sex</p>
                             <div class="flex items-center gap-2">
                                 <span
@@ -221,7 +212,7 @@ if ($is_ajax): ?>
                             </div>
                         </div>
                     </div>
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Identity
                             Verification</p>
                         <div class="flex items-center gap-2.5">
@@ -238,7 +229,7 @@ if ($is_ajax): ?>
                 <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                     Business Profile</h4>
                 <div class="grid grid-cols-1 gap-4">
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Legal Entity / Type
                         </p>
                         <p class="text-sm font-bold text-[--text-main] tracking-tight italic">
@@ -247,17 +238,17 @@ if ($is_ajax): ?>
                             <?= formatLabel($app['business_type'], $friendlyNames) ?></p>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">TIN</p>
                             <p class="text-sm font-bold text-[--text-main]"><?= htmlspecialchars($app['bir_number']) ?></p>
                         </div>
-                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Business Permit
                                 Number</p>
                             <p class="text-sm font-bold text-[--text-main]"><?= htmlspecialchars($app['business_permit_no']) ?></p>
                         </div>
                     </div>
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Facility Address</p>
                         <p class="text-sm font-bold text-[--text-main] leading-relaxed tracking-tight">
                             <?= htmlspecialchars($app['address_line']) ?><br>
@@ -267,13 +258,13 @@ if ($is_ajax): ?>
                         </p>
                     </div>
                     <div class="grid grid-cols-1 gap-4">
-                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Official Gym
                                 Email</p>
                             <p class="text-sm font-bold text-[--text-main] tracking-tight italic">
                                 <?= htmlspecialchars($app['gym_email']) ?></p>
                         </div>
-                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Official Gym
                                 Contact</p>
                             <p class="text-sm font-bold text-[--text-main] tracking-tight italic">
@@ -286,7 +277,7 @@ if ($is_ajax): ?>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             <div class="space-y-6">
-                <div class="flex items-center justify-between border-b border-black/5 pb-2">
+                <div class="flex items-center justify-between border-b border-white/5 pb-2">
                     <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                         Platform Plan Details</h4>
                     <?php if ($subscription): ?>
@@ -298,29 +289,29 @@ if ($is_ajax): ?>
 
                 <?php if ($subscription): ?>
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Selected Plan</p>
                             <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase">
                                 <?= htmlspecialchars($subscription['plan_name']) ?></p>
                         </div>
-                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Plan Price</p>
                             <p class="text-sm font-bold text-[--text-main] tracking-tight">
                                 ₱<?= number_format($subscription['price'], 2) ?></p>
                         </div>
-                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Billing Cycle</p>
                             <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase">
                                 <?= htmlspecialchars($subscription['billing_cycle']) ?></p>
                         </div>
-                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                             <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Payment</p>
                             <p class="text-sm font-bold <?= strtolower($subscription['payment_status']) === 'paid' ? 'text-emerald-500' : 'text-amber-500' ?> tracking-tight uppercase">
                                 <?= htmlspecialchars($subscription['payment_status']) ?></p>
                         </div>
                     </div>
                 <?php else: ?>
-                    <div class="bg-black/[0.02] p-8 rounded-2xl border border-black/5 shadow-sm flex flex-col items-center justify-center text-center">
+                    <div class="bg-white/5 p-8 rounded-2xl border border-white/5 shadow-sm flex flex-col items-center justify-center text-center">
                         <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Awaiting subscription choice upon approval</p>
                     </div>
                 <?php endif; ?>
@@ -330,12 +321,12 @@ if ($is_ajax): ?>
                 <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                     Operating Hours</h4>
                 <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Opening Time</p>
                         <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase">
                             <?= htmlspecialchars($app['opening_time'] ?: '---') ?></p>
                     </div>
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Closing Time</p>
                         <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase">
                             <?= htmlspecialchars($app['closing_time'] ?: '---') ?></p>
@@ -350,15 +341,15 @@ if ($is_ajax): ?>
                 <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                     Payout Information</h4>
                 <div class="grid grid-cols-1 gap-4">
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Bank Name</p>
                         <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase"><?= htmlspecialchars($app['bank_name'] ?: 'Not Provided') ?></p>
                     </div>
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Account Name</p>
                         <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase"><?= htmlspecialchars($app['account_name'] ?: '---') ?></p>
                     </div>
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Account Number</p>
                         <p class="text-sm font-bold text-[--text-main] tracking-tight"><?= htmlspecialchars($app['account_number'] ?: '---') ?></p>
                     </div>
@@ -369,17 +360,17 @@ if ($is_ajax): ?>
                 <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                     Facility Information</h4>
                 <div class="grid grid-cols-1 gap-4">
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Max Capacity</p>
                         <p class="text-xl font-black text-[--text-main] tracking-tighter"><?= htmlspecialchars($app['max_capacity'] ?: '0') ?></p>
                     </div>
-                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                         <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Amenities</p>
                         <div class="flex flex-wrap gap-2 pt-1">
-                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_shower'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Shower</span>
-                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_parking'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Parking</span>
-                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_wifi'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Wi-Fi</span>
-                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_lockers'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Lockers</span>
+                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-white/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_shower'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Shower</span>
+                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-white/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_parking'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Parking</span>
+                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-white/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_wifi'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Wi-Fi</span>
+                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-white/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_lockers'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Lockers</span>
                         </div>
                     </div>
                 </div>
@@ -391,7 +382,7 @@ if ($is_ajax): ?>
             <div class="space-y-6">
                 <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                     About the Gym</h4>
-                <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                     <p class="text-sm font-bold text-[--text-main] tracking-tight leading-relaxed italic">
                         <?= nl2br(htmlspecialchars($app['about_text'] ?: 'No description provided.')) ?></p>
                 </div>
@@ -399,7 +390,7 @@ if ($is_ajax): ?>
             <div class="space-y-6">
                 <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                     Gym House Rules</h4>
-                <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                <div class="bg-white/5 p-5 rounded-2xl border border-white/5 shadow-sm">
                     <p class="text-sm font-bold text-[--text-main] tracking-tight leading-relaxed italic">
                         <?= nl2br(htmlspecialchars($app['rules_text'] ?: 'No rules provided.')) ?></p>
                 </div>
@@ -454,7 +445,7 @@ if ($is_ajax): ?>
         </div>
 
         <?php if ($app['application_status'] === 'Pending'): ?>
-            <div class="flex gap-3 pt-6 border-t border-black/5">
+            <div class="flex gap-3 pt-6 border-t border-white/5">
                 <form method="POST" action="../action/process_application.php" class="flex-1">
                     <input type="hidden" name="application_id" value="<?= $app_id ?>">
                     <input type="hidden" name="action" value="">

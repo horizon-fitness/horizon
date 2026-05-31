@@ -334,31 +334,31 @@ if (isset($_GET['ajax'])) {
             </tr>
         <?php } else {
             foreach ($recent_logs as $log) { ?>
-                <tr class="group hover:bg-black/[0.02] transition-colors">
+                <tr class="group hover:bg-white/5 transition-colors">
                     <td class="px-8 py-6 align-middle">
                         <div class="flex items-center gap-4">
-                            <div class="size-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden border border-black/10 shadow-sm">
-                                <?php if (!empty($log['gym_logo'])): ?><img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain"><?php else: ?><span class="material-symbols-outlined text-[#1e293b] text-[18px]">receipt</span><?php endif; ?>
+                            <div class="size-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 overflow-hidden border border-white/10 shadow-sm">
+                                <?php if (!empty($log['gym_logo'])): ?><img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain"><?php else: ?><span class="material-symbols-outlined text-[--text-main] text-[18px]">receipt</span><?php endif; ?>
                             </div>
                             <div>
-                                <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
+                                <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
                             </div>
                         </div>
                     </td>
                     <td class="px-8 py-6 align-middle">
-                        <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= htmlspecialchars($log['plan_name']) ?> (₱<?= number_format($log['plan_price'], 0) ?>)</p>
+                        <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest"><?= htmlspecialchars($log['plan_name']) ?> (₱<?= number_format($log['plan_price'], 0) ?>)</p>
                     </td>
-                    <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= date('M d, Y', strtotime($log['start_date'])) ?></td>
+                    <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-[--text-main] tracking-widest"><?= date('M d, Y', strtotime($log['start_date'])) ?></td>
                     <td class="px-8 py-6 align-middle">
-                        <?php $subClass = match($log['subscription_status']) { 'Active' => 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20', 'Expired' => 'bg-red-500/10 text-red-500 border border-red-500/20', default => 'bg-gray-500/10 text-gray-400 border border-gray-500/20' }; ?>
+                        <?php $subClass = match($log['subscription_status']) { 'Active' => 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20', 'Expired' => 'bg-red-500/10 text-red-500 border border-red-500/20', default => 'bg-gray-500/10 text-[--text-main] opacity-50 border border-gray-500/20' }; ?>
                         <span class="w-fit px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest <?= $subClass ?>"><?= $log['subscription_status'] ?></span>
                     </td>
                     <td class="px-8 py-6 align-middle">
-                        <?php $payClass = match($log['payment_status']) { 'Paid' => 'text-emerald-500', 'Pending' => 'text-amber-500', 'Rejected' => 'text-rose-500', default => 'text-gray-500' }; ?>
+                        <?php $payClass = match($log['payment_status']) { 'Paid' => 'text-emerald-500', 'Pending' => 'text-amber-500', 'Rejected' => 'text-rose-500', default => 'text-[--text-main] opacity-60' }; ?>
                         <span class="text-[12px] font-black uppercase tracking-tighter <?= $payClass ?>"><?= $log['payment_status'] ?></span>
                     </td>
                     <td class="px-8 py-6 align-middle text-center">
-                        <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" class="size-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center transition-colors group shadow-sm shadow-slate-200/50 mx-auto" title="View Details">
+                        <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent text-[--text-main] flex items-center justify-center transition-colors group shadow-sm shadow-black/10 mx-auto" title="View Details">
                             <span class="material-symbols-outlined text-[18px] transition-transform group-hover:scale-110">visibility</span>
                         </button>
                     </td>
@@ -375,24 +375,24 @@ if (isset($_GET['ajax'])) {
             </tr>
         <?php } else {
             foreach ($pending_logs as $log) { ?>
-                <tr class="group hover:bg-black/[0.02] transition-colors">
+                <tr class="group hover:bg-white/5 transition-colors">
                     <td class="px-8 py-6 align-middle">
                         <div class="flex items-center gap-4">
-                            <div class="size-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden border border-black/10 shadow-sm">
-                                <?php if (!empty($log['gym_logo'])): ?><img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain"><?php else: ?><span class="material-symbols-outlined text-[#1e293b] text-[18px]">receipt</span><?php endif; ?>
+                            <div class="size-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 overflow-hidden border border-white/10 shadow-sm">
+                                <?php if (!empty($log['gym_logo'])): ?><img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain"><?php else: ?><span class="material-symbols-outlined text-[--text-main] text-[18px]">receipt</span><?php endif; ?>
                             </div>
                             <div>
-                                <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
+                                <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
                             </div>
                         </div>
                     </td>
                     <td class="px-8 py-6 align-middle">
-                        <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= htmlspecialchars($log['plan_name']) ?> (₱<?= number_format($log['plan_price'], 0) ?>)</p>
+                        <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest"><?= htmlspecialchars($log['plan_name']) ?> (₱<?= number_format($log['plan_price'], 0) ?>)</p>
                     </td>
-                    <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= date('M d, Y', strtotime($log['start_date'])) ?></td>
+                    <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-[--text-main] tracking-widest"><?= date('M d, Y', strtotime($log['start_date'])) ?></td>
                     <td class="px-8 py-5 text-center">
                         <div class="inline-flex gap-2 justify-center w-full">
-                            <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" class="size-9 rounded-xl bg-gray-100 border border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all flex items-center justify-center group mr-2" title="View Details">
+                            <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" class="size-9 rounded-xl bg-white/5 border border-transparent text-[--text-main] opacity-50 hover:text-[--text-main] opacity-70 hover:bg-white/10 transition-all flex items-center justify-center group mr-2" title="View Details">
                                 <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span>
                             </button>
                             <form method="POST" class="confirm-form">
@@ -420,28 +420,28 @@ if (isset($_GET['ajax'])) {
             </tr>
         <?php } else {
             foreach ($history_logs as $log) { ?>
-                <tr class="group hover:bg-black/[0.02] transition-colors">
+                <tr class="group hover:bg-white/5 transition-colors">
                     <td class="px-8 py-6 align-middle">
                         <div class="flex items-center gap-4">
-                            <div class="size-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
-                                <?php if (!empty($log['gym_logo'])): ?><img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain"><?php else: ?><span class="material-symbols-outlined text-[#1e293b] text-[18px]">receipt</span><?php endif; ?>
+                            <div class="size-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 overflow-hidden">
+                                <?php if (!empty($log['gym_logo'])): ?><img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain"><?php else: ?><span class="material-symbols-outlined text-[--text-main] text-[18px]">receipt</span><?php endif; ?>
                             </div>
                             <div>
-                                <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
+                                <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
                             </div>
                         </div>
                     </td>
                     <td class="px-8 py-6 align-middle">
-                        <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= htmlspecialchars($log['plan_name']) ?></p>
+                        <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest"><?= htmlspecialchars($log['plan_name']) ?></p>
                     </td>
-                    <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= date('M d, Y', strtotime($log['start_date'])) ?></td>
+                    <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-[--text-main] tracking-widest"><?= date('M d, Y', strtotime($log['start_date'])) ?></td>
                     <td class="px-8 py-6 align-middle">
-                        <?php $subClass = match($log['subscription_status']) { 'Active' => 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20', 'Expired' => 'bg-red-500/10 text-red-500 border border-red-500/20', default => 'bg-gray-500/10 text-gray-400 border border-gray-500/20' }; ?>
+                        <?php $subClass = match($log['subscription_status']) { 'Active' => 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20', 'Expired' => 'bg-red-500/10 text-red-500 border border-red-500/20', default => 'bg-gray-500/10 text-[--text-main] opacity-50 border border-gray-500/20' }; ?>
                         <span class="w-fit px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest <?= $subClass ?>"><?= $log['subscription_status'] ?></span>
                     </td>
                     <td class="px-8 py-6 align-middle"><span class="text-[12px] font-black uppercase tracking-tighter <?= $log['payment_status'] === 'Paid' ? 'text-emerald-500' : ($log['payment_status'] === 'Rejected' ? 'text-rose-500' : 'text-amber-500') ?>"><?= $log['payment_status'] ?></span></td>
                     <td class="px-8 py-5 text-center">
-                        <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" class="size-9 rounded-xl bg-gray-100 border border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all flex items-center justify-center group mx-auto" title="View Details"><span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span></button>
+                        <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" class="size-9 rounded-xl bg-white/5 border border-transparent text-[--text-main] opacity-50 hover:text-[--text-main] opacity-70 hover:bg-white/10 transition-all flex items-center justify-center group mx-auto" title="View Details"><span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span></button>
                     </td>
                 </tr>
             <?php }
@@ -484,12 +484,12 @@ if (isset($_GET['ajax'])) {
             --primary: <?= $brand['theme_color'] ?? '#8c2bee' ?>;
             --primary-rgb: <?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>;
             --highlight: <?= $brand['secondary_color'] ?? '#9ca3af' ?>;
-            --text-main: #0f172a;
-            --background: #f8fafc;
+            --text-main: <?= $brand['text_color'] ?? '#0f172a' ?>;
+            --background: <?= $brand['bg_color'] ?? '#f8fafc' ?>;
 
             /* Glassmorphism Engine */
             --card-blur: 20px;
-            --card-bg: rgba(255, 255, 255, 0.8);
+            --card-bg: <?= ($brand['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($brand['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($brand['card_color'] ?? '#ffffff') ?>;
         }
 
         body { 
@@ -511,7 +511,7 @@ if (isset($_GET['ajax'])) {
         }
 
         .static-table {
-            border: 2px solid #e2e8f0 !important;
+            border: 1px solid rgba(150,150,150,0.2) !important;
             transform: none !important;
             transition: none !important;
             box-shadow: none !important;
@@ -768,10 +768,10 @@ if (isset($_GET['ajax'])) {
                 if (firstOption) {
                     container.querySelectorAll('.custom-option').forEach(opt => {
                         opt.classList.remove('selected-option');
-                        opt.classList.add('text-gray-600');
+                        opt.classList.add('text-[--text-main] opacity-70');
                     });
                     firstOption.classList.add('selected-option');
-                    firstOption.classList.remove('text-gray-600');
+                    firstOption.classList.remove('text-[--text-main] opacity-70');
                     
                     const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
                     const hiddenInput = container.querySelector('input[type="hidden"]:not([name="tab"])');
@@ -934,7 +934,7 @@ if (isset($_GET['ajax'])) {
         <?php endif; ?>
 
         <!-- Layout Tabs (Tenant Style) -->
-        <div class="flex items-center gap-8 mb-8 border-b border-black/5 px-2">
+        <div class="flex items-center gap-8 mb-8 border-b border-white/5 px-2">
             <button onclick="switchTab('recent')" id="tabBtn-recent"
                 class="pb-4 text-xs font-black uppercase tracking-widest transition-all relative group text-primary">
                 Recent Logs
@@ -966,44 +966,44 @@ if (isset($_GET['ajax'])) {
         <div id="section-recent">
             <div class="glass-card static-table border border-primary/10 overflow-hidden mb-10">
                 <!-- Tab-Specific Filter Bar -->
-                <div class="px-8 py-4 bg-transparent border-b border-black/5">
+                <div class="px-8 py-4 bg-transparent border-b border-white/5">
                     <form id="filterForm-recent" method="GET" class="flex flex-wrap items-center gap-4">
                         <input type="hidden" name="tab" value="recent">
                         <div class="flex-1 min-w-[250px] relative group">
-                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-50 transition-transform group-hover:scale-110">search</span>
                             <input type="text" name="search" value="<?= $active_tab === 'recent' ? htmlspecialchars($search) : '' ?>" placeholder="Search Gym or Code..." 
                                    oninput="reactiveFilter(this.form)" 
-                                   class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
+                                   class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-[--text-main] opacity-70">
                         </div>
                         <div class="w-[160px] relative group custom-select-container">
                             <input type="hidden" name="pay_status" value="<?= $active_tab === 'recent' ? htmlspecialchars($pay_status) : 'all' ?>" onchange="reactiveFilter(this.form, true)">
-                            <div class="relative custom-select-trigger cursor-pointer bg-gray-100 border border-transparent rounded-xl overflow-hidden flex items-center py-3.5 hover:border-gray-200 transition-all" onclick="toggleCustomDropdown(this, event)">
-                                <input type="text" readonly value="<?= ($active_tab === 'recent' && $pay_status === 'Paid') ? 'Paid' : (($active_tab === 'recent' && $pay_status === 'Rejected') ? 'Rejected' : 'All Payments') ?>" class="w-full bg-transparent border-none text-gray-600 text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                <span class="material-symbols-outlined absolute right-4 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-transparent rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/10 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= ($active_tab === 'recent' && $pay_status === 'Paid') ? 'Paid' : (($active_tab === 'recent' && $pay_status === 'Rejected') ? 'Rejected' : 'All Payments') ?>" class="w-full bg-transparent border-none text-[--text-main] opacity-70 text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                <span class="material-symbols-outlined absolute right-4 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                             </div>
-                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white shadow-2xl border border-gray-100 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'recent' ? ($pay_status === 'all' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="all">All Payments</div>
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'recent' ? ($pay_status === 'Paid' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="Paid">Paid</div>
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'recent' ? ($pay_status === 'Rejected' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="Rejected">Rejected</div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border border-white/5 shadow-2xl p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'recent' ? ($pay_status === 'all' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="all">All Payments</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'recent' ? ($pay_status === 'Paid' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="Paid">Paid</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'recent' ? ($pay_status === 'Rejected' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="Rejected">Rejected</div>
                             </div>
                         </div>
                         <div class="w-[160px] relative group custom-select-container">
                             <input type="hidden" name="sub_status" value="<?= $active_tab === 'recent' ? htmlspecialchars($sub_status) : 'all' ?>" onchange="reactiveFilter(this.form, true)">
-                            <div class="relative custom-select-trigger cursor-pointer bg-gray-100 border border-transparent rounded-xl overflow-hidden flex items-center py-3.5 hover:border-gray-200 transition-all" onclick="toggleCustomDropdown(this, event)">
-                                <input type="text" readonly value="<?= ($active_tab === 'recent' && $sub_status === 'Active') ? 'Active' : (($active_tab === 'recent' && $sub_status === 'Expired') ? 'Expired' : 'All Sub Status') ?>" class="w-full bg-transparent border-none text-gray-600 text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                <span class="material-symbols-outlined absolute right-4 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-transparent rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/10 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= ($active_tab === 'recent' && $sub_status === 'Active') ? 'Active' : (($active_tab === 'recent' && $sub_status === 'Expired') ? 'Expired' : 'All Sub Status') ?>" class="w-full bg-transparent border-none text-[--text-main] opacity-70 text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                <span class="material-symbols-outlined absolute right-4 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                             </div>
-                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white shadow-2xl border border-gray-100 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'recent' ? ($sub_status === 'all' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="all">All Sub Status</div>
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'recent' ? ($sub_status === 'Active' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="Active">Active</div>
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'recent' ? ($sub_status === 'Expired' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="Expired">Expired</div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border border-white/5 shadow-2xl p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'recent' ? ($sub_status === 'all' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="all">All Sub Status</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'recent' ? ($sub_status === 'Active' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="Active">Active</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'recent' ? ($sub_status === 'Expired' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="Expired">Expired</div>
                             </div>
                         </div>
                         <div class="flex gap-2">
-                            <input type="date" name="date_from" value="<?= $active_tab === 'recent' ? htmlspecialchars($date_from) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="From Date" class="w-[160px] bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
-                            <input type="date" name="date_to" value="<?= $active_tab === 'recent' ? htmlspecialchars($date_to) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="To Date" class="w-[160px] bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                            <input type="date" name="date_from" value="<?= $active_tab === 'recent' ? htmlspecialchars($date_from) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="From Date" class="w-[160px] bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
+                            <input type="date" name="date_to" value="<?= $active_tab === 'recent' ? htmlspecialchars($date_to) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="To Date" class="w-[160px] bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                         </div>
-                        <button type="button" onclick="resetFilters('recent')" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all">
+                        <button type="button" onclick="resetFilters('recent')" class="size-12 rounded-xl bg-white/5 border border-transparent flex items-center justify-center text-[--text-main] opacity-50 hover:text-[--text-main] opacity-70 transition-all">
                             <span class="material-symbols-outlined text-sm">refresh</span>
                         </button>
                     </form>
@@ -1011,7 +1011,7 @@ if (isset($_GET['ajax'])) {
                 <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-gray-100 border-b border-black/5">
+                                <tr class="bg-white/5 border-b border-white/5">
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Plan Type</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Start Date</th>
@@ -1032,25 +1032,25 @@ if (isset($_GET['ajax'])) {
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($recent_logs as $log): ?>
-                                    <tr class="group hover:bg-black/[0.02] transition-colors">
+                                    <tr class="group hover:bg-white/5 transition-colors">
                                         <td class="px-8 py-6 align-middle">
                                             <div class="flex items-center gap-4">
-                                                <div class="size-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                                                <div class="size-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 overflow-hidden">
                                                     <?php if (!empty($log['gym_logo'])): ?>
                                                         <img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain">
                                                     <?php else: ?>
-                                                        <span class="material-symbols-outlined text-[#1e293b] text-[18px]">receipt</span>
+                                                        <span class="material-symbols-outlined text-[--text-main] text-[18px]">receipt</span>
                                                     <?php endif; ?>
                                                 </div>
                                                 <div>
-                                                    <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
+                                                    <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td class="px-8 py-6 align-middle">
-                                            <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= htmlspecialchars($log['plan_name']) ?> (₱<?= number_format($log['plan_price'], 0) ?>)</p>
+                                            <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest"><?= htmlspecialchars($log['plan_name']) ?> (₱<?= number_format($log['plan_price'], 0) ?>)</p>
                                         </td>
-                                        <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-slate-500 tracking-widest">
+                                        <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-[--text-main] tracking-widest">
                                             <?= date('M d, Y', strtotime($log['start_date'])) ?>
                                         </td>
                                         <td class="px-8 py-5">
@@ -1058,7 +1058,7 @@ if (isset($_GET['ajax'])) {
                                             $subClass = match($log['subscription_status']) {
                                                 'Active' => 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
                                                 'Expired' => 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-                                                default => 'bg-gray-100 text-gray-500 border-black/10'
+                                                default => 'bg-white/5 text-[--text-main] opacity-60 border-white/10'
                                             };
                                             ?>
                                             <span class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border <?= $subClass ?>">
@@ -1080,7 +1080,7 @@ if (isset($_GET['ajax'])) {
                                         </td>
                                         <td class="px-8 py-5 text-center">
                                             <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" 
-                                                    class="size-9 rounded-xl bg-gray-100 border border-transparent text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-all flex items-center justify-center group mx-auto" title="View Details">
+                                                    class="size-9 rounded-xl bg-white/5 border border-transparent text-[--text-main] opacity-50 hover:text-[--text-main] opacity-70 hover:bg-white/10 transition-all flex items-center justify-center group mx-auto" title="View Details">
                                                 <span class="material-symbols-outlined text-sm transition-transform group-hover:scale-110">visibility</span>
                                             </button>
                                         </td>
@@ -1091,7 +1091,7 @@ if (isset($_GET['ajax'])) {
                     </table>
                 </div>
                 <!-- Premium Glassmorphism Pagination Container -->
-                <div id="pagination-recent" class="px-8 py-4 border-t border-black/5 bg-gray-50 flex justify-between items-center hidden transition-all duration-300">
+                <div id="pagination-recent" class="px-8 py-4 border-t border-white/5 bg-transparent flex justify-between items-center hidden transition-all duration-300">
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
                     <div class="flex gap-2 controls-container"></div>
                 </div>
@@ -1102,20 +1102,20 @@ if (isset($_GET['ajax'])) {
         <div id="section-pending" class="hidden">
             <div class="glass-card static-table border border-amber-500/10 overflow-hidden mb-10 shadow-lg shadow-amber-500/5">
                 <!-- Tab-Specific Filter Bar -->
-                <div class="px-8 py-4 bg-transparent border-b border-black/5">
+                <div class="px-8 py-4 bg-transparent border-b border-white/5">
                     <form id="filterForm-pending" method="GET" class="flex flex-wrap items-center gap-4">
                         <input type="hidden" name="tab" value="pending">
                         <div class="flex-1 min-w-[250px] relative group">
-                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-50 transition-transform group-hover:scale-110">search</span>
                              <input type="text" name="search" value="<?= $active_tab === 'pending' ? htmlspecialchars($search) : '' ?>" placeholder="Search Pending Gym..." 
                                    oninput="reactiveFilter(this.form)" 
-                                   class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
+                                   class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-[--text-main] opacity-70">
                         </div>
                         <div class="flex gap-2">
-                            <input type="date" name="date_from" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_from) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="From Date" class="w-[160px] bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
-                            <input type="date" name="date_to" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_to) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="To Date" class="w-[160px] bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                            <input type="date" name="date_from" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_from) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="From Date" class="w-[160px] bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
+                            <input type="date" name="date_to" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_to) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="To Date" class="w-[160px] bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                         </div>
-                        <button type="button" onclick="resetFilters('pending')" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all">
+                        <button type="button" onclick="resetFilters('pending')" class="size-12 rounded-xl bg-white/5 border border-transparent flex items-center justify-center text-[--text-main] opacity-50 hover:text-[--text-main] opacity-70 transition-all">
                             <span class="material-symbols-outlined text-sm">refresh</span>
                         </button>
                     </form>
@@ -1123,7 +1123,7 @@ if (isset($_GET['ajax'])) {
                 <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-gray-100 border-b border-black/5">
+                                <tr class="bg-white/5 border-b border-white/5">
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Plan Type</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Start Date</th>
@@ -1142,31 +1142,31 @@ if (isset($_GET['ajax'])) {
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($pending_logs as $log): ?>
-                                    <tr class="group hover:bg-black/[0.02] transition-colors">
+                                    <tr class="group hover:bg-white/5 transition-colors">
                                         <td class="px-8 py-6 align-middle">
                                             <div class="flex items-center gap-4">
-                                                <div class="size-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                                                <div class="size-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 overflow-hidden">
                                                     <?php if (!empty($log['gym_logo'])): ?>
                                                         <img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain">
                                                     <?php else: ?>
-                                                        <span class="material-symbols-outlined text-[#1e293b] text-[18px]">receipt</span>
+                                                        <span class="material-symbols-outlined text-[--text-main] text-[18px]">receipt</span>
                                                     <?php endif; ?>
                                                 </div>
                                                 <div>
-                                                    <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
+                                                    <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td class="px-8 py-6 align-middle">
-                                            <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= htmlspecialchars($log['plan_name']) ?> (₱<?= number_format($log['plan_price'], 0) ?>)</p>
+                                            <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest"><?= htmlspecialchars($log['plan_name']) ?> (₱<?= number_format($log['plan_price'], 0) ?>)</p>
                                         </td>
-                                        <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-slate-500 tracking-widest">
+                                        <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-[--text-main] tracking-widest">
                                             <?= date('M d, Y', strtotime($log['start_date'])) ?>
                                         </td>
                                         <td class="px-8 py-6 align-middle text-center">
                                             <div class="inline-flex gap-2 justify-center w-full">
                                                 <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" 
-                                                        class="size-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center transition-colors group shadow-sm shadow-slate-200/50 mr-2" title="View Details">
+                                                        class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent text-[--text-main] flex items-center justify-center transition-colors group shadow-sm shadow-black/10 mr-2" title="View Details">
                                                     <span class="material-symbols-outlined text-[18px] transition-transform group-hover:scale-110">visibility</span>
                                                 </button>
                                                 <form method="POST" class="confirm-form">
@@ -1198,7 +1198,7 @@ if (isset($_GET['ajax'])) {
                     </table>
                 </div>
                 <!-- Premium Glassmorphism Pagination Container -->
-                <div id="pagination-pending" class="px-8 py-4 border-t border-black/5 bg-gray-50 flex justify-between items-center hidden transition-all duration-300">
+                <div id="pagination-pending" class="px-8 py-4 border-t border-white/5 bg-transparent flex justify-between items-center hidden transition-all duration-300">
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
                     <div class="flex gap-2 controls-container"></div>
                 </div>
@@ -1209,55 +1209,55 @@ if (isset($_GET['ajax'])) {
         <div id="section-history" class="hidden">
             <div class="glass-card static-table border border-primary/10 overflow-hidden mb-10">
                 <!-- Tab-Specific Filter Bar -->
-                <div class="px-8 py-4 bg-transparent border-b border-black/5">
+                <div class="px-8 py-4 bg-transparent border-b border-white/5">
                     <form id="filterForm-history" method="GET" class="flex flex-wrap items-center gap-4">
                         <input type="hidden" name="tab" value="history">
                         <div class="flex-1 min-w-[250px] relative group">
-                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
+                            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-50 transition-transform group-hover:scale-110">search</span>
                              <input type="text" name="search" value="<?= $active_tab === 'history' ? htmlspecialchars($search) : '' ?>" placeholder="Search History..." 
                                    oninput="reactiveFilter(this.form)" 
-                                   class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
+                                   class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-[--text-main] opacity-70">
                         </div>
                         <div class="w-[160px] relative group custom-select-container">
                             <input type="hidden" name="pay_status" value="<?= $active_tab === 'history' ? htmlspecialchars($pay_status) : 'all' ?>" onchange="reactiveFilter(this.form, true)">
-                            <div class="relative custom-select-trigger cursor-pointer bg-gray-100 border border-transparent rounded-xl overflow-hidden flex items-center py-3.5 hover:border-gray-200 transition-all" onclick="toggleCustomDropdown(this, event)">
-                                <input type="text" readonly value="<?= ($active_tab === 'history' && $pay_status === 'Paid') ? 'Paid' : (($active_tab === 'history' && $pay_status === 'Rejected') ? 'Rejected' : 'All Payments') ?>" class="w-full bg-transparent border-none text-gray-600 text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                <span class="material-symbols-outlined absolute right-4 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-transparent rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/10 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= ($active_tab === 'history' && $pay_status === 'Paid') ? 'Paid' : (($active_tab === 'history' && $pay_status === 'Rejected') ? 'Rejected' : 'All Payments') ?>" class="w-full bg-transparent border-none text-[--text-main] opacity-70 text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                <span class="material-symbols-outlined absolute right-4 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                             </div>
-                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white shadow-2xl border border-gray-100 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'history' ? ($pay_status === 'all' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="all">All Payments</div>
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'history' ? ($pay_status === 'Paid' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="Paid">Paid</div>
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'history' ? ($pay_status === 'Rejected' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="Rejected">Rejected</div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border border-white/5 shadow-2xl p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'history' ? ($pay_status === 'all' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="all">All Payments</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'history' ? ($pay_status === 'Paid' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="Paid">Paid</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'history' ? ($pay_status === 'Rejected' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="Rejected">Rejected</div>
                             </div>
                         </div>
                         <div class="w-[160px] relative group custom-select-container">
                             <input type="hidden" name="sub_status" value="<?= $active_tab === 'history' ? htmlspecialchars($sub_status) : 'all' ?>" onchange="reactiveFilter(this.form, true)">
-                            <div class="relative custom-select-trigger cursor-pointer bg-gray-100 border border-transparent rounded-xl overflow-hidden flex items-center py-3.5 hover:border-gray-200 transition-all" onclick="toggleCustomDropdown(this, event)">
-                                <input type="text" readonly value="<?= ($active_tab === 'history' && $sub_status === 'Active') ? 'Active' : (($active_tab === 'history' && $sub_status === 'Expired') ? 'Expired' : 'All Sub Status') ?>" class="w-full bg-transparent border-none text-gray-600 text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                <span class="material-symbols-outlined absolute right-4 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-transparent rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/10 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= ($active_tab === 'history' && $sub_status === 'Active') ? 'Active' : (($active_tab === 'history' && $sub_status === 'Expired') ? 'Expired' : 'All Sub Status') ?>" class="w-full bg-transparent border-none text-[--text-main] opacity-70 text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                <span class="material-symbols-outlined absolute right-4 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                             </div>
-                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white shadow-2xl border border-gray-100 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'history' ? ($sub_status === 'all' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="all">All Sub Status</div>
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'history' ? ($sub_status === 'Active' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="Active">Active</div>
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'history' ? ($sub_status === 'Expired' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="Expired">Expired</div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border border-white/5 shadow-2xl p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'history' ? ($sub_status === 'all' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="all">All Sub Status</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'history' ? ($sub_status === 'Active' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="Active">Active</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'history' ? ($sub_status === 'Expired' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="Expired">Expired</div>
                             </div>
                         </div>
                         <div class="w-[160px] relative group custom-select-container">
                             <input type="hidden" name="sort" value="<?= $active_tab === 'history' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="reactiveFilter(this.form, true)">
-                            <div class="relative custom-select-trigger cursor-pointer bg-gray-100 border border-transparent rounded-xl overflow-hidden flex items-center py-3.5 hover:border-gray-200 transition-all" onclick="toggleCustomDropdown(this, event)">
-                                <input type="text" readonly value="<?= ($active_tab === 'history' && $sort_order === 'oldest') ? 'Oldest First' : 'Newest First' ?>" class="w-full bg-transparent border-none text-gray-600 text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                                <span class="material-symbols-outlined absolute right-4 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                            <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-transparent rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/10 transition-all" onclick="toggleCustomDropdown(this, event)">
+                                <input type="text" readonly value="<?= ($active_tab === 'history' && $sort_order === 'oldest') ? 'Oldest First' : 'Newest First' ?>" class="w-full bg-transparent border-none text-[--text-main] opacity-70 text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
+                                <span class="material-symbols-outlined absolute right-4 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                             </div>
-                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white shadow-2xl border border-gray-100 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'history' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest First</div>
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-gray-50 transition-all <?= ($active_tab === 'history' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest First</div>
+                            <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border border-white/5 shadow-2xl p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'history' ? ($sort_order === 'newest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="newest">Newest First</div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/10 transition-all <?= ($active_tab === 'history' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="oldest">Oldest First</div>
                             </div>
                         </div>
                         <div class="flex gap-2">
-                            <input type="date" name="date_from" value="<?= $active_tab === 'history' ? htmlspecialchars($date_from) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="From Date" class="w-[160px] bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
-                            <input type="date" name="date_to" value="<?= $active_tab === 'history' ? htmlspecialchars($date_to) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="To Date" class="w-[160px] bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                            <input type="date" name="date_from" value="<?= $active_tab === 'history' ? htmlspecialchars($date_from) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="From Date" class="w-[160px] bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
+                            <input type="date" name="date_to" value="<?= $active_tab === 'history' ? htmlspecialchars($date_to) : '' ?>" max="<?= date('Y-m-d') ?>" onchange="updateDateBounds(); reactiveFilter(this.form, true)" title="To Date" class="w-[160px] bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                         </div>
-                        <button type="button" onclick="resetFilters('history')" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all">
+                        <button type="button" onclick="resetFilters('history')" class="size-12 rounded-xl bg-white/5 border border-transparent flex items-center justify-center text-[--text-main] opacity-50 hover:text-[--text-main] opacity-70 transition-all">
                             <span class="material-symbols-outlined text-sm">refresh</span>
                         </button>
                     </form>
@@ -1265,7 +1265,7 @@ if (isset($_GET['ajax'])) {
                 <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-gray-100 border-b border-black/5">
+                                <tr class="bg-white/5 border-b border-white/5">
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Plan Type</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Transaction Date</th>
@@ -1286,25 +1286,25 @@ if (isset($_GET['ajax'])) {
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($history_logs as $log): ?>
-                                    <tr class="group hover:bg-black/[0.02] transition-colors">
+                                    <tr class="group hover:bg-white/5 transition-colors">
                                         <td class="px-8 py-6 align-middle">
                                             <div class="flex items-center gap-4">
-                                                <div class="size-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                                                <div class="size-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 overflow-hidden">
                                                     <?php if (!empty($log['gym_logo'])): ?>
                                                         <img src="<?= getLogoPath($log['gym_logo']) ?>" class="size-full object-contain">
                                                     <?php else: ?>
-                                                        <span class="material-symbols-outlined text-[#1e293b] text-[18px]">receipt</span>
+                                                        <span class="material-symbols-outlined text-[--text-main] text-[18px]">receipt</span>
                                                     <?php endif; ?>
                                                 </div>
                                                 <div>
-                                                    <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
+                                                    <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest leading-none"><?= htmlspecialchars($log['gym_name']) ?></p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td class="px-8 py-6 align-middle">
-                                            <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= htmlspecialchars($log['plan_name']) ?></p>
+                                            <p class="text-[11px] font-black uppercase text-[--text-main] tracking-widest"><?= htmlspecialchars($log['plan_name']) ?></p>
                                         </td>
-                                        <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-slate-500 tracking-widest">
+                                        <td class="px-8 py-6 align-middle text-[11px] font-black uppercase text-[--text-main] tracking-widest">
                                             <?= date('M d, Y', strtotime($log['start_date'])) ?>
                                         </td>
                                         <td class="px-8 py-6 align-middle">
@@ -1312,7 +1312,7 @@ if (isset($_GET['ajax'])) {
                                             $subClass = match($log['subscription_status']) {
                                                 'Active' => 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20',
                                                 'Expired' => 'bg-red-500/10 text-red-500 border border-red-500/20',
-                                                default => 'bg-gray-500/10 text-gray-400 border border-gray-500/20'
+                                                default => 'bg-gray-500/10 text-[--text-main] opacity-50 border border-gray-500/20'
                                             };
                                             ?>
                                             <span class="w-fit px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest <?= $subClass ?>">
@@ -1326,7 +1326,7 @@ if (isset($_GET['ajax'])) {
                                         </td>
                                         <td class="px-8 py-6 align-middle text-center">
                                             <button onclick="viewSubscriptionDetails(<?= htmlspecialchars(json_encode($log)) ?>)" 
-                                                    class="size-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center transition-colors group shadow-sm shadow-slate-200/50 mx-auto" title="View Details">
+                                                    class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-transparent text-[--text-main] flex items-center justify-center transition-colors group shadow-sm shadow-black/10 mx-auto" title="View Details">
                                                 <span class="material-symbols-outlined text-[18px] transition-transform group-hover:scale-110">visibility</span>
                                             </button>
                                         </td>
@@ -1337,7 +1337,7 @@ if (isset($_GET['ajax'])) {
                     </table>
                 </div>
                 <!-- Premium Glassmorphism Pagination Container -->
-                <div id="pagination-history" class="px-8 py-4 border-t border-black/5 bg-gray-50 flex justify-between items-center hidden transition-all duration-300">
+                <div id="pagination-history" class="px-8 py-4 border-t border-white/5 bg-transparent flex justify-between items-center hidden transition-all duration-300">
                     <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-widest status-text"></p>
                     <div class="flex gap-2 controls-container"></div>
                 </div>
@@ -1454,17 +1454,17 @@ if (isset($_GET['ajax'])) {
 
 <!-- 4. Sidebar-Aware Modal UI Skeleton (Targeting Requirement) -->
 <div id="adminActionModal" class="sidebar-aware-modal p-4 items-center justify-center min-h-screen overflow-y-auto pointer-events-none">
-    <div class="absolute inset-0 bg-background/40 backdrop-blur-xl pointer-events-auto" onclick="closeModal()"></div>
-    <div class="relative z-10 max-w-sm w-full p-8 border border-white/60 shadow-2xl mx-auto rounded-[32px] bg-white/90 backdrop-blur-3xl pointer-events-auto text-center flex flex-col items-center">
-        <div class="mb-5 flex size-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-sm">
+    <div class="absolute inset-0 bg-[--bg-main]/40 backdrop-blur-xl pointer-events-auto" onclick="closeModal()"></div>
+    <div class="relative z-10 max-w-sm w-full p-8 border border-white/5 shadow-2xl mx-auto rounded-[32px] bg-[--card-bg] backdrop-blur-3xl pointer-events-auto text-center flex flex-col items-center">
+        <div class="mb-5 flex size-14 items-center justify-center rounded-2xl bg-primary/10 border border-transparent shadow-sm">
             <span id="modalIcon" class="material-symbols-outlined text-primary text-2xl">help</span>
         </div>
-        <h3 id="modalTitle" class="text-xl font-black uppercase text-[#1e293b] mb-3 leading-tight">Confirm Action</h3>
-        <p id="modalMessage" class="text-[11px] text-[#1e293b] opacity-60 font-bold leading-relaxed mb-8 px-4">Are you sure you want to proceed with this administrative task?</p>
+        <h3 id="modalTitle" class="text-xl font-black uppercase text-[--text-main] mb-3 leading-tight">Confirm Action</h3>
+        <p id="modalMessage" class="text-[11px] text-[--text-main] opacity-60 font-bold leading-relaxed mb-8 px-4">Are you sure you want to proceed with this administrative task?</p>
         
         <div class="flex gap-3 w-full">
             <button onclick="closeModal()" 
-                    class="flex-1 py-3.5 rounded-xl border border-black/10 bg-black/[0.02] hover:bg-black/[0.05] text-gray-500 hover:text-gray-700 text-[10px] font-black uppercase tracking-widest transition-all">
+                    class="flex-1 py-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-[--text-main] opacity-60 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-all">
                 Cancel
             </button>
             <button id="confirm-btn" 
@@ -1479,26 +1479,26 @@ if (isset($_GET['ajax'])) {
 <!-- Subscription Details Modal -->
 <div id="subscriptionDetailModal" class="sidebar-aware-modal p-4 overflow-y-auto pointer-events-none">
     <div class="absolute inset-0 bg-background/40 backdrop-blur-xl pointer-events-auto" onclick="closeDetailModal()"></div>
-    <div class="relative z-10 max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden border border-black/5 shadow-2xl rounded-[40px] bg-white mx-auto pointer-events-auto">
-        <div class="px-8 py-6 border-b border-black/5 flex justify-between items-center bg-white">
-            <h3 class="text-xl font-black uppercase text-[#1e293b] flex items-center gap-3">
+    <div class="relative z-10 max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden border border-white/5 shadow-2xl rounded-[40px] bg-[--card-bg] mx-auto pointer-events-auto">
+        <div class="px-8 py-6 border-b border-white/5 flex justify-between items-center bg-transparent">
+            <h3 class="text-xl font-black uppercase text-[--text-main] flex items-center gap-3">
                 <span class="material-symbols-outlined text-primary">info</span>
                 Subscription Details
             </h3>
-            <button onclick="closeDetailModal()" class="size-8 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition-all">
+            <button onclick="closeDetailModal()" class="size-8 rounded-lg bg-white/5 hover:bg-white/10 text-[--text-main] opacity-60 flex items-center justify-center transition-all">
                 <span class="material-symbols-outlined text-sm">close</span>
             </button>
         </div>
         
         <div class="p-8 overflow-y-auto no-scrollbar space-y-8">
             <!-- Gym Overview -->
-            <div class="flex items-center gap-6 p-6 rounded-2xl bg-black/[0.02] border border-black/5 shadow-sm">
-                <div class="size-20 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 border border-black/10 shadow-sm">
+            <div class="flex items-center gap-6 p-6 rounded-2xl bg-white/5 border border-white/5 shadow-sm">
+                <div class="size-20 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden shrink-0 border border-transparent shadow-sm">
                     <img id="detailLogo" src="" class="size-full object-contain hidden">
                     <span id="detailIcon" class="material-symbols-outlined text-primary text-4xl">fitness_center</span>
                 </div>
                 <div>
-                    <h4 id="detailGymName" class="text-2xl font-black uppercase text-[#1e293b] leading-none mb-2">Gym Name</h4>
+                    <h4 id="detailGymName" class="text-2xl font-black uppercase text-[--text-main] leading-none mb-2">Gym Name</h4>
                     <p id="detailTenantCode" class="text-[12px] font-black uppercase text-primary tracking-[0.2em]">TENANT_CODE</p>
                 </div>
             </div>
@@ -1506,18 +1506,18 @@ if (isset($_GET['ajax'])) {
             <div class="grid grid-cols-2 gap-6">
                 <!-- Plan Information -->
                 <div class="space-y-4">
-                    <p class="text-[12px] font-black uppercase text-[#1e293b] opacity-40 tracking-widest pl-1">Plan Information</p>
-                    <div class="p-5 rounded-2xl bg-black/[0.02] border border-black/5 shadow-sm space-y-3">
+                    <p class="text-[12px] font-black uppercase text-[--text-main] opacity-40 tracking-widest pl-1">Plan Information</p>
+                    <div class="p-5 rounded-2xl bg-white/5 border border-white/5 shadow-sm space-y-3">
                         <div class="flex justify-between">
-                            <span class="text-[12px] font-bold text-[#1e293b] opacity-50 uppercase">Plan Name</span>
-                            <span id="detailPlanName" class="text-[12px] font-black uppercase text-slate-500">---</span>
+                            <span class="text-[12px] font-bold text-[--text-main] opacity-50 uppercase">Plan Name</span>
+                            <span id="detailPlanName" class="text-[12px] font-black uppercase text-[--text-main]">---</span>
                         </div>
-                        <div class="flex justify-between border-t border-black/5 pt-3">
-                            <span class="text-[12px] font-bold text-[#1e293b] opacity-50 uppercase">Price</span>
+                        <div class="flex justify-between border-t border-white/5 pt-3">
+                            <span class="text-[12px] font-bold text-[--text-main] opacity-50 uppercase">Price</span>
                             <span id="detailPrice" class="text-[12px] font-black uppercase text-emerald-500">---</span>
                         </div>
-                        <div class="flex justify-between border-t border-black/5 pt-3">
-                            <span class="text-[12px] font-bold text-[#1e293b] opacity-50 uppercase">Billing Cycle</span>
+                        <div class="flex justify-between border-t border-white/5 pt-3">
+                            <span class="text-[12px] font-bold text-[--text-main] opacity-50 uppercase">Billing Cycle</span>
                             <span id="detailBilling" class="text-[12px] font-black uppercase text-primary">---</span>
                         </div>
                     </div>
@@ -1525,18 +1525,18 @@ if (isset($_GET['ajax'])) {
 
                 <!-- Status & Timing -->
                 <div class="space-y-4">
-                    <p class="text-[12px] font-black uppercase text-[#1e293b] opacity-40 tracking-widest pl-1">Subscription Validity</p>
-                    <div class="p-5 rounded-2xl bg-black/[0.02] border border-black/5 shadow-sm space-y-3">
+                    <p class="text-[12px] font-black uppercase text-[--text-main] opacity-40 tracking-widest pl-1">Subscription Validity</p>
+                    <div class="p-5 rounded-2xl bg-white/5 border border-white/5 shadow-sm space-y-3">
                         <div class="flex justify-between">
-                            <span class="text-[12px] font-bold text-[#1e293b] opacity-50 uppercase">Status</span>
-                            <span id="detailSubStatus" class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-black/10">---</span>
+                            <span class="text-[12px] font-bold text-[--text-main] opacity-50 uppercase">Status</span>
+                            <span id="detailSubStatus" class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-white/10">---</span>
                         </div>
-                        <div class="flex justify-between border-t border-black/5 pt-3">
-                            <span class="text-[12px] font-bold text-[#1e293b] opacity-50 uppercase">Start Date</span>
-                            <span id="detailStart" class="text-[12px] font-black uppercase text-slate-500">---</span>
+                        <div class="flex justify-between border-t border-white/5 pt-3">
+                            <span class="text-[12px] font-bold text-[--text-main] opacity-50 uppercase">Start Date</span>
+                            <span id="detailStart" class="text-[12px] font-black uppercase text-[--text-main]">---</span>
                         </div>
-                        <div class="flex justify-between border-t border-black/5 pt-3">
-                            <span class="text-[12px] font-bold text-[#1e293b] opacity-50 uppercase">Expiry Date</span>
+                        <div class="flex justify-between border-t border-white/5 pt-3">
+                            <span class="text-[12px] font-bold text-[--text-main] opacity-50 uppercase">Expiry Date</span>
                             <span id="detailEnd" class="text-[12px] font-black uppercase text-rose-500">---</span>
                         </div>
                     </div>
@@ -1545,21 +1545,21 @@ if (isset($_GET['ajax'])) {
 
             <!-- Payment Details -->
             <div class="space-y-4">
-                <p class="text-[12px] font-black uppercase text-[#1e293b] opacity-40 tracking-widest pl-1">Payment Verification</p>
+                <p class="text-[12px] font-black uppercase text-[--text-main] opacity-40 tracking-widest pl-1">Payment Verification</p>
                 <div id="detailPayContainer" class="p-6 rounded-2xl bg-amber-500/[0.05] border border-amber-500/10 flex items-center justify-between">
                     <div>
                         <p id="detailPayLabel" class="text-[9px] font-black text-amber-500/70 uppercase tracking-widest mb-1">Payment Status</p>
                         <p id="detailPayStatus" class="text-sm font-black uppercase text-amber-500">---</p>
                     </div>
                     <div class="text-right">
-                        <p class="text-[9px] font-black text-[#1e293b] opacity-40 uppercase tracking-widest mb-1">Reference Number</p>
-                        <p id="detailRefNo" class="text-sm font-black uppercase text-slate-500">---</p>
+                        <p class="text-[9px] font-black text-[--text-main] opacity-40 uppercase tracking-widest mb-1">Reference Number</p>
+                        <p id="detailRefNo" class="text-sm font-black uppercase text-[--text-main]">---</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="px-8 py-6 border-t border-black/5 bg-white">
+        <div class="px-8 py-6 border-t border-white/5 bg-transparent">
             <button onclick="closeDetailModal()" class="w-full py-4 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-[0.2em] shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all">
                 Dismiss Details
             </button>
@@ -1695,7 +1695,7 @@ if (isset($_GET['ajax'])) {
                 
                 dropdown.querySelectorAll('.custom-option').forEach(opt => {
                     opt.classList.remove('selected-option');
-                    opt.classList.add('text-gray-600');
+                    opt.classList.add('text-[--text-main] opacity-70');
                 });
                 option.classList.add('selected-option');
                 option.classList.remove('text-gray-600');

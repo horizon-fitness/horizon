@@ -23,24 +23,24 @@ if (isset($pdo)) {
 ?>
 <style>
     body {
-        background-color: #f8fafc !important;
-        background-image: radial-gradient(circle at 50% -10%, rgba(var(--primary-rgb), 0.1), transparent 70%) !important;
+        background-color: var(--background) !important;
+        background-image: none !important;
     }
     
     .sidebar-nav {
-        background: rgba(248, 250, 252, 0.8) !important;
+        background: var(--background) !important;
         backdrop-filter: blur(16px) !important;
         -webkit-backdrop-filter: blur(16px) !important;
-        border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+        border-right: 1px solid rgba(150, 150, 150, 0.2) !important;
     }
 
     .sidebar-nav .nav-link:not(.active-nav) {
-        color: #475569 !important; /* slate-600, darker than gray-500 but not black */
+        color: var(--text-main) !important; 
+        opacity: 0.6;
     }
     
     .sidebar-nav .nav-link:not(.active-nav) span.material-symbols-outlined {
-        color: #475569 !important;
-        opacity: 1 !important;
+        color: var(--text-main) !important;
     }
 
     .sidebar-nav .nav-link:not(.active-nav):hover {
@@ -136,7 +136,7 @@ if (isset($pdo)) {
 
     </div>
 
-    <div class="mt-auto pt-4 border-t border-black/10 flex flex-col gap-1 shrink-0 pb-6">
+    <div class="mt-auto pt-4 flex flex-col gap-1 shrink-0 pb-6" style="border-top: 1px solid rgba(150, 150, 150, 0.2);">
         <div class="nav-section-header px-7 mb-0">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">Account</span>
         </div>

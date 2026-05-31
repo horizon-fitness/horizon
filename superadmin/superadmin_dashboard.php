@@ -168,18 +168,18 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
             --primary: <?= $brand['theme_color'] ?? '#8c2bee' ?>;
             --primary-rgb: <?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>;
             --highlight: <?= $brand['secondary_color'] ?? '#9ca3af' ?>;
-            --text-main: #0f172a;
-            --background: #f8fafc;
+            --text-main: <?= $brand['text_color'] ?? '#0f172a' ?>;
+            --background: <?= $brand['bg_color'] ?? '#f3f4f6' ?>;
 
             /* Glassmorphism Engine */
             --card-blur: 20px;
-            --card-bg: rgba(255, 255, 255, 0.8);
+            --card-bg: <?= ($brand['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($brand['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($brand['card_color'] ?? '#ffffff') ?>;
         }
 
         body {
             font-family: '<?= $brand['font_family'] ?? 'Lexend' ?>', sans-serif;
             background-color: var(--background);
-            background-image: radial-gradient(circle at 50% -10%, rgba(var(--primary-rgb), 0.1), transparent 70%);
+            background-image: none;
             color: var(--text-main);
         }
 
@@ -220,7 +220,7 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
             top: 0;
             bottom: 0;
             z-index: 50;
-            background: rgba(248, 250, 252, 0.8);
+            background: rgba(243, 244, 246, 0.85);
             backdrop-filter: blur(16px);
             border-right: 1px solid rgba(0, 0, 0, 0.05);
         }
@@ -501,7 +501,7 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-                <div class="glass-card p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]" style="border: 2px solid #e2e8f0; transform: none !important;">
+                <div class="glass-card p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]" style="border: 1px solid rgba(150,150,150,0.2); transform: none !important;">
                     <div class="flex justify-between items-center mb-6">
                         <div>
                             <h3 class="text-sm font-black italic uppercase tracking-widest text-[--text-main]">Daily System Activity</h3>
@@ -512,7 +512,7 @@ unset($_SESSION['success_msg'], $_SESSION['error_msg']);
                         <canvas id="dailyActivityChart"></canvas>
                     </div>
                 </div>
-                <div class="glass-card p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]" style="border: 2px solid #e2e8f0; transform: none !important;">
+                <div class="glass-card p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)]" style="border: 1px solid rgba(150,150,150,0.2); transform: none !important;">
                     <div class="flex justify-between items-center mb-6">
                         <div>
                             <h3 class="text-sm font-black italic uppercase tracking-widest text-[--text-main]">Monthly Growth Trend</h3>

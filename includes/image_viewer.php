@@ -18,9 +18,9 @@
     #imageBackdrop {
         position: absolute;
         inset: 0;
-        background: rgba(255, 255, 255, 0.4);
-        backdrop-filter: blur(24px) saturate(150%);
-        -webkit-backdrop-filter: blur(24px) saturate(150%);
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         z-index: -1;
         pointer-events: auto;
     }
@@ -37,9 +37,9 @@
         position: relative;
         transform: scale(0.98);
         transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        background: #ffffff;
+        background: var(--card-bg, #ffffff);
         border-radius: 40px;
-        border: 1px solid rgba(0,0,0,0.05);
+        border: 1px solid var(--border-subtle, rgba(0,0,0,0.05));
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -50,11 +50,11 @@
     }
     .viewer-header {
         padding: 24px 32px;
-        border-bottom: 1px solid rgba(0,0,0,0.05);
+        border-bottom: 1px solid var(--border-subtle, rgba(0,0,0,0.05));
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: rgba(0,0,0,0.01);
+        background: rgba(150,150,150,0.05);
     }
     .viewer-title-group {
         display: flex;
@@ -73,7 +73,7 @@
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: -0.02em;
-        color: #0f172a;
+        color: var(--text-main, #0f172a);
         font-style: italic;
     }
     .viewer-body {
@@ -83,7 +83,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        background: #f8fafc;
+        background: var(--background, #f8fafc);
         overscroll-behavior: contain;
         scrollbar-width: none; /* Firefox */
         -ms-overflow-style: none; /* IE 10+ */
@@ -126,20 +126,20 @@
     .viewer-action-btn {
         width: 44px;
         height: 44px;
-        background: rgba(0,0,0,0.04);
-        color: #475569;
+        background: rgba(150,150,150,0.1);
+        color: var(--text-main, #475569);
         border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         transition: all 0.3s;
-        border: 1px solid rgba(0,0,0,0.05);
+        border: 1px solid var(--border-subtle, rgba(0,0,0,0.05));
         text-decoration: none;
     }
     .viewer-action-btn:hover {
-        background: rgba(0,0,0,0.08);
-        color: #0f172a;
+        background: rgba(150,150,150,0.2);
+        color: var(--text-main, #0f172a);
     }
     .viewer-close:hover {
         background: #ef4444;
@@ -152,8 +152,8 @@
         height: 80vh;
         border-radius: 24px;
         box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        border: 1px solid rgba(0,0,0,0.05);
-        background: #e2e8f0; /* Modern dark background for PDF frame edge */
+        border: 1px solid var(--border-subtle, rgba(0,0,0,0.05));
+        background: var(--card-bg, #e2e8f0); /* Modern dark background for PDF frame edge */
     }
     .hidden {
         display: none !important;
@@ -183,7 +183,7 @@
                 <iframe id="viewer-main-pdf" src="" class="viewer-pdf hidden" title="PDF Document"></iframe>
                 <div id="viewer-footer-label" class="viewer-footer-label bg-primary/5 px-8 py-4 rounded-3xl border border-primary/20 backdrop-blur-xl opacity-0 transition-opacity duration-500 shadow-xl shadow-primary/5">
                     <p class="text-[10px] font-black uppercase text-primary tracking-[0.2em] mb-1.5 text-center italic">Authenticated Document</p>
-                    <p id="viewer-document-name" class="text-sm font-black italic uppercase text-slate-900 text-center tracking-tight">Document Name</p>
+                    <p id="viewer-document-name" class="text-sm font-black italic uppercase text-[--text-main] text-center tracking-tight">Document Name</p>
                 </div>
             </div>
         </div>

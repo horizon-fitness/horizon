@@ -277,12 +277,12 @@ $rejected_count = count($rejected_apps);
             --primary: <?= $brand['theme_color'] ?? '#8c2bee' ?>;
             --primary-rgb: <?= hexToRgb($brand['theme_color'] ?? '#8c2bee') ?>;
             --highlight: <?= $brand['secondary_color'] ?? '#a1a1aa' ?>;
-            --text-main: #0f172a; /* PREMIUM LIGHT: Dark slate text */
-            --background: #f8fafc; /* PREMIUM LIGHT: Soft off-white */
+            --text-main: <?= $brand['text_color'] ?? '#0f172a' ?>;
+            --background: <?= $brand['bg_color'] ?? '#f8fafc' ?>;
 
-            /* Glassmorphism Engine for Light Mode */
+            /* Glassmorphism Engine */
             --card-blur: 20px;
-            --card-bg: rgba(255, 255, 255, 0.8);
+            --card-bg: <?= ($brand['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($brand['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($brand['card_color'] ?? '#ffffff') ?>;
         }
 
         body {
@@ -302,7 +302,7 @@ $rejected_count = count($rejected_apps);
         }
         
         .static-table {
-            border: 2px solid #e2e8f0 !important;
+            border: 1px solid rgba(150,150,150,0.2) !important;
             transform: none !important;
             transition: none !important;
         }
@@ -633,9 +633,9 @@ $rejected_count = count($rejected_apps);
         }
         
         .searchable-dropdown-overlay {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);
+            background: var(--card-bg, rgba(255, 255, 255, 0.05));
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.3);
             z-index: 100;
             scrollbar-width: none;
             margin-top: 0;
@@ -683,11 +683,11 @@ $tenants_js = $tab_tenants;
                 );
                 
                 list.innerHTML = filtered.map(t => `
-                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${currentFilter == t.id ? 'selected-option' : 'text-gray-600'}" 
+                    <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all ${currentFilter == t.id ? 'selected-option' : 'text-[--text-main] opacity-70'}" 
                          data-id="${t.id}" data-name="${t.name}">
                         ${t.name}
                     </div>
-                `).join('') || `<div class="px-4 py-3 text-[9px] text-gray-400 italic uppercase font-black">No tenant found...</div>`;
+                `).join('') || `<div class="px-4 py-3 text-[9px] text-[--text-main] opacity-50 italic uppercase font-black">No tenant found...</div>`;
             }
 
             input.addEventListener('focus', () => {
@@ -906,32 +906,32 @@ $tenants_js = $tab_tenants;
 
 
                     <!-- Tab-Specific Filter Bar -->
-                    <div class="px-8 py-4 bg-transparent border-b border-black/5">
+                    <div class="px-8 py-4 bg-transparent border-b border-white/5">
                         <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="pending">
                             
                             <div class="flex-1 min-w-[250px] relative group">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-50 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'pending' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name or Email..." 
                                        oninput="applyFiltersAsync(this.form)" 
-                                       class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
+                                       class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-white/30 outline-none text-[--text-main] opacity-70">
                             </div>
 
                             <!-- Searchable Tenant Selector -->
                             <div class="flex-1 min-w-[220px] relative z-[1000] group searchable-select-container" id="tenantSearchContainer-pending">
                                 <input type="hidden" name="tenant_id" id="hidden_tenant_id-pending" value="<?= htmlspecialchars($tenant_filter) ?>">
                                 <div class="relative">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
                                     <input type="text" id="tenantSearchInput-pending" 
                                            placeholder="Search Tenant..." 
                                            value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
                                            autocomplete="off"
-                                           class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-gray-600 hover:border-gray-200 transition-all focus:border-gray-300">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                           class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:border-white/30">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
                                 <div id="tenantDropdown-pending" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
                                     <div class="p-1.5 space-y-0.5">
-                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-gray-600' ?>" data-id="all" data-name="All Tenants">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-[--text-main] opacity-70' ?>" data-id="all" data-name="All Tenants">
                                             All Tenants
                                         </div>
                                         <div id="tenantOptionsList-pending"></div>
@@ -942,13 +942,13 @@ $tenants_js = $tab_tenants;
                             <div class="w-[230px] relative group custom-select-container">
                                 <input type="hidden" name="sort" value="<?= $active_tab === 'pending' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
                                 <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
-                                    <input type="text" readonly value="<?= ($active_tab === 'pending' && $sort_order === 'oldest') ? 'Oldest First' : 'Newest First' ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
+                                    <input type="text" readonly value="<?= ($active_tab === 'pending' && $sort_order === 'oldest') ? 'Oldest First' : 'Newest First' ?>" class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'pending' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest First</div>
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'pending' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest First</div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border-white/10 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'pending' ? ($sort_order === 'newest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="newest">Newest First</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'pending' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="oldest">Oldest First</div>
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -956,15 +956,15 @@ $tenants_js = $tab_tenants;
                                        max="<?= min($date_to, date('Y-m-d')) ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Submission Date From" 
-                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                                       class="bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                                 <input type="date" name="date_to" value="<?= $active_tab === 'pending' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
                                        min="<?= $date_from ?>"
                                        max="<?= date('Y-m-d') ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Submission Date To" 
-                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                                       class="bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                             </div>
-                            <a href="tenant_management.php?tab=pending" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all hover:bg-gray-200" onclick="resetTabFilters('pending'); return false;" title="Reset All Pending Filters">
+                            <a href="tenant_management.php?tab=pending" class="size-12 rounded-xl bg-white/5 border border-transparent flex items-center justify-center text-[--text-main] opacity-50 hover:text-[--text-main] opacity-70 transition-all hover:bg-white/10" onclick="resetTabFilters('pending'); return false;" title="Reset All Pending Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -972,7 +972,7 @@ $tenants_js = $tab_tenants;
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-gray-100 border-b border-black/5">
+                                <tr class="bg-white/5 border-b border-white/5">
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Business ID</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Applicant</th>
@@ -980,7 +980,7 @@ $tenants_js = $tab_tenants;
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="pendingTableBody" class="divide-y divide-black/5 text-sm font-medium">
+                            <tbody id="pendingTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($pending_apps)): ?>
                                     <tr>
                                         <td colspan="5" class="px-8 py-12 text-center text-xs font-black uppercase text-[--text-main] opacity-40 tracking-widest italic no-pagination">All caught up! No pending applications found.</td>
@@ -991,7 +991,7 @@ $tenants_js = $tab_tenants;
                                             <td class="px-8 py-6 align-middle">
                                                 <div class="flex items-center gap-3">
                                                     <div
-                                                        class="size-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 border border-transparent group-hover:scale-105 transition-transform">
+                                                        class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 border border-transparent group-hover:scale-105 transition-transform">
                                                         <?php if (!empty($app['gym_logo'])):
                                                             $logo_path = getLogoPath($app['gym_logo']);
                                                             ?>
@@ -1002,7 +1002,7 @@ $tenants_js = $tab_tenants;
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-[16px] font-black text-[#1e293b]"><?= htmlspecialchars($app['gym_name']) ?></p>
+                                                        <p class="text-[16px] font-black text-[--text-main]"><?= htmlspecialchars($app['gym_name']) ?></p>
                                                         <p class="text-[11px] text-primary uppercase tracking-widest font-black">TYPE: <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? 'Gym/Fitness')) ?></p>
                                                     </div>
                                                 </div>
@@ -1015,8 +1015,8 @@ $tenants_js = $tab_tenants;
                                             </td>
                                             <td class="px-8 py-6 align-middle">
                                                 <div class="flex flex-col">
-                                                    <p class="text-[14px] font-black text-[#1e293b]"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
-                                                    <p class="text-[12px] font-bold text-slate-500"><?= htmlspecialchars($app['email']) ?></p>
+                                                    <p class="text-[14px] font-black text-[--text-main]"><?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?></p>
+                                                    <p class="text-[12px] font-bold text-[--text-main] opacity-70"><?= htmlspecialchars($app['email']) ?></p>
                                                 </div>
                                             </td>
                                             <td class="px-8 py-6 align-middle">
@@ -1026,7 +1026,7 @@ $tenants_js = $tab_tenants;
                                             <td class="px-8 py-6 text-center align-middle">
                                                 <div class="flex justify-center gap-2">
                                                     <button onclick="openApplicationModal(<?= $app['application_id'] ?>)"
-                                                        class="size-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center transition-colors group shadow-sm shadow-slate-200/50" title="View Application Details">
+                                                        class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[--text-main] opacity-50 hover:opacity-100 flex items-center justify-center transition-colors group shadow-sm shadow-black/10" title="View Application Details">
                                                         <span class="material-symbols-outlined text-[18px]">visibility</span>
                                                     </button>
                                                     <form method="POST" action="../action/process_application.php"
@@ -1063,7 +1063,7 @@ $tenants_js = $tab_tenants;
                         <div class="size-2 rounded-full bg-amber-500 animate-pulse"></div>
                         <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                     </div>
-                    <div class="flex gap-2 p-1.5 rounded-2xl bg-gray-100 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
+                    <div class="flex gap-2 p-1.5 rounded-2xl bg-white/5 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
                 </div>
             </div>
 
@@ -1072,32 +1072,32 @@ $tenants_js = $tab_tenants;
 
 
                     <!-- Tab-Specific Filter Bar -->
-                    <div class="px-8 py-4 bg-transparent border-b border-black/5">
+                    <div class="px-8 py-4 bg-transparent border-b border-white/5">
                         <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="active">
                             
                             <div class="flex-1 min-w-[250px] relative group">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-50 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'active' ? htmlspecialchars($search) : '' ?>" placeholder="Search Active Gyms..." 
                                        oninput="applyFiltersAsync(this.form)" 
-                                       class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
+                                       class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-white/30 outline-none text-[--text-main] opacity-70">
                             </div>
 
                             <!-- Searchable Tenant Selector -->
                             <div class="flex-1 min-w-[220px] relative z-[1000] group searchable-select-container" id="tenantSearchContainer-active">
                                 <input type="hidden" name="tenant_id" id="hidden_tenant_id-active" value="<?= htmlspecialchars($tenant_filter) ?>">
                                 <div class="relative">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
                                     <input type="text" id="tenantSearchInput-active" 
                                            placeholder="Search Tenant..." 
                                            value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
                                            autocomplete="off"
-                                           class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-gray-600 hover:border-gray-200 transition-all focus:border-gray-300">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                           class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:border-white/30">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
                                 <div id="tenantDropdown-active" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
                                     <div class="p-1.5 space-y-0.5">
-                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-gray-600' ?>" data-id="all" data-name="All Tenants">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-[--text-main] opacity-70' ?>" data-id="all" data-name="All Tenants">
                                             All Tenants
                                         </div>
                                         <div id="tenantOptionsList-active"></div>
@@ -1108,7 +1108,7 @@ $tenants_js = $tab_tenants;
                             <div class="w-[230px] relative group custom-select-container">
                                 <input type="hidden" name="plan_id" value="<?= $active_tab === 'active' ? htmlspecialchars($plan_id) : 'all' ?>" onchange="applyFiltersAsync(this.form)">
                                 <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">category</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">category</span>
                                     <?php 
                                         $display_text = 'Plan: All Type';
                                         if ($active_tab === 'active' && $plan_id !== 'all') {
@@ -1119,29 +1119,29 @@ $tenants_js = $tab_tenants;
                                             }
                                         }
                                     ?>
-                                    <input type="text" readonly value="<?= htmlspecialchars($display_text) ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    <input type="text" readonly value="<?= htmlspecialchars($display_text) ?>" class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ($plan_id === 'all' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="all">Plan: All Type</div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border-white/10 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ($plan_id === 'all' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="all">Plan: All Type</div>
                                     <?php foreach ($all_plans as $p): ?>
-                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ((string)$plan_id === (string)$p['website_plan_id'] ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="<?= $p['website_plan_id'] ?>"><?= htmlspecialchars($p['plan_name']) ?></div>
+                                        <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ((string)$plan_id === (string)$p['website_plan_id'] ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="<?= $p['website_plan_id'] ?>"><?= htmlspecialchars($p['plan_name']) ?></div>
                                     <?php endforeach; ?>
                                 </div>
                             </div>
                             <div class="w-[230px] relative group custom-select-container">
                                 <input type="hidden" name="sort" value="<?= $active_tab === 'active' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
                                 <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
-                                    <input type="text" readonly value="<?= ($active_tab === 'active' && $sort_order === 'oldest') ? 'Oldest Created' : 'Newest Created' ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
+                                    <input type="text" readonly value="<?= ($active_tab === 'active' && $sort_order === 'oldest') ? 'Oldest Created' : 'Newest Created' ?>" class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest Created</div>
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest Created</div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border-white/10 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ($sort_order === 'newest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="newest">Newest Created</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'active' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="oldest">Oldest Created</div>
                                 </div>
                             </div>
-                            <a href="tenant_management.php?tab=active" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all hover:bg-gray-200" onclick="resetTabFilters('active'); return false;" title="Reset All Active Filters">
+                            <a href="tenant_management.php?tab=active" class="size-12 rounded-xl bg-white/5 border border-transparent flex items-center justify-center text-[--text-main] opacity-50 hover:text-[--text-main] opacity-70 transition-all hover:bg-white/10" onclick="resetTabFilters('active'); return false;" title="Reset All Active Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -1149,7 +1149,7 @@ $tenants_js = $tab_tenants;
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-gray-100 border-b border-black/5">
+                                <tr class="bg-white/5 border-b border-white/5">
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Owner Contact</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Plan</th>
@@ -1158,7 +1158,7 @@ $tenants_js = $tab_tenants;
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="activeTableBody" class="divide-y divide-black/5 text-sm font-medium">
+                            <tbody id="activeTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($active_tenants)): ?>
                                     <tr>
                                         <td colspan="6"
@@ -1171,7 +1171,7 @@ $tenants_js = $tab_tenants;
                                             <td class="px-8 py-6 align-middle">
                                                 <div class="flex items-center gap-3">
                                                     <?php $logo_src = getLogoPath($t['logo_path']); ?>
-                                                    <div class="size-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
+                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
                                                         data-src="<?= $logo_src ?>"
                                                         data-title="<?= htmlspecialchars($t['gym_name']) ?>">
                                                         <?php if (!empty($logo_src)): ?>
@@ -1181,17 +1181,17 @@ $tenants_js = $tab_tenants;
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-[16px] font-black text-[#1e293b]"><?= htmlspecialchars($t['gym_name']) ?></p>
+                                                        <p class="text-[16px] font-black text-[--text-main]"><?= htmlspecialchars($t['gym_name']) ?></p>
                                                         <p class="text-[11px] text-primary uppercase tracking-widest font-black">Code: <?= htmlspecialchars($t['tenant_code']) ?></p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td class="px-8 py-6 align-middle">
-                                                <p class="text-[14px] font-black text-[#1e293b]"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
-                                                <p class="text-[12px] font-bold text-slate-500"><?= htmlspecialchars($t['owner_email']) ?></p>
+                                                <p class="text-[14px] font-black text-[--text-main]"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
+                                                <p class="text-[12px] font-bold text-[--text-main] opacity-70"><?= htmlspecialchars($t['owner_email']) ?></p>
                                             </td>
                                             <td class="px-8 py-6 align-middle">
-                                                <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
+                                                <p class="text-[11px] font-black uppercase text-[--text-main] opacity-70 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
                                             </td>
                                             <td class="px-8 py-6 align-middle">
                                                 <?php
@@ -1207,7 +1207,7 @@ $tenants_js = $tab_tenants;
                                                         Issue</span>
                                                 <?php else: ?>
                                                     <span
-                                                        class="w-fit px-3 py-1 rounded-full bg-gray-500/10 border border-gray-500/20 text-[9px] text-gray-400 font-black uppercase italic">No
+                                                        class="w-fit px-3 py-1 rounded-full bg-gray-500/10 border border-gray-500/20 text-[9px] text-[--text-main] opacity-50 font-black uppercase italic">No
                                                         Active Subscription</span>
                                                 <?php endif; ?>
                                             </td>
@@ -1216,7 +1216,7 @@ $tenants_js = $tab_tenants;
                                                     <div class="flex items-center gap-2">
                                                         <span
                                                             class="material-symbols-outlined text-sm text-primary">groups</span>
-                                                        <p class="text-[14px] font-black italic text-[#1e293b]">
+                                                        <p class="text-[14px] font-black italic text-[--text-main]">
                                                             <?= number_format($t['member_count']) ?>
                                                         </p>
                                                     </div>
@@ -1244,7 +1244,7 @@ $tenants_js = $tab_tenants;
                                                         </div>
                                                     <?php else: ?>
                                                         <span
-                                                            class="text-[9px] font-black uppercase italic text-gray-500 tracking-wider"><?= htmlspecialchars($t['status']) ?></span>
+                                                            class="text-[9px] font-black uppercase italic text-[--text-main] opacity-50 tracking-wider"><?= htmlspecialchars($t['status']) ?></span>
                                                     <?php endif; ?>
                                                 </div>
                                             </td>
@@ -1253,7 +1253,7 @@ $tenants_js = $tab_tenants;
                                                     <?php if ($t['application_id']): ?>
                                                         <button onclick="openApplicationModal(<?= $t['application_id'] ?>)"
                                                             title="View Application Details"
-                                                            class="size-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center transition-colors group shadow-sm shadow-slate-200/50">
+                                                            class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[--text-main] opacity-50 hover:opacity-100 flex items-center justify-center transition-colors group shadow-sm shadow-black/10">
                                                             <span class="material-symbols-outlined text-[18px]">visibility</span>
                                                         </button>
                                                     <?php endif; ?>
@@ -1307,7 +1307,7 @@ $tenants_js = $tab_tenants;
                             <div class="size-2 rounded-full bg-primary animate-pulse"></div>
                             <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                         </div>
-                        <div class="flex gap-2 p-1.5 rounded-2xl bg-gray-100 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
+                        <div class="flex gap-2 p-1.5 rounded-2xl bg-white/5 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
                     </div>
                 </div>
             </div>
@@ -1317,31 +1317,31 @@ $tenants_js = $tab_tenants;
 
 
                     <!-- Tab-Specific Filter Bar -->
-                    <div class="px-8 py-4 bg-transparent border-b border-black/5">
+                    <div class="px-8 py-4 bg-transparent border-b border-white/5">
                         <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="suspended">
                             <div class="flex-1 min-w-[250px] relative group">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-50 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'suspended' ? htmlspecialchars($search) : '' ?>" placeholder="Search Suspended Gyms..." 
                                        oninput="applyFiltersAsync(this.form)" 
-                                       class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
+                                       class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-white/30 outline-none text-[--text-main] opacity-70">
                             </div>
 
                             <!-- Searchable Tenant Selector -->
                             <div class="flex-1 min-w-[220px] relative z-[1000] group searchable-select-container" id="tenantSearchContainer-suspended">
                                 <input type="hidden" name="tenant_id" id="hidden_tenant_id-suspended" value="<?= htmlspecialchars($tenant_filter) ?>">
                                 <div class="relative">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
                                     <input type="text" id="tenantSearchInput-suspended" 
                                            placeholder="Search Tenant..." 
                                            value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
                                            autocomplete="off"
-                                           class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-gray-600 hover:border-gray-200 transition-all focus:border-gray-300">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                           class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:border-white/30">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
                                 <div id="tenantDropdown-suspended" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
                                     <div class="p-1.5 space-y-0.5">
-                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-gray-600' ?>" data-id="all" data-name="All Tenants">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-[--text-main] opacity-70' ?>" data-id="all" data-name="All Tenants">
                                             All Tenants
                                         </div>
                                         <div id="tenantOptionsList-suspended"></div>
@@ -1352,13 +1352,13 @@ $tenants_js = $tab_tenants;
                             <div class="w-[230px] relative group custom-select-container">
                                 <input type="hidden" name="sort" value="<?= $active_tab === 'suspended' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
                                 <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
-                                    <input type="text" readonly value="<?= ($active_tab === 'suspended' && $sort_order === 'oldest') ? 'Oldest Suspended' : 'Newest Suspended' ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
+                                    <input type="text" readonly value="<?= ($active_tab === 'suspended' && $sort_order === 'oldest') ? 'Oldest Suspended' : 'Newest Suspended' ?>" class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'suspended' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest Suspended</div>
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'suspended' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest Suspended</div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border-white/10 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'suspended' ? ($sort_order === 'newest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="newest">Newest Suspended</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'suspended' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="oldest">Oldest Suspended</div>
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -1366,15 +1366,15 @@ $tenants_js = $tab_tenants;
                                        max="<?= min($date_to, date('Y-m-d')) ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Suspension Date From" 
-                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                                       class="bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                                 <input type="date" name="date_to" value="<?= $active_tab === 'suspended' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
                                        min="<?= $date_from ?>"
                                        max="<?= date('Y-m-d') ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Suspension Date To" 
-                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                                       class="bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                             </div>
-                            <a href="tenant_management.php?tab=suspended" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-all" onclick="resetTabFilters('suspended'); return false;" title="Reset All Suspended Filters">
+                            <a href="tenant_management.php?tab=suspended" class="size-12 rounded-xl bg-white/5 border border-transparent flex items-center justify-center text-[--text-main] opacity-50 hover:bg-white/10 transition-all" onclick="resetTabFilters('suspended'); return false;" title="Reset All Suspended Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -1382,7 +1382,7 @@ $tenants_js = $tab_tenants;
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-gray-100 border-b border-black/5">
+                                <tr class="bg-white/5 border-b border-white/5">
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Owner Contact</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Plan & Status</th>
@@ -1390,7 +1390,7 @@ $tenants_js = $tab_tenants;
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="suspendedTableBody" class="divide-y divide-black/5 text-sm font-medium">
+                            <tbody id="suspendedTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($suspended_tenants)): ?>
                                     <tr>
                                         <td colspan="5"
@@ -1403,7 +1403,7 @@ $tenants_js = $tab_tenants;
                                             <td class="px-8 py-6 align-middle">
                                                 <div class="flex items-center gap-3">
                                                     <?php $logo_src = getLogoPath($t['logo_path']); ?>
-                                                    <div class="size-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
+                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
                                                         data-src="<?= $logo_src ?>"
                                                         data-title="<?= htmlspecialchars($t['gym_name']) ?>">
                                                         <?php if (!empty($logo_src)): ?>
@@ -1413,18 +1413,18 @@ $tenants_js = $tab_tenants;
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-[16px] font-black text-[#1e293b]"><?= htmlspecialchars($t['gym_name']) ?></p>
+                                                        <p class="text-[16px] font-black text-[--text-main]"><?= htmlspecialchars($t['gym_name']) ?></p>
                                                         <p class="text-[11px] text-amber-500 uppercase tracking-widest font-black">Code: <?= htmlspecialchars($t['tenant_code']) ?></p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td class="px-8 py-6 align-middle">
-                                                <p class="text-[14px] font-black text-[#1e293b]"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
-                                                <p class="text-[12px] font-bold text-slate-500"><?= htmlspecialchars($t['owner_email']) ?></p>
+                                                <p class="text-[14px] font-black text-[--text-main]"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></p>
+                                                <p class="text-[12px] font-bold text-[--text-main] opacity-70"><?= htmlspecialchars($t['owner_email']) ?></p>
                                             </td>
                                             <td class="px-8 py-6 align-middle">
                                                 <div class="flex flex-col gap-1.5">
-                                                    <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
+                                                    <p class="text-[11px] font-black uppercase text-[--text-main] opacity-70 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
                                                     <span class="w-fit px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-500 font-black uppercase italic">Suspended</span>
                                                 </div>
                                             </td>
@@ -1469,7 +1469,7 @@ $tenants_js = $tab_tenants;
                             <div class="size-2 rounded-full bg-amber-500 animate-pulse"></div>
                             <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                         </div>
-                        <div class="flex gap-2 p-1.5 rounded-2xl bg-gray-100 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
+                        <div class="flex gap-2 p-1.5 rounded-2xl bg-white/5 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
                     </div>
                 </div>
             </div>
@@ -1479,31 +1479,31 @@ $tenants_js = $tab_tenants;
 
 
                     <!-- Tab-Specific Filter Bar -->
-                    <div class="px-8 py-4 bg-transparent border-b border-black/5">
+                    <div class="px-8 py-4 bg-transparent border-b border-white/5">
                         <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="deactivated">
                             <div class="flex-1 min-w-[250px] relative group">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-50 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($search) : '' ?>" placeholder="Search Name, Code, owner..." 
                                        oninput="applyFiltersAsync(this.form)" 
-                                       class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
+                                       class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-white/30 outline-none text-[--text-main] opacity-70">
                             </div>
 
                             <!-- Searchable Tenant Selector -->
                             <div class="flex-1 min-w-[220px] relative z-[1000] group searchable-select-container" id="tenantSearchContainer-deactivated">
                                 <input type="hidden" name="tenant_id" id="hidden_tenant_id-deactivated" value="<?= htmlspecialchars($tenant_filter) ?>">
                                 <div class="relative">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
                                     <input type="text" id="tenantSearchInput-deactivated" 
                                            placeholder="Search Tenant..." 
                                            value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
                                            autocomplete="off"
-                                           class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-gray-600 hover:border-gray-200 transition-all focus:border-gray-300">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                           class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:border-white/30">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
                                 <div id="tenantDropdown-deactivated" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
                                     <div class="p-1.5 space-y-0.5">
-                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-gray-600' ?>" data-id="all" data-name="All Tenants">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-[--text-main] opacity-70' ?>" data-id="all" data-name="All Tenants">
                                             All Tenants
                                         </div>
                                         <div id="tenantOptionsList-deactivated"></div>
@@ -1514,13 +1514,13 @@ $tenants_js = $tab_tenants;
                             <div class="w-[230px] relative group custom-select-container">
                                 <input type="hidden" name="sort" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
                                 <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
-                                    <input type="text" readonly value="<?= ($active_tab === 'deactivated' && $sort_order === 'oldest') ? 'Oldest Deactivated' : 'Newest Deactivated' ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
+                                    <input type="text" readonly value="<?= ($active_tab === 'deactivated' && $sort_order === 'oldest') ? 'Oldest Deactivated' : 'Newest Deactivated' ?>" class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'deactivated' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest Deactivated</div>
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'deactivated' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest Deactivated</div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border-white/10 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'deactivated' ? ($sort_order === 'newest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="newest">Newest Deactivated</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'deactivated' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="oldest">Oldest Deactivated</div>
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -1528,15 +1528,15 @@ $tenants_js = $tab_tenants;
                                        max="<?= min($date_to, date('Y-m-d')) ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Deactivation From" 
-                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                                       class="bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                                 <input type="date" name="date_to" value="<?= $active_tab === 'deactivated' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
                                        min="<?= $date_from ?>"
                                        max="<?= date('Y-m-d') ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Deactivation To" 
-                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                                       class="bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                             </div>
-                            <a href="tenant_management.php?tab=deactivated" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:bg-gray-200 transition-all" onclick="resetTabFilters('deactivated'); return false;" title="Reset All Deactivated Filters">
+                            <a href="tenant_management.php?tab=deactivated" class="size-12 rounded-xl bg-white/5 border border-transparent flex items-center justify-center text-[--text-main] opacity-50 hover:bg-white/10 transition-all" onclick="resetTabFilters('deactivated'); return false;" title="Reset All Deactivated Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -1544,14 +1544,14 @@ $tenants_js = $tab_tenants;
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-gray-100 border-b border-black/5">
+                                <tr class="bg-white/5 border-b border-white/5">
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Owner Contact</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Deactivated At</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="deactivatedTableBody" class="divide-y divide-black/5 text-sm font-medium">
+                            <tbody id="deactivatedTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($deactivated_tenants)): ?>
                                     <tr>
                                         <td colspan="4"
@@ -1566,7 +1566,7 @@ $tenants_js = $tab_tenants;
                                                     <?php
                                                     $logo_src = getLogoPath($t['logo_path']);
                                                     ?>
-                                                    <div class="size-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
+                                                    <div class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 cursor-zoom-in modal-img-preview"
                                                         data-src="<?= $logo_src ?>"
                                                         data-title="<?= htmlspecialchars($t['gym_name']) ?>">
                                                         <?php if (!empty($logo_src)):
@@ -1579,7 +1579,7 @@ $tenants_js = $tab_tenants;
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-[16px] font-black text-[#1e293b]">
+                                                        <p class="text-[16px] font-black text-[--text-main]">
                                                             <?= htmlspecialchars($t['gym_name']) ?>
                                                         </p>
                                                         <p
@@ -1590,10 +1590,10 @@ $tenants_js = $tab_tenants;
                                                 </div>
                                             </td>
                                             <td class="px-8 py-6 align-middle">
-                                                <p class="text-[14px] font-black text-[#1e293b]">
+                                                <p class="text-[14px] font-black text-[--text-main]">
                                                     <?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?>
                                                 </p>
-                                                <p class="text-[12px] font-bold text-slate-500">
+                                                <p class="text-[12px] font-bold text-[--text-main] opacity-70">
                                                     <?= htmlspecialchars($t['owner_email']) ?>
                                                 </p>
                                             </td>
@@ -1630,7 +1630,7 @@ $tenants_js = $tab_tenants;
                             <div class="size-2 rounded-full bg-red-500 animate-pulse"></div>
                             <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                         </div>
-                        <div class="flex gap-2 p-1.5 rounded-2xl bg-gray-100 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
+                        <div class="flex gap-2 p-1.5 rounded-2xl bg-white/5 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
                     </div>
                 </div>
             </div>
@@ -1640,31 +1640,31 @@ $tenants_js = $tab_tenants;
 
 
                     <!-- Tab-Specific Filter Bar -->
-                    <div class="px-8 py-4 bg-transparent border-b border-black/5">
+                    <div class="px-8 py-4 bg-transparent border-b border-white/5">
                         <form method="GET" class="ajax-filter-form flex flex-wrap items-center gap-4" onsubmit="return applyFiltersAsync(this)">
                             <input type="hidden" name="tab" value="rejected">
                             <div class="flex-1 min-w-[250px] relative group">
-                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 transition-transform group-hover:scale-110">search</span>
+                                <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-50 transition-transform group-hover:scale-110">search</span>
                                 <input type="text" name="search" value="<?= $active_tab === 'rejected' ? htmlspecialchars($search) : '' ?>" placeholder="Search Rejected Applications..." 
                                        oninput="applyFiltersAsync(this.form)" 
-                                       class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-gray-300 outline-none text-gray-600">
+                                       class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-white/30 outline-none text-[--text-main] opacity-70">
                             </div>
 
                             <!-- Searchable Tenant Selector -->
                             <div class="flex-1 min-w-[220px] relative z-[1000] group searchable-select-container" id="tenantSearchContainer-rejected">
                                 <input type="hidden" name="tenant_id" id="hidden_tenant_id-rejected" value="<?= htmlspecialchars($tenant_filter) ?>">
                                 <div class="relative">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-focus-within:scale-110">business</span>
                                     <input type="text" id="tenantSearchInput-rejected" 
                                            placeholder="Search Tenant..." 
                                            value="<?= $tenant_filter === 'all' ? 'All Tenants' : htmlspecialchars(array_column($tenants_list, 'gym_name', 'gym_id')[$tenant_filter] ?? 'All Tenants') ?>"
                                            autocomplete="off"
-                                           class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-gray-600 hover:border-gray-200 transition-all focus:border-gray-300">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                           class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold outline-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:border-white/30">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
                                 <div id="tenantDropdown-rejected" class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl searchable-dropdown-overlay max-h-64 overflow-y-auto hidden">
                                     <div class="p-1.5 space-y-0.5">
-                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-gray-600' ?>" data-id="all" data-name="All Tenants">
+                                        <div class="tenant-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= $tenant_filter === 'all' ? 'selected-option' : 'text-[--text-main] opacity-70' ?>" data-id="all" data-name="All Tenants">
                                             All Tenants
                                         </div>
                                         <div id="tenantOptionsList-rejected"></div>
@@ -1675,13 +1675,13 @@ $tenants_js = $tab_tenants;
                             <div class="w-[230px] relative group custom-select-container">
                                 <input type="hidden" name="sort" value="<?= $active_tab === 'rejected' ? htmlspecialchars($sort_order) : 'newest' ?>" onchange="applyFiltersAsync(this.form)">
                                 <div class="relative custom-select-trigger cursor-pointer group" onclick="toggleCustomDropdown(this, event)">
-                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
-                                    <input type="text" readonly value="<?= ($active_tab === 'rejected' && $sort_order === 'oldest') ? 'Oldest Rejected' : 'Newest Rejected' ?>" class="w-full bg-gray-100 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-gray-600 hover:border-gray-200 transition-all focus:outline-none focus:ring-0" autocomplete="off">
-                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-sm pointer-events-none transition-transform group-hover:scale-110">sort</span>
+                                    <input type="text" readonly value="<?= ($active_tab === 'rejected' && $sort_order === 'oldest') ? 'Oldest Rejected' : 'Newest Rejected' ?>" class="w-full bg-white/5 border border-transparent rounded-xl py-3.5 pl-11 pr-10 text-xs font-bold pointer-events-none text-[--text-main] opacity-70 hover:border-white/20 transition-all focus:outline-none focus:ring-0" autocomplete="off">
+                                    <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-[--text-main] opacity-50 text-base pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                                 </div>
-                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-white border-gray-200 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'rejected' ? ($sort_order === 'newest' ? 'selected-option' : 'text-gray-600') : 'selected-option') ?>" data-value="newest">Newest Rejected</div>
-                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'rejected' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-gray-600') : 'text-gray-600') ?>" data-value="oldest">Oldest Rejected</div>
+                                <div class="absolute left-0 right-0 top-full mt-2 z-[100] rounded-xl bg-[--card-bg] border-white/10 shadow-2xl border border-transparent p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'rejected' ? ($sort_order === 'newest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'selected-option') ?>" data-value="newest">Newest Rejected</div>
+                                    <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($active_tab === 'rejected' ? ($sort_order === 'oldest' ? 'selected-option' : 'text-[--text-main] opacity-70') : 'text-[--text-main] opacity-70') ?>" data-value="oldest">Oldest Rejected</div>
                                 </div>
                             </div>
                             <div class="flex gap-2">
@@ -1689,15 +1689,15 @@ $tenants_js = $tab_tenants;
                                        max="<?= min($date_to, date('Y-m-d')) ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Rejection Date From" 
-                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                                       class="bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                                 <input type="date" name="date_to" value="<?= $active_tab === 'rejected' ? htmlspecialchars($date_to) : date('Y-m-d') ?>" 
                                        min="<?= $date_from ?>"
                                        max="<?= date('Y-m-d') ?>"
                                        onchange="updateDateBounds(this); applyFiltersAsync(this.form)" 
                                        title="Rejection Date To" 
-                                       class="bg-gray-100 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-gray-600 [color-scheme:light]">
+                                       class="bg-white/5 border border-transparent rounded-xl py-3.5 px-4 text-xs font-black outline-none text-[--text-main] opacity-70 [color-scheme:dark]">
                             </div>
-                            <a href="tenant_management.php?tab=rejected" class="size-12 rounded-xl bg-gray-100 border border-transparent flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all hover:bg-gray-200" onclick="resetTabFilters('rejected'); return false;" title="Reset All Rejected Filters">
+                            <a href="tenant_management.php?tab=rejected" class="size-12 rounded-xl bg-white/5 border border-transparent flex items-center justify-center text-[--text-main] opacity-50 hover:text-[--text-main] opacity-70 transition-all hover:bg-white/10" onclick="resetTabFilters('rejected'); return false;" title="Reset All Rejected Filters">
                                 <span class="material-symbols-outlined text-sm">refresh</span>
                             </a>
                         </form>
@@ -1705,14 +1705,14 @@ $tenants_js = $tab_tenants;
                     <div class="overflow-x-auto no-scrollbar">
                         <table class="w-full text-left">
                             <thead>
-                                <tr class="bg-gray-100 border-b border-black/5">
+                                <tr class="bg-white/5 border-b border-white/5">
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Name</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Applicant</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Rejected Date</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="rejectedTableBody" class="divide-y divide-black/5 text-sm font-medium">
+                            <tbody id="rejectedTableBody" class="divide-y divide-white/5 text-sm font-medium">
                                 <?php if (empty($rejected_apps)): ?>
                                     <tr>
                                         <td colspan="4" class="px-8 py-12 text-center text-xs font-black uppercase text-[--text-main] opacity-40 tracking-widest italic no-pagination">No rejected applications found for the selected period.</td>
@@ -1723,7 +1723,7 @@ $tenants_js = $tab_tenants;
                                             <td class="px-8 py-6 align-middle">
                                                 <div class="flex items-center gap-3">
                                                     <div
-                                                        class="size-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden shrink-0 border border-transparent">
+                                                        class="size-12 rounded-lg bg-white/5 flex items-center justify-center overflow-hidden shrink-0 border border-transparent">
                                                         <?php if (!empty($app['gym_logo'])):
                                                             $r_logo = getLogoPath($app['gym_logo']);
                                                             ?>
@@ -1734,30 +1734,30 @@ $tenants_js = $tab_tenants;
                                                         <?php endif; ?>
                                                     </div>
                                                     <div>
-                                                        <p class="text-[16px] font-black text-[#1e293b]">
+                                                        <p class="text-[16px] font-black text-[--text-main]">
                                                             <?= htmlspecialchars($app['gym_name']) ?>
                                                         </p>
                                                         <p
-                                                            class="text-[10px] text-gray-600 uppercase tracking-wider font-bold">
+                                                            class="text-[10px] text-[--text-main] opacity-70 uppercase tracking-wider font-bold">
                                                             TYPE: <?= htmlspecialchars(str_replace('_', ' ', $app['business_type'] ?? 'Gym/Fitness Center')) ?>
                                                         </p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td class="px-8 py-6 align-middle">
-                                                <p class="text-[14px] font-black text-[#1e293b]">
+                                                <p class="text-[14px] font-black text-[--text-main]">
                                                     <?= htmlspecialchars($app['first_name'] . ' ' . $app['last_name']) ?>
                                                 </p>
-                                                <p class="text-[12px] font-bold text-slate-500">
+                                                <p class="text-[12px] font-bold text-[--text-main] opacity-70">
                                                     <?= htmlspecialchars($app['email']) ?>
                                                 </p>
                                             </td>
-                                            <td class="px-8 py-5 text-xs font-bold text-gray-600">
+                                            <td class="px-8 py-5 text-xs font-bold text-[--text-main] opacity-70">
                                                 <?= date('M d, Y', strtotime($app['reviewed_at'])) ?>
                                             </td>
                                             <td class="px-8 py-6 text-center align-middle">
                                                 <button onclick="openApplicationModal(<?= $app['application_id'] ?>)"
-                                                    class="size-8 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center transition-colors group shadow-sm shadow-slate-200/50 mx-auto" title="View Application Details">
+                                                    class="size-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[--text-main] opacity-50 hover:opacity-100 flex items-center justify-center transition-colors group shadow-sm shadow-black/10 mx-auto" title="View Application Details">
                                                     <span class="material-symbols-outlined text-[18px]">visibility</span>
                                                 </button>
                                             </td>
@@ -1775,7 +1775,7 @@ $tenants_js = $tab_tenants;
                         <div class="size-2 rounded-full bg-rose-500 animate-pulse"></div>
                         <p class="text-[10px] font-black uppercase text-[--text-main] opacity-40 tracking-[0.15em] status-text"></p>
                     </div>
-                    <div class="flex gap-2 p-1.5 rounded-2xl bg-gray-100 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
+                    <div class="flex gap-2 p-1.5 rounded-2xl bg-white/5 border border-transparent backdrop-blur-2xl shadow-2xl controls-container"></div>
                 </div>
             </div>
         </main>
@@ -1894,7 +1894,7 @@ $tenants_js = $tab_tenants;
 
                 // Prev Button
                 const prevBtn = document.createElement('button');
-                prevBtn.className = `size-9 rounded-xl flex items-center justify-center transition-all ${currentPage === 1 ? 'opacity-20 cursor-not-allowed text-gray-600' : 'bg-gray-100 border border-transparent text-[--text-main] hover:bg-black/10 hover:scale-105 active:scale-95'}`;
+                prevBtn.className = `size-9 rounded-xl flex items-center justify-center transition-all ${currentPage === 1 ? 'opacity-20 cursor-not-allowed text-[--text-main] opacity-70' : 'bg-white/5 border border-transparent text-[--text-main] hover:bg-black/10 hover:scale-105 active:scale-95'}`;
                 prevBtn.innerHTML = '<span class="material-symbols-outlined text-lg">chevron_left</span>';
                 prevBtn.onclick = () => { if (currentPage > 1) { currentPage--; render(); paginationContainer.scrollIntoView({ behavior: 'smooth', block: 'end' }); } };
                 controlsContainer.appendChild(prevBtn);
@@ -1906,7 +1906,7 @@ $tenants_js = $tab_tenants;
 
                 for (let i = startPage; i <= endPage; i++) {
                     const pageBtn = document.createElement('button');
-                    pageBtn.className = `size-9 rounded-xl font-black text-[11px] transition-all ${i === currentPage ? 'bg-primary text-[--text-main] shadow-xl shadow-primary/20 scale-110' : 'bg-gray-100 border border-transparent text-[--text-main] opacity-40 hover:opacity-100 hover:bg-black/10'}`;
+                    pageBtn.className = `size-9 rounded-xl font-black text-[11px] transition-all ${i === currentPage ? 'bg-primary text-[--text-main] shadow-xl shadow-primary/20 scale-110' : 'bg-white/5 border border-transparent text-[--text-main] opacity-40 hover:opacity-100 hover:bg-black/10'}`;
                     pageBtn.textContent = i;
                     pageBtn.onclick = () => { 
                         if (currentPage !== i) {
@@ -1920,7 +1920,7 @@ $tenants_js = $tab_tenants;
 
                 // Next Button
                 const nextBtn = document.createElement('button');
-                nextBtn.className = `size-9 rounded-xl flex items-center justify-center transition-all ${currentPage === totalPages ? 'opacity-20 cursor-not-allowed text-gray-600' : 'bg-gray-100 border border-transparent text-[--text-main] hover:bg-black/10 hover:scale-105 active:scale-95'}`;
+                nextBtn.className = `size-9 rounded-xl flex items-center justify-center transition-all ${currentPage === totalPages ? 'opacity-20 cursor-not-allowed text-[--text-main] opacity-70' : 'bg-white/5 border border-transparent text-[--text-main] hover:bg-black/10 hover:scale-105 active:scale-95'}`;
                 nextBtn.innerHTML = '<span class="material-symbols-outlined text-lg">chevron_right</span>';
                 nextBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; render(); paginationContainer.scrollIntoView({ behavior: 'smooth', block: 'end' }); } };
                 controlsContainer.appendChild(nextBtn);
@@ -1937,7 +1937,7 @@ $tenants_js = $tab_tenants;
             class="relative w-full max-w-md bg-transparent backdrop-blur-3xl border border-transparent shadow-2xl rounded-[32px] overflow-hidden transition-all duration-300 scale-95 opacity-0 pointer-events-auto">
             <div class="p-8 text-center text-[--text-main]">
                 <div
-                    class="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-6">
+                    class="size-16 rounded-2xl bg-primary/10 border border-transparent flex items-center justify-center mx-auto mb-6">
                     <span class="material-symbols-outlined text-3xl text-primary">contact_support</span>
                 </div>
                 <h3 id="confirmTitle" class="text-xl font-black italic uppercase tracking-tighter mb-2 italic">Confirm
@@ -1947,7 +1947,7 @@ $tenants_js = $tab_tenants;
 
                 <div class="flex gap-3">
                     <button onclick="closeConfirmModal()"
-                        class="flex-1 py-3 px-6 rounded-xl bg-gray-100 hover:bg-black/10 border border-transparent text-[10px] font-black uppercase tracking-widest transition-all text-[--text-main] opacity-40 hover:opacity-100">
+                        class="flex-1 py-3 px-6 rounded-xl bg-white/5 hover:bg-black/10 border border-transparent text-[10px] font-black uppercase tracking-widest transition-all text-[--text-main] opacity-40 hover:opacity-100">
                         Cancel
                     </button>
                     <button onclick="executeConfirmedAction()"
@@ -1966,13 +1966,13 @@ $tenants_js = $tab_tenants;
         <div class="relative w-full max-w-5xl bg-transparent backdrop-blur-3xl border border-transparent shadow-2xl rounded-[40px] overflow-hidden flex flex-col min-h-[500px] max-h-[90vh] transition-all duration-500 scale-95 opacity-0 pointer-events-auto no-scrollbar"
             id="modalContainer">
             <div id="modalLoading"
-                class="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-2xl z-10 transition-opacity duration-300">
+                class="absolute inset-0 flex flex-col items-center justify-center bg-[--card-bg] backdrop-blur-2xl z-10 transition-opacity duration-300">
                 <div class="size-16 relative flex items-center justify-center mb-8">
                     <div class="absolute inset-0 border-[1px] border-primary/10 rounded-full"></div>
                     <div class="absolute inset-0 border-[1px] border-t-primary rounded-full animate-spin"></div>
                     <span class="material-symbols-outlined text-primary/30 text-2xl">database</span>
                 </div>
-                <p class="text-[10px] font-black uppercase text-gray-500 tracking-[0.3em] italic animate-pulse">
+                <p class="text-[10px] font-black uppercase text-[--text-main] opacity-50 tracking-[0.3em] italic animate-pulse">
                     Loading Data...</p>
             </div>
             <div id="modalContent"
@@ -2154,10 +2154,10 @@ $tenants_js = $tab_tenants;
                 if (firstOption) {
                     container.querySelectorAll('.custom-option').forEach(opt => {
                         opt.classList.remove('selected-option');
-                        opt.classList.add('text-gray-600');
+                        opt.classList.add('text-[--text-main] opacity-70');
                     });
                     firstOption.classList.add('selected-option');
-                    firstOption.classList.remove('text-gray-600');
+                    firstOption.classList.remove('text-[--text-main] opacity-70');
                     
                     const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
                     const hiddenInput = container.querySelector('input[type="hidden"]:not([name="tab"])');
@@ -2264,10 +2264,10 @@ $tenants_js = $tab_tenants;
                 
                 dropdown.querySelectorAll('.custom-option').forEach(opt => {
                     opt.classList.remove('selected-option');
-                    opt.classList.add('text-gray-600');
+                    opt.classList.add('text-[--text-main] opacity-70');
                 });
                 option.classList.add('selected-option');
-                option.classList.remove('text-gray-600');
+                option.classList.remove('text-[--text-main] opacity-70');
                 
                 if (trigger) trigger.value = option.textContent.trim();
                 hiddenInput.value = option.getAttribute('data-value');

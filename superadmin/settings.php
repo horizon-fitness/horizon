@@ -912,12 +912,21 @@ $active_page = "settings";
                                             Brand identity & glassmorphism</p>
                                     </div>
                                 </div>
-                                <button type="button" onclick="resetToDefaults()"
-                                    class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[--text-main] hover:text-white hover:bg-white/10 transition-all group shrink-0">
-                                    <span
-                                        class="material-symbols-outlined text-sm group-hover:rotate-180 transition-transform duration-500">undo</span>
-                                    <span class="text-[11px] font-black uppercase tracking-wider">Reset</span>
-                                </button>
+                                <div class="flex items-center gap-6 shrink-0">
+                                    <label class="flex items-center gap-3 cursor-pointer group">
+                                        <span class="text-[9px] font-black uppercase tracking-widest text-[#d1d5db] group-hover:text-white transition-colors">Light Mode</span>
+                                        <div class="relative inline-flex items-center">
+                                            <input type="checkbox" id="lightModeToggle" onchange="toggleThemeMode(this)" class="sr-only peer">
+                                            <div class="w-10 h-5 bg-white/5 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/20 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-white/90 peer-checked:after:bg-gray-800 transition-all border border-white/5"></div>
+                                        </div>
+                                    </label>
+                                    <button type="button" onclick="resetToDefaults()"
+                                        class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[--text-main] hover:text-white hover:bg-white/10 transition-all group shrink-0">
+                                        <span
+                                            class="material-symbols-outlined text-sm group-hover:rotate-180 transition-transform duration-500">undo</span>
+                                        <span class="text-[11px] font-black uppercase tracking-wider">Reset</span>
+                                    </button>
+                                </div>
                             </div>
 
                             <div class="space-y-8">
@@ -2437,7 +2446,33 @@ $active_page = "settings";
             if (errorMsg && errorMsg.includes('creating account')) {
                 toggleSuperadminModal(true);
             }
+            // Initialize Light Mode Toggle
+            const bgInput = document.getElementById('bg_color_input');
+            if (bgInput) {
+                const bgVal = bgInput.value.toLowerCase();
+                const isLight = bgVal === '#ffffff' || bgVal === '#f3f4f6' || bgVal === '#f8f9fa' || bgVal === '#f8fafc';
+                const toggle = document.getElementById('lightModeToggle');
+                if (toggle) toggle.checked = isLight;
+            }
         });
+
+        function toggleThemeMode(checkbox) {
+            if (checkbox.checked) {
+                document.getElementById('bg_color_input').value = '#f3f4f6';
+                document.getElementById('card_color_input').value = '#ffffff';
+                document.getElementById('text_color_input').value = '#0f172a';
+                document.getElementById('secondary_color_input').value = '#64748b';
+                
+                const syncInput = document.getElementById('auto_card_theme_input');
+                if(syncInput) syncInput.checked = false;
+            } else {
+                document.getElementById('bg_color_input').value = '#0a090d';
+                document.getElementById('card_color_input').value = '#141216';
+                document.getElementById('text_color_input').value = '#d1d5db';
+                document.getElementById('secondary_color_input').value = '#a1a1aa';
+            }
+            updateLiveBranding();
+        }
 
         function resetToDefaults() {
             showActionModal(
@@ -2446,17 +2481,26 @@ $active_page = "settings";
                 'undo',
                 () => {
                     document.getElementById('theme_color_input').value = '#8c2bee';
-                    document.getElementById('secondary_color_input').value = '#334155';
-                    document.getElementById('text_color_input').value = '#0f172a';
+                    document.getElementById('secondary_color_input').value = '#a1a1aa';
+                    document.getElementById('text_color_input').value = '#d1d5db';
                     const tabInput = document.getElementById('tab_active_text_input');
                     if (tabInput) tabInput.value = '#ffffff';
-                    document.getElementById('bg_color_input').value = '#f8fafc';
+                    document.getElementById('bg_color_input').value = '#0a090d';
+                    const cardInput = document.getElementById('card_color_input');
+                    if (cardInput) cardInput.value = '#141216';
 
                     const isAutoInput = document.getElementById('auto_card_theme_input');
-                    if (isAutoInput) isAutoInput.checked = true;
+                    if (isAutoInput) isAutoInput.checked = false;
 
                     const isAutoTabInput = document.getElementById('auto_tab_sync_input');
-                    if (isAutoTabInput) isAutoTabInput.checked = true;
+                    if (isAutoTabInput) isAutoTabInput.checked = false;
+
+                    // Update Text Displays
+                    if(document.getElementById('theme_hex_display')) document.getElementById('theme_hex_display').innerText = '#8C2BEE';
+                    if(document.getElementById('secondary_hex_display')) document.getElementById('secondary_hex_display').innerText = '#A1A1AA';
+                    if(document.getElementById('text_hex_display')) document.getElementById('text_hex_display').innerText = '#D1D5DB';
+                    if(document.getElementById('bg_hex_display')) document.getElementById('bg_hex_display').innerText = '#0A090D';
+                    if(document.getElementById('card_hex_display')) document.getElementById('card_hex_display').innerText = '#141216';
 
                     updateLiveBranding();
                     toggleActionModal(false);
