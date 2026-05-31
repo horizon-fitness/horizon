@@ -1489,11 +1489,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
                                             Brand identity & glassmorphism</p>
                                     </div>
                                 </div>
-                                <button type="button" onclick="resetBranding()"
-                                    class="h-9 px-6 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all active:scale-95">
-                                    <span class="material-symbols-outlined text-base">restart_alt</span>
-                                    Reset to Defaults
-                                </button>
+                                <div class="flex items-center gap-6">
+                                    <label class="flex items-center gap-3 cursor-pointer group">
+                                        <span class="text-[9px] font-black uppercase tracking-widest text-[#d1d5db] group-hover:text-white transition-colors">Light Mode</span>
+                                        <div class="relative inline-flex items-center">
+                                            <input type="checkbox" id="lightModeToggle" onchange="toggleThemeMode(this)" class="sr-only peer">
+                                            <div class="w-10 h-5 bg-white/5 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white/20 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-white/90 peer-checked:after:bg-gray-800 transition-all border border-white/5"></div>
+                                        </div>
+                                    </label>
+                                    <button type="button" onclick="resetBranding()"
+                                        class="h-9 px-6 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center gap-2 text-[9px] font-black uppercase tracking-widest transition-all active:scale-95">
+                                        <span class="material-symbols-outlined text-base">restart_alt</span>
+                                        Reset to Defaults
+                                    </button>
+                                </div>
+                                <script>
+                                    window.addEventListener('DOMContentLoaded', () => {
+                                        const bgInput = document.querySelector('input[name="bg_color"]');
+                                        if (bgInput) {
+                                            const bgVal = bgInput.value.toLowerCase();
+                                            const isLight = bgVal === '#ffffff' || bgVal === '#f3f4f6' || bgVal === '#f8f9fa';
+                                            const toggle = document.getElementById('lightModeToggle');
+                                            if (toggle) toggle.checked = isLight;
+                                        }
+                                    });
+
+                                    function toggleThemeMode(checkbox) {
+                                        if (checkbox.checked) {
+                                            document.querySelector('input[name="bg_color"]').value = '#f3f4f6';
+                                            document.querySelector('input[name="card_color"]').value = '#ffffff';
+                                            document.querySelector('input[name="text_color"]').value = '#1f2937';
+                                            document.querySelector('input[name="secondary_color"]').value = '#6b7280';
+                                            
+                                            const syncInput = document.querySelector('input[name="auto_card_theme"][value="1"]');
+                                            if(syncInput) syncInput.checked = false;
+                                        } else {
+                                            document.querySelector('input[name="bg_color"]').value = '#0a090d';
+                                            document.querySelector('input[name="card_color"]').value = '#141216';
+                                            document.querySelector('input[name="text_color"]').value = '#d1d5db';
+                                            document.querySelector('input[name="secondary_color"]').value = '#a1a1aa';
+                                            
+                                            const syncInput = document.querySelector('input[name="auto_card_theme"][value="1"]');
+                                            if(syncInput) syncInput.checked = true;
+                                        }
+                                        updateMockup();
+                                    }
+                                </script>
                             </div>
 
                             <div class="space-y-8">
@@ -3298,24 +3339,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
             setConfirmModal('restore', id, 'Restore Tier', 'settings_backup_restore', 'Restore Now', 'bg-emerald-500');
         }
 
-        function setConfirmModal(type, id, title, icon, btnText, btnClass) {
-            const modal = document.getElementById('confirmActionModal');
-            const btn = document.getElementById('confirmActionBtn');
-            const iconBox = document.getElementById('confirmIconBox');
-            const iconEl = document.getElementById('confirmIcon');
-
-            document.getElementById('confirmTitle').textContent = title;
-            iconEl.textContent = icon;
-            btn.textContent = btnText;
-            iconBox.className = "size-20 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto mb-6";
-            iconEl.className = `material-symbols-outlined text-4xl ${btnClass.replace('bg-', 'text-')}`;
-            btn.className = `flex-1 h-14 rounded-2xl text-white text-[11px] font-black uppercase italic tracking-[0.2em] shadow-xl transition-all hover:scale-[1.02] active:scale-95 ${btnClass}`;
-
-            // Attach AJAX Action
-            btn.onclick = () => autoTogglePlanStatus(id, type);
-
-            openEliteModal('confirmActionModal');
-        }
 
         function autoTogglePlanStatus(id, action) {
             const btn = document.getElementById('confirmActionBtn');

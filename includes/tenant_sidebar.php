@@ -60,16 +60,31 @@
             <?php 
                 // Flexible branding fallbacks
                 $logo = !empty($page['logo_path']) ? $page['logo_path'] : ($configs['system_logo'] ?? '');
+                
+                if (empty($logo) && isset($pdo) && isset($_SESSION['gym_id'])) {
+                    try {
+                        $stmtGymLogo = $pdo->prepare("SELECT profile_picture FROM gyms WHERE gym_id = ?");
+                        $stmtGymLogo->execute([$_SESSION['gym_id']]);
+                        $fetched_logo = $stmtGymLogo->fetchColumn();
+                        if ($fetched_logo) {
+                            $logo = $fetched_logo;
+                        }
+                    } catch (Exception $e) {}
+                }
+                
+                if (!empty($logo) && strpos($logo, 'data:') !== 0 && strpos($logo, 'http') !== 0 && strpos($logo, '../') !== 0) {
+                    $logo = '../' . $logo;
+                }
                 $name = !empty($configs['system_name']) ? $configs['system_name'] : ($page['system_name'] ?? 'Owner Portal');
             ?>
             <div id="sidebarLogoContainer" class="size-10 rounded-xl shrink-0 overflow-hidden flex items-center justify-center <?= empty($logo) ? 'bg-primary shadow-lg shadow-primary/20' : '' ?>">
                 <?php if (!empty($logo)): ?>
                     <img id="sidebarLogoImg" src="<?= htmlspecialchars($logo) ?>" class="size-full object-cover">
                 <?php else: ?>
-                    <span id="sidebarBoltIcon" class="material-symbols-outlined text-white text-2xl">bolt</span>
+                    <span id="sidebarBoltIcon" class="material-symbols-outlined text-2xl" style="color:var(--text-main)">bolt</span>
                 <?php endif; ?>
             </div>
-            <h1 id="sidebarSystemName" class="nav-label text-lg font-black italic uppercase tracking-tighter text-white"><?= htmlspecialchars($name) ?></h1>
+            <h1 id="sidebarSystemName" class="nav-label text-lg font-black italic uppercase tracking-tighter" style="color:var(--text-main)"><?= htmlspecialchars($name) ?></h1>
 
         </div>
     </div>
@@ -86,7 +101,7 @@
                 } catch (Exception $e) {}
             }
         ?>
-        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Main Menu</span></div>
+        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em]" style="color:var(--text-main);opacity:0.4;">Main Menu</span></div>
         <a href="tenant_dashboard.php" class="nav-item <?= ($active_page == 'dashboard') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">grid_view</span> 
             <span class="nav-label">Dashboard</span>
@@ -97,7 +112,7 @@
             <span class="nav-label">Users</span>
         </a>
 
-        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Management</span></div>
+        <div class="nav-section-label px-[38px] mb-2 mt-6"><span class="text-[10px] font-black uppercase tracking-[0.2em]" style="color:var(--text-main);opacity:0.4;">Management</span></div>
 
         <a href="staff.php" class="nav-item <?= ($active_page == 'staff') ? 'active' : '' ?>">
             <div class="relative flex items-center justify-center shrink-0">
@@ -123,7 +138,7 @@
     </div>
 
     <div class="mt-auto pt-4 border-t border-white/10 shrink-0 pb-6">
-        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em] text-[--text-main]/40">Account</span></div>
+        <div class="nav-section-label px-[38px] mb-2"><span class="text-[10px] font-black uppercase tracking-[0.2em]" style="color:var(--text-main);opacity:0.4;">Account</span></div>
         <a href="tenant_settings.php" class="nav-item <?= ($active_page == 'settings') ? 'active' : '' ?>">
             <span class="material-symbols-outlined text-xl shrink-0">settings</span> 
             <span class="nav-label">Settings</span>

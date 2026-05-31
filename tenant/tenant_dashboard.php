@@ -466,7 +466,7 @@ for ($i = 5; $i >= 0; $i--) {
             <div class="glass-card p-8 hover-lift">
                 <div class="flex justify-between items-center mb-6">
                     <div>
-                        <h3 class="text-xs font-black italic uppercase tracking-widest text-white leading-none">Revenue Trends</h3>
+                        <h3 class="text-xs font-black italic uppercase tracking-widest leading-none" style="color:var(--text-main)">Revenue Trends</h3>
                         <p class="text-[9px] text-[--text-main] opacity-50 font-bold uppercase mt-2 tracking-wider">Financial performance last 6 months</p>
                     </div>
                 </div>
@@ -476,7 +476,7 @@ for ($i = 5; $i >= 0; $i--) {
             <div class="glass-card p-8 hover-lift">
                 <div class="flex justify-between items-center mb-6">
                     <div>
-                        <h3 class="text-xs font-black italic uppercase tracking-widest text-white leading-none">Member Growth</h3>
+                        <h3 class="text-xs font-black italic uppercase tracking-widest leading-none" style="color:var(--text-main)">Member Growth</h3>
                         <p class="text-[9px] text-[--text-main] opacity-50 font-bold uppercase mt-2 tracking-wider">New signups across time</p>
                     </div>
                 </div>

@@ -277,33 +277,33 @@ if (isset($_GET['ajax'])) {
             $icon = $isHigh ? 'report' : 'info';
             ?>
             <div class="group relative flex flex-col md:flex-row gap-8 items-start">
-                <div class="hidden md:flex size-14 rounded-xl glass-card shrink-0 items-center justify-center relative z-10 group-hover:border-primary/50 transition-colors">
+                <div class="hidden md:flex size-14 rounded-xl glass-card shrink-0 items-center justify-center relative z-10">
                     <span class="material-symbols-outlined <?= $isHigh ? 'text-rose-500' : 'text-primary' ?> text-xl"><?= $icon ?></span>
                 </div>
-                <div class="flex-1 glass-card p-6 group-hover:bg-white/[0.04] transition-all duration-500">
+                <div class="flex-1 glass-card p-6">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div class="flex flex-col gap-1">
                             <div class="flex items-center gap-3 mb-1">
                                 <span class="text-[--text-main]/40 text-[9px] font-bold uppercase tracking-widest italic"><?= date('h:i A', strtotime($alert['created_at'])) ?></span>
                             </div>
-                            <h4 class="text-md font-black italic uppercase text-[--text-main] tracking-tight leading-none">
+                            <h4 class="text-md font-black italic uppercase text-slate-600 tracking-tight leading-none">
                                 <?= htmlspecialchars($alert['type']) ?>
                             </h4>
-                            <p class="text-[--text-main]/60 text-xs mt-1 font-medium">
+                            <p class="text-slate-600 text-xs mt-1 font-medium">
                                 <?php 
                                     $displayMsg = str_replace(['Php', '?'], '₱', $alert['message']);
                                     echo htmlspecialchars($displayMsg); 
                                 ?>
                             </p>
                             <div class="flex items-center gap-2 mt-3">
-                                <span class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Source:</span>
-                                <span class="text-[9px] font-black uppercase text-[--text-main] bg-white/5 px-2 py-0.5 rounded"><?= htmlspecialchars($alert['source']) ?></span>
+                                <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Source:</span>
+                                <span class="text-[9px] font-black uppercase text-slate-500 px-2 py-0.5 rounded"><?= htmlspecialchars($alert['source']) ?></span>
                             </div>
                         </div>
                         <div class="flex gap-2 shrink-0">
                             <?php if ($tab === 'active'): ?>
                                 <button onclick="requestResolve(<?= json_encode($alert['alert_id']) ?>)"
-                                    class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-emerald-500/20 hover:text-emerald-400 border border-white/5 transition-all group/btn"
+                                    class="size-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 shadow-sm shadow-slate-200/50 group/btn"
                                     title="Resolve">
                                     <span class="material-symbols-outlined text-sm">check</span>
                                 </button>
@@ -315,7 +315,7 @@ if (isset($_GET['ajax'])) {
                             <?php endif; ?>
                             <button
                                 onclick="openAlertModal(<?= htmlspecialchars(json_encode($alert['type'])) ?>, <?= htmlspecialchars(json_encode(str_replace(['Php', '?'], '₱', $alert['message']))) ?>, <?= htmlspecialchars(json_encode($alert['source'])) ?>, '<?= date('M d, Y h:i A', strtotime($alert['created_at'])) ?>', '<?= $alert['priority'] ?>')"
-                                class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-primary/20 hover:text-primary border border-white/5 transition-all group/btn"
+                                class="size-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 shadow-sm shadow-slate-200/50 group/btn"
                                 title="More Details">
                                 <span class="material-symbols-outlined text-sm">visibility</span>
                             </button>
@@ -352,7 +352,7 @@ if (isset($_GET['ajax'])) {
 }
 ?>
 <!DOCTYPE html>
-<html class="dark" lang="en">
+<html lang="en">
 
 <head>
     <meta charset="utf-8" />
@@ -367,44 +367,44 @@ if (isset($_GET['ajax'])) {
     <script>
         tailwind.config = {
             darkMode: "class",
-            theme: { extend: { colors: { "primary": "var(--primary)", "background": "var(--background)", "secondary": "var(--secondary)", "surface-dark": "#14121a", "border-subtle": "rgba(255,255,255,0.05)" } } }
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "var(--primary)",
+                        "background": "var(--background)",
+                        "highlight": "var(--highlight)",
+                        "text-main": "var(--text-main)",
+                        "surface-dark": "var(--card-bg)",
+                        "border-subtle": "rgba(0,0,0,0.05)"
+                    }
+                }
+            }
         }
     </script>
     <style>
         :root {
-            --primary:
-                <?= $configs['theme_color'] ?? '#8c2bee' ?>
-            ;
-            --primary-rgb:
-                <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>
-            ;
-            --background:
-                <?= $configs['bg_color'] ?? '#0a090d' ?>
-            ;
-            --highlight:
-                <?= $configs['secondary_color'] ?? '#a1a1aa' ?>
-            ;
-            --text-main:
-                <?= $configs['text_color'] ?? '#d1d5db' ?>
-            ;
+            --primary: <?= $configs['theme_color'] ?? '#8c2bee' ?>;
+            --primary-rgb: <?= hexToRgb($configs['theme_color'] ?? '#8c2bee') ?>;
+            --highlight: <?= $configs['secondary_color'] ?? '#9ca3af' ?>;
+            --text-main: #0f172a;
+            --background: #f8fafc;
             --card-blur: 20px;
-            --card-bg:
-                <?= ($configs['auto_card_theme'] ?? '1') === '1' ? 'rgba(' . hexToRgb($configs['theme_color'] ?? '#8c2bee') . ', 0.05)' : ($configs['card_color'] ?? '#141216') ?>
-            ;
+            --card-bg: rgba(255, 255, 255, 0.8);
         }
 
         body {
             font-family: '<?= $configs['font_family'] ?? 'Lexend' ?>', sans-serif;
             background-color: var(--background);
+            background-image: radial-gradient(circle at 50% -10%, rgba(var(--primary-rgb), 0.1), transparent 70%);
             color: var(--text-main);
         }
 
         .glass-card {
             background: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(15, 23, 42, 0.06);
             border-radius: 24px;
             backdrop-filter: blur(var(--card-blur));
-            transition: all 0.3s ease;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06);
         }
 
         .loading-active {
@@ -425,7 +425,7 @@ if (isset($_GET['ajax'])) {
             bottom: 0;
             z-index: 50;
             background: var(--background);
-            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(15, 23, 42, 0.06);
         }
 
         .sidebar-nav:hover {
@@ -571,7 +571,7 @@ if (isset($_GET['ajax'])) {
             right: 0;
             bottom: 0;
             left: 110px;
-            z-index: 200;
+            z-index: 2000;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -597,15 +597,72 @@ if (isset($_GET['ajax'])) {
 
         .custom-select-container {
             isolation: isolate;
+            min-width: 240px;
         }
 
         .custom-select-container.is-open {
             z-index: 1000 !important;
         }
 
+        .custom-select-trigger {
+            height: 48px;
+            border-radius: 16px;
+            background: rgba(15, 23, 42, 0.035);
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+        }
+
+        .custom-select-trigger:hover,
+        .custom-select-container.is-open .custom-select-trigger {
+            border-color: rgba(var(--primary-rgb), 0.25);
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .custom-select-trigger input {
+            min-width: 0;
+            white-space: nowrap;
+            line-height: 1.15;
+            overflow: visible;
+            text-overflow: clip;
+        }
+
+        .filter-control {
+            height: 48px;
+            border-radius: 16px;
+            background: rgba(15, 23, 42, 0.035);
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+        }
+
         .custom-select-dropdown {
             pointer-events: auto;
             z-index: 1001 !important;
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: 0 22px 55px rgba(15, 23, 42, 0.16);
+        }
+
+        .custom-option {
+            display: flex;
+            align-items: center;
+            white-space: normal;
+            line-height: 1.15;
+        }
+
+        .custom-option:not(.selected-option):hover {
+            background: rgba(var(--primary-rgb), 0.12) !important;
+            color: var(--primary) !important;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            opacity: 0.45;
+            transition: all 0.3s ease;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 0.9;
+            transform: scale(1.08);
         }
     </style>
     <script>
@@ -703,6 +760,11 @@ if (isset($_GET['ajax'])) {
             const tabInput = document.getElementById('tabInput');
             if (tabInput) tabInput.value = tabId;
 
+            const searchInput = document.querySelector('#alertFilterForm input[name="search"]');
+            if (searchInput) {
+                searchInput.placeholder = tabId === 'history' ? 'Search Alert History...' : 'Search Active Alerts...';
+            }
+
             const resolveAll = document.getElementById('resolveAllContainer');
             if (resolveAll) resolveAll.classList.toggle('hidden', tabId !== 'active');
 
@@ -720,10 +782,10 @@ if (isset($_GET['ajax'])) {
                 if (firstOption) {
                     container.querySelectorAll('.custom-option').forEach(opt => {
                         opt.classList.remove('selected-option');
-                        opt.classList.add('text-white/60');
+                        opt.classList.add('text-slate-600');
                     });
                     firstOption.classList.add('selected-option');
-                    firstOption.classList.remove('text-white/60');
+                    firstOption.classList.remove('text-slate-600');
                     
                     const trigger = container.querySelector('.custom-select-trigger input[type="text"]');
                     const hiddenInput = container.querySelector('input[type="hidden"]');
@@ -755,9 +817,8 @@ if (isset($_GET['ajax'])) {
             const end = start + rowsPerPage;
             for (let i = start; i < end && i < totalAlerts; i++) {
                 alerts[i].style.display = 'flex';
-                // Add entrance animation
-                alerts[i].style.animation = `fadeSlideIn 0.4s ease forwards ${(i % 10) * 0.05}s`;
-                alerts[i].style.opacity = '0';
+                alerts[i].style.animation = '';
+                alerts[i].style.opacity = '1';
             }
 
             // Update Status Label
@@ -774,29 +835,24 @@ if (isset($_GET['ajax'])) {
             const paginationUI = document.getElementById('paginationControls');
             if (!paginationUI) return;
 
-            if (totalAlerts <= rowsPerPage) {
-                paginationUI.style.display = 'none';
-                return;
-            }
-
             paginationUI.style.display = 'flex';
             let buttonsHtml = '';
 
             // Prev Button
-            buttonsHtml += `<button onclick="changePage(${currentPage - 1})" class="px-5 py-2.5 rounded-2xl glass-card text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 hover:text-[--text-main] hover:bg-white/5 transition-all flex items-center gap-2 outline-none border-white/5 ${currentPage === 1 ? 'opacity-30 pointer-events-none' : ''}">
+            buttonsHtml += `<button onclick="changePage(${currentPage - 1})" class="px-5 py-2.5 rounded-2xl glass-card text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 flex items-center gap-2 outline-none border-slate-900/5 ${currentPage === 1 ? 'opacity-30 pointer-events-none' : ''}">
                 <span class="material-symbols-outlined text-xs">chevron_left</span> PREV
             </button>`;
 
             // Page Buttons
             for (let i = 1; i <= totalPages; i++) {
                 const isActive = (i === currentPage);
-                buttonsHtml += `<button onclick="changePage(${i})" class="size-10 rounded-2xl glass-card flex items-center justify-center text-[10px] font-black tracking-widest transition-all outline-none ${isActive ? 'bg-primary text-[--background] border-primary shadow-lg shadow-primary/20' : 'text-[--text-main]/40 hover:text-[--text-main] hover:bg-white/5 border-white/5'}">
+                buttonsHtml += `<button onclick="changePage(${i})" class="size-10 rounded-2xl glass-card flex items-center justify-center text-[10px] font-black tracking-widest outline-none ${isActive ? 'bg-primary text-[--background] border-primary shadow-lg shadow-primary/20' : 'text-[--text-main]/40 border-slate-900/5'}">
                     ${i}
                 </button>`;
             }
 
             // Next Button
-            buttonsHtml += `<button onclick="changePage(${currentPage + 1})" class="px-5 py-2.5 rounded-2xl glass-card text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 hover:text-[--text-main] hover:bg-white/5 transition-all flex items-center gap-2 outline-none border-white/5 ${currentPage === totalPages ? 'opacity-30 pointer-events-none' : ''}">
+            buttonsHtml += `<button onclick="changePage(${currentPage + 1})" class="px-5 py-2.5 rounded-2xl glass-card text-[9px] font-black uppercase tracking-widest text-[--text-main]/40 flex items-center gap-2 outline-none border-slate-900/5 ${currentPage === totalPages ? 'opacity-30 pointer-events-none' : ''}">
                 NEXT <span class="material-symbols-outlined text-xs">chevron_right</span>
             </button>`;
 
@@ -811,43 +867,30 @@ if (isset($_GET['ajax'])) {
 
         window.addEventListener('load', initElitePagination);
 
-        // Entrance Animation CSS
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeSlideIn {
-                from { opacity: 0; transform: translateY(10px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-        `;
-        document.head.appendChild(style);
-
     </script>
 </head>
 
-<body class="antialiased flex flex-row min-h-screen">
+<body class="antialiased flex h-screen overflow-hidden">
 
     <?php include '../includes/superadmin_sidebar.php'; ?>
 
-    <div class="main-content flex-1 flex flex-col min-w-0 overflow-y-auto">
+    <div class="main-content flex-1 flex flex-col min-w-0 overflow-y-auto no-scrollbar">
         <main class="flex-1 p-6 md:p-10 max-w-[1400px] w-full mx-auto">
-            <header class="mb-12 flex flex-row justify-between items-end gap-6">
+            <header class="mb-10 flex flex-row justify-between items-end gap-6">
                 <div>
-                    <h2 class="text-3xl font-black italic uppercase tracking-tighter leading-none">
-                        <span class="text-[--text-main] opacity-80">SYSTEM</span>
+                    <h2 class="text-3xl font-black italic uppercase tracking-tighter text-[--text-main] leading-none">
+                        <span class="opacity-80">SYSTEM</span>
                         <span class="text-primary">ALERTS</span>
                     </h2>
-                    <p class="text-[--text-main] text-[10px] font-bold uppercase tracking-widest mt-2 px-1 opacity-80">
+                    <p class="text-[--text-main] opacity-60 text-xs font-bold uppercase tracking-widest mt-2 px-1">
                         Real-time Network Intelligence</p>
                 </div>
-                <div class="flex items-end gap-8 text-right shrink-0">
-                    <div class="flex flex-col items-end">
-                        <p id="headerClock"
-                            class="text-[--text-main] font-black italic text-2xl leading-none tracking-tighter uppercase transition-colors cursor-default">
-                            00:00:00 AM</p>
-                        <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
-                            <?= date('l, M d, Y') ?>
-                        </p>
-                    </div>
+                <div class="flex flex-col items-end justify-center">
+                    <p id="headerClock"
+                        class="text-[--text-main] font-black italic text-2xl leading-none transition-colors hover:text-primary uppercase tracking-tighter">
+                        00:00:00 AM</p>
+                    <p class="text-primary text-[10px] font-black uppercase tracking-[0.2em] leading-none mt-2">
+                        <?= date('l, M d, Y') ?></p>
                 </div>
             </header>
 
@@ -877,75 +920,75 @@ if (isset($_GET['ajax'])) {
             <?php endif; ?>
 
             <!-- Tab Navigation (Modern Text Style) -->
-            <div class="flex gap-10 mb-8 border-b border-white/5 px-2 relative -mt-4">
-                <button onclick="switchTab('active')" id="tabBtn-active" class="pb-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative group <?= $tab === 'active' ? 'text-primary' : 'text-[--text-main] opacity-50 hover:opacity-100' ?>">
+            <div class="flex gap-10 mb-8 border-b border-slate-900/5 px-2 relative -mt-4">
+                <button onclick="switchTab('active')" id="tabBtn-active" class="pb-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative group outline-none focus:outline-none <?= $tab === 'active' ? 'text-primary' : 'text-[--text-main] opacity-50 hover:opacity-100' ?>">
                     Active Alerts
                     <div id="tabIndicator-active" class="absolute bottom-0 left-0 w-full h-0.5 bg-primary transition-all duration-150 <?= $tab === 'active' ? 'opacity-100' : 'opacity-0' ?>"></div>
                 </button>
-                <button onclick="switchTab('history')" id="tabBtn-history" class="pb-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative group <?= $tab === 'history' ? 'text-primary' : 'text-[--text-main] opacity-50 hover:opacity-100' ?>">
+                <button onclick="switchTab('history')" id="tabBtn-history" class="pb-4 text-[11px] font-black uppercase tracking-[0.2em] transition-all relative group outline-none focus:outline-none <?= $tab === 'history' ? 'text-primary' : 'text-[--text-main] opacity-50 hover:opacity-100' ?>">
                     Alert History
                     <div id="tabIndicator-history" class="absolute bottom-0 left-0 w-full h-0.5 bg-primary transition-all duration-150 <?= $tab === 'history' ? 'opacity-100' : 'opacity-0' ?>"></div>
                 </button>
             </div>
 
             <!-- Unified Filter Bar [Elite Design Matches Image] -->
-            <div class="glass-card p-4 mb-10 border-white/5 relative z-[900] overflow-visible">
-                <form id="alertFilterForm" method="GET" class="flex flex-wrap items-center gap-4" onsubmit="event.preventDefault()">
+            <div class="glass-card p-3 mb-10 border-slate-900/5 relative z-[900] overflow-visible">
+                <form id="alertFilterForm" method="GET" class="flex flex-wrap xl:flex-nowrap items-center gap-3" onsubmit="event.preventDefault()">
                     <input type="hidden" name="tab" id="tabInput" value="<?= htmlspecialchars($tab) ?>">
                     
                     <!-- Search -->
-                    <div class="flex-1 min-w-[280px] relative group">
+                    <div class="flex-1 min-w-[320px] relative group">
                         <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[--text-main] opacity-20 group-focus-within:opacity-100 transition-opacity">search</span>
                         <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" 
-                               placeholder="Search Active Alerts..." 
+                               placeholder="<?= $tab === 'history' ? 'Search Alert History...' : 'Search Active Alerts...' ?>" 
                                oninput="reactiveFilter()"
-                               class="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main] placeholder:opacity-30">
+                               class="filter-control w-full pl-12 pr-4 text-xs font-bold transition-all focus:border-primary outline-none text-[--text-main] placeholder:opacity-35">
                     </div>
 
                     <!-- Category -->
-                    <div class="w-[180px] relative z-[1000] group custom-select-container">
+                    <div class="w-full sm:w-[240px] relative z-[1000] group custom-select-container shrink-0">
                         <input type="hidden" name="category" value="<?= htmlspecialchars($category_filter) ?>" onchange="reactiveFilter(true)">
-                        <div class="relative custom-select-trigger cursor-pointer bg-white/5 border border-white/10 rounded-xl overflow-hidden flex items-center py-3.5 hover:border-white/20 transition-all" onclick="toggleCustomDropdown(this, event)">
-                            <input type="text" readonly value="<?= $category_filter !== 'all' ? htmlspecialchars($category_filter) : 'All Categories' ?>" class="w-full bg-transparent border-none text-white text-xs font-bold pointer-events-none pl-4 pr-10 focus:outline-none focus:ring-0" autocomplete="off">
-                            <span class="material-symbols-outlined absolute right-4 text-white/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
+                        <div class="relative custom-select-trigger cursor-pointer flex items-center transition-all" onclick="toggleCustomDropdown(this, event)">
+                            <input type="text" readonly value="<?= $category_filter !== 'all' ? htmlspecialchars($category_filter) : 'All Categories' ?>" class="w-full bg-transparent border-none text-slate-600 text-xs font-bold pointer-events-none pl-5 pr-12 focus:outline-none focus:ring-0" autocomplete="off">
+                            <span class="material-symbols-outlined absolute right-4 text-[--text-main]/40 text-sm pointer-events-none transition-transform group-hover:scale-110">expand_more</span>
                         </div>
-                        <div class="absolute left-0 right-0 top-full mt-2 z-[1001] rounded-xl bg-[#141216] shadow-2xl border border-white/10 p-1.5 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
-                            <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($category_filter === 'all' ? 'selected-option' : 'text-white/60') ?>" data-value="all">All Categories</div>
+                        <div class="absolute left-0 right-0 top-full mt-2 z-[1001] bg-white border border-slate-900/10 space-y-0.5 custom-select-dropdown hidden max-h-48 overflow-y-auto">
+                            <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($category_filter === 'all' ? 'selected-option' : 'text-slate-600') ?>" data-value="all">All Categories</div>
                             <?php foreach ($available_categories as $cat): ?>
-                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer hover:bg-white/5 transition-all <?= ($category_filter === $cat ? 'selected-option' : 'text-white/60') ?>" data-value="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></div>
+                                <div class="custom-option px-4 py-3 rounded-lg text-[10px] font-black uppercase tracking-wider cursor-pointer transition-all <?= ($category_filter === $cat ? 'selected-option' : 'text-slate-600') ?>" data-value="<?= htmlspecialchars($cat) ?>"><?= htmlspecialchars($cat) ?></div>
                             <?php endforeach; ?>
                         </div>
                     </div>
 
                     <!-- Date Range -->
-                    <div class="flex gap-2">
-                        <div class="relative">
+                    <div class="flex flex-wrap sm:flex-nowrap gap-2 shrink-0">
+                        <div class="relative w-full sm:w-[200px]">
                             <input type="date" name="date_from" value="<?= htmlspecialchars($date_from) ?>" 
                                    onchange="reactiveFilter(true)" title="From Date" 
-                                   class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main] [color-scheme:dark]">
+                                   class="filter-control w-full px-5 text-xs font-bold outline-none text-[--text-main] [color-scheme:light]">
                         </div>
-                        <div class="relative">
+                        <div class="relative w-full sm:w-[200px]">
                             <input type="date" name="date_to" value="<?= htmlspecialchars($date_to) ?>" 
                                    onchange="reactiveFilter(true)" title="To Date" 
-                                   class="bg-white/5 border border-white/10 rounded-xl py-3.5 px-4 text-xs font-bold outline-none text-[--text-main] [color-scheme:dark]">
+                                   class="filter-control w-full px-5 text-xs font-bold outline-none text-[--text-main] [color-scheme:light]">
                         </div>
                     </div>
 
                     <!-- Reset -->
-                    <button type="button" onclick="resetFilters()" class="size-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[--text-main]/30 hover:text-white transition-all shadow-lg hover:bg-white/10" title="Reset Filters">
+                    <button type="button" onclick="resetFilters()" class="filter-control w-[48px] shrink-0 flex items-center justify-center text-[--text-main]/30 hover:text-[--text-main] transition-all hover:bg-slate-900/[0.06]" title="Reset Filters">
                         <span class="material-symbols-outlined text-sm">refresh</span>
                     </button>
 
                     <!-- Action: Resolve All -->
                     <div id="resolveAllContainer" class="<?= $tab === 'active' ? '' : 'hidden' ?>">
-                        <form method="POST" id="resolveAllForm">
+                        <div id="resolveAllForm">
                             <input type="hidden" name="clear_all" value="1">
-                            <button type="button" onclick="confirmSystemAction(this.form, 'Resolve All Alerts', 'Mark all current alerts as resolved?')" 
-                                    class="h-12 px-6 rounded-xl bg-white/5 border border-white/10 text-rose-500/80 hover:text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all flex items-center gap-3">
+                            <button type="button" onclick="confirmSystemAction(document.getElementById('resolveAllForm'), 'Resolve All Alerts', 'Mark all current alerts as resolved?')" 
+                                    class="filter-control px-5 bg-rose-500/5 border-rose-500/10 text-rose-500/80 hover:text-rose-500 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 transition-all flex items-center gap-3">
                                 <span class="material-symbols-outlined text-sm">check</span>
                                 RESOLVE ALL
                             </button>
-                        </form>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -964,13 +1007,13 @@ if (isset($_GET['ajax'])) {
                             <div class="group relative flex flex-col md:flex-row gap-8 items-start">
                                 <!-- Timeline Node -->
                                 <div
-                                    class="hidden md:flex size-14 rounded-xl glass-card shrink-0 items-center justify-center relative z-10 group-hover:border-primary/50 transition-colors">
+                                    class="hidden md:flex size-14 rounded-xl glass-card shrink-0 items-center justify-center relative z-10">
                                     <span
                                         class="material-symbols-outlined <?= $isHigh ? 'text-rose-500' : 'text-primary' ?> text-xl"><?= $icon ?></span>
                                 </div>
 
                                 <!-- Alert Card -->
-                                <div class="flex-1 glass-card p-6 group-hover:bg-white/[0.04] transition-all duration-500">
+                                <div class="flex-1 glass-card p-6">
                                     <div
                                         class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                                         <div class="flex flex-col gap-1">
@@ -979,10 +1022,10 @@ if (isset($_GET['ajax'])) {
                                                     class="text-[--text-main]/40 text-[9px] font-bold uppercase tracking-widest italic"><?= date('h:i A', strtotime($alert['created_at'])) ?></span>
                                             </div>
                                             <h4
-                                                class="text-md font-black italic uppercase text-[--text-main] tracking-tight leading-none">
+                                                class="text-md font-black italic uppercase text-slate-600 tracking-tight leading-none">
                                                 <?= htmlspecialchars($alert['type']) ?>
                                             </h4>
-                                            <p class="text-[--text-main]/60 text-xs mt-1 font-medium">
+                                            <p class="text-slate-600 text-xs mt-1 font-medium">
                                                 <?php 
                                                     // Handle currency display safely
                                                     $displayMsg = str_replace(['Php', '?'], '₱', $alert['message']);
@@ -991,15 +1034,15 @@ if (isset($_GET['ajax'])) {
                                             </p>
                                             <div class="flex items-center gap-2 mt-3">
                                                 <span
-                                                    class="text-[9px] font-black uppercase text-[--text-main]/40 tracking-widest">Source:</span>
+                                                    class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Source:</span>
                                                 <span
-                                                    class="text-[9px] font-black uppercase text-[--text-main] bg-white/5 px-2 py-0.5 rounded"><?= htmlspecialchars($alert['source']) ?></span>
+                                                    class="text-[9px] font-black uppercase text-slate-500 px-2 py-0.5 rounded"><?= htmlspecialchars($alert['source']) ?></span>
                                             </div>
                                         </div>
                                         <div class="flex gap-2 shrink-0">
-                                            <?php if ($view === 'active'): ?>
+                                            <?php if ($tab === 'active'): ?>
                                                 <button onclick="requestResolve(<?= json_encode($alert['alert_id']) ?>)"
-                                                    class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-emerald-500/20 hover:text-emerald-400 border border-white/5 transition-all group/btn"
+                                                    class="size-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 shadow-sm shadow-slate-200/50 group/btn"
                                                     title="Resolve">
                                                     <span class="material-symbols-outlined text-sm">check</span>
                                                 </button>
@@ -1011,7 +1054,7 @@ if (isset($_GET['ajax'])) {
                                             <?php endif; ?>
                                             <button
                                                 onclick="openAlertModal(<?= htmlspecialchars(json_encode($alert['type'])) ?>, <?= htmlspecialchars(json_encode(str_replace(['Php', '?'], '₱', $alert['message']))) ?>, <?= htmlspecialchars(json_encode($alert['source'])) ?>, '<?= date('M d, Y h:i A', strtotime($alert['created_at'])) ?>', '<?= $alert['priority'] ?>')"
-                                                class="size-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-primary/20 hover:text-primary border border-white/5 transition-all group/btn"
+                                                class="size-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 shadow-sm shadow-slate-200/50 group/btn"
                                                 title="More Details">
                                                 <span class="material-symbols-outlined text-sm">visibility</span>
                                             </button>
@@ -1030,7 +1073,7 @@ if (isset($_GET['ajax'])) {
                 </div>
 
                 <!-- Elite Pagination Engine -->
-                <div class="mt-16 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="mt-16 glass-card border border-slate-900/5 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-6">
                     <div>
                         <p id="paginationStatus"
                             class="text-[10px] font-black uppercase tracking-widest text-[--text-main]/30">
@@ -1046,73 +1089,68 @@ if (isset($_GET['ajax'])) {
     </div>
 
     <!-- Alert Details Modal -->
-    <div id="alertModal" class="p-4 bg-background/40 backdrop-blur-xl transition-all duration-300">
-        <div class="bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] w-full max-w-lg overflow-hidden transform scale-95 transition-all duration-300">
-            <div class="p-8">
-                <div class="flex justify-between items-start mb-6">
-                    <div>
-                        <h3 id="modalType"
-                            class="text-2xl font-black italic uppercase text-[--text-main] tracking-tight leading-none">
-                        </h3>
-                    </div>
-                    <button onclick="closeAlertModal()"
-                        class="text-[--text-main]/40 hover:text-white transition-colors">
-                        <span class="material-symbols-outlined">close</span>
-                    </button>
+    <div id="alertModal" class="p-4 bg-background/60 backdrop-blur-xl transition-all duration-300">
+        <div class="alert-modal-panel bg-white border border-slate-900/10 shadow-2xl rounded-[28px] w-full max-w-xl overflow-hidden transform scale-95 transition-all duration-300">
+            <div class="flex items-center justify-between px-7 py-5 border-b border-slate-900/5">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="material-symbols-outlined text-primary text-xl">info</span>
+                    <h3 id="modalType"
+                        class="text-lg md:text-xl font-black uppercase text-[--text-main] tracking-tight leading-none truncate">
+                    </h3>
+                </div>
+                <button onclick="closeAlertModal()"
+                    class="size-9 shrink-0 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+            </div>
+
+            <div class="p-7 space-y-5">
+                <div class="rounded-2xl border border-slate-900/10 bg-slate-50/70 p-5">
+                    <p class="text-[9px] font-black uppercase text-primary tracking-widest mb-3">Message</p>
+                    <p id="modalMessage" class="text-[--text-main] text-sm leading-relaxed font-bold"></p>
                 </div>
 
-                <div class="space-y-6">
-                    <div>
-                        <p class="text-[10px] font-black uppercase text-primary tracking-widest mb-2">Message</p>
-                        <p id="modalMessage" class="text-[--text-main]/80 text-sm leading-relaxed font-medium"></p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="rounded-2xl border border-slate-900/10 bg-white p-5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Source</p>
+                        <p id="modalSource" class="text-[--text-main] font-black text-xs"></p>
                     </div>
-
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <p class="text-[10px] font-black uppercase text-[--text-main]/40 tracking-widest mb-1">
-                                Source</p>
-                            <p id="modalSource" class="text-[--text-main] font-bold text-xs uppercase"></p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-black uppercase text-[--text-main]/40 tracking-widest mb-1">
-                                Timestamp</p>
-                            <p id="modalDate" class="text-[--text-main] font-bold text-xs uppercase"></p>
-                        </div>
+                    <div class="rounded-2xl border border-slate-900/10 bg-white p-5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-3">Timestamp</p>
+                        <p id="modalDate" class="text-[--text-main] font-black text-xs"></p>
                     </div>
                 </div>
+            </div>
 
-                <div class="mt-10">
-                    <button onclick="closeAlertModal()"
-                        class="w-full py-4 glass-card text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-[--text-main]">Close
-                        Details</button>
-                </div>
+            <div class="px-7 py-5 border-t border-slate-900/5 bg-white">
+                <button onclick="closeAlertModal()"
+                    class="w-full py-3.5 bg-primary text-white text-[10px] font-black uppercase tracking-[0.22em] rounded-2xl shadow-lg shadow-primary/20">Dismiss Details</button>
             </div>
         </div>
     </div>
 
     <!-- Confirmation Modal -->
-    <div id="confirmModal" class="p-4 bg-background/40 backdrop-blur-xl transition-all duration-300">
-        <div class="bg-transparent backdrop-blur-3xl border border-white/10 shadow-2xl rounded-[32px] w-full max-w-sm overflow-hidden transform scale-95 transition-all duration-300">
-            <div class="p-8 text-center">
-                <div class="size-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                    <span class="material-symbols-outlined text-primary text-3xl">help</span>
+    <div id="confirmModal" class="p-4 bg-background/60 backdrop-blur-xl transition-all duration-300">
+        <div class="modal-panel relative z-10 max-w-sm w-full p-8 border border-white/60 shadow-2xl mx-auto rounded-[32px] bg-white/90 backdrop-blur-3xl pointer-events-auto text-center flex flex-col items-center transform scale-95 transition-all duration-300">
+                <div class="mb-5 flex size-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 shadow-sm">
+                    <span class="material-symbols-outlined text-primary text-2xl">help</span>
                 </div>
-                <h3 class="text-xl font-black italic uppercase text-[--text-main] mb-2 tracking-tighter">Resolve Alert?
+                <h3 class="text-xl font-black uppercase text-[#1e293b] mb-3 leading-tight">Resolve Alert?
                 </h3>
-                <p class="text-[--text-main]/40 text-[10px] font-bold uppercase tracking-widest mb-8 leading-relaxed">
+                <p class="text-[11px] text-[#1e293b] opacity-60 font-bold leading-relaxed mb-8 px-4">
                     Are you sure you want to mark this alert as resolved? This action cannot be undone.</p>
 
-                <div class="flex gap-4">
+                <div class="flex gap-3 w-full">
                     <button onclick="closeConfirmModal()"
-                        class="flex-1 py-4 glass-card text-[9px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-[--text-main]/40">Cancel</button>
+                        class="flex-1 py-3.5 rounded-xl border border-black/10 bg-black/[0.02] text-gray-500 text-[10px] font-black uppercase tracking-widest">Cancel</button>
                     <form method="POST" class="flex-1">
                         <input type="hidden" name="resolve_id" id="confirmResolveId">
                         <button type="submit"
-                            class="w-full py-4 bg-primary text-[--background] text-[9px] font-black uppercase tracking-widest rounded-2xl hover:scale-105 transition-all shadow-lg shadow-primary/20">Yes,
-                            Resolve</button>
+                            class="w-full py-3.5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/30 flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-sm">check</span>
+                            Yes, Resolve</button>
                     </form>
                 </div>
-            </div>
         </div>
     </div>
 
@@ -1123,7 +1161,7 @@ if (isset($_GET['ajax'])) {
             currentResolveId = id;
             document.getElementById('confirmResolveId').value = id;
             const modal = document.getElementById('confirmModal');
-            const modalContent = modal.querySelector('.bg-transparent');
+            const modalContent = modal.querySelector('.modal-panel');
 
             modal.classList.add('modal-active');
             setTimeout(() => {
@@ -1134,7 +1172,7 @@ if (isset($_GET['ajax'])) {
 
         function confirmSystemAction(form, title, message) {
             const modal = document.getElementById('confirmModal');
-            const modalContent = modal.querySelector('.bg-transparent');
+            const modalContent = modal.querySelector('.modal-panel');
             
             modal.querySelector('h3').textContent = title;
             modal.querySelector('p').textContent = message;
@@ -1169,7 +1207,7 @@ if (isset($_GET['ajax'])) {
 
         function closeConfirmModal() {
             const modal = document.getElementById('confirmModal');
-            const modalContent = modal.querySelector('.bg-transparent');
+            const modalContent = modal.querySelector('.modal-panel');
 
             modal.classList.remove('modal-active');
             modalContent.classList.remove('scale-100');
@@ -1193,7 +1231,7 @@ if (isset($_GET['ajax'])) {
 
         function openAlertModal(type, message, source, date, priority) {
             const modal = document.getElementById('alertModal');
-            const modalContent = modal.querySelector('.bg-transparent');
+            const modalContent = modal.querySelector('.alert-modal-panel');
 
             document.getElementById('modalType').textContent = type;
             // Additional safety: Replace logic in JS as well
@@ -1210,7 +1248,7 @@ if (isset($_GET['ajax'])) {
 
         function closeAlertModal() {
             const modal = document.getElementById('alertModal');
-            const modalContent = modal.querySelector('.bg-transparent');
+            const modalContent = modal.querySelector('.alert-modal-panel');
 
             modal.classList.remove('modal-active');
             modalContent.classList.remove('scale-100');
@@ -1252,10 +1290,10 @@ if (isset($_GET['ajax'])) {
 
             dropdown.querySelectorAll('.custom-option').forEach(opt => {
                 opt.classList.remove('selected-option');
-                opt.classList.add('text-white/60');
+                opt.classList.add('text-slate-600');
             });
             option.classList.add('selected-option');
-            option.classList.remove('text-white/60');
+            option.classList.remove('text-slate-600');
 
             if (trigger) trigger.value = option.textContent.trim();
             hiddenInput.value = option.getAttribute('data-value') || '';
