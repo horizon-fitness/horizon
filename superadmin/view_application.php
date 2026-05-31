@@ -125,7 +125,16 @@ $active_page = "tenants";
 
 if ($is_ajax): ?>
     <!-- AJAX Modal Content Only -->
-    <div class="space-y-8 max-h-[80vh] overflow-y-auto px-1 pr-3 no-scrollbar max-w-full overflow-x-hidden">
+    <style>
+        #modalContent [class*="text-[--text-main]"] { color: rgba(15, 23, 42, 0.5) !important; }
+        #modalContent .text-gray-500 { color: rgba(15, 23, 42, 0.5) !important; }
+        #modalContent .text-gray-500.uppercase { color: #000000 !important; }
+        #modalContent p, #modalContent span, #modalContent h2, #modalContent h4, #modalContent div { 
+            font-style: normal !important; 
+            text-shadow: none !important; 
+        }
+    </style>
+    <div class="space-y-8 max-h-[80vh] overflow-y-auto p-6 -m-6 no-scrollbar overflow-x-hidden">
         <header class="flex items-center justify-between mb-10 border-b border-black/5 pb-8 relative z-10">
             <div class="flex items-center gap-6">
                 <div
@@ -189,11 +198,12 @@ if ($is_ajax): ?>
                         </p>
                     </div>
                     <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
-                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Email / Contact</p>
-                        <p class="text-sm font-bold text-[--text-main] tracking-tight"><?= htmlspecialchars($app['owner_email']) ?>
-                        </p>
-                        <p class="text-[11px] text-gray-500 mt-1.5 font-medium tracking-tight">
-                            <?= htmlspecialchars($app['owner_contact']) ?></p>
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Email Address</p>
+                        <p class="text-sm font-bold text-[--text-main] tracking-tight"><?= htmlspecialchars($app['owner_email']) ?></p>
+                    </div>
+                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Contact Number</p>
+                        <p class="text-sm font-bold text-[--text-main] tracking-tight"><?= htmlspecialchars($app['owner_contact']) ?></p>
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
@@ -275,86 +285,59 @@ if ($is_ajax): ?>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div
-                class="bg-primary/5 border border-primary/20 backdrop-blur-xl rounded-[32px] p-8 shadow-2xl shadow-primary/10 flex-1">
-                <div class="flex items-center gap-4 mb-8">
-                    <div
-                        class="size-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-                        <span class="material-symbols-outlined text-[--text-main] text-xl">workspace_premium</span>
-                    </div>
-                    <div>
-                        <h4 class="text-[11px] font-black uppercase text-primary tracking-[0.2em] italic">Horizon Web
-                            Subscription</h4>
-                        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Platform Plan Details
-                        </p>
-                    </div>
+            <div class="space-y-6">
+                <div class="flex items-center justify-between border-b border-black/5 pb-2">
+                    <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
+                        Platform Plan Details</h4>
                     <?php if ($subscription): ?>
-                        <span
-                            class="ml-auto px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] text-emerald-500 font-black uppercase italic tracking-widest shadow-inner"><?= htmlspecialchars($subscription['subscription_status']) ?></span>
+                        <span class="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase tracking-widest"><?= htmlspecialchars($subscription['subscription_status']) ?></span>
                     <?php else: ?>
-                        <span
-                            class="ml-auto px-4 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] text-red-500 font-black uppercase italic tracking-widest">Awaiting
-                            Plan</span>
+                        <span class="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-black uppercase tracking-widest">Awaiting Plan</span>
                     <?php endif; ?>
                 </div>
 
                 <?php if ($subscription): ?>
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-black/5 p-4 rounded-xl border border-black/5">
-                            <p class="text-[8px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Selected Plan</p>
-                            <p class="text-[11px] font-extrabold text-[--text-main] tracking-tight uppercase italic text-primary">
+                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                            <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Selected Plan</p>
+                            <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase">
                                 <?= htmlspecialchars($subscription['plan_name']) ?></p>
                         </div>
-                        <div class="bg-black/5 p-4 rounded-xl border border-black/5">
-                            <p class="text-[8px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Plan Price</p>
-                            <p class="text-[11px] font-extrabold text-[--text-main] tracking-tight italic">
+                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                            <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Plan Price</p>
+                            <p class="text-sm font-bold text-[--text-main] tracking-tight">
                                 ₱<?= number_format($subscription['price'], 2) ?></p>
                         </div>
-                        <div class="bg-black/5 p-4 rounded-xl border border-black/5">
-                            <p class="text-[8px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Billing Cycle</p>
-                            <p class="text-[11px] font-extrabold text-[--text-main] tracking-tight uppercase italic">
+                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                            <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Billing Cycle</p>
+                            <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase">
                                 <?= htmlspecialchars($subscription['billing_cycle']) ?></p>
                         </div>
-                        <div class="bg-black/5 p-4 rounded-xl border border-black/5">
-                            <p class="text-[8px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Payment</p>
-                            <p
-                                class="text-[11px] font-extrabold <?= strtolower($subscription['payment_status']) === 'paid' ? 'text-emerald-500' : 'text-amber-500' ?> tracking-tight uppercase italic">
+                        <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                            <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Payment</p>
+                            <p class="text-sm font-bold <?= strtolower($subscription['payment_status']) === 'paid' ? 'text-emerald-500' : 'text-amber-500' ?> tracking-tight uppercase">
                                 <?= htmlspecialchars($subscription['payment_status']) ?></p>
                         </div>
                     </div>
                 <?php else: ?>
-                    <div
-                        class="bg-white/[0.02] p-6 rounded-2xl border border-black/5 border-dashed flex flex-col items-center justify-center text-center">
-                        <span class="material-symbols-outlined text-3xl text-gray-700 mb-2">payments</span>
-                        <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest italic">Awaiting subscription
-                            choice upon approval</p>
+                    <div class="bg-black/[0.02] p-8 rounded-2xl border border-black/5 shadow-sm flex flex-col items-center justify-center text-center">
+                        <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Awaiting subscription choice upon approval</p>
                     </div>
                 <?php endif; ?>
             </div>
 
-            <div class="bg-black/[0.02] border border-black/10 backdrop-blur-md rounded-[32px] p-8 shadow-xl flex-1">
-                <div class="flex items-center gap-4 mb-8">
-                    <div
-                        class="size-10 rounded-2xl bg-black/5 flex items-center justify-center shadow-lg border border-black/5">
-                        <span class="material-symbols-outlined text-gray-500 text-xl">schedule</span>
-                    </div>
-                    <div>
-                        <h4 class="text-[11px] font-black uppercase text-gray-500 tracking-[0.2em] italic">Operating Hours
-                        </h4>
-                        <p class="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Gym Open/Close Timing
-                        </p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4 h-[104px]">
-                    <div class="bg-black/5 p-6 rounded-xl border border-black/5 flex flex-col justify-center text-center">
-                        <p class="text-[8px] font-black uppercase text-gray-500 tracking-widest mb-1">Opening Time</p>
-                        <p class="text-lg font-black text-[--text-main] italic tracking-tighter uppercase whitespace-nowrap">
+            <div class="space-y-6">
+                <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
+                    Operating Hours</h4>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Opening Time</p>
+                        <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase">
                             <?= htmlspecialchars($app['opening_time'] ?: '---') ?></p>
                     </div>
-                    <div class="bg-black/5 p-6 rounded-xl border border-black/5 flex flex-col justify-center text-center">
-                        <p class="text-[8px] font-black uppercase text-gray-500 tracking-widest mb-1">Closing Time</p>
-                        <p class="text-lg font-black text-[--text-main] italic tracking-tighter uppercase whitespace-nowrap">
+                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Closing Time</p>
+                        <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase">
                             <?= htmlspecialchars($app['closing_time'] ?: '---') ?></p>
                     </div>
                 </div>
@@ -363,68 +346,63 @@ if ($is_ajax): ?>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-            <div class="bg-primary/5 border border-primary/20 backdrop-blur-md rounded-2xl p-7 shadow-lg shadow-primary/5">
-                <h4
-                    class="text-[9px] font-black uppercase text-primary tracking-[0.2em] mb-5 border-b border-primary/10 pb-3">
+            <div class="space-y-6">
+                <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                     Payout Information</h4>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center bg-white/[0.02] p-3 rounded-xl border border-black/5">
-                        <span class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Bank Name</span>
-                        <span
-                            class="text-xs font-black text-[--text-main] italic uppercase"><?= htmlspecialchars($app['bank_name'] ?: 'Not Provided') ?></span>
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Bank Name</p>
+                        <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase"><?= htmlspecialchars($app['bank_name'] ?: 'Not Provided') ?></p>
                     </div>
-                    <div class="flex justify-between items-center bg-white/[0.02] p-3 rounded-xl border border-black/5">
-                        <span class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Account Name</span>
-                        <span
-                            class="text-xs font-black text-[--text-main] uppercase italic"><?= htmlspecialchars($app['account_name'] ?: '---') ?></span>
+                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Account Name</p>
+                        <p class="text-sm font-bold text-[--text-main] tracking-tight uppercase"><?= htmlspecialchars($app['account_name'] ?: '---') ?></p>
                     </div>
-                    <div class="flex justify-between items-center bg-white/[0.02] p-3 rounded-xl border border-black/5">
-                        <span class="text-[10px] text-gray-500 uppercase font-black tracking-widest">Account Number</span>
-                        <span
-                            class="text-xs font-black text-[--text-main]"><?= htmlspecialchars($app['account_number'] ?: '---') ?></span>
+                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Account Number</p>
+                        <p class="text-sm font-bold text-[--text-main] tracking-tight"><?= htmlspecialchars($app['account_number'] ?: '---') ?></p>
                     </div>
-
                 </div>
             </div>
 
-            <div class="bg-black/[0.02] border border-black/10 backdrop-blur-md rounded-2xl p-7 shadow-xl">
-                <div class="flex justify-between items-center border-b border-black/5 pb-3 mb-5">
-                    <h4 class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em]">Facility Information</h4>
-                </div>
-                <div class="flex items-end gap-3 mb-6">
-                    <p class="text-4xl font-black italic text-[--text-main] leading-none tracking-tighter">
-                        <?= htmlspecialchars($app['max_capacity'] ?: '0') ?></p>
-                    <p class="text-[10px] font-black uppercase text-gray-500 pb-1 italic tracking-widest leading-none">Max
-                        Capacity</p>
-                </div>
-                <div class="flex flex-wrap gap-2 pt-2 border-t border-black/5">
-                    <span
-                        class="px-3 py-1.5 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_shower'] ? 'text-primary' : 'text-gray-600 line-through' ?>">Shower</span>
-                    <span
-                        class="px-3 py-1.5 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_parking'] ? 'text-primary' : 'text-gray-600 line-through' ?>">Parking</span>
-                    <span
-                        class="px-3 py-1.5 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_wifi'] ? 'text-primary' : 'text-gray-600 line-through' ?>">Wi-Fi</span>
-                    <span
-                        class="px-3 py-1.5 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_lockers'] ? 'text-primary' : 'text-gray-600 line-through' ?>">Lockers</span>
+            <div class="space-y-6">
+                <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
+                    Facility Information</h4>
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Max Capacity</p>
+                        <p class="text-xl font-black text-[--text-main] tracking-tighter"><?= htmlspecialchars($app['max_capacity'] ?: '0') ?></p>
+                    </div>
+                    <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                        <p class="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-1.5">Amenities</p>
+                        <div class="flex flex-wrap gap-2 pt-1">
+                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_shower'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Shower</span>
+                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_parking'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Parking</span>
+                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_wifi'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Wi-Fi</span>
+                            <span class="px-3 py-1 rounded-lg bg-black/5 border border-black/5 text-[9px] font-black uppercase tracking-widest <?= $app['has_lockers'] ? 'text-primary' : 'text-gray-400 line-through' ?>">Lockers</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- About & Rules -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="bg-black/[0.02] border border-black/10 rounded-2xl p-7 shadow-xl">
-                <h4
-                    class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] mb-4 border-b border-black/5 pb-3">
+            <div class="space-y-6">
+                <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                     About the Gym</h4>
-                <p class="text-xs text-gray-500 leading-relaxed italic">
-                    <?= nl2br(htmlspecialchars($app['about_text'] ?: 'No description provided.')) ?></p>
+                <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <p class="text-sm font-bold text-[--text-main] tracking-tight leading-relaxed italic">
+                        <?= nl2br(htmlspecialchars($app['about_text'] ?: 'No description provided.')) ?></p>
+                </div>
             </div>
-            <div class="bg-black/[0.02] border border-black/10 rounded-2xl p-7 shadow-xl">
-                <h4
-                    class="text-[9px] font-black uppercase text-gray-500 tracking-[0.2em] mb-4 border-b border-black/5 pb-3">
+            <div class="space-y-6">
+                <h4 class="text-[10px] font-black uppercase text-primary tracking-[0.2em] border-l-2 border-primary pl-3">
                     Gym House Rules</h4>
-                <p class="text-xs text-gray-500 leading-relaxed italic">
-                    <?= nl2br(htmlspecialchars($app['rules_text'] ?: 'No rules provided.')) ?></p>
+                <div class="bg-black/[0.02] p-5 rounded-2xl border border-black/5 shadow-sm">
+                    <p class="text-sm font-bold text-[--text-main] tracking-tight leading-relaxed italic">
+                        <?= nl2br(htmlspecialchars($app['rules_text'] ?: 'No rules provided.')) ?></p>
+                </div>
             </div>
         </div>
 

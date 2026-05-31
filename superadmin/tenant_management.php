@@ -1152,7 +1152,8 @@ $tenants_js = $tab_tenants;
                                 <tr class="bg-gray-100 border-b border-black/5">
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Gym Identity</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Owner Contact</th>
-                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Plan & Status</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Plan</th>
+                                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Status</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50">Members</th>
                                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-[0.25em] text-[--text-main] opacity-50 text-center">Actions</th>
                                 </tr>
@@ -1160,7 +1161,7 @@ $tenants_js = $tab_tenants;
                             <tbody id="activeTableBody" class="divide-y divide-black/5 text-sm font-medium">
                                 <?php if (empty($active_tenants)): ?>
                                     <tr>
-                                        <td colspan="5"
+                                        <td colspan="6"
                                             class="px-8 py-8 text-center text-xs font-bold text-[--text-main] opacity-50 italic uppercase">
                                             No active/suspended tenants found.</td>
                                     </tr>
@@ -1190,25 +1191,25 @@ $tenants_js = $tab_tenants;
                                                 <p class="text-[12px] font-bold text-slate-500"><?= htmlspecialchars($t['owner_email']) ?></p>
                                             </td>
                                             <td class="px-8 py-6 align-middle">
-                                                <div class="flex flex-col gap-1.5">
-                                                    <p class="text-[11px] font-black uppercase text-slate-400 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
-                                                    <?php
-                                                    $sub = $t['sub_status'] ?? 'None';
-                                                    if ($sub === 'Active'):
-                                                        ?>
-                                                        <span
-                                                            class="w-fit px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase italic">Active
-                                                            Plan</span>
-                                                    <?php elseif ($sub === 'Expired' || $sub === 'Overdue'): ?>
-                                                        <span
-                                                            class="w-fit px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-black uppercase italic">Payment
-                                                            Issue</span>
-                                                    <?php else: ?>
-                                                        <span
-                                                            class="w-fit px-3 py-1 rounded-full bg-gray-500/10 border border-gray-500/20 text-[9px] text-gray-400 font-black uppercase italic">No
-                                                            Active Subscription</span>
-                                                    <?php endif; ?>
-                                                </div>
+                                                <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
+                                            </td>
+                                            <td class="px-8 py-6 align-middle">
+                                                <?php
+                                                $sub = $t['sub_status'] ?? 'None';
+                                                if ($sub === 'Active'):
+                                                    ?>
+                                                    <span
+                                                        class="w-fit px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] text-emerald-500 font-black uppercase italic">Active
+                                                        Plan</span>
+                                                <?php elseif ($sub === 'Expired' || $sub === 'Overdue'): ?>
+                                                    <span
+                                                        class="w-fit px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] text-red-500 font-black uppercase italic">Payment
+                                                        Issue</span>
+                                                <?php else: ?>
+                                                    <span
+                                                        class="w-fit px-3 py-1 rounded-full bg-gray-500/10 border border-gray-500/20 text-[9px] text-gray-400 font-black uppercase italic">No
+                                                        Active Subscription</span>
+                                                <?php endif; ?>
                                             </td>
                                             <td class="px-8 py-6 align-middle">
                                                 <div class="flex flex-col gap-2">
@@ -1423,7 +1424,7 @@ $tenants_js = $tab_tenants;
                                             </td>
                                             <td class="px-8 py-6 align-middle">
                                                 <div class="flex flex-col gap-1.5">
-                                                    <p class="text-[11px] font-black uppercase text-slate-400 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
+                                                    <p class="text-[11px] font-black uppercase text-slate-500 tracking-widest"><?= htmlspecialchars($t['plan_name'] ?? 'No Plan') ?></p>
                                                     <span class="w-fit px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] text-amber-500 font-black uppercase italic">Suspended</span>
                                                 </div>
                                             </td>

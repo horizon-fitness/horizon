@@ -18,9 +18,9 @@
     #imageBackdrop {
         position: absolute;
         inset: 0;
-        background: rgba(10, 9, 13, 0.75);
-        backdrop-filter: blur(25px) saturate(200%);
-        -webkit-backdrop-filter: blur(25px) saturate(200%);
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(24px) saturate(150%);
+        -webkit-backdrop-filter: blur(24px) saturate(150%);
         z-index: -1;
         pointer-events: auto;
     }
@@ -37,24 +37,24 @@
         position: relative;
         transform: scale(0.98);
         transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-        background: #14121a;
+        background: #ffffff;
         border-radius: 40px;
-        border: 1px solid rgba(255,255,255,0.1);
+        border: 1px solid rgba(0,0,0,0.05);
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        box-shadow: 0 60px 120px -30px rgba(0,0,0,0.8);
+        box-shadow: 0 40px 100px -20px rgba(0,0,0,0.2);
     }
     #global-image-viewer.active .viewer-content {
         transform: scale(1);
     }
     .viewer-header {
         padding: 24px 32px;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+        border-bottom: 1px solid rgba(0,0,0,0.05);
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: rgba(255,255,255,0.03);
+        background: rgba(0,0,0,0.01);
     }
     .viewer-title-group {
         display: flex;
@@ -73,7 +73,7 @@
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: -0.02em;
-        color: white;
+        color: #0f172a;
         font-style: italic;
     }
     .viewer-body {
@@ -83,7 +83,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        background: #0d0c12;
+        background: #f8fafc;
         overscroll-behavior: contain;
         scrollbar-width: none; /* Firefox */
         -ms-overflow-style: none; /* IE 10+ */
@@ -112,8 +112,8 @@
         width: auto;
         height: auto;
         border-radius: 24px;
-        box-shadow: 0 40px 80px rgba(0,0,0,0.5);
-        border: 1px solid rgba(255,255,255,0.1);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        border: 1px solid rgba(0,0,0,0.05);
         transition: transform 0.3s;
         object-fit: contain;
     }
@@ -126,36 +126,34 @@
     .viewer-action-btn {
         width: 44px;
         height: 44px;
-        background: rgba(255,255,255,0.05);
-        color: white;
+        background: rgba(0,0,0,0.04);
+        color: #475569;
         border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         transition: all 0.3s;
-        border: 1px solid rgba(255,255,255,0.1);
+        border: 1px solid rgba(0,0,0,0.05);
         text-decoration: none;
     }
     .viewer-action-btn:hover {
-        background: rgba(255,255,255,0.1);
-        transform: scale(1.05);
+        background: rgba(0,0,0,0.08);
+        color: #0f172a;
     }
     .viewer-close:hover {
         background: #ef4444;
         color: white;
-        transform: rotate(90deg) scale(1.05);
         border-color: #ef4444;
-        box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
     }
     .viewer-pdf {
         width: 80vw;
         max-width: 1200px; /* Give PDF room to breathe */
         height: 80vh;
         border-radius: 24px;
-        box-shadow: 0 40px 80px rgba(0,0,0,0.5);
-        border: 1px solid rgba(255,255,255,0.1);
-        background: #2a2a2e; /* Modern dark background for PDF frame edge */
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        border: 1px solid rgba(0,0,0,0.05);
+        background: #e2e8f0; /* Modern dark background for PDF frame edge */
     }
     .hidden {
         display: none !important;
@@ -185,7 +183,7 @@
                 <iframe id="viewer-main-pdf" src="" class="viewer-pdf hidden" title="PDF Document"></iframe>
                 <div id="viewer-footer-label" class="viewer-footer-label bg-primary/5 px-8 py-4 rounded-3xl border border-primary/20 backdrop-blur-xl opacity-0 transition-opacity duration-500 shadow-xl shadow-primary/5">
                     <p class="text-[10px] font-black uppercase text-primary tracking-[0.2em] mb-1.5 text-center italic">Authenticated Document</p>
-                    <p id="viewer-document-name" class="text-sm font-black italic uppercase text-white text-center tracking-tight">Document Name</p>
+                    <p id="viewer-document-name" class="text-sm font-black italic uppercase text-slate-900 text-center tracking-tight">Document Name</p>
                 </div>
             </div>
         </div>
